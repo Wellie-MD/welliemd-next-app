@@ -17,11 +17,11 @@ export function ConsentDetailModal({ open, onOpenChange, consent, onEdit }: Cons
   const hasText = Boolean(consent.text && consent.text.replace(/<[^>]*>/g, "").trim());
   const subtitle = isGlobal
     ? "Universal consent · appears on every visit"
-    : "Treatment-specific consent · shown conditionally";
+    : "Treatment-specific consent · only appears when matching treatment is selected";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden bg-slate-50 p-0 sm:max-w-[640px]">
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden bg-slate-50 p-0 sm:max-w-[640px]">
         <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-6 py-5">
           <DialogTitle className="text-xl font-bold text-slate-900">{consent.name}</DialogTitle>
           <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
@@ -107,7 +107,7 @@ export function ConsentDetailModal({ open, onOpenChange, consent, onEdit }: Cons
             Close
           </Button>
           <Button
-            className="bg-[#12517A] text-white hover:bg-[#12517A]/90"
+            className="bg-[#2563eb] text-white hover:bg-[#2563eb]/90"
             onClick={() => {
               onOpenChange(false);
               onEdit(consent.id);

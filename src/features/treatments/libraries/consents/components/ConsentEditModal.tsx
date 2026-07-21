@@ -13,6 +13,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import type { ConsentForm, ConsentOption, TreatmentLibraryScope } from "@/features/treatments/types";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
+import { baseVisitTypes } from "@/features/treatments/common/data/visitTypes";
 import { cn } from "@/lib/utils";
 
 interface ConsentEditModalProps {
@@ -46,7 +47,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
   // Visit types available for treatment-scoped consents: union of treatment-type
   // intake/follow-up visit types plus any already attached to this consent.
   const visitTypeOptions = useMemo(() => {
-    const keys = new Set<string>();
+    const keys = new Set(baseVisitTypes);
     treatmentTypes.forEach((type) => {
       if (type.intakeVisitType) keys.add(type.intakeVisitType);
       if (type.followupVisitType) keys.add(type.followupVisitType);
@@ -145,7 +146,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden bg-slate-50 p-0 sm:max-w-[680px]">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden bg-slate-50 p-0 sm:max-w-[680px]">
         <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-6 py-5">
           <DialogTitle className="text-xl font-bold text-slate-900">
             {consentId ? "Edit Consent" : "Create Consent"}
@@ -165,6 +166,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="e.g., Consent (Telehealth)"
+                  className="focus-visible:border-[#2563eb] focus-visible:ring-[3px] focus-visible:ring-[#eff4ff] focus-visible:ring-offset-0"
                   data-testid="consent-name-input"
                 />
               </div>
@@ -177,8 +179,8 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                     <label
                       key={value}
                       className={cn(
-                        "flex flex-1 cursor-pointer items-center gap-2 rounded-md border px-3 transition-colors",
-                        scope === value ? "border-[#12517A] bg-blue-50/20" : "border-slate-200 bg-white"
+                        "flex flex-1 cursor-pointer items-center gap-1.5 rounded-md border px-2 transition-colors",
+                        scope === value ? "border-[#2563eb] bg-blue-50/20" : "border-slate-200 bg-white"
                       )}
                     >
                       <input
@@ -187,10 +189,10 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                         value={value}
                         checked={scope === value}
                         onChange={() => handleScopeChange(value)}
-                        className="text-blue-600 focus:ring-blue-500"
+                        className="shrink-0 text-blue-600 focus:ring-[3px] focus:ring-[#eff4ff] focus:ring-offset-0"
                         data-testid={`consent-scope-${value}`}
                       />
-                      <span className="text-sm font-medium text-slate-700">
+                      <span className="whitespace-nowrap text-xs font-medium text-slate-700">
                         {value === "global" ? "Universal" : "Treatment-specific"}
                       </span>
                     </label>
@@ -240,7 +242,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                     <Input
                       value={option.text}
                       onChange={(event) => handleOptionTextChange(option.id, event.target.value)}
-                      className="h-9 flex-1 bg-white"
+                      className="h-9 flex-1 bg-white focus-visible:border-[#2563eb] focus-visible:ring-[3px] focus-visible:ring-[#eff4ff] focus-visible:ring-offset-0"
                       placeholder="Option text…"
                       aria-label="Answer option text"
                     />
@@ -312,7 +314,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending} className="bg-[#12517A] text-white hover:bg-[#12517A]/90" data-testid="consent-save">
+            <Button type="submit" disabled={isPending} className="bg-[#2563eb] text-white hover:bg-[#2563eb]/90" data-testid="consent-save">
               {isPending ? "Saving…" : consentId ? "Save Changes" : "Create Consent"}
             </Button>
           </div>

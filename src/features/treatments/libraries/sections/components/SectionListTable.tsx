@@ -52,9 +52,7 @@ export function SectionListTable({
             <TableHead className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Visit Type</TableHead>
             <TableHead className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Fields</TableHead>
             <TableHead className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Last Updated</TableHead>
-            <TableHead className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              <div className="flex justify-end">Actions</div>
-            </TableHead>
+            <TableHead className="px-4 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

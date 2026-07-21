@@ -17,6 +17,7 @@ import { useSaveSection } from "@/features/treatments/libraries/hooks/useTreatme
 import { toast } from "@/components/ui/use-toast";
 import type { CommonSection, TreatmentLibraryScope } from "@/features/treatments/types";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
+import { baseVisitTypes } from "@/features/treatments/common/data/visitTypes";
 import { cn } from "@/lib/utils";
 
 interface SectionModalProps {
@@ -24,8 +25,6 @@ interface SectionModalProps {
   onOpenChange: (open: boolean) => void;
   section?: CommonSection | null;
 }
-
-const baseVisitTypes = ["Weight", "GLP", "Microdose", "TRT", "HRT", "ED"];
 
 export function SectionModal({ open, onOpenChange, section }: SectionModalProps) {
   const { mutate: saveSection, isPending } = useSaveSection();

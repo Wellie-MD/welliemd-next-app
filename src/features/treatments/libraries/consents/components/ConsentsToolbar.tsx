@@ -43,7 +43,7 @@ export function ConsentsToolbar({
             className={cn(
               "rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
               scopeFilter === tab.value
-                ? "bg-slate-950 text-white"
+                ? "border border-blue-200 bg-blue-50 text-blue-700"
                 : "border border-slate-200 text-slate-600 hover:bg-slate-50"
             )}
             data-testid={`consents-filter-${tab.value}`}

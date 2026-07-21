@@ -33,7 +33,7 @@ export function ConsentPatientPreviewModal({ open, onOpenChange, consent }: Cons
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden bg-slate-100 p-0 sm:max-w-[680px]">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden bg-[#fafafa] p-0 sm:max-w-[640px]">
         <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
           <DialogTitle className="text-lg font-bold text-slate-900">Patient Preview</DialogTitle>
           <DialogDescription className="text-sm text-slate-500">
@@ -41,50 +41,55 @@ export function ConsentPatientPreviewModal({ open, onOpenChange, consent }: Cons
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="mx-auto max-w-[560px] rounded-2xl bg-white p-7 shadow-sm">
-            {/* Progress bar */}
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full w-[45%] rounded-full bg-amber-400" />
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* .preview-screen */}
+          <div className="flex min-h-[420px] flex-col items-center rounded-[10px] border border-[#eef0f3] bg-white px-7 pb-10 pt-8">
+            {/* .preview-progress */}
+            <div className="mb-7 h-[5px] w-full max-w-[440px] overflow-hidden rounded-full bg-[#f0f0f0]">
+              <div className="h-full w-1/2 rounded-full bg-gradient-to-r from-[#fbbf24] to-[#fde68a]" />
             </div>
 
-            {/* Brand + back */}
-            <div className="mt-6 flex items-center justify-between">
-              <span className="text-xl font-semibold tracking-tight text-slate-800">
-                welliemd<span className="text-amber-400">.</span>
+            {/* .preview-header-row */}
+            <div className="mb-9 flex w-full max-w-[440px] items-center justify-between">
+              <span className="flex items-baseline gap-0.5 font-serif text-[22px] font-normal tracking-[-0.5px] text-[#1a1a1a]">
+                welliemd
+                <sup className="text-[8px] font-semibold uppercase tracking-[0.1em] text-[#666]">®</sup>
               </span>
+              {/* .preview-back-btn — disabled (this is always the only/first page) */}
               <span
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-400"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#2563eb] bg-white text-[#2563eb] opacity-40"
                 aria-hidden="true"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.5} />
               </span>
             </div>
 
-            {/* Sample-question pill */}
-            <div className="mt-6 flex justify-center">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-500">
-                <Target className="h-3 w-3" />
-                Sample question from Consent: {consent.name}
-              </span>
-            </div>
+            {/* .preview-meta-pill */}
+            <span className="mb-[18px] inline-flex items-center gap-1.5 rounded-full bg-[#f5f6f8] px-[11px] py-[5px] text-[11px] font-medium text-[#8a95a3]">
+              <Target className="h-[11px] w-[11px]" />
+              Sample question from Consent: {consent.name}
+            </span>
 
-            {/* Title */}
-            <h2 className="mt-5 text-[22px] font-bold leading-snug text-slate-900">{consent.name}:</h2>
+            {/* .preview-question */}
+            <h2 className="mb-5 w-full max-w-[440px] text-left text-[19px] font-semibold leading-[1.35] text-[#0f0f0f]">
+              {consent.name}:
+            </h2>
 
-            {/* Consent body */}
+            {/* .preview-consent-text */}
             {hasText ? (
               <div
-                className="prose prose-sm mt-3 max-w-none text-[13.5px] leading-relaxed text-slate-600"
+                className="mb-6 w-full max-w-[440px] text-left text-[13.5px] leading-[1.65] text-[#374151] [&_p]:mb-2.5 [&_p:last-child]:mb-0"
                 // Admin-authored consent HTML produced by the in-app rich-text editor.
                 dangerouslySetInnerHTML={{ __html: consent.text as string }}
               />
             ) : (
-              <p className="mt-3 text-sm italic text-slate-400">No consent text has been added yet.</p>
+              <p className="mb-6 w-full max-w-[440px] text-left text-sm italic text-slate-400">
+                No consent text has been added yet.
+              </p>
             )}
 
-            {/* Answer options as patient-selectable radios */}
-            <div className="mt-6 space-y-3">
+            {/* .preview-choice-list */}
+            <div className="flex w-full max-w-[440px] flex-col gap-2.5">
               {options.length === 0 ? (
                 <p className="text-sm italic text-slate-400">No answer options configured.</p>
               ) : (
@@ -97,43 +102,36 @@ export function ConsentPatientPreviewModal({ open, onOpenChange, consent }: Cons
                       onClick={() => setSelectedOptionId(option.id)}
                       aria-pressed={selected}
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left text-sm transition-colors",
-                        option.disqualifies
-                          ? selected
-                            ? "border-red-400 bg-red-50/60"
-                            : "border-red-200 hover:bg-red-50/40"
-                          : selected
-                            ? "border-[#12517A] bg-blue-50/50"
-                            : "border-slate-200 hover:bg-slate-50"
+                        "flex select-none items-center gap-3 rounded-lg border text-left text-sm text-[#1a1a1a] transition-all",
+                        selected ? "border-2 border-black bg-[#f4f4f5] px-[15px] py-[13px]" : "px-4 py-3.5",
+                        !selected && option.disqualifies && "border-[#fca5a5] bg-white hover:border-[#fca5a5]",
+                        !selected && !option.disqualifies && "border-[#d4d4d4] bg-white hover:border-[#999] hover:bg-[#fafafa]",
+                        selected && option.disqualifies && "border-[#ef4444] bg-[#fef2f2]"
                       )}
                       data-testid={`consent-preview-option-${option.id}`}
                     >
                       <span
                         className={cn(
-                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                          selected
-                            ? option.disqualifies
-                              ? "border-red-500"
-                              : "border-[#12517A]"
-                            : "border-slate-300"
+                          "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#999] bg-white",
+                          selected && "border-[5px] border-black bg-black shadow-[inset_0_0_0_3px_white]"
                         )}
                         aria-hidden="true"
-                      >
-                        {selected && (
-                          <span
-                            className={cn(
-                              "h-2 w-2 rounded-full",
-                              option.disqualifies ? "bg-red-500" : "bg-[#12517A]"
-                            )}
-                          />
-                        )}
-                      </span>
-                      <span className="text-slate-700">{option.text}</span>
+                      />
+                      <span>{option.text}</span>
                     </button>
                   );
                 })
               )}
             </div>
+
+            {/* .preview-continue — decorative, matches the patient-facing button; not wired to an action here */}
+            <button
+              type="button"
+              disabled
+              className="mt-9 cursor-default rounded-full bg-[#0f0f0f] px-14 py-3.5 text-[13.5px] font-semibold tracking-[0.02em] text-white"
+            >
+              Continue
+            </button>
           </div>
         </div>
 

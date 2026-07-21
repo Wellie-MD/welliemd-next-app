@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 interface StatusPillProps {
   children: React.ReactNode;
-  tone?: "green" | "yellow" | "slate" | "blue" | "purple";
+  tone?: "green" | "yellow" | "slate" | "blue" | "purple" | "pink";
 }
 
 const toneClasses = {
@@ -11,6 +11,7 @@ const toneClasses = {
   slate: "border-slate-200 bg-slate-50 text-slate-700",
   blue: "border-blue-200 bg-blue-50 text-blue-700",
   purple: "border-purple-200 bg-purple-50 text-purple-700",
+  pink: "border-pink-200 bg-pink-50 text-pink-700",
 };
 
 export function StatusPill({ children, tone = "slate" }: StatusPillProps) {

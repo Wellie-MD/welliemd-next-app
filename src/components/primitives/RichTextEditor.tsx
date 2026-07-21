@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
-import { Bold, Italic, Heading, List, ListOrdered, RemoveFormatting, Undo2 } from "lucide-react";
+import { Bold, Italic, Heading, Link, List, ListOrdered, RemoveFormatting, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RichTextEditorProps {
@@ -76,6 +76,20 @@ export function RichTextEditor({
     [handleInput]
   );
 
+  const insertLink = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      const url = window.prompt("Link URL", "https://");
+      if (!url) return;
+      const el = editorRef.current;
+      if (!el) return;
+      el.focus();
+      document.execCommand("createLink", false, url);
+      handleInput();
+    },
+    [handleInput]
+  );
+
   const toolbarButtons: Array<{
     key: string;
     label: string;
@@ -87,6 +101,7 @@ export function RichTextEditor({
     { key: "italic", label: "Italic", icon: Italic, onMouseDown: runCommand("italic") },
     { key: "ul", label: "Bullet list", icon: List, onMouseDown: runCommand("insertUnorderedList") },
     { key: "ol", label: "Numbered list", icon: ListOrdered, onMouseDown: runCommand("insertOrderedList") },
+    { key: "link", label: "Insert link", icon: Link, onMouseDown: insertLink },
     { key: "clear", label: "Clear formatting", icon: RemoveFormatting, onMouseDown: runCommand("removeFormat") },
     { key: "undo", label: "Undo", icon: Undo2, onMouseDown: runCommand("undo") },
   ];
@@ -94,7 +109,12 @@ export function RichTextEditor({
   const overLimit = typeof maxLength === "number" && charCount > maxLength;
 
   return (
-    <div className={cn("overflow-hidden rounded-lg border border-slate-200 bg-white", className)}>
+    <div
+      className={cn(
+        "overflow-hidden rounded-lg border border-slate-200 bg-white transition-colors focus-within:border-[#2563eb] focus-within:ring-[3px] focus-within:ring-[#eff4ff]",
+        className
+      )}
+    >
       <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-slate-50 px-2 py-1.5">
         {toolbarButtons.map((button) => {
           const Icon = button.icon;

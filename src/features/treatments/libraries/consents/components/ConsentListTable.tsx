@@ -27,11 +27,11 @@ export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPrev
       <Table>
         <TableHeader className="bg-slate-50">
           <TableRow>
-            <TableHead className="w-[300px] text-xs font-semibold uppercase tracking-wider text-slate-500">Name</TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">Scope</TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">Visit Type</TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">Last Updated</TableHead>
-            <TableHead className="text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</TableHead>
+            <TableHead className="w-[300px] px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</TableHead>
+            <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Scope</TableHead>
+            <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Visit Type</TableHead>
+            <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Last Updated</TableHead>
+            <TableHead className="px-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -44,33 +44,40 @@ export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPrev
           )}
           {consents.map((consent) => (
             <TableRow key={consent.id} className="group hover:bg-slate-50/50">
-              <TableCell className="font-medium">
-                <div className="text-slate-900 cursor-pointer hover:text-[#12517A] hover:underline" onClick={() => onViewDetail?.(consent.id)}>
+              <TableCell className="px-4 font-medium">
+                <div className="text-slate-900 cursor-pointer hover:text-[#2563eb] hover:underline" onClick={() => onViewDetail?.(consent.id)}>
                   {consent.name}
                 </div>
                 <div className="text-xs text-slate-500 font-normal mt-1">
                   Legal consent document
                 </div>
               </TableCell>
-              <TableCell>
-                <StatusPill tone={consent.scope === "global" ? "green" : "blue"}>{formatScope(consent.scope)}</StatusPill>
+              <TableCell className="px-4">
+                <StatusPill tone={consent.scope === "global" ? "purple" : "pink"}>{formatScope(consent.scope)}</StatusPill>
               </TableCell>
-              <TableCell>
+              <TableCell className="px-4">
                 {consent.visitTypeKeys.length ? (
-                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700">
-                    {consent.visitTypeKeys.join(" · ")}
-                  </code>
+                  <div className="flex flex-wrap gap-1">
+                    {consent.visitTypeKeys.map((key) => (
+                      <code
+                        key={key}
+                        className="whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700"
+                      >
+                        {key}
+                      </code>
+                    ))}
+                  </div>
                 ) : (
                   <span className="rounded bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">All</span>
                 )}
               </TableCell>
-              <TableCell className="text-slate-500 text-xs">{formatDateUS(consent.updatedAt)}</TableCell>
-              <TableCell className="text-right">
-                <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#12517A]" title="Preview" onClick={() => onPatientPreview?.(consent.id)}>
+              <TableCell className="px-4 text-slate-500 text-xs">{formatDateUS(consent.updatedAt)}</TableCell>
+              <TableCell className="px-4 text-right">
+                <div className="flex justify-end gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#2563eb]" title="Preview" onClick={() => onPatientPreview?.(consent.id)}>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#12517A]" title="Edit" onClick={() => onEdit?.(consent.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#2563eb]" title="Edit" onClick={() => onEdit?.(consent.id)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                   {onArchive && !consent.isArchived && (
