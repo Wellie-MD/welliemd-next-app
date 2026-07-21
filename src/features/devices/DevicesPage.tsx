@@ -137,26 +137,12 @@ export default function DevicesPage() {
   const [allowedProviders, setAllowedProviders] = useState<Provider[]>([]);
   const [connectionSyncError, setConnectionSyncError] = useState('');
   const [priorityModalOpen, setPriorityModalOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState(30);
 
-  const fetchConnectionsList = useCallback(async (skipConnections = false) => {
-    setLoading(true);
+  const fetchDeviceDataList = useCallback(async (days = 30, skipLiveSync = true) => {
     try {
-      const [connectionsResult, vitalsResult, goalResult, dataResult, profileResult] = await Promise.allSettled([
-        skipConnections ? Promise.resolve(null) : getConnections(),
-        getVitalsHistory(),
-        getHealthGoal(),
-        getDeviceData(),
-        profileService.getPatientProfile(),
-      ]);
-
-      if (connectionsResult.status === 'fulfilled' && connectionsResult.value !== null) {
-        const formatted = connectionsResult.value.map(formatConnection);
-        setConnections(formatted);
-        setDeviceConnected(formatted.length > 0);
-      }
-
-      if (dataResult.status === 'fulfilled' && dataResult.value) {
-        const data = dataResult.value;
+      const data = await getDeviceData(days, skipLiveSync);
+      if (data) {
         setDeviceMetrics(prev => ({
           ...prev,
           ...(data.steps && { steps: data.steps }),
@@ -175,6 +161,35 @@ export default function DevicesPage() {
           ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
           ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
         }));
+      }
+    } catch (e) {
+      console.error('Failed to fetch device data', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDeviceDataList(timeRange, true);
+  }, [timeRange, fetchDeviceDataList]);
+
+  // Initial live sync on mount (background)
+  useEffect(() => {
+    getDeviceData(7, false).catch(console.error);
+  }, []);
+
+  const fetchConnectionsList = useCallback(async (skipConnections = false) => {
+    setLoading(true);
+    try {
+      const [connectionsResult, vitalsResult, goalResult, profileResult] = await Promise.allSettled([
+        skipConnections ? Promise.resolve(null) : getConnections(),
+        getVitalsHistory(timeRange),
+        getHealthGoal(),
+        profileService.getPatientProfile(),
+      ]);
+
+      if (connectionsResult.status === 'fulfilled' && connectionsResult.value !== null) {
+        const formatted = connectionsResult.value.map(formatConnection);
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
       }
 
       setWeight(prev => {
@@ -195,7 +210,7 @@ export default function DevicesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timeRange]);
 
   const checkIsPendingConnect = () => {
     if (searchParams.get('wearable_connect') === 'pending') return true;
@@ -220,12 +235,16 @@ export default function DevicesPage() {
       const formatted = conns.map((c) => formatConnection(c));
       setConnections(formatted);
       setDeviceConnected(formatted.length > 0);
+      
+      // Also refresh the device data via live sync
+      fetchDeviceDataList(timeRange, false);
+      
       return formatted;
     } catch {
       setConnectionSyncError('Unable to check the connection right now. Please try again.');
       return null;
     }
-  }, []);
+  }, [fetchDeviceDataList]);
 
   useEffect(() => {
     const pendingProviders = connections.filter(c => c.status === 'pending').map(c => c.provider);
@@ -638,7 +657,13 @@ export default function DevicesPage() {
             onConnect={handleConnect}
           />
         )}
-        <TelemetryDashboard deviceMetrics={deviceMetrics} weight={weight} onOpenGoalModal={handleOpenGoal} />
+        <TelemetryDashboard 
+          deviceMetrics={deviceMetrics} 
+          weight={weight} 
+          onOpenGoalModal={handleOpenGoal}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange} 
+        />
         {deviceConnected && <DataPrivacyCard consent={consent} onOpenConsent={() => { setConsentReviewOnly(true); setConsentOpen(true); }} onOpenDeleteData={() => setDeleteDataOpen(true)} />}
       </>}
       <DeviceModals
