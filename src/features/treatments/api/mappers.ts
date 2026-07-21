@@ -9,6 +9,7 @@ import type {
   ProgramQuestion,
   TreatmentType,
 } from "@/features/treatments/types";
+import { PROGRAM_PRODUCT_ROLE } from "@/features/treatments/programs/checkout-question/constants";
 import type {
   ConsentRecord,
   CustomProgramRecord,
@@ -75,6 +76,14 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
     ? String(record.sourceProductId ?? record.source_product_id)
     : undefined,
   price: Number(record.price ?? record.final_price ?? record.unit_price) || undefined,
+  productRole: (
+    record.productRole ||
+    record.product_role ||
+    PROGRAM_PRODUCT_ROLE.primaryChoice
+  ) as ProgramCheckoutProduct["productRole"],
+  choiceGroup: record.choiceGroup || record.choice_group
+    ? String(record.choiceGroup ?? record.choice_group)
+    : undefined,
   visibilityRules: checkoutVisibilityGroup(
     record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule,
   ),

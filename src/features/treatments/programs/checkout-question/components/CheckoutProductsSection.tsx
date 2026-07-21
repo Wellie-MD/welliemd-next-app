@@ -12,6 +12,7 @@ interface CheckoutProductsSectionProps {
   products: ProgramCheckoutProduct[];
   /** Earlier questions in the program, used as conditions for per-product visibility. */
   eligibleQuestions: ProgramQuestion[];
+  programTreatmentTypeKey?: string | null;
   onAddProduct: () => void;
   onRemoveProduct: (index: number) => void;
   onProductFieldChange: (
@@ -26,6 +27,7 @@ interface CheckoutProductsSectionProps {
 export function CheckoutProductsSection({
   products,
   eligibleQuestions,
+  programTreatmentTypeKey,
   onAddProduct,
   onRemoveProduct,
   onProductFieldChange,
@@ -37,9 +39,11 @@ export function CheckoutProductsSection({
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setCatalogLoaded(false);
 
     const fetchCatalogMetadata = async () => {
       try {
@@ -54,12 +58,14 @@ export function CheckoutProductsSection({
         setCategories(nextCategories || []);
         setTitrationCategories(nextTitrationCategories || []);
         setDoseMappings(nextDoseMappings?.results || []);
-        setCatalogProducts(selectableCatalogProducts(nextProducts || []));
+        setCatalogProducts(selectableCatalogProducts(nextProducts || [], programTreatmentTypeKey));
         setCatalogError(null);
+        setCatalogLoaded(true);
       } catch (error) {
         if (cancelled) return;
         console.error("Failed to fetch checkout product catalog metadata:", error);
         setCatalogError("Unable to load product catalog metadata from Django.");
+        setCatalogLoaded(true);
       }
     };
 
@@ -68,11 +74,11 @@ export function CheckoutProductsSection({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [programTreatmentTypeKey]);
 
-  const hasCatalogData = useMemo(
-    () => categories.length > 0 && titrationCategories.length > 0 && doseMappings.length > 0 && catalogProducts.length > 0,
-    [categories.length, titrationCategories.length, doseMappings.length, catalogProducts.length]
+  const hasCatalogMetadata = useMemo(
+    () => categories.length > 0 && titrationCategories.length > 0 && doseMappings.length > 0,
+    [categories.length, titrationCategories.length, doseMappings.length]
   );
 
   return (
@@ -94,9 +100,19 @@ export function CheckoutProductsSection({
           {catalogError}
         </div>
       )}
-      {!catalogError && !hasCatalogData && (
+      {!catalogError && !catalogLoaded && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11.5px] font-medium text-slate-500">
           Loading product catalog metadata…
+        </div>
+      )}
+      {!catalogError && catalogLoaded && hasCatalogMetadata && catalogProducts.length === 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] font-medium text-amber-700">
+          No active catalog Products with a matching Treatment Type are available for this Program yet.
+        </div>
+      )}
+      {!catalogError && catalogLoaded && !hasCatalogMetadata && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] font-medium text-amber-700">
+          Product catalog metadata is incomplete. Categories, regimens, or dose mappings are missing.
         </div>
       )}
 

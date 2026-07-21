@@ -133,13 +133,24 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return { mode: group.mode, rules, subgroups };
     };
 
+    const normalizeProduct = (product: ProductForm): ProductForm => {
+      const sourceProductId =
+        product.sourceProductId && product.sourceProductId !== product.productId
+          ? product.sourceProductId
+          : undefined;
+      return {
+        ...product,
+        sourceProductId,
+      };
+    };
+
     setIsSaving(true);
     setFormError(null);
     try {
       await onSave({
         text: validProducts.map((product) => product.doseLabel).join(" & ") || "Checkout Options",
         products: validProducts.map((product) => ({
-          ...product,
+          ...normalizeProduct(product),
           visibilityRules: normalizeGroup(product.visibilityRules),
         })),
         visibilityRules: normalizeGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
@@ -156,7 +167,13 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           }
         }
         if (value && typeof value === "object") {
-          for (const item of Object.values(value)) {
+          const record = value as Record<string, unknown>;
+          const priorityKeys = ["error", "product", "products", "message", "detail"];
+          for (const key of priorityKeys) {
+            const message = extractMessage(record[key]);
+            if (message) return message;
+          }
+          for (const item of Object.values(record)) {
             const message = extractMessage(item);
             if (message) return message;
           }

@@ -15,6 +15,7 @@ interface CheckoutQuestionModalProps {
   onSave: (data: Omit<ProgramCheckoutQuestion, "id">) => Promise<void>;
   initialQuestion?: ProgramCheckoutQuestion | null;
   programName?: string;
+  programTreatmentTypeKey?: string | null;
   screeningQuestions?: CheckoutVisibilityQuestion[];
 }
 
@@ -24,6 +25,7 @@ export function CheckoutQuestionModal({
   onSave,
   initialQuestion,
   programName = "GLP Microdose Intake",
+  programTreatmentTypeKey,
   screeningQuestions = [],
 }: CheckoutQuestionModalProps) {
   const form = useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange });
@@ -69,6 +71,7 @@ export function CheckoutQuestionModal({
             <CheckoutProductsSection
               products={form.products}
               eligibleQuestions={visibilityQuestions}
+              programTreatmentTypeKey={programTreatmentTypeKey}
               onAddProduct={form.handleAddProduct}
               onRemoveProduct={form.handleRemoveProduct}
               onProductFieldChange={form.handleProductFieldChange}

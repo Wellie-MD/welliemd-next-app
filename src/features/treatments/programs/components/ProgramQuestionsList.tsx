@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Grid3X3, List as ListIcon, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,32 @@ interface ProgramQuestionsListProps {
 
 export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuestionsListProps) {
   const navigate = useNavigate();
+  const displayQuestions = useMemo(
+    () => [
+      ...initialQuestions,
+      ...(program.checkoutQuestions || []).map((checkout, index): ProgramQuestion => ({
+        id: checkout.id,
+        order: initialQuestions.length + index + 1,
+        text: checkout.text,
+        kind: "checkout",
+        section: "Checkout",
+        required: true,
+        checkoutProductIds: checkout.products
+          .map((product) => product.productId)
+          .filter((productId): productId is string => Boolean(productId)),
+        checkoutProducts: checkout.products,
+        visibilityRuleGroup: checkout.visibilityRules,
+        elementConfig: {
+          checkoutProducts: checkout.products,
+          checkoutProductIds: checkout.products
+            .map((product) => product.productId)
+            .filter((productId): productId is string => Boolean(productId)),
+          visibilityRuleGroup: checkout.visibilityRules,
+        },
+      })),
+    ],
+    [initialQuestions, program.checkoutQuestions]
+  );
 
   const handleBack = () => {
     navigate("/dashboard/treatments/programs");
@@ -69,7 +95,8 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
         entityId={program.id}
         entityName={program.name}
         entityType="program"
-        initialQuestions={initialQuestions}
+        program={program}
+        initialQuestions={displayQuestions}
         headerTitle={program.name}
         headerSubtitle="Manage questions for this template"
         onBack={handleBack}
