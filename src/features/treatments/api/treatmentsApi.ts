@@ -72,6 +72,23 @@ type CustomProgramApiRecord = {
   visit_type?: string | null;
   onboarding_name?: string;
   question_count?: number;
+  runtime_summary?: {
+    status: "ready" | "republish_required";
+    schema_version: number;
+    release_id: string;
+    release_version: number;
+    effective_question_count: number | null;
+    screening_question_count: number;
+    routing_question_count: number;
+    common_question_count: number;
+    consent_count: number;
+    checkout_question_count: number;
+    product_count: number;
+    medicine_count: number;
+    supply_count: number;
+    lab_count: number;
+    program_count: number;
+  } | null;
   icon?: string;
   icon_bg?: string;
   icon_color?: string;
@@ -253,6 +270,23 @@ const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram 
     visitType: record.visit_type ?? null,
     onboardingName: record.onboarding_name || "",
     questionCount: record.question_count || 0,
+    runtimeSummary: record.runtime_summary ? {
+      status: record.runtime_summary.status,
+      schemaVersion: record.runtime_summary.schema_version,
+      releaseId: record.runtime_summary.release_id,
+      releaseVersion: record.runtime_summary.release_version,
+      effectiveQuestionCount: record.runtime_summary.effective_question_count,
+      screeningQuestionCount: record.runtime_summary.screening_question_count,
+      routingQuestionCount: record.runtime_summary.routing_question_count,
+      commonQuestionCount: record.runtime_summary.common_question_count,
+      consentCount: record.runtime_summary.consent_count,
+      checkoutQuestionCount: record.runtime_summary.checkout_question_count,
+      productCount: record.runtime_summary.product_count,
+      medicineCount: record.runtime_summary.medicine_count,
+      supplyCount: record.runtime_summary.supply_count,
+      labCount: record.runtime_summary.lab_count,
+      programCount: record.runtime_summary.program_count,
+    } : null,
     icon: record.icon || undefined,
     iconBg: record.icon_bg || undefined,
     iconColor: record.icon_color || undefined,

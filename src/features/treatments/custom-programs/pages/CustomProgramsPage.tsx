@@ -15,6 +15,7 @@ import {
 import { useUpdateCustomProgramSlugOverride } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { useClients } from "@/hooks/useClients";
 import type { CustomProgram } from "@/features/treatments/types";
+import { buildQuestionnaireRuntimeUrl } from "@/features/treatments/utils/questionnaireRuntimeUrl";
 
 export default function CustomProgramsPage() {
   const navigate = useNavigate();
@@ -48,7 +49,12 @@ export default function CustomProgramsPage() {
       showFloatingToast({ title: "Questionnaire URL is not configured for this client" });
       return;
     }
-    const startUrl = `${questionnaireBaseUrl}/start/${getCustomProgramEffectiveSlug(program)}`;
+    const startUrl = buildQuestionnaireRuntimeUrl({
+      baseUrl: questionnaireBaseUrl,
+      platformClientId: currentClient?.platform_client_id,
+      route: "start",
+      slug: getCustomProgramEffectiveSlug(program),
+    });
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(startUrl);
       showFloatingToast({ title: "Intake URL Copied" });

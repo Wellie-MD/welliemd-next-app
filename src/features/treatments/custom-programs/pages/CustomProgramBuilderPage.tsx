@@ -8,6 +8,7 @@ import { CustomProgramPreviewDialog } from "@/features/treatments/custom-program
 import { CustomProgramQuestionPreviewDialog } from "@/features/treatments/custom-programs/components/CustomProgramQuestionPreviewDialog";
 import { ListContentSection } from "@/features/treatments/custom-programs/components/ListContentSection";
 import { getCustomProgramEffectiveSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
+import { buildQuestionnaireRuntimeUrl } from "@/features/treatments/utils/questionnaireRuntimeUrl";
 import {
   useAddCustomProgramBuilderQuestion,
   useCustomProgram,
@@ -21,8 +22,16 @@ import type { CustomProgram, CustomProgramBuilderQuestionInput, CustomProgramBui
 const BUILDER_VIEW_STORAGE_KEY = "welliemd_custom_program_builder_view";
 type BuilderViewMode = "list" | "flow";
 
-const getCustomProgramStartUrl = (program: CustomProgram, baseUrl: string) =>
-  `${baseUrl}/start/${getCustomProgramEffectiveSlug(program)}`;
+const getCustomProgramStartUrl = (
+  program: CustomProgram,
+  baseUrl: string,
+  platformClientId?: string,
+) => buildQuestionnaireRuntimeUrl({
+  baseUrl,
+  platformClientId,
+  route: "start",
+  slug: getCustomProgramEffectiveSlug(program),
+});
 
 function BuilderHeader({
   customProgram,
@@ -32,6 +41,7 @@ function BuilderHeader({
   onOpenAddQuestion,
   onOpenPreview,
   questionnaireBaseUrl,
+  platformClientId,
 }: {
   customProgram: CustomProgram;
   viewMode: BuilderViewMode;
@@ -40,9 +50,10 @@ function BuilderHeader({
   onOpenAddQuestion: () => void;
   onOpenPreview: () => void;
   questionnaireBaseUrl: string;
+  platformClientId?: string;
 }) {
   const startUrl = questionnaireBaseUrl
-    ? getCustomProgramStartUrl(customProgram, questionnaireBaseUrl)
+    ? getCustomProgramStartUrl(customProgram, questionnaireBaseUrl, platformClientId)
     : "";
   const effectiveSlug = getCustomProgramEffectiveSlug(customProgram);
 
@@ -184,7 +195,11 @@ export default function CustomProgramBuilderPage() {
       showFloatingToast({ title: "Questionnaire URL is not configured for this client" });
       return;
     }
-    const text = getCustomProgramStartUrl(customProgram, questionnaireBaseUrl);
+    const text = getCustomProgramStartUrl(
+      customProgram,
+      questionnaireBaseUrl,
+      currentClient?.platform_client_id,
+    );
     if (navigator.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(text);
@@ -281,6 +296,7 @@ export default function CustomProgramBuilderPage() {
         onOpenAddQuestion={handleOpenAddQuestion}
         onOpenPreview={handleOpenPreview}
         questionnaireBaseUrl={questionnaireBaseUrl}
+        platformClientId={currentClient?.platform_client_id}
       />
 
       <div className="flex-1 p-8">

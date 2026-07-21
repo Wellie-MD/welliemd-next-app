@@ -100,7 +100,11 @@ export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: C
             {customProgram.onboardingName || customProgram.name}
           </div>
           <div className="text-[11.5px] text-slate-400 mt-1 dark:text-slate-500">
-            {customProgram.questionCount || 0} questions
+            {customProgram.runtimeSummary?.status === "ready"
+              ? `${customProgram.runtimeSummary.effectiveQuestionCount} patient steps · ${customProgram.runtimeSummary.screeningQuestionCount} screening questions`
+              : customProgram.runtimeSummary
+                ? `${customProgram.runtimeSummary.screeningQuestionCount} screening questions · republish required`
+                : `${customProgram.questionCount || 0} questions`}
             {customProgram.updatedAt && ` · updated ${formatDate(customProgram.updatedAt)}`}
           </div>
         </div>

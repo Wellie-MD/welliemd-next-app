@@ -13,6 +13,7 @@ import { EmptyStateCard, SlugEditorModal } from "@/features/treatments/common/co
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { useBranding } from "@/contexts/BrandingContext";
 import { useClients } from "@/hooks/useClients";
+import { buildQuestionnaireRuntimeUrl } from "@/features/treatments/utils/questionnaireRuntimeUrl";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { normalizeTreatmentSlug } from "@/features/treatments/common/utils/slug";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
@@ -171,7 +172,12 @@ export default function ProgramsPage() {
       showFloatingToast({ title: "Questionnaire URL is not configured for this client" });
       return;
     }
-    const intakeUrl = `${questionnaireBaseUrl}/visit/${program.slug}`;
+    const intakeUrl = buildQuestionnaireRuntimeUrl({
+      baseUrl: questionnaireBaseUrl,
+      platformClientId: currentClient?.platform_client_id,
+      route: "visit",
+      slug: program.slug,
+    });
     try {
       await navigator.clipboard?.writeText(intakeUrl);
       showFloatingToast({ title: "Intake URL Copied" });

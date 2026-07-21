@@ -95,4 +95,23 @@ export interface CustomProgram {
   builderSections?: CustomProgramBuilderStageItem[];
   builderTreatmentOptions?: CustomProgramBuilderStageItem[];
   builderConsents?: CustomProgramBuilderStageItem[];
+  runtimeSummary?: CustomProgramRuntimeSummary | null;
+}
+
+export interface CustomProgramRuntimeSummary {
+  status: "ready" | "republish_required";
+  schemaVersion: number;
+  releaseId: string;
+  releaseVersion: number;
+  effectiveQuestionCount: number | null;
+  screeningQuestionCount: number;
+  routingQuestionCount: number;
+  commonQuestionCount: number;
+  consentCount: number;
+  checkoutQuestionCount: number;
+  productCount: number;
+  medicineCount: number;
+  supplyCount: number;
+  labCount: number;
+  programCount: number;
 }

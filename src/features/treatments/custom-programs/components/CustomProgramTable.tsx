@@ -37,7 +37,10 @@ const getRoutesIntoCount = (program: CustomProgram) =>
   program.builderTreatmentOptions?.length ?? program.includedProgramIds.length;
 
 const getQuestionCount = (program: CustomProgram) =>
-  program.questionCount ?? program.builderQuestions?.length ?? 0;
+  program.runtimeSummary?.effectiveQuestionCount
+  ?? program.questionCount
+  ?? program.builderQuestions?.length
+  ?? 0;
 
 const formatLastUpdated = (dateStr: string) => {
   if (!dateStr) return "-";
