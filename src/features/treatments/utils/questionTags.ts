@@ -1,6 +1,6 @@
 import type { ProgramQuestion } from "@/features/treatments/types";
 
-export type QuestionTagType = "visibility" | "disqualifying" | "consent" | "auth" | "checkout";
+export type QuestionTagType = "visibility" | "disqualifying" | "consent" | "auth" | "checkout" | "section";
 
 export interface QuestionTag {
   type: QuestionTagType;
@@ -21,6 +21,7 @@ export function getQuestionTags(question: ProgramQuestion | null | undefined): Q
   const isConsent = question.kind === "consent";
   const isAuth = question.kind === "auth" || question.kind === "personal_details";
   const isCheckout = question.kind === "checkout";
+  const isSection = question.kind === "section";
 
   if (hasVisibility) {
     tags.push({ type: "visibility", label: "IF" });
@@ -36,6 +37,9 @@ export function getQuestionTags(question: ProgramQuestion | null | undefined): Q
   }
   if (isCheckout) {
     tags.push({ type: "checkout", label: "CHECKOUT" });
+  }
+  if (isSection) {
+    tags.push({ type: "section", label: "SECTION" });
   }
 
   return tags;

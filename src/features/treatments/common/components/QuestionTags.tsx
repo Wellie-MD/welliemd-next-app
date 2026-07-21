@@ -7,6 +7,7 @@ const TAG_STYLES: Record<QuestionTagType, string> = {
   consent: "bg-purple-100 text-purple-700",
   auth: "bg-orange-100 text-orange-700",
   checkout: "bg-emerald-100 text-emerald-700",
+  section: "bg-blue-100 text-blue-800",
 };
 
 interface QuestionTagsProps {

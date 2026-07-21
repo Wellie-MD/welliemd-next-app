@@ -29,7 +29,7 @@ export function ProgramQuestionsListRow({
     isDragging,
   } = useSortable({
     id: question.id,
-    disabled: !isReorderActive || question.system,
+    disabled: !isReorderActive,
   });
 
   const style = {
@@ -53,7 +53,7 @@ export function ProgramQuestionsListRow({
     >
       {/* 1. Drag & Index */}
       <div className="flex items-center gap-2">
-        {isReorderActive && !isSystem ? (
+        {isReorderActive ? (
           <div
             {...attributes}
             {...listeners}

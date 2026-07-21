@@ -156,34 +156,84 @@ export function SharedQuestionsList({
     })
   );
 
+  // Patient Authentication can be dragged like any other row — the prototype
+  // never pins it first, only its Actions column is restricted (no delete).
+  // It isn't a real record until something actually moves it, so dragging it
+  // specifically materializes it into a genuine persisted question first,
+  // then reorders. Dragging any other row leaves it untouched (it's not part
+  // of `questions`, and stays virtually pinned first until it's the one moved).
+  const persistOrder = (updated: ProgramQuestion[], previousQuestions: ProgramQuestion[]) => {
+    const reorderMutation = entityType === "section"
+      ? reorderSectionFieldsMutation
+      : reorderQuestionsMutation;
+
+    reorderMutation.mutate(
+      updated.map((q) => q.id),
+      {
+        onSuccess: () => {
+          toast({ title: "Order Saved", description: "The list order has been successfully saved." });
+        },
+        onError: () => {
+          setQuestions(previousQuestions);
+          toast({ title: "Error", description: "Failed to save the new order.", variant: "destructive" });
+        },
+      }
+    );
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = questions.findIndex((q) => q.id === active.id);
-      const newIndex = questions.findIndex((q) => q.id === over.id);
-      const updated = arrayMove(questions, oldIndex, newIndex).map((q, idx) => ({
+    if (!over || active.id === over.id) return;
+
+    const systemAuthId = `auth-system-${entityId}`;
+    const previousQuestions = questions;
+
+    if (active.id === systemAuthId) {
+      const oldIndex = displayQuestions.findIndex((q) => q.id === active.id);
+      const newIndex = displayQuestions.findIndex((q) => q.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const reordered = arrayMove(displayQuestions, oldIndex, newIndex).map((q, idx) => ({
         ...q,
         order: idx + 1,
+        system: q.id === systemAuthId ? undefined : q.system,
       }));
+      const authRow = reordered.find((q) => q.id === systemAuthId)!;
 
-      setQuestions(updated);
-      const reorderMutation = entityType === "section"
-        ? reorderSectionFieldsMutation
-        : reorderQuestionsMutation;
-
-      reorderMutation.mutate(
-        updated.map((q) => q.id),
-        {
-          onSuccess: () => {
-            toast({ title: "Order Saved", description: "The list order has been successfully saved." });
-          },
-          onError: () => {
-            setQuestions(questions); // Rollback
-            toast({ title: "Error", description: "Failed to save the new order.", variant: "destructive" });
-          },
-        }
-      );
+      setQuestions(reordered);
+      const mutation = entityType === "section" ? saveSectionFieldMutation : saveQuestionMutation;
+      const payload = entityType === "section"
+        ? {
+            id: authRow.id,
+            sectionId: entityId,
+            order: authRow.order,
+            label: authRow.text,
+            kind: authRow.kind,
+            required: authRow.required,
+            configuration: {},
+          }
+        : authRow;
+      mutation.mutate(payload as never, {
+        onSuccess: () => persistOrder(reordered, previousQuestions),
+        onError: () => {
+          setQuestions(previousQuestions);
+          toast({ title: "Error", description: "Failed to save the new order.", variant: "destructive" });
+        },
+      });
+      return;
     }
+
+    const oldIndex = questions.findIndex((q) => q.id === active.id);
+    const newIndex = questions.findIndex((q) => q.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const updated = arrayMove(questions, oldIndex, newIndex).map((q, idx) => ({
+      ...q,
+      order: idx + 1,
+    }));
+
+    setQuestions(updated);
+    persistOrder(updated, previousQuestions);
   };
 
   const processedQuestions = useMemo(
