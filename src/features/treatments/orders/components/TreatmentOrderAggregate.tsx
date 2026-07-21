@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock3, Stethoscope } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Clock3, FlaskConical, Stethoscope } from "lucide-react"
 import { Link } from "react-router-dom"
 
 import type {
@@ -6,9 +6,15 @@ import type {
   TreatmentOrderAggregate as TreatmentOrderAggregateContract,
 } from "@/api/ordersApi"
 import { cn } from "@/lib/utils"
+import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes"
 
 import {
   SETTLEMENT_STATUS_LABELS,
+  LAB_GATE_STATUS_LABELS,
+  PROVIDER_REVIEW_STATUS_LABELS,
+  RECOLLECTION_ACTION_LABELS,
+  SUPPORT_OWNER_LABELS,
+  SUPPORT_PENDING_REASON_LABELS,
   TREATMENT_CLINICAL_STATUS_LABELS,
   TREATMENT_CLINICAL_STATUS_STYLES,
 } from "../constants"
@@ -82,7 +88,7 @@ export function TreatmentOrderAggregate({
   const clinicalStyle =
     TREATMENT_CLINICAL_STATUS_STYLES[aggregate.clinical_status] ||
     TREATMENT_CLINICAL_STATUS_STYLES.awaiting_prescription
-  const isReview = aggregate.clinical_status === "clinical_review"
+  const isReview = ["clinical_review", "clinical_review_required"].includes(aggregate.clinical_status)
   const isSettled = aggregate.clinical_status === "prescription_settled"
   const ClinicalIcon = isReview ? AlertTriangle : isSettled ? CheckCircle2 : Clock3
   const differences = aggregate.reconciliation.factual_differences || {}
@@ -164,6 +170,39 @@ export function TreatmentOrderAggregate({
         </div>
       )}
 
+      {aggregate.lab_gate.required && (
+        <div className="border-t border-border px-4 py-3">
+          <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-[hsl(var(--text-tertiary))]">
+            <FlaskConical className="h-3.5 w-3.5" />
+            Required labs
+          </div>
+          <div className="space-y-2">
+            {aggregate.lab_gate.items.map((lab) => (
+              <div key={lab.lab_order_id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+                <div>
+                  <div className="text-xs font-semibold text-foreground">{lab.panel_name || lab.display_id || "Lab panel"}</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {lab.partial_results ? `${lab.result_count} partial result${lab.result_count === 1 ? "" : "s"} received` : LAB_GATE_STATUS_LABELS[lab.status] || lab.status.replaceAll("_", " ")}
+                  </div>
+                  {lab.recollection?.patient_action && (
+                    <div className="mt-1 text-[11px] font-medium text-amber-700">
+                      {RECOLLECTION_ACTION_LABELS[lab.recollection.patient_action] || lab.recollection.patient_action.replaceAll("_", " ")}
+                    </div>
+                  )}
+                </div>
+                {lab.recollection_required && <span className="text-xs font-semibold text-amber-700">Patient redraw required</span>}
+              </div>
+            ))}
+          </div>
+          {aggregate.lab_gate.has_partial_results && (
+            <p className="mt-2 text-xs text-muted-foreground">Partial results are visible for tracking. Provider review remains held until every required panel is complete.</p>
+          )}
+          <p className="mt-2 text-xs font-medium text-foreground">
+            {PROVIDER_REVIEW_STATUS_LABELS[aggregate.lab_gate.provider_review_state] || aggregate.lab_gate.provider_review_state.replaceAll("_", " ")}
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2 border-t border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>
           Settlement: {SETTLEMENT_STATUS_LABELS[aggregate.settlement.status] || aggregate.settlement.status.replaceAll("_", " ")}
@@ -172,6 +211,16 @@ export function TreatmentOrderAggregate({
           <span>{new Date(aggregate.settlement.settled_at).toLocaleString()}</span>
         )}
       </div>
+      {aggregate.support?.owner && (
+        <div className="space-y-1 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+          <div><span className="font-semibold text-foreground">Support owner:</span> {SUPPORT_OWNER_LABELS[aggregate.support.owner] || aggregate.support.owner.replaceAll("_", " ")}</div>
+          {aggregate.support.pending_reason && <div><span className="font-semibold text-foreground">Pending reason:</span> {SUPPORT_PENDING_REASON_LABELS[aggregate.support.pending_reason] || aggregate.support.pending_reason.replaceAll("_", " ")}</div>}
+          {aggregate.support.last_error_code && <div className="font-mono text-[10.5px]">Error {aggregate.support.last_error_code}</div>}
+          {aggregate.support.last_error_detail && <div>{aggregate.support.last_error_detail}</div>}
+          <div className="break-all font-mono text-[10px]">Case {aggregate.treatment_case_id}{aggregate.reconciliation.source_event_id ? ` · event ${aggregate.reconciliation.source_event_id}` : ""}{aggregate.settlement.operation_id ? ` · operation ${aggregate.settlement.operation_id}` : ""}</div>
+          <div>Guarded retry: {aggregate.support.retry_allowed ? "Available to authorized support in Django Admin" : "Not currently allowed"}</div>
+        </div>
+      )}
 
       {aggregate.siblings.length > 1 && (
         <div className="border-t border-border px-4 py-3">
@@ -191,7 +240,7 @@ export function TreatmentOrderAggregate({
               ) : (
                 <Link
                   key={sibling.treatment_case_id}
-                  to={`/dashboard/orders/details/${sibling.order_id}`}
+                  to={CLIENT_TREATMENT_ROUTES.orderDetails(sibling.order_id)}
                   className="rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-[hsl(var(--text-secondary))] hover:border-primary/40 hover:text-primary"
                 >
                   {sibling.order_display_id || sibling.treatment_type_key || "Related order"}

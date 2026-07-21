@@ -81,6 +81,7 @@ export default function Products() {
   const [purchaseType, setPurchaseType] = useState(ALL_VALUE)
   const [pharmacy, setPharmacy] = useState(ALL_VALUE)
   const [status, setStatus] = useState(ALL_VALUE)
+  const [treatmentType, setTreatmentType] = useState(ALL_VALUE)
   const [editing, setEditing] = useState<Product | null>(null)
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -103,6 +104,7 @@ export default function Products() {
       if (purchaseType !== ALL_VALUE) params.purchase_type = purchaseType as ProductListParams["purchase_type"]
       if (pharmacy !== ALL_VALUE) params.pharmacy = pharmacy
       if (status !== ALL_VALUE) params.is_active = status === "active"
+      if (treatmentType !== ALL_VALUE) params.treatment_type = treatmentType
 
       const response = await productApi.listProducts(params)
 
@@ -132,7 +134,7 @@ export default function Products() {
     } finally {
       setLoading(false)
     }
-  }, [category, pageSize, pharmacy, purchaseType, search, status, toast])
+  }, [category, pageSize, pharmacy, purchaseType, search, status, toast, treatmentType])
 
   useEffect(() => {
     fetchProducts(1, pageSize)
@@ -202,11 +204,25 @@ export default function Products() {
       .sort((a, b) => a.label.localeCompare(b.label))
   }, [allKnownProducts])
 
+  const treatmentTypeOptions = useMemo(
+    () =>
+      dedupeOptions(
+        allKnownProducts
+          .filter((product) => product.treatment_type_id && product.treatment_type_name)
+          .map((product) => ({
+            value: String(product.treatment_type_id),
+            label: String(product.treatment_type_name),
+          })),
+      ).sort((a, b) => a.label.localeCompare(b.label)),
+    [allKnownProducts],
+  )
+
   const hasActiveFilters =
     category !== ALL_VALUE ||
     purchaseType !== ALL_VALUE ||
     pharmacy !== ALL_VALUE ||
     status !== ALL_VALUE ||
+    treatmentType !== ALL_VALUE ||
     Boolean(search.trim())
 
   const showingStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
@@ -217,6 +233,7 @@ export default function Products() {
     setPurchaseType(ALL_VALUE)
     setPharmacy(ALL_VALUE)
     setStatus(ALL_VALUE)
+    setTreatmentType(ALL_VALUE)
     setSearch("")
     setCurrentPage(1)
   }
@@ -242,7 +259,7 @@ export default function Products() {
         </div>
 
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <FilterSelect
               label="Category"
               value={category}
@@ -270,6 +287,16 @@ export default function Products() {
               options={pharmacyOptions}
               onValueChange={(value) => {
                 setPharmacy(value)
+                setCurrentPage(1)
+              }}
+            />
+            <FilterSelect
+              label="Treatment Type (New)"
+              value={treatmentType}
+              placeholder="All Treatment Types"
+              options={treatmentTypeOptions}
+              onValueChange={(value) => {
+                setTreatmentType(value)
                 setCurrentPage(1)
               }}
             />
@@ -384,6 +411,9 @@ export default function Products() {
                             <Pill tone={product.treatment_type_name ? "blue" : "red"}>
                               {product.treatment_type_name || "Unassigned"}
                             </Pill>
+                            {product.treatment_type_is_active === false && (
+                              <Pill tone="red">Inactive Treatment Type</Pill>
+                            )}
                             <div className="text-[11px] text-slate-500 dark:text-slate-400">
                               Intake: {product.derived_intake_visit_type || "Not configured"}
                             </div>

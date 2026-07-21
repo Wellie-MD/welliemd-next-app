@@ -156,6 +156,18 @@ All colors MUST be HSL.
     font-size: 13.5px;
     line-height: 1.5;
   }
+
+  @media (pointer: coarse) {
+    .treatment-preview-identity {
+      min-height: 44px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .treatment-preview-identity {
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer utilities {

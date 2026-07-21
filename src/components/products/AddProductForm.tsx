@@ -295,7 +295,9 @@ export default function AddProductForm({
                     value={
                       product?.product_type === "supply"
                         ? "Not applicable"
-                        : product?.treatment_type_name || "Unassigned"
+                        : product?.treatment_type_name
+                          ? `${product.treatment_type_name}${product.treatment_type_is_active === false ? " (Inactive)" : ""}`
+                          : "Unassigned"
                     }
                   />
                   <ReadOnlyField label="Pharmacy" value={product?.pharmacy_name || "-"} />

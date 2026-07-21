@@ -215,12 +215,27 @@ export interface TreatmentAggregateProduct {
   med_id?: string | null
   name?: string | null
   quantity?: string | number | null
+  days_supply?: number | null
+  product_role?: string | null
+  choice_group?: string | null
 }
 
 export interface TreatmentOrderAggregate {
   clinical_status: string
   patient_message?: string | null
   treatment_case_id: string
+  lifecycle: {
+    status: string
+    can_withdraw: boolean
+    reauthorization_required: boolean
+    support_recovery_required: boolean
+  }
+  authority: {
+    state: string
+    version: number
+    fingerprint?: string | null
+    updated_at?: string | null
+  }
   treatment_type: {
     id: string
     key?: string | null
@@ -230,6 +245,34 @@ export interface TreatmentOrderAggregate {
     id?: string | null
     status?: string | null
     master_id?: string | null
+  }
+  lab_gate: {
+    required: boolean
+    ready_for_provider_review: boolean
+    has_partial_results: boolean
+    recollection_required: boolean
+    provider_review_state: string
+    items: Array<{
+      lab_order_id: string
+      display_id?: string | null
+      panel_name?: string | null
+      required: boolean
+      status: string
+      results_status: string
+      result_count: number
+      results_complete: boolean
+      partial_results: boolean
+      recollection_required: boolean
+      result_pdf_url?: string | null
+      junction_order_id?: string | null
+      failure_reason?: string | null
+      recollection?: {
+        status: string
+        patient_charge_amount: string
+        patient_action?: string | null
+        replacement_lab_order_id?: string | null
+      } | null
+    }>
   }
   reconciliation: {
     version?: number | null
@@ -253,11 +296,20 @@ export interface TreatmentOrderAggregate {
     patient_settled_at?: string | null
     reimbursement_settled_at?: string | null
     settled_at?: string | null
-    patient_action_required: false
+    patient_action_required: boolean
+    refund_pending: boolean
+    refund_required_amount: string
     operation_id?: string
     patient_attempts?: number
     reimbursement_attempts?: number
     last_error_code?: string
+  }
+  support?: {
+    owner?: string | null
+    pending_reason?: string | null
+    retry_allowed: boolean
+    last_error_code?: string
+    last_error_detail?: string
   }
   siblings: Array<{
     order_id: string
@@ -265,7 +317,9 @@ export interface TreatmentOrderAggregate {
     treatment_case_id: string
     treatment_type_id: string
     treatment_type_key?: string | null
+    treatment_type_name?: string | null
     status?: string | null
+    lifecycle_status?: string | null
   }>
 }
 

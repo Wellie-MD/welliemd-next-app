@@ -25,6 +25,7 @@ import { ProgramListTable } from "@/features/treatments/programs/components/Prog
 import { ProgramCard } from "@/features/treatments/programs/components/ProgramCard";
 import type { Program, ProgramStatus } from "@/features/treatments/types";
 import { cn } from "@/lib/utils";
+import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 
 type ProgramsFilter = "all" | "missing_follow_up";
 type ProgramsSort = "recent" | "alpha";
@@ -50,8 +51,6 @@ const statusSegmentClassName = (active: boolean) =>
       ? "bg-[#eef1ff] text-slate-950 dark:bg-[#202547] dark:text-slate-50"
       : "bg-transparent text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-[#1b2030]"
   );
-
-const clientApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
 
 export default function ProgramsPage() {
   const { brandSettings } = useBranding();
@@ -367,7 +366,7 @@ export default function ProgramsPage() {
 
       {previewProgram ? (
         <QuestionnairePreviewDialog open={Boolean(previewProgram)} onOpenChange={handlePreviewOpenChange}
-          previewContext={{ type: "program", id: previewProgram.id, slug: previewProgram.slug, visitType: previewProgram.visitType, templateId: previewProgram.sourceQuestionnaireTemplateId, apiBaseUrl: clientApiBaseUrl, clientId: brandSettings?.clientId, clientName: brandSettings?.clientName }}
+          previewContext={{ type: "program", id: previewProgram.id, slug: previewProgram.slug, visitType: previewProgram.visitType, templateId: previewProgram.sourceQuestionnaireTemplateId, apiBaseUrl: getQuestionnairePreviewApiBaseUrl(), clientId: brandSettings?.clientId, clientName: brandSettings?.clientName }}
           subtitle={`${previewProgram.name} · how patients see this ${previewProgram.stage === "follow_up" ? "follow-up" : "intake"}`}
           iframeTitle={`${previewProgram.name} questionnaire preview`} />
       ) : null}

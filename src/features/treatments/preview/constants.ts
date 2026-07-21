@@ -1,6 +1,8 @@
 export const QUESTIONNAIRE_PREVIEW_DEFAULTS = Object.freeze({
   appBaseUrl: "http://localhost:3001",
   apiBaseUrl: "http://localhost:8000/api/v1",
+  modalMaxHeightPx: 780,
+  modalWidthPx: 640,
   protocolVersion: 1,
 });
 
@@ -26,6 +28,7 @@ export const QUESTIONNAIRE_PREVIEW_MESSAGE = Object.freeze({
   close: "welliemd:preview:close",
   error: "welliemd:preview:error",
   identity: "welliemd:preview:identity",
+  identityReady: "welliemd:preview:identity-ready",
   refresh: "welliemd:preview:refresh",
 });
 

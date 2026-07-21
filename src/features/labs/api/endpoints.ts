@@ -8,4 +8,5 @@ export const clientLabEndpoints = {
   orderResultPdf: (orderId: string) => `client/labs/orders/${orderId}/result-pdf/`,
   orderRequisitionPdf: (orderId: string) => `client/labs/orders/${orderId}/requisition-pdf/`,
   orderCollectionInstructionsPdf: (orderId: string) => `client/labs/orders/${orderId}/collection-instructions-pdf/`,
+  orderRecollectionRetry: (orderId: string) => `client/labs/orders/${orderId}/recollection/retry/`,
 };
