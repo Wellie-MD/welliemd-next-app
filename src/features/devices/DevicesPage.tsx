@@ -330,14 +330,12 @@ export default function DevicesPage() {
         const response = await listWearableProviders();
         if (response.success && response.sources) {
           const mappedProviders: Provider[] = response.sources.map((s: any) => {
-            const notWebConnectable = s.oauth_supported === false;
             const logoUrl: string | undefined = s.logo_url || undefined;
 
             const existing = PROVIDERS.find(p => p.id === s.slug);
             if (existing) {
               return {
                 ...existing,
-                mobile: existing.mobile || notWebConnectable,
                 ...(logoUrl ? { logoUrl } : {}),
               };
             }
@@ -361,7 +359,6 @@ export default function DevicesPage() {
               kind,
               gives,
               ic,
-              mobile: notWebConnectable,
               ...(logoUrl ? { logoUrl } : {}),
             };
           });
