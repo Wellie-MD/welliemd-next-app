@@ -123,7 +123,7 @@ function DevicesSkeleton() {
 }
 
 export default function DevicesPage() {
-  const { patientProfile } = useProfile();
+  const { patientProfile, updatePatientProfile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* State */
@@ -509,7 +509,7 @@ export default function DevicesPage() {
   const handleSavePriority = useCallback(async (priorityList: string[]) => {
     if (!patientProfile?.id) return;
     try {
-      await profileService.updatePatientProfile({
+      await updatePatientProfile({
         phone: patientProfile.phone || '',
         date_of_birth: patientProfile.date_of_birth || '',
         address: patientProfile.address || '',
@@ -528,7 +528,7 @@ export default function DevicesPage() {
     } catch (error) {
       console.error("Failed to save priority", error);
     }
-  }, [patientProfile]);
+  }, [patientProfile, updatePatientProfile]);
 
   /* ─── Consent (from non-review / "Before you connect") ─── */
   const handleAgreeConsent = useCallback(() => {
