@@ -340,7 +340,7 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Links for {selectedAffiliate?.name || "Influencers"}</DialogTitle>
         </DialogHeader>
