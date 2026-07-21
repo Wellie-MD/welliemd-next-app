@@ -183,11 +183,11 @@ export default function OrderDetail() {
   const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
-  const { messages, loading: messagesLoading } = useClientMessages()
+  const { conversations: messages = [], messagesLoading } = useClientMessages()
   const patientUserId = order?.patient?.user_id
   const orderThreadMasterId = order?.mrn?.trim() || ""
   const hasExistingThread = Boolean(
-    orderThreadMasterId && messages.some((message) => message.master_id === orderThreadMasterId)
+    orderThreadMasterId && (messages || []).some((message) => message.master_id === orderThreadMasterId)
   )
 
   const isUuid = (s: string) =>
@@ -202,7 +202,7 @@ export default function OrderDetail() {
       })
       return
     }
-    if (messagesLoading) {
+    if (conversationsLoading) {
       toast({
         title: "Checking chat thread",
         description: "Please try again in a moment.",
@@ -791,158 +791,158 @@ export default function OrderDetail() {
 
   const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
     ? order.activity_events.map((evt) => {
-        const payload = (evt.payload && typeof evt.payload === "object") ? evt.payload as Record<string, unknown> : {}
-        const status = (evt.status || "").toLowerCase()
-        const eventType = (evt.event_type || "").toLowerCase()
-        let icon: TimelineItem["icon"] = "schedule"
-        let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
-        if (status.includes("payment") || eventType.includes("payment")) {
-          icon = "payments"
-          iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
-        } else if (eventType.startsWith("lab.") || eventType.includes("lab_")) {
-          icon = "medical_services"
-          iconBg = "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "prescribed" || status === "rx_sent" || status === "referred") {
-          icon = "prescriptions"
-          iconBg = "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-4 border-white dark:border-slate-800"
-        } else if (
-          status === "visit_pending" ||
-          status === "visit_failed" ||
-          status === "consult_scheduled" ||
-          status === "consult_rescheduled"
-        ) {
-          icon = "medical_services"
-          iconBg = "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "in_fulfillment" || eventType.includes("in_fulfillment")) {
-          icon = "local_shipping"
-          iconBg = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "shipped") {
-          icon = "local_shipping"
-          iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "delivered" || eventType.includes("delivered")) {
-          icon = "local_shipping"
-          iconBg = "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 border-4 border-white dark:border-slate-800"
-        } else if (status.includes("cancel") || status.includes("no_show")) {
-          icon = "schedule"
-          iconBg = "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800"
-        } else if (status.includes("processing") || status.includes("created")) {
-          icon = "schedule"
-          iconBg = "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-4 border-white dark:border-slate-800"
+      const payload = (evt.payload && typeof evt.payload === "object") ? evt.payload as Record<string, unknown> : {}
+      const status = (evt.status || "").toLowerCase()
+      const eventType = (evt.event_type || "").toLowerCase()
+      let icon: TimelineItem["icon"] = "schedule"
+      let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
+      if (status.includes("payment") || eventType.includes("payment")) {
+        icon = "payments"
+        iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
+      } else if (eventType.startsWith("lab.") || eventType.includes("lab_")) {
+        icon = "medical_services"
+        iconBg = "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "prescribed" || status === "rx_sent" || status === "referred") {
+        icon = "prescriptions"
+        iconBg = "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-4 border-white dark:border-slate-800"
+      } else if (
+        status === "visit_pending" ||
+        status === "visit_failed" ||
+        status === "consult_scheduled" ||
+        status === "consult_rescheduled"
+      ) {
+        icon = "medical_services"
+        iconBg = "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "in_fulfillment" || eventType.includes("in_fulfillment")) {
+        icon = "local_shipping"
+        iconBg = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "shipped") {
+        icon = "local_shipping"
+        iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "delivered" || eventType.includes("delivered")) {
+        icon = "local_shipping"
+        iconBg = "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 border-4 border-white dark:border-slate-800"
+      } else if (status.includes("cancel") || status.includes("no_show")) {
+        icon = "schedule"
+        iconBg = "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800"
+      } else if (status.includes("processing") || status.includes("created")) {
+        icon = "schedule"
+        iconBg = "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-4 border-white dark:border-slate-800"
+      }
+
+      const toUrl = (raw: unknown): string | null => {
+        if (typeof raw !== "string") return null
+        const trimmed = raw.trim()
+        if (!trimmed) return null
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:application/pdf;base64,")) return trimmed
+        return null
+      }
+      const info = payload.info && typeof payload.info === "object" ? payload.info as Record<string, unknown> : {}
+      const pick = (obj: Record<string, unknown>, ...keys: string[]): string | null => {
+        for (const key of keys) {
+          const value = obj[key]
+          if (typeof value === "string" && value.trim()) return value.trim()
         }
+        return null
+      }
 
-        const toUrl = (raw: unknown): string | null => {
-          if (typeof raw !== "string") return null
-          const trimmed = raw.trim()
-          if (!trimmed) return null
-          if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:application/pdf;base64,")) return trimmed
-          return null
+      const rawLabReqPdf = pick(payload, "labReqPdf")
+      const requisitionFromPdf = rawLabReqPdf && !rawLabReqPdf.startsWith("http") && !rawLabReqPdf.startsWith("data:")
+        ? `data:application/pdf;base64,${rawLabReqPdf}`
+        : toUrl(rawLabReqPdf)
+
+      const requisitionUrl =
+        toUrl(payload.requisition_pdf_url) ||
+        toUrl(payload.requisition_url) ||
+        toUrl(payload.requisition_link) ||
+        requisitionFromPdf
+
+      const bookingUrl =
+        toUrl(payload.booking_link) ||
+        toUrl(payload.booking_url) ||
+        toUrl(payload.result_booking_link) ||
+        toUrl(payload.result_booking_url) ||
+        toUrl(payload.bookingLink)
+
+      const trackingUrl =
+        toUrl(payload.tracking_url) ||
+        toUrl(payload.tracking_link) ||
+        toUrl(payload.tracking_link_url) ||
+        toUrl(payload.trackingUrl) ||
+        (
+          payload.info && typeof payload.info === "object"
+            ? toUrl((payload.info as Record<string, unknown>).trackingUrl) ||
+            toUrl((payload.info as Record<string, unknown>).tracking_url)
+            : null
+        )
+      const trackingNumber =
+        pick(payload, "trackingNumber", "tracking") ||
+        pick(info, "tracking")
+      const carrier =
+        pick(payload, "carrier") ||
+        pick(info, "carrier")
+
+      const actions: Array<{ label: string; url: string }> = []
+      if (requisitionUrl) actions.push({ label: "Requisition", url: requisitionUrl })
+      if (bookingUrl) actions.push({ label: "Book", url: bookingUrl })
+      if (trackingUrl) actions.push({ label: "Track", url: trackingUrl })
+      else if (trackingNumber) {
+        const carrierLower = (carrier || "").toLowerCase()
+        const fallbackTrackingUrl = carrierLower.includes("fedex")
+          ? `https://www.fedex.com/en-us/tracking.html?tracknumbers=${encodeURIComponent(trackingNumber)}`
+          : carrierLower.includes("ups")
+            ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`
+            : `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`
+        actions.push({ label: carrier ? `Track ${carrier}` : "Track", url: fallbackTrackingUrl })
+      }
+      const resultPdfUrl = toUrl(payload.resultPdfUrl) || toUrl(payload.result_pdf_url)
+      if (resultPdfUrl) actions.push({ label: "Report", url: resultPdfUrl })
+
+      const labDescription = (() => {
+        if (!(eventType.startsWith("lab.") || eventType.includes("lab_"))) return undefined
+        if (eventType.includes("results")) {
+          return pick(payload, "resultSummary", "testResult") || evt.description || "Lab results are available."
         }
-        const info = payload.info && typeof payload.info === "object" ? payload.info as Record<string, unknown> : {}
-        const pick = (obj: Record<string, unknown>, ...keys: string[]): string | null => {
-          for (const key of keys) {
-            const value = obj[key]
-            if (typeof value === "string" && value.trim()) return value.trim()
-          }
-          return null
+        if (eventType.includes("shipped_to_patient") || eventType.includes("shipped-to-patient") || eventType.includes("shipped_to_lab") || eventType.includes("shipped-to-lab")) {
+          const tracking = trackingNumber
+          if (carrier && tracking) return `Carrier: ${carrier} • Tracking: ${tracking}`
+          if (carrier) return `Carrier: ${carrier}`
+          if (tracking) return `Tracking: ${tracking}`
+          return "Shipment update received from lab."
         }
-
-        const rawLabReqPdf = pick(payload, "labReqPdf")
-        const requisitionFromPdf = rawLabReqPdf && !rawLabReqPdf.startsWith("http") && !rawLabReqPdf.startsWith("data:")
-          ? `data:application/pdf;base64,${rawLabReqPdf}`
-          : toUrl(rawLabReqPdf)
-
-        const requisitionUrl =
-          toUrl(payload.requisition_pdf_url) ||
-          toUrl(payload.requisition_url) ||
-          toUrl(payload.requisition_link) ||
-          requisitionFromPdf
-
-        const bookingUrl =
-          toUrl(payload.booking_link) ||
-          toUrl(payload.booking_url) ||
-          toUrl(payload.result_booking_link) ||
-          toUrl(payload.result_booking_url) ||
-          toUrl(payload.bookingLink)
-
-        const trackingUrl =
-          toUrl(payload.tracking_url) ||
-          toUrl(payload.tracking_link) ||
-          toUrl(payload.tracking_link_url) ||
-          toUrl(payload.trackingUrl) ||
-          (
-            payload.info && typeof payload.info === "object"
-              ? toUrl((payload.info as Record<string, unknown>).trackingUrl) ||
-                toUrl((payload.info as Record<string, unknown>).tracking_url)
-              : null
-          )
-        const trackingNumber =
-          pick(payload, "trackingNumber", "tracking") ||
-          pick(info, "tracking")
-        const carrier =
-          pick(payload, "carrier") ||
-          pick(info, "carrier")
-
-        const actions: Array<{ label: string; url: string }> = []
-        if (requisitionUrl) actions.push({ label: "Requisition", url: requisitionUrl })
-        if (bookingUrl) actions.push({ label: "Book", url: bookingUrl })
-        if (trackingUrl) actions.push({ label: "Track", url: trackingUrl })
-        else if (trackingNumber) {
-          const carrierLower = (carrier || "").toLowerCase()
-          const fallbackTrackingUrl = carrierLower.includes("fedex")
-            ? `https://www.fedex.com/en-us/tracking.html?tracknumbers=${encodeURIComponent(trackingNumber)}`
-            : carrierLower.includes("ups")
-              ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`
-              : `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`
-          actions.push({ label: carrier ? `Track ${carrier}` : "Track", url: fallbackTrackingUrl })
+        if (eventType.includes("delivered_to_patient") || eventType.includes("delivered-to-patient")) {
+          const proof = pick(payload, "deliveryProof")
+          return proof ? `Delivery proof: ${proof.replaceAll("_", " ")}` : "Lab kit delivered to patient."
         }
-        const resultPdfUrl = toUrl(payload.resultPdfUrl) || toUrl(payload.result_pdf_url)
-        if (resultPdfUrl) actions.push({ label: "Report", url: resultPdfUrl })
-
-        const labDescription = (() => {
-          if (!(eventType.startsWith("lab.") || eventType.includes("lab_"))) return undefined
-          if (eventType.includes("results")) {
-            return pick(payload, "resultSummary", "testResult") || evt.description || "Lab results are available."
-          }
-          if (eventType.includes("shipped_to_patient") || eventType.includes("shipped-to-patient") || eventType.includes("shipped_to_lab") || eventType.includes("shipped-to-lab")) {
-            const tracking = trackingNumber
-            if (carrier && tracking) return `Carrier: ${carrier} • Tracking: ${tracking}`
-            if (carrier) return `Carrier: ${carrier}`
-            if (tracking) return `Tracking: ${tracking}`
-            return "Shipment update received from lab."
-          }
-          if (eventType.includes("delivered_to_patient") || eventType.includes("delivered-to-patient")) {
-            const proof = pick(payload, "deliveryProof")
-            return proof ? `Delivery proof: ${proof.replaceAll("_", " ")}` : "Lab kit delivered to patient."
-          }
-          if (eventType.includes("received_by_lab") || eventType.includes("received-by-lab")) {
-            const specimen = payload.specimen && typeof payload.specimen === "object" ? payload.specimen as Record<string, unknown> : null
-            const accession = specimen?.accessionNumber
-            if (typeof accession === "string" && accession.trim()) return `Accession: ${accession.trim()}`
-            return "Lab has received the specimen and started processing."
-          }
-          if (eventType.includes("requisition_created") || eventType.includes("requisition-created")) {
-            return rawLabReqPdf ? "Requisition generated and ready to download." : "Requisition event received."
-          }
-          if (eventType.includes("order_created") || eventType.includes("order-created")) {
-            const method = pick(payload, "labMethod")
-            const panel = pick(payload, "panel")
-            if (method && panel) return `Method: ${method} • Panel: ${panel}`
-            if (method) return `Method: ${method}`
-            if (panel) return `Panel: ${panel}`
-            return "Lab order created."
-          }
-          return evt.description || "Lab update received."
-        })()
-
-        return {
-          title: evt.title || evt.event_type.replace(/\./g, " "),
-          date: formatDateTime(evt.occurred_at),
-          description: labDescription || evt.description || undefined,
-          icon,
-          iconBg,
-          actions,
+        if (eventType.includes("received_by_lab") || eventType.includes("received-by-lab")) {
+          const specimen = payload.specimen && typeof payload.specimen === "object" ? payload.specimen as Record<string, unknown> : null
+          const accession = specimen?.accessionNumber
+          if (typeof accession === "string" && accession.trim()) return `Accession: ${accession.trim()}`
+          return "Lab has received the specimen and started processing."
         }
-      })
+        if (eventType.includes("requisition_created") || eventType.includes("requisition-created")) {
+          return rawLabReqPdf ? "Requisition generated and ready to download." : "Requisition event received."
+        }
+        if (eventType.includes("order_created") || eventType.includes("order-created")) {
+          const method = pick(payload, "labMethod")
+          const panel = pick(payload, "panel")
+          if (method && panel) return `Method: ${method} • Panel: ${panel}`
+          if (method) return `Method: ${method}`
+          if (panel) return `Panel: ${panel}`
+          return "Lab order created."
+        }
+        return evt.description || "Lab update received."
+      })()
+
+      return {
+        title: evt.title || evt.event_type.replace(/\./g, " "),
+        date: formatDateTime(evt.occurred_at),
+        description: labDescription || evt.description || undefined,
+        icon,
+        iconBg,
+        actions,
+      }
+    })
     : []
   const renderedTimelineItems = eventTimelineItems.length > 0 ? eventTimelineItems : timelineItems
 
