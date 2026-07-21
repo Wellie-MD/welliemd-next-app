@@ -7,7 +7,7 @@ Source of truth: client admin prototype and supplied Program detail/editor scree
 - This tracker covers Program detail/question authoring only.
 - Custom Program builder and questionnaire runtime remain separate surfaces.
 - List, advanced Program graph, editor, preview, and runtime consume one Program configuration.
-- Editor **Test Patient Flow**, **Program Preview**, and **Custom Program Preview** are distinct product surfaces. Never replace or route one through another: Test Patient Flow remains the authoring simulator, while Program and Custom Program previews keep their own immutable preview boundaries.
+- Editor **Test Patient Flow** is a separate authoring simulator. **Program Preview** and **Custom Program Preview** share the same questionnaire preview modal and immutable preview boundary, using their respective source context.
 - Existing legacy files may receive targeted edits; new files remain below 600 lines.
 
 ## Ordered implementation checklist
@@ -27,6 +27,6 @@ Source of truth: client admin prototype and supplied Program detail/editor scree
 - [x] Match Patient Authentication Step 1 explanation and route cards.
 - [x] Match editor sidebar semantic colors and full-flow ordering.
 - [x] Match the dark live patient preview pane and element-specific preview rendering.
-- [x] Keep editor Test Patient Flow, Program Preview, and Custom Program Preview separate and wired to their correct boundaries.
+- [x] Keep editor Test Patient Flow separate; route Program Preview and Custom Program Preview through the shared questionnaire preview boundary.
 - [x] Verify production build and inspect final diff against all supplied references.
 - [x] Commit and push the completed pass to `feat/staging-v2-admin-portal`.

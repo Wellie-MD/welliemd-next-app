@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Program, ProgramQuestion } from "@/features/treatments/types";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
 import { useConsents } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
-import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { ProgramLabsSection } from "./ProgramLabsSection";
 import {
   PROGRAM_AUTHORING_COPY,
@@ -131,7 +131,7 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
       />
       {viewMode === "list" && <ProgramLabsSection program={program} />}
 
-      <PatientFlowTestModal
+      <QuestionnairePreviewDialog
         open={isSimulateOpen}
         onOpenChange={setIsSimulateOpen}
         previewContext={{
@@ -141,6 +141,7 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
           visitType: program.visitType,
           templateId: program.sourceQuestionnaireTemplateId,
         }}
+        subtitle={`Patient view of "${program.name}"`}
       />
     </>
   );
