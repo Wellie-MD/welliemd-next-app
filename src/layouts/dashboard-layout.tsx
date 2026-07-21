@@ -121,6 +121,7 @@ const DashboardLayout: FC = () => {
               >
                 <Outlet />
               </div>
+            </div>
             </main>
           </div>
         </div>
