@@ -1,549 +1,357 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshCw, TrendingDown, TrendingUp, Minus, Users, Package, Eye, Clock3, UserRound } from "lucide-react";
+import { differenceInCalendarDays, format, startOfMonth, startOfYear, subDays, subMonths, endOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Eye, DollarSign, MoreHorizontal, ChevronLeft, ChevronRight, CalendarIcon, RefreshCw } from "lucide-react";
-import mockData from "@/data/mockData.json";
-import { MetricCard } from "@/components/dashboard/MetricCard";
-import { SalesChart } from "@/components/dashboard/SalesChart";
-import { RevenueChart } from "@/components/dashboard/RevenueChart";
-import { NewPatientChart } from "@/components/dashboard/NewPatientChart";
-import { DataTable } from "@/components/dashboard/DataTable";
-import { PaymentTable } from "@/components/dashboard/PaymentTable";
-import { DashboardData } from "@/types/dashboard";
-import { useNavigate } from "react-router-dom";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { fetchClientPaymentHistory } from "@/api/paymentTransactionsApi";
-import {
-  format,
-  subDays,
-  startOfYear,
-  endOfYear,
-  isSameDay,
-  subMonths,
-  startOfDay,
-  endOfDay,
-  parseISO,
-  isWithinInterval,
-} from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-
+import { fetchDashboardCharts, fetchDashboardMetrics } from "@/api/dashboardApi";
 import { fetchOrders } from "@/api/ordersApi";
-import { fetchDashboardCharts } from "@/api/dashboardApi";
-import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
+import { fetchClientPaymentHistory } from "@/api/paymentTransactionsApi";
+import { DashboardChartPoint, DashboardMetrics, PatientSummary } from "@/types/dashboard";
 
-interface DateRange {
-  from: Date;
-  to: Date;
-}
+interface DateRange { from: Date; to: Date }
+interface Row { [key: string]: string | number | null | undefined }
+interface ChartWindow { period?: { start: string; end: string }; comparison?: { start: string; end: string } }
 
-interface DashboardPaymentRow {
-  rawDate: string;
-  date: string;
-  patientId: string;
-  patientName: string;
-  orderNumber: string;
-  totalAmount: string;
-  discount: string;
-  amountPaid: string;
-}
-
-interface DashboardOrderRow {
-  date: string;
-  deliveryDate?: string | null;
-  orderNumber: string;
-  name?: string | null;
-  product?: string | null;
-  pharmacy?: string | null;
-  amount?: string | null;
-}
-
-const PRESET_RANGES = [
-  { label: "7 D", getValue: () => ({ from: subDays(new Date(), 6), to: new Date() }) },
-  { label: "30 D", getValue: () => ({ from: subDays(new Date(), 29), to: new Date() }) },
-  { label: "90 D", getValue: () => ({ from: subDays(new Date(), 89), to: new Date() }) },
-  { label: "YTD", getValue: () => ({ from: startOfYear(new Date()), to: new Date() }) },
-  {
-    label: "Last Year",
-    getValue: () => ({
-      from: startOfYear(subMonths(new Date(), 12)),
-      to: endOfYear(subMonths(new Date(), 12)),
-    }),
-  },
+const ranges = [
+  { label: "7 Days", value: "7d", get: () => ({ from: subDays(new Date(), 6), to: new Date() }) },
+  { label: "30 Days", value: "30d", get: () => ({ from: subDays(new Date(), 29), to: new Date() }) },
+  { label: "This Month", value: "tm", get: () => ({ from: startOfMonth(new Date()), to: new Date() }) },
+  { label: "Last Month", value: "lm", get: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
+  { label: "This Year", value: "ytd", get: () => ({ from: startOfYear(new Date()), to: new Date() }) },
 ];
 
-const extractChartPointDate = (point: { month?: string; day?: string }) => {
-  if (point.day) {
-    const parsedDay = parseISO(point.day);
-    return Number.isNaN(parsedDay.getTime()) ? null : parsedDay;
+const money = (value: number | null | undefined) => value == null ? "—" : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const count = (value: number | null | undefined) => value == null ? "—" : value.toLocaleString();
+const pct = (value: number | null | undefined) => value == null ? "—" : `${value.toFixed(1)}%`;
+const dateKey = (date: Date) => format(date, "yyyy-MM-dd");
+const parseDateValue = (value: string | Date) => {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? new Date(`${trimmed}T00:00:00`) : new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+const displayDate = (value: string | Date) => {
+  const parsed = parseDateValue(value);
+  return parsed ? format(parsed, "MMM d, yyyy") : String(value || "—");
+};
+const periodText = (start: string | Date, end: string | Date, separator = "–") => `${displayDate(start)} ${separator} ${displayDate(end)}`;
+const comparisonForRange = (range: DateRange) => {
+  const days = Math.max(differenceInCalendarDays(range.to, range.from) + 1, 1);
+  const end = subDays(range.from, 1);
+  return { from: subDays(end, days - 1), to: end };
+};
+const comparisonForPreset = (range: DateRange, preset: string): DateRange => {
+  if (preset === "tm") {
+    const previousMonth = subMonths(range.from, 1);
+    return { from: startOfMonth(previousMonth), to: subMonths(range.to, 1) };
   }
-  if (point.month) {
-    const parsedMonth = parseISO(`${point.month}-01`);
-    return Number.isNaN(parsedMonth.getTime()) ? null : parsedMonth;
+  if (preset === "lm") {
+    const previousMonth = subMonths(range.from, 1);
+    return { from: startOfMonth(previousMonth), to: endOfMonth(previousMonth) };
   }
-  return null;
+  return comparisonForRange(range);
+};
+const ratioPct = (value: number | null | undefined, total: number | null | undefined) => !total ? null : Math.round(((value || 0) / total) * 1000) / 10;
+const deltaText = (current: number | null | undefined, previous: number | null | undefined) => {
+  const cur = current || 0, prev = previous || 0;
+  if (!cur && !prev) return "no activity in prior period";
+  if (!prev) return "no prior-period baseline";
+  const change = Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10;
+  return `${change >= 0 ? "▲ +" : "▼ "}${change}% vs prior period`;
+};
+const deltaTone = (current: number | null | undefined, previous: number | null | undefined, invert = false): "good" | "bad" | "neutral" => {
+  const cur = current || 0, prev = previous || 0;
+  if (!prev) return "neutral";
+  const change = ((cur - prev) / Math.abs(prev)) * 100;
+  return invert ? change <= 0 ? "good" : "bad" : change >= 0 ? "good" : "bad";
 };
 
-export default function Dashboard() {
-  const navigate = useNavigate();
-  const [dateRange, setDateRange] = useState<DateRange>(PRESET_RANGES[1].getValue());
-
-  const { dashboard } = mockData as { dashboard: DashboardData };
-
-  const [paymentData, setPaymentData] = useState<DashboardPaymentRow[]>([]);
-  const [loadingPayments, setLoadingPayments] = useState(true);
-  const [ordersData, setOrdersData] = useState<DashboardOrderRow[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
-  const [chartData, setChartData] = useState<DashboardData["salesChartData"]>([]);
-  const [loadingCharts, setLoadingCharts] = useState(true);
-
-  const metricsScrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-
-  const updateScrollButtons = useCallback(() => {
-    const el = metricsScrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 0);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }, []);
-
-  // Re-check arrow visibility on container resize (e.g. window resize)
-  useEffect(() => {
-    const el = metricsScrollRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(updateScrollButtons);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [updateScrollButtons]);
-
-  const scrollMetrics = useCallback((direction: "left" | "right") => {
-    const el = metricsScrollRef.current;
-    if (!el) return;
-    const scrollAmount = 320;
-    el.scrollBy({ left: direction === "right" ? scrollAmount : -scrollAmount, behavior: "smooth" });
-  }, []);
-
-  const { kpiData, patientSummary, metrics, loading: loadingMetrics, refetch: refetchMetrics } = useDashboardMetrics({
-    fallbackKpis: dashboard.kpis,
-    filters: {
-      start_date: format(dateRange.from, "yyyy-MM-dd"),
-      end_date: format(dateRange.to, "yyyy-MM-dd"),
-    },
-  });
-
-  const activeRangeLabel = useMemo(() => {
-    const match = PRESET_RANGES.find((preset) => {
-      const range = preset.getValue();
-      return isSameDay(range.from, dateRange.from) && isSameDay(range.to, dateRange.to);
-    });
-    return match?.label || null;
-  }, [dateRange]);
-
-  const chartWindowLabel = `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`;
-  const comparisonLabel = metrics?.period ? "vs previous period" : undefined;
-
-  // Re-evaluate scroll arrows whenever kpiData changes
-  useEffect(() => {
-    // slight delay to let the DOM paint the new cards
-    const id = setTimeout(updateScrollButtons, 50);
-    return () => clearTimeout(id);
-  }, [kpiData, updateScrollButtons]);
-
-  // Log metrics for validation
-  useEffect(() => {
-    if (metrics) {
-      console.log('=== Dashboard Metrics Validation ===');
-      console.log('Total Patients:', metrics.total_patients);
-      console.log('Total Revenue:', metrics.total_revenue);
-      console.log('Total Profit:', metrics.total_profit);
-      console.log('Total Expenses:', metrics.total_expenses);
-      console.log('Total Sales:', metrics.total_sales);
-      console.log('Total Orders:', metrics.total_orders);
-      console.log('Growth Percentage:', metrics.growth_percentage);
-      console.log('Live Summary:', metrics.live_summary);
-      console.log('===================================');
-    }
-  }, [metrics]);
-
-  useEffect(() => {
-    const loadPaymentHistory = async () => {
-      try {
-        const response = await fetchClientPaymentHistory();
-
-        // Transform API data to match table format and limit to 8 records
-        const transformedData = response.results.slice(0, 8).map((item) => ({
-          rawDate: item.date,
-          date: new Date(item.date).toLocaleDateString(),
-          patientId: item.patient_id,
-          patientName: item.patient_name,
-          orderNumber: item.order_number,
-          totalAmount: `$${item.total_amount}`,
-          discount: `$${item.discount}`,
-          amountPaid: `$${item.amount_paid}`,
-        }));
-        console.log('Payment Data (max 8 records):', transformedData);
-        setPaymentData(transformedData);
-      } catch (error) {
-        console.error("Failed to load payment history:", error);
-        // Fallback to mock data if API fails
-        setPaymentData(dashboard.payments);
-      } finally {
-        setLoadingPayments(false);
-      }
-    };
-    const loadOrderHistory = async () => {
-      try {
-        const response = await fetchOrders({
-          date_from: format(dateRange.from, "yyyy-MM-dd"),
-          date_to: format(dateRange.to, "yyyy-MM-dd"),
-        });
-
-        // Transform API data to match table format and limit to 8 records
-        const transformedData = response.results.slice(0, 8).map((item) => ({
-          date: new Date(item.orderDate).toLocaleDateString(),
-          deliveryDate: item.datePrescribed,
-          orderNumber: item.order_id ?? item.display_id,
-          name: item.name,
-          product: item.product_name,
-          pharmacy: item.pharmacy_display,
-          amount: item.amount,
-        }));
-        console.log('Orders Data (max 8 records):', transformedData);
-        setOrdersData(transformedData);
-      } catch (error) {
-        console.error("Failed to load payment history:", error);
-        // Fallback to mock data if API fails
-        setOrdersData(dashboard.orderHistory);
-      } finally {
-        setLoadingOrders(false);
-      }
-    };
-
-    const loadChartData = async () => {
-      try {
-        const response = await fetchDashboardCharts(undefined, {
-          start_date: format(dateRange.from, "yyyy-MM-dd"),
-          end_date: format(dateRange.to, "yyyy-MM-dd"),
-        });
-        setChartData(response);
-      } catch (error) {
-        console.error("Failed to load chart data:", error);
-        // Create fallback data from mock data structure
-        const fallbackData = dashboard.salesChartData.map((item, index) => ({
-          month: item.month,
-          total_sales: item['2025'] || 0,
-          net_revenue: dashboard.revenueChartData[index]?.['2022'] || 0,
-          new_patients: dashboard.newPatientChartData[index]?.lastWeek || 0
-        }));
-        setChartData(fallbackData);
-      } finally {
-        setLoadingCharts(false);
-      }
-    };
-
-    loadPaymentHistory();
-    loadOrderHistory();
-    loadChartData();
-  }, [
-    dashboard.payments,
-    dashboard.orderHistory,
-    dashboard.salesChartData,
-    dashboard.revenueChartData,
-    dashboard.newPatientChartData,
-    dateRange.from,
-    dateRange.to,
-  ]);
-
-
-  const handleViewMore = (section: string) => {
-    console.log(`View more clicked for ${section}`);
-    // Here you would typically navigate to the detailed view
-  };
-
-  const handleKPIClick = (kpi: {
-    title: string;
-    value: string;
-    change: string;
-    trend: string;
-  }) => {
-    console.log(`KPI clicked: ${kpi.title}`);
-    // Here you would typically show a detailed modal or navigate to details
-  };
-
-  const handleMessageClick = (messageId: string) => {
-    console.log(`Message clicked: ${messageId}`);
-    // Here you would typically open the message in a modal or navigate to message details
-  };
-
-  const handleOrderClick = (orderId: string) => {
-    console.log(`Order clicked: ${orderId}`);
-    // Here you would typically navigate to order details
-  };
-
-  const filteredChartData = useMemo(
-    () =>
-      (chartData || []).filter((point) => {
-        const pointDate = extractChartPointDate(point);
-        if (!pointDate) return false;
-        return isWithinInterval(pointDate, {
-          start: startOfDay(dateRange.from),
-          end: endOfDay(dateRange.to),
-        });
-      }),
-    [chartData, dateRange.from, dateRange.to],
-  );
-
-  const filteredPaymentData = useMemo(
-    () =>
-      (paymentData || []).filter((item) => {
-        const rawDate = item.rawDate || item.date;
-        if (!rawDate) return false;
-        const parsedDate = new Date(rawDate);
-        return isWithinInterval(parsedDate, {
-          start: new Date(`${format(dateRange.from, "yyyy-MM-dd")}T00:00:00`),
-          end: new Date(`${format(dateRange.to, "yyyy-MM-dd")}T23:59:59.999`),
-        });
-      }),
-    [paymentData, dateRange.from, dateRange.to],
-  );
-
-  const filteredOrderData = useMemo(
-    () =>
-      (ordersData || []).filter((item) => {
-        if (!item.date) return false;
-        const parsedDate = new Date(item.date);
-        return isWithinInterval(parsedDate, {
-          start: new Date(`${format(dateRange.from, "yyyy-MM-dd")}T00:00:00`),
-          end: new Date(`${format(dateRange.to, "yyyy-MM-dd")}T23:59:59.999`),
-        });
-      }),
-    [ordersData, dateRange.from, dateRange.to],
-  );
-
-  const orderHistoryColumns = [
-    { key: "date", label: "Date" },
-    { key: "orderNumber", label: "Order#" },
-    { key: "name", label: "Name" },
-    { key: "product", label: "Product" },
-    { key: "pharmacy", label: "Pharmacy" },
-    { key: "amount", label: "Amount" },
-  ];
-
-  const paymentColumns = [
-    { key: "date", label: "Date" },
-    { key: "patientName", label: "Patient Name" },
-    { key: "orderNumber", label: "Order#" },
-    { key: "totalAmount", label: "Total Amount" },
-    { key: "discount", label: "Discount" },
-    { key: "amountPaid", label: "Amount Paid" },
-  ];
-
-  return (
-    <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between min-w-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {dateRange.from && dateRange.to
-              ? `${format(dateRange.from, "MMM d, yyyy")} — ${format(dateRange.to, "MMM d, yyyy")}`
-              : "Select range"}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 hidden sm:flex">
-            {PRESET_RANGES.map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => setDateRange(preset.getValue())}
-                className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                  activeRangeLabel === preset.label
-                    ? "bg-white text-gray-800 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                <CalendarIcon className="h-3.5 w-3.5" />
-                Custom
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange.from}
-                selected={{ from: dateRange.from, to: dateRange.to }}
-                onSelect={(range: { from?: Date; to?: Date } | undefined) =>
-                  range?.from && setDateRange({ from: range.from, to: range.to || range.from })
-                }
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 gap-1.5 text-xs"
-            onClick={refetchMetrics}
-            disabled={loadingMetrics || loadingCharts}
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", (loadingMetrics || loadingCharts) && "animate-spin")} />
-          </Button>
-        </div>
-      </div>
-
-      {/* KPI Cards - Horizontally Scrollable */}
-      <div className="relative">
-        {/* Left arrow */}
-        {canScrollLeft && (
-          <button
-            onClick={() => scrollMetrics("left")}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-900 shadow-md border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 dark:hover:bg-slate-800 transition-all duration-200 -ml-3"
-            aria-label="Scroll metrics left"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        )}
-
-        <div
-          ref={metricsScrollRef}
-          onScroll={updateScrollButtons}
-          className="overflow-x-auto -mx-4 px-4 scrollbar-hide"
-        >
-          <div className="flex gap-4 min-w-max">
-            {kpiData.map((kpi, index) => (
-              <div
-                key={index}
-                // onClick={() => handleKPIClick(kpi)}
-                className="cursor-pointer"
-              >
-                <MetricCard metric={kpi} comparisonLabel={comparisonLabel} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right arrow */}
-        {canScrollRight && (
-          <button
-            onClick={() => scrollMetrics("right")}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-900 shadow-md border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 dark:hover:bg-slate-800 transition-all duration-200 -mr-3"
-            aria-label="Scroll metrics right"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
-        {/* Total Sales Chart */}
-        <div className="w-full min-w-0">
-          <SalesChart data={loadingCharts ? [] : filteredChartData} subtitle={chartWindowLabel} />
-        </div>
-
-        {/* Live Summary */}
-        <div className="w-full min-w-0 h-full">
-          <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 dark:to-slate-900/40 shadow-sm h-full flex flex-col">
-            <CardHeader className="p-4">
-              <div className="flex items-center justify-between pt-1">
-                <CardTitle className="text-gray-800 dark:text-slate-100">Patient Summary</CardTitle>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground invisible">
-                  <span className="h-2 w-2 rounded-full bg-[#8979FF]" />
-                  <span>Patient</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 pt-0 flex-1 flex">
-              <div className="w-full flex flex-col gap-6 justify-center">
-                <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-                      <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of Active Patients</p>
-                      <p className="text-xs text-muted-foreground">Patients that are prescribed</p>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.active_patients}</div>
-                </div>
-
-                <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                      <Eye className="h-5 w-5 text-slate-500 dark:text-slate-300" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of Inactive Patients</p>
-                      <p className="text-xs text-muted-foreground">Patients who have missed their follow up by 20 days and more</p>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.inactive_patients}</div>
-                </div>
-
-                <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-rose-500 dark:text-rose-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of drop-off Patients</p>
-                      <p className="text-xs text-muted-foreground">Patients who completed the questionnaire but didn't complete checkout</p>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.dropoff_patients}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
-        {/* Net Revenue Chart */}
-        <div className="w-full min-w-0">
-          <RevenueChart data={loadingCharts ? [] : filteredChartData} subtitle={chartWindowLabel} />
-        </div>
-
-        {/* Messages and New Patient */}
-        <div className="w-full min-w-0">
-
-          {/* New Patient Chart */}
-          <NewPatientChart data={loadingCharts ? [] : filteredChartData} subtitle={chartWindowLabel} />
-        </div>
-      </div>
-
-      {/* Bottom Tables */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
-        <div className="w-full min-w-0">
-          <DataTable 
-            title="Order History" 
-            data={loadingOrders ? [] : (filteredOrderData || dashboard.orderHistory)} 
-            columns={orderHistoryColumns} 
-          />
-        </div>
-        <div className="w-full min-w-0">
-          <PaymentTable 
-            title="Payment (KPI Window)" 
-            data={loadingPayments ? [] : (filteredPaymentData || dashboard.payments)} 
-            columns={paymentColumns} 
-          />
-        </div>
-      </div>
+function MetricCard({ title, value, change, trend = "neutral", support, supportTone = "neutral" }: { title: string; value: string; change?: string; trend?: "up" | "down" | "neutral"; support?: string; supportTone?: "good" | "bad" | "warn" | "neutral" }) {
+  const Icon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
+  const footerTone = supportTone === "good" ? "text-emerald-600 dark:text-emerald-400" : supportTone === "bad" ? "text-red-600 dark:text-red-400" : supportTone === "warn" ? "text-amber-600 dark:text-amber-400" : "text-slate-400";
+  return <div className="rounded-[11px] border border-slate-200 bg-white px-4 py-3.5 shadow-none dark:border-slate-700 dark:bg-slate-900">
+    <div className="text-[11px] font-medium text-slate-400">{title}</div>
+    <div className="mt-1.5 text-[23px] font-bold tracking-tight text-slate-900 dark:text-slate-100">{value}</div>
+    <div className={cn("mt-1 flex min-h-4 items-center gap-1 text-[11px]", support ? footerTone : trend === "up" && "text-emerald-600 dark:text-emerald-400", !support && trend === "down" && "text-red-600 dark:text-red-400", !support && trend === "neutral" && "text-slate-400")}>
+      {support ? support : change && <><Icon className="h-3 w-3" />{change}<span className="text-slate-400">vs prior period</span></>}
     </div>
-  );
+  </div>;
+}
+
+function PatientSummaryCard({ summary }: { summary: PatientSummary | undefined }) {
+  const rows = [
+    ["Total Patients", "All patients across every status", summary?.total_patients, Users, "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300"],
+    ["Active", "Active in one or more treatments", summary?.active_patients, Package, "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"],
+    ["In Review", "Awaiting provider decision", summary?.in_review_patients, Eye, "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"],
+    ["Lapsed", "Previously active, none current", summary?.lapsed_patients, Clock3, "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"],
+    ["Registered", "Never had an active treatment", summary?.registered_patients, UserRound, "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"],
+  ] as const;
+  return <section className="rounded-[11px] border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
+    <h2 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">Patient Summary</h2>
+    <div className="mt-2">
+      {rows.map(([label, sub, value, Icon, iconClass], index) => <div key={label} className={cn("flex items-center gap-3 py-3.5", index > 0 && "border-t border-slate-100 dark:border-slate-800")}>
+        <div className={cn("flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px]", iconClass)}><Icon className="h-[17px] w-[17px]" /></div>
+        <div className="min-w-0 flex-1 text-[12.5px]"><b className="block text-[13px] text-slate-900 dark:text-slate-100">{label}</b><span className="text-[11.5px] text-slate-400">{sub}</span></div>
+        <div className="text-[22px] font-bold text-slate-900 dark:text-slate-100">{count(value)}</div>
+      </div>)}
+    </div>
+  </section>;
+}
+
+function LineChart({ title, dataKey, color, data, previous, currency, rangeLabel }: { title: string; dataKey: "total_sales" | "net_revenue" | "new_patients"; color: string; data: DashboardChartPoint[]; previous: DashboardChartPoint[]; currency?: boolean; rangeLabel: string }) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const width = 900, height = 250, left = 42, right = 110, top = 24, bottom = 38;
+  const values = data.map((item) => Number(item[dataKey]) || 0);
+  const previousValues = previous.map((item) => Number(item[dataKey]) || 0);
+  const hasPrevious = previousValues.length > 1;
+  const max = Math.max(values[values.length - 1] || 0, hasPrevious ? previousValues[previousValues.length - 1] : 0, 1);
+  const point = (value: number, index: number, total: number) => [left + (index / Math.max(total - 1, 1)) * (width - left - right), height - bottom - (value / max) * (height - top - bottom)];
+  const smoothPath = (valuesToDraw: number[]) => {
+    const points = valuesToDraw.map((value, index) => point(value, index, valuesToDraw.length));
+    if (points.length < 3) return points.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+    let d = `M${points[0][0].toFixed(1)} ${points[0][1].toFixed(1)}`;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const p0 = points[Math.max(0, index - 1)], p1 = points[index], p2 = points[index + 1], p3 = points[Math.min(points.length - 1, index + 2)];
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+      let c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+      const c2y = Math.max(p2[1] - (p3[1] - p1[1]) / 6, Math.min(p1[1], p2[1]));
+      c1y = Math.max(c1y, Math.min(p1[1], p2[1]));
+      d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return d;
+  };
+  const currentPath = smoothPath(values);
+  const latest = values[values.length - 1] || 0;
+  const [latestX, latestY] = point(latest, Math.max(values.length - 1, 0), Math.max(values.length, 1));
+  const previousLatest = previousValues[previousValues.length - 1] || 0;
+  const [previousX, previousY] = point(previousLatest, Math.max(previousValues.length - 1, 0), Math.max(previousValues.length, 1));
+  const formatValue = (value: number) => currency ? money(value) : value.toLocaleString();
+  const formatAxisDate = (day?: string) => day ? displayDate(day).replace(/, \d{4}$/, "") : "";
+  const incrementValues = values.map((value, index) => Math.max(0, value - (values[index - 1] || 0)));
+  const bucket = (() => {
+    const start = data[0]?.day ? parseDateValue(data[0].day) : null;
+    const end = data[data.length - 1]?.day ? parseDateValue(data[data.length - 1].day) : null;
+    if (!start || !end || !data.length) return null;
+    const days = differenceInCalendarDays(end, start);
+    const edges: Date[] = [], labels: string[] = [];
+    if (days <= 16) {
+      data.forEach((item) => { const parsed = parseDateValue(item.day); if (parsed) { edges.push(parsed); labels.push(formatAxisDate(item.day)); } });
+    } else if (days <= 112) {
+      const cursor = new Date(start);
+      cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7));
+      while (cursor <= end) {
+        const edge = new Date(cursor);
+        edges.push(edge);
+        labels.push(`wk ${formatAxisDate(edge >= start ? edge : start)}`);
+        cursor.setDate(cursor.getDate() + 7);
+      }
+    } else {
+      const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+      while (cursor <= end) {
+        const edge = new Date(cursor);
+        edges.push(edge);
+        labels.push(format(edge, "MMM"));
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    }
+    const vals = edges.map(() => 0);
+    data.forEach((item, index) => {
+      const parsed = parseDateValue(item.day);
+      if (!parsed) return;
+      let bucketIndex = 0;
+      for (let edgeIndex = edges.length - 1; edgeIndex >= 0; edgeIndex -= 1) {
+        if (parsed >= edges[edgeIndex]) { bucketIndex = edgeIndex; break; }
+      }
+      vals[bucketIndex] += incrementValues[index] || 0;
+    });
+    const peak = vals.reduce((best, value, index) => value > best.value ? { value, index } : best, { value: 0, index: 0 });
+    return peak.value > 0 ? { unit: days <= 16 ? "day" : days <= 112 ? "week" : "month", label: labels[peak.index], value: peak.value } : null;
+  })();
+  const hover = hoverIndex == null ? null : {
+    index: hoverIndex,
+    current: values[hoverIndex] || 0,
+    previous: previousValues[hoverIndex] || 0,
+    currentDate: data[hoverIndex]?.day,
+    previousDate: previous[hoverIndex]?.day,
+    currentPoint: point(values[hoverIndex] || 0, hoverIndex, Math.max(values.length, 1)),
+    previousPoint: point(previousValues[hoverIndex] || 0, hoverIndex, Math.max(previousValues.length, 1)),
+  };
+  const handlePointerMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (values.length < 1) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * width;
+    const rawIndex = Math.round(((x - left) / (width - left - right)) * (values.length - 1));
+    setHoverIndex(Math.max(0, Math.min(values.length - 1, rawIndex)));
+  };
+  const xTicks = (() => {
+    if (!data.length) return [];
+    const candidates = [0, Math.round((data.length - 1) * 0.25), Math.round((data.length - 1) * 0.5), Math.round((data.length - 1) * 0.75), data.length - 1];
+    return Array.from(new Set(candidates)).map((index) => ({ index, label: formatAxisDate(data[index]?.day), x: point(0, index, data.length)[0] }));
+  })();
+  const yTicks = [0, 1 / 3, 2 / 3, 1].map((fraction) => {
+    const value = Math.round(max * fraction);
+    const y = height - bottom - fraction * (height - top - bottom);
+    return { fraction, value, y };
+  });
+  return <section className="rounded-[11px] border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
+    <div><h2 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{title}</h2><div className="mt-0.5 text-[12px] text-slate-400">{rangeLabel}</div></div>
+    <div className="my-3 flex min-h-[34px] items-start gap-6 text-[11.5px] text-slate-400">
+      {bucket && <div>Peak {bucket.unit} · {bucket.label}<b className="block text-[14px] text-slate-900 dark:text-slate-100">{formatValue(bucket.value)}</b></div>}
+    </div>
+    <div className="relative h-[250px] w-full">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full cursor-crosshair overflow-visible" role="img" aria-label={`${title} chart`} onMouseMove={handlePointerMove} onMouseLeave={() => setHoverIndex(null)}>
+        <defs>
+          <linearGradient id={`fill-${dataKey}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".22" /><stop offset=".7" stopColor={color} stopOpacity=".04" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient>
+          <filter id={`shadow-${dataKey}`} x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2.5" stdDeviation="3.5" floodColor={color} floodOpacity=".28" /></filter>
+        </defs>
+        {yTicks.map(({ fraction, value, y }) => <g key={fraction}><line x1={left} x2={width - right} y1={y} y2={y} className="stroke-slate-200 dark:stroke-slate-700" strokeDasharray={fraction === 0 ? undefined : "2 5"} opacity={fraction === 0 ? 1 : 0.8} /><text x={left - 8} y={fraction === 0 ? y - 4 : Math.max(top + 9, y - 5)} textAnchor="end" fontSize="11" className="fill-slate-400">{formatValue(value)}</text></g>)}
+        <line x1={left} x2={width - right} y1={height - bottom} y2={height - bottom} className="stroke-slate-200 dark:stroke-slate-700" />
+        {hasPrevious && <path d={smoothPath(previousValues)} fill="none" className="stroke-slate-400" strokeWidth="2" strokeDasharray="5 6" strokeLinecap="round" opacity=".5" />}
+        <path d={`${currentPath} L${width - right} ${height - bottom} L${left} ${height - bottom} Z`} fill={`url(#fill-${dataKey})`} />
+        <path d={currentPath} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" filter={`url(#shadow-${dataKey})`} />
+        <circle cx={latestX} cy={latestY} r="9" fill={color} opacity=".18" /><circle cx={latestX} cy={latestY} r="4.5" fill={color} className="stroke-white dark:stroke-slate-900" strokeWidth="2" />
+        <text x={latestX + 14} y={Math.max(top + 8, latestY + 7)} fontSize="24" fontWeight="700" fill={color}>{formatValue(latest)}</text>
+        {hasPrevious && <text x={previousX + 14} y={previousY + (Math.abs(previousY - latestY) < 26 ? 26 : 7)} fontSize="17" className="fill-slate-400">{formatValue(previousLatest)}</text>}
+        {hover && <g pointerEvents="none">
+          <line x1={hover.currentPoint[0]} x2={hover.currentPoint[0]} y1={top} y2={height - bottom} className="stroke-slate-300 dark:stroke-slate-600" strokeDasharray="3 4" />
+          {hasPrevious && <circle cx={hover.previousPoint[0]} cy={hover.previousPoint[1]} r="4.5" className="fill-slate-400 stroke-white dark:stroke-slate-900" strokeWidth="2" />}
+          <circle cx={hover.currentPoint[0]} cy={hover.currentPoint[1]} r="5" fill={color} className="stroke-white dark:stroke-slate-900" strokeWidth="2" />
+        </g>}
+        {xTicks.map(({ index, label, x }) => <text key={index} x={x} y={height - 8} textAnchor={index === 0 ? "start" : index === data.length - 1 ? "end" : "middle"} fontSize="11" className="fill-slate-400">{label}</text>)}
+      </svg>
+      {hover && <div className="pointer-events-none absolute top-8 z-10 rounded-[7px] border border-slate-200 bg-white px-3 py-2 text-[11px] shadow-lg dark:border-slate-700 dark:bg-slate-900" style={{ left: `min(max(${(hover.currentPoint[0] / width) * 100}%, 8px), calc(100% - 210px))` }}>
+        <div className="mb-1 font-semibold text-slate-900 dark:text-slate-100">{formatAxisDate(hover.currentDate)}</div>
+        <div className="flex min-w-[165px] items-center justify-between gap-4 text-slate-500 dark:text-slate-300"><span><i className="mr-1.5 inline-block h-2 w-2 rounded-sm" style={{ background: color }} />Current period</span><b>{formatValue(hover.current)}</b></div>
+        {hasPrevious && <div className="mt-1 flex items-center justify-between gap-4 text-slate-500 dark:text-slate-300"><span><i className="mr-1.5 inline-block h-2 w-2 rounded-sm bg-slate-400" />Prior period{hover.previousDate ? ` · ${formatAxisDate(hover.previousDate)}` : ""}</span><b>{formatValue(hover.previous)}</b></div>}
+      </div>}
+    </div>
+    {hasPrevious && <div className="mt-2 flex justify-center gap-5 text-[11px] text-slate-400"><span><i className="mr-1.5 inline-block h-[9px] w-[9px] rounded-[2px] align-middle" style={{ background: color }} />Current period</span><span><i className="mr-1.5 inline-block h-[9px] w-[9px] rounded-[2px] bg-slate-400 align-middle" />Prior period</span></div>}
+  </section>;
+}
+
+export default function Dashboard() {
+  const initialRange = ranges[1].get();
+  const [dateRange, setDateRange] = useState<DateRange>(initialRange);
+  const [comparisonRange, setComparisonRange] = useState<DateRange>(comparisonForPreset(initialRange, "30d"));
+  const [activeRange, setActiveRange] = useState("30d");
+  const [customOpen, setCustomOpen] = useState(false);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [charts, setCharts] = useState<{ current: DashboardChartPoint[]; previous: DashboardChartPoint[] }>({ current: [], previous: [] });
+  const [chartWindow, setChartWindow] = useState<ChartWindow>({});
+  const [orders, setOrders] = useState<Row[]>([]);
+  const [payments, setPayments] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    const from = dateKey(dateRange.from), to = dateKey(dateRange.to);
+    const comparisonFrom = dateKey(comparisonRange.from), comparisonTo = dateKey(comparisonRange.to);
+    const dashboardFilters = { start_date: from, end_date: to, comparison_start_date: comparisonFrom, comparison_end_date: comparisonTo };
+    try {
+      const [metricData, chartData, orderData, paymentData] = await Promise.all([
+        fetchDashboardMetrics(dashboardFilters),
+        fetchDashboardCharts(undefined, dashboardFilters),
+        fetchOrders({ created_at__gte: `${from}T00:00:00`, created_at__lte: `${to}T23:59:59`, page_size: 8, ordering: "-created_at" }),
+        fetchClientPaymentHistory({ date_from: from, date_to: to }),
+      ]);
+      setMetrics(metricData); setCharts({ current: chartData.current || [], previous: chartData.previous || [] }); setChartWindow({ period: chartData.period, comparison: chartData.comparison });
+      setOrders((orderData.results || []).slice(0, 8).map((item) => ({ id: item.id, date: item.orderDate || item.created_at || "", orderNumber: item.order_id || item.display_id || item.id || "", name: item.name || item.patient?.full_name || "", product: item.product_name || "", pharmacy: item.pharmacy_display || "", amount: item.amount || "" })));
+      setPayments((paymentData.results || []).slice(0, 8).map((item) => ({ id: item.id, date: item.date, patientName: item.patient_name, orderNumber: item.order_number, authorized: item.authorized_amount ?? item.total_amount, holdReleased: item.hold_released ?? "0.00", captured: item.captured_amount ?? item.amount_paid })));
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to load dashboard data."); }
+    finally { setLoading(false); }
+  }, [comparisonRange, dateRange]);
+  useEffect(() => { void load(); }, [load]);
+
+  const kpis = useMemo(() => {
+    const list = metrics?.kpis || [];
+    const get = (names: string[]) => list.find((item) => names.includes(item.title));
+    const revenue = get(["Revenue", "Captured Revenue"]); const expenses = get(["Expenses", "Total Expense"]); const net = get(["Net Profit", "Net Profit (margin)"]); const totalOrders = get(["Total Orders"]);
+    const previousRevenue = charts.previous.at(-1)?.net_revenue as number | undefined;
+    const previousCapturedOrders = charts.previous.at(-1)?.total_sales as number | undefined;
+    const expenseRatio = ratioPct(metrics?.total_expenses, metrics?.total_revenue);
+    const netRatio = ratioPct(metrics?.total_profit, metrics?.total_revenue);
+    const expenseTone = expenseRatio == null ? "neutral" as const : expenseRatio <= 70 ? "good" as const : expenseRatio <= 90 ? "warn" as const : "bad" as const;
+    const supportDelta = (metric: typeof revenue, fallback?: string) => metric?.change ? `${metric.change} vs prior period` : fallback;
+    return [
+      { title: "Captured Revenue", value: revenue?.value || money(metrics?.total_revenue), change: revenue?.change, trend: revenue?.trend, support: supportDelta(revenue, deltaText(metrics?.total_revenue, previousRevenue)), supportTone: deltaTone(metrics?.total_revenue, previousRevenue) },
+      { title: "Expenses", value: expenses?.value || money(metrics?.total_expenses), change: expenses?.change, trend: expenses?.trend, support: expenseRatio == null ? "no revenue in period" : `${expenseRatio}% of revenue`, supportTone: expenseTone },
+      { title: "Net Profit (margin)", value: net?.value || money(metrics?.total_profit), change: net?.change, trend: net?.trend, support: netRatio == null ? "no revenue in period" : `${netRatio}% of revenue`, supportTone: netRatio == null ? "neutral" as const : netRatio >= 0 ? "good" as const : "bad" as const },
+      { title: "Total Orders", value: totalOrders?.value || count(metrics?.total_orders), change: totalOrders?.change, trend: totalOrders?.trend, support: supportDelta(totalOrders), supportTone: totalOrders?.trend === "down" ? "bad" as const : totalOrders?.trend === "up" ? "good" as const : "neutral" as const },
+      { title: "Captured Orders", value: count(metrics?.captured_orders ?? metrics?.total_sales), change: undefined, trend: "neutral" as const, support: deltaText(metrics?.captured_orders ?? metrics?.total_sales, previousCapturedOrders), supportTone: deltaTone(metrics?.captured_orders ?? metrics?.total_sales, previousCapturedOrders) },
+      { title: "Avg Order Value", value: money(metrics?.average_order_value), change: undefined, trend: "neutral" as const, support: "captured $ / captured orders", supportTone: "neutral" as const },
+      { title: "Conversion Rate", value: pct(metrics?.conversion_rate), change: undefined, trend: "neutral" as const, support: "captured / total orders", supportTone: "neutral" as const },
+    ];
+  }, [charts.previous, metrics]);
+  const applyPreset = (preset: typeof ranges[number]) => {
+    const nextRange = preset.get();
+    setActiveRange(preset.value);
+    setCustomOpen(false);
+    setDateRange(nextRange);
+    setComparisonRange(comparisonForPreset(nextRange, preset.value));
+  };
+  const toggleCustom = () => {
+    if (customOpen) {
+      setCustomOpen(false);
+      return;
+    }
+    setActiveRange("custom");
+    setCustomOpen(true);
+    setComparisonRange(comparisonForPreset(dateRange, "custom"));
+  };
+  const updateCustomDate = (key: "from" | "to" | "comparisonFrom" | "comparisonTo", value: string) => {
+    const parsed = parseDateValue(value);
+    if (!parsed) return;
+    if (key === "from") setDateRange((current) => parsed <= current.to ? { ...current, from: parsed } : current);
+    if (key === "to") setDateRange((current) => current.from <= parsed ? { ...current, to: parsed } : current);
+    if (key === "comparisonFrom") setComparisonRange((current) => parsed <= current.to ? { ...current, from: parsed } : current);
+    if (key === "comparisonTo") setComparisonRange((current) => current.from <= parsed ? { ...current, to: parsed } : current);
+  };
+  const windowMatchesFilter = chartWindow.period?.start === dateKey(dateRange.from) && chartWindow.period?.end === dateKey(dateRange.to);
+  const currentRangeLabel = windowMatchesFilter && chartWindow.period ? periodText(chartWindow.period.start, chartWindow.period.end, "—") : periodText(dateRange.from, dateRange.to, "—");
+  const comparisonRangeLabel = windowMatchesFilter && chartWindow.comparison ? periodText(chartWindow.comparison.start, chartWindow.comparison.end) : periodText(comparisonRange.from, comparisonRange.to);
+  const rangeLabel = `${currentRangeLabel} · compared vs ${comparisonRangeLabel}`;
+  const chartRangeLabel = currentRangeLabel;
+  const summary = metrics?.patient_summary;
+  return <div className="min-h-full bg-[#f7f8fa] px-4 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-7 sm:py-6">
+    <div className="mx-auto max-w-[1500px]">
+      <header className="mb-[18px] flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+        <div><h1 className="text-[22px] font-bold tracking-tight">Dashboard</h1><p className="mt-1 text-[13px] text-slate-400">{rangeLabel}</p></div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap gap-1.5">{ranges.map((range) => <button key={range.value} onClick={() => applyPreset(range)} className={cn("rounded-[7px] border px-3 py-1.5 text-[12px] font-medium", activeRange === range.value ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300" : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300")}>{range.label}</button>)}</div>
+          <button type="button" onClick={toggleCustom} className={cn("rounded-[7px] border px-3 py-1.5 text-[12px] font-medium", activeRange === "custom" ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300" : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300")}>Custom</button>
+          <Button variant="outline" size="sm" className="h-[31px] w-[34px] rounded-[7px] p-0" onClick={() => void load()} disabled={loading} aria-label="Refresh dashboard"><RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /></Button>
+        </div>
+      </header>
+      {customOpen && <div className="mb-4 -mt-1 flex flex-wrap items-center justify-end gap-2 rounded-[10px] border border-slate-200 bg-white px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-900">
+        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Period</span>
+        <input type="date" value={dateKey(dateRange.from)} onChange={(event) => updateCustomDate("from", event.target.value)} className="h-[31px] w-[150px] rounded-[7px] border border-slate-200 bg-white px-2.5 text-[12px] text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200" />
+        <span className="text-xs text-slate-400">–</span>
+        <input type="date" value={dateKey(dateRange.to)} onChange={(event) => updateCustomDate("to", event.target.value)} className="h-[31px] w-[150px] rounded-[7px] border border-slate-200 bg-white px-2.5 text-[12px] text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200" />
+        <span className="mx-1 h-[22px] w-px bg-slate-200 dark:bg-slate-700" />
+        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Compare vs</span>
+        <input type="date" value={dateKey(comparisonRange.from)} onChange={(event) => updateCustomDate("comparisonFrom", event.target.value)} className="h-[31px] w-[150px] rounded-[7px] border border-slate-200 bg-white px-2.5 text-[12px] text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200" />
+        <span className="text-xs text-slate-400">–</span>
+        <input type="date" value={dateKey(comparisonRange.to)} onChange={(event) => updateCustomDate("comparisonTo", event.target.value)} className="h-[31px] w-[150px] rounded-[7px] border border-slate-200 bg-white px-2.5 text-[12px] text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200" />
+      </div>}
+      {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">{error}</div>}
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">{kpis.map((kpi) => <MetricCard key={kpi.title} {...kpi} />)}</div>
+      <div className="grid gap-[18px] xl:grid-cols-2"><LineChart title="Orders" dataKey="total_sales" color="#3b82f6" data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} /><PatientSummaryCard summary={summary} /><LineChart title="Captured Revenue" dataKey="net_revenue" color="#16a34a" currency data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} /><LineChart title="New Patients" dataKey="new_patients" color="#8b5cf6" data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} /></div>
+      <div className="mt-[18px] grid gap-[18px] xl:grid-cols-2"><HistoryTable title="Order History" columns={[["date", "DATE"], ["orderNumber", "ORDER#"], ["name", "NAME"], ["product", "PRODUCT"], ["pharmacy", "PHARMACY"], ["amount", "AMOUNT"]]} rows={orders} empty="No orders in this period." navigateTo="/dashboard/orders" /><HistoryTable title="Payments — Auth & Capture" columns={[["date", "DATE"], ["patientName", "PATIENT"], ["orderNumber", "ORDER#"], ["authorized", "AUTHORIZED"], ["holdReleased", "HOLD RELEASED"], ["captured", "CAPTURED"]]} rows={payments} empty="No captured payments in this period." navigateTo="/dashboard/orders/payments" /></div>
+      {loading && <div className="mt-3 text-xs text-slate-400">Loading dashboard data…</div>}
+    </div>
+  </div>;
+}
+
+function HistoryTable({ title, columns, rows, empty, navigateTo }: { title: string; columns: [string, string][]; rows: Row[]; empty: string; navigateTo: string }) {
+  const cellValue = (row: Row, key: string) => {
+    if (key === "date" && row[key]) return displayDate(String(row[key]));
+    if (key === "amount" || key === "authorized" || key === "holdReleased" || key === "captured") return money(Number(row[key]));
+    return String(row[key] ?? "—");
+  };
+  return <section className="overflow-hidden rounded-[11px] border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800"><h2 className="text-[15px] font-semibold">{title}</h2><a className="cursor-pointer text-[12px] font-semibold text-blue-600 dark:text-blue-400" href={navigateTo}>View All</a></div><div className="overflow-x-auto"><table className="w-full border-collapse"><thead><tr>{columns.map(([, label]) => <th key={label} className="whitespace-nowrap border-b border-slate-100 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-800">{label}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row, index) => <tr key={`${String(row.orderNumber)}-${index}`} className="border-b border-slate-100 last:border-0 dark:border-slate-800">{columns.map(([key]) => <td key={key} className={cn("px-3 py-3 text-[12.5px]", key === "product" || key === "pharmacy" ? "min-w-[150px] max-w-[230px] whitespace-normal break-words leading-5" : "whitespace-nowrap", key === "captured" && "font-semibold text-[#16a34a] dark:text-[#22c55e]", key === "holdReleased" && "font-semibold text-[#b45309] dark:text-[#fbbf24]", key !== "orderNumber" && key !== "captured" && key !== "holdReleased" && "text-slate-600 dark:text-slate-300")}>{key === "orderNumber" && row.id ? <a href={`/dashboard/orders/details/${String(row.id)}`} className="font-semibold text-blue-600 hover:underline dark:text-blue-400">{cellValue(row, key)}</a> : cellValue(row, key)}</td>)}</tr>) : <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-xs text-slate-400">{empty}</td></tr>}</tbody></table></div></section>;
 }
