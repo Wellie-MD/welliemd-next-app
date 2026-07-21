@@ -301,22 +301,59 @@ export function usePatientFlowTest({ previewContext, open }: UsePatientFlowTestA
   // ── Derive visible checkout products, grouped by treatment ────────────────
   // Faithful to the prototype: a disqualifier in an active module blocks the
   // checkout entirely, hides products, and surfaces the disqualification note.
+  //
+  // Checkout products are sourced from two places:
+  // 1. program.checkoutQuestions — the primary source (ProgramCheckoutQuestion objects
+  //    loaded via usePrograms, with .products and .visibilityRules)
+  // 2. Screening questions with kind === "checkout" — backward compat for legacy
+  //    programs where checkout products are embedded in screening questions
+  //    (with .checkoutProducts and .visibilityRuleGroup)
   const checkoutGroups: FlowTestCheckoutGroup[] = useMemo(() => {
     if (disqualifiedModuleIds.size > 0) return [];
 
     const groups: FlowTestCheckoutGroup[] = [];
+    const seenProductIds = new Set<string>();
 
     for (const mod of modules) {
       const products: FlowTestCheckoutProduct[] = [];
-      const checkoutQuestions = mod.questions.filter((q) => q.kind === "checkout");
+      const program = availableModules.find((p) => p.id === mod.id);
 
-      for (const question of checkoutQuestions) {
+      // Source 1: program.checkoutQuestions (primary — ProgramCheckoutQuestion format)
+      for (const checkoutQ of program?.checkoutQuestions ?? []) {
+        // Question-level visibility gates the whole checkout step.
+        if (!evaluateVisibilityGroup(checkoutQ.visibilityRules, enrichedAnswers)) continue;
+
+        for (const product of checkoutQ.products ?? []) {
+          // Product-level visibility decides which products appear.
+          if (!evaluateVisibilityGroup(product.visibilityRules, enrichedAnswers)) continue;
+
+          if (seenProductIds.has(product.id)) continue;
+          seenProductIds.add(product.id);
+
+          const title = `${product.category} — ${product.doseLabel}`;
+          const subtitle = [product.regimen, checkoutQ.text].filter(Boolean).join(" · ");
+          products.push({
+            id: `${mod.id}:${product.id}`,
+            moduleId: mod.id,
+            moduleName: mod.name,
+            title,
+            subtitle,
+            price: getCheckoutProductPrice(product),
+          });
+        }
+      }
+
+      // Source 2: Screening questions with kind === "checkout" (backward compat)
+      for (const question of mod.questions.filter((q) => q.kind === "checkout")) {
         // Question-level visibility gates the whole checkout step.
         if (!evaluateVisibilityGroup(question.visibilityRuleGroup, enrichedAnswers)) continue;
 
         for (const product of question.checkoutProducts ?? []) {
           // Product-level visibility decides which products appear.
           if (!evaluateVisibilityGroup(product.visibilityRules, enrichedAnswers)) continue;
+
+          if (seenProductIds.has(product.id)) continue;
+          seenProductIds.add(product.id);
 
           const title = `${product.category} — ${product.doseLabel}`;
           const subtitle = [product.regimen, question.text].filter(Boolean).join(" · ");
@@ -337,7 +374,7 @@ export function usePatientFlowTest({ previewContext, open }: UsePatientFlowTestA
     }
 
     return groups;
-  }, [enrichedAnswers, disqualifiedModuleIds, modules]);
+  }, [availableModules, enrichedAnswers, disqualifiedModuleIds, modules]);
 
   // Prune selections that are no longer visible.
   useEffect(() => {
