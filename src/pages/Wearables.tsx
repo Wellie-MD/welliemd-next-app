@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Send, Download } from 'lucide-react';
+import { Search, Send, Download, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import WearablesInsights from './WearablesInsights';
 import { PROV_CP, givesReadiness, pdScoreColor, pdScoreLabel, useWearablesData } from './useWearablesData';
+import { exportToCSV } from '@/utils/exportUtils';
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const FILTER_TABS: Array<{ id: 'all' | 'connected' | 'not' | 'attention'; label: string }> = [
   { id: 'all', label: 'All' },
@@ -16,22 +25,63 @@ export default function Wearables() {
   const [view, setView] = useState<'roster' | 'insights'>('roster');
   const [filter, setFilter] = useState<'all' | 'connected' | 'not' | 'attention'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastTimeoutId, setToastTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
-  const { patients, loading, error, allComputed, stats, insightsData } = useWearablesData();
+  // Debouncing search query input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  const { patients, loading, refreshing, error, allComputed, stats, insightsData, totalCount, insightsLoading } = useWearablesData({
+    page: currentPage,
+    pageSize,
+    search: debouncedSearch,
+    loadInsights: view === 'insights',
+  });
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const filteredRows = allComputed.filter((row) => {
-    const query = searchQuery.trim().toLowerCase();
     if (filter === 'connected' && !row.connected) return false;
     if (filter === 'not' && row.connected) return false;
     if (filter === 'attention' && !row.needs) return false;
-    if (query) {
-      const providerName = row.provider ? (PROV_CP[row.provider]?.name || row.provider) : '';
-      if (!(row.p.name + ' ' + (row.p.email || '') + ' ' + providerName).toLowerCase().includes(query)) return false;
-    }
     return true;
   });
+
+  const handleExport = () => {
+    const rows = filteredRows.map((r) => {
+      const pr = r.provider ? PROV_CP[r.provider] : null;
+      const hasReadiness = r.connected && givesReadiness(r.provider || '') && typeof r.d.readiness === 'number';
+      return {
+        name: r.p.name,
+        treatment: r.p.product !== '-' ? r.p.product : '',
+        connection: r.connected ? 'Connected' : (r.needs ? 'No device' : 'Not connected'),
+        device: pr ? pr.name : '',
+        lastSync: r.lastSync || '',
+        latestWeight: r.cur != null ? `${r.cur} lb` : '',
+        weightChange: r.chg != null ? r.chg : '',
+        readiness: hasReadiness ? r.d.readiness : '',
+      };
+    });
+    exportToCSV(rows, [
+      { key: 'name', label: 'Name' },
+      { key: 'treatment', label: 'Treatment' },
+      { key: 'connection', label: 'Connection' },
+      { key: 'device', label: 'Device(s)' },
+      { key: 'lastSync', label: 'Last Sync' },
+      { key: 'latestWeight', label: 'Latest Weight' },
+      { key: 'weightChange', label: 'Weight Change' },
+      { key: 'readiness', label: 'Readiness' },
+    ], 'wearables_export');
+  };
 
   const triggerToast = (msg: string) => {
     if (toastTimeoutId) clearTimeout(toastTimeoutId);
@@ -39,8 +89,9 @@ export default function Wearables() {
     const id = setTimeout(() => setToastMsg(null), 2600);
     setToastTimeoutId(id);
   };
+
   return (
-    <div className="p-6 space-y-6" style={{ position: 'relative' }}>
+    <div className="p-6 pb-24 space-y-6" style={{ position: 'relative' }}>
       {/* Toast Notification */}
       <div
         className={`pd-toast ${toastMsg ? 'show' : ''}`}
@@ -234,7 +285,7 @@ export default function Wearables() {
                 }}
               >
                 {[
-                  { label: 'Connected', val: stats.connected, sub: `of ${patients.length} patients` },
+                  { label: 'Connected', val: stats.connected, sub: `of ${allComputed.length + (totalCount - allComputed.length)} patients` },
                   { label: 'On Treatment', val: stats.onTx, sub: 'active roster' },
                   { label: 'Coverage', val: `${stats.cov}%`, sub: 'on-treatment connected' },
                   { label: 'Needs Attention', val: stats.needs, sub: 'on treatment, no device' }
@@ -271,7 +322,10 @@ export default function Wearables() {
                 {FILTER_TABS.map(t => (
                   <button
                     key={t.id}
-                    onClick={() => setFilter(t.id)}
+                    onClick={() => {
+                      setFilter(t.id);
+                      setCurrentPage(1);
+                    }}
                     style={{
                       fontSize: 12,
                       fontWeight: filter === t.id ? 700 : 500,
@@ -309,7 +363,7 @@ export default function Wearables() {
                         background: 'var(--km-s2)',
                         border: '1px solid var(--km-b)',
                         borderRadius: 8,
-                        padding: '8px 12px 8px 34px',
+                        padding: '8px 34px 8px 34px',
                         fontSize: 12.5,
                         color: 'var(--km-t)',
                         outline: 'none'
@@ -318,6 +372,13 @@ export default function Wearables() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
+                    {refreshing && (
+                      <Loader2
+                        className="animate-spin"
+                        size={14}
+                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--km-tm)' }}
+                      />
+                    )}
                   </div>
                   <button
                     onClick={() => triggerToast('Telemetry nudge & connection invite pushed to patient device.')}
@@ -341,6 +402,8 @@ export default function Wearables() {
                   </button>
                   <button
                     className="btn"
+                    onClick={handleExport}
+                    disabled={filteredRows.length === 0}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -352,7 +415,8 @@ export default function Wearables() {
                       border: '1px solid var(--km-b)',
                       background: 'var(--km-s2)',
                       color: 'var(--km-t)',
-                      cursor: 'pointer'
+                      cursor: filteredRows.length === 0 ? 'not-allowed' : 'pointer',
+                      opacity: filteredRows.length === 0 ? 0.5 : 1
                     }}
                   >
                     <Download size={13} />
@@ -361,23 +425,23 @@ export default function Wearables() {
                 </div>
 
                 {/* Table */}
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', opacity: refreshing ? 0.6 : 1, transition: 'opacity 0.15s' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--km-b)' }}>
                         {['Name', 'Treatment', 'Connection', 'Device(s)', 'Last Sync', 'Latest Weight', 'Readiness', ''].map((h, i) => (
                           <th
-                            key={i}
-                            style={{
-                              textAlign: i === 6 ? 'right' : 'left',
-                              fontSize: 10,
-                              fontWeight: 700,
-                              letterSpacing: '.04em',
-                              textTransform: 'uppercase',
-                              color: 'var(--km-tm)',
-                              padding: '10px 12px',
-                              whiteSpace: 'nowrap'
-                            }}
+                             key={i}
+                             style={{
+                               textAlign: i === 6 ? 'right' : 'left',
+                               fontSize: 10,
+                               fontWeight: 700,
+                               letterSpacing: '.04em',
+                               textTransform: 'uppercase',
+                               color: 'var(--km-tm)',
+                               padding: '10px 12px',
+                               whiteSpace: 'nowrap'
+                             }}
                           >
                             {h}
                           </th>
@@ -478,10 +542,75 @@ export default function Wearables() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination footer */}
+                <div className="flex flex-col gap-4 border-t border-slate-200 dark:border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" style={{ borderTop: '1px solid var(--km-b)', marginTop: 14, paddingTop: 14 }}>
+                  <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                    <span>Rows per page</span>
+                    <Select value={String(pageSize)} onValueChange={(val) => { setPageSize(Number(val)); setCurrentPage(1); }}>
+                      <SelectTrigger className="h-9 w-[72px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-755 dark:text-slate-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[5, 10, 20, 50].map((size) => (
+                          <SelectItem key={size} value={String(size)}>
+                            {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                    <span>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-300 dark:disabled:text-slate-700"
+                        disabled={currentPage <= 1 || loading || refreshing}
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-955 dark:text-slate-200 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-300 dark:disabled:text-slate-700"
+                        disabled={currentPage >= totalPages || loading || refreshing}
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
-            <WearablesInsights data={insightsData} connectedCount={stats.connected} onPatientClick={(patientId) => navigate(`/dashboard/patients/${patientId}`)} />
+            insightsLoading ? (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '300px',
+                background: 'var(--km-s1)',
+                border: '1px solid var(--km-b)',
+                borderRadius: '12px',
+                gap: 12,
+                padding: 24
+              }}>
+                <Loader2 className="animate-spin" size={32} style={{ color: 'var(--km-ac)' }} />
+                <p style={{ fontSize: 14, color: 'var(--km-tm)', fontWeight: 500 }}>
+                  Analyzing telemetry & computing insights...
+                </p>
+              </div>
+            ) : (
+              <WearablesInsights data={insightsData} connectedCount={stats.connected} onPatientClick={(patientId) => navigate(`/dashboard/patients/${patientId}`)} />
+            )
           )}
         </>
       )}

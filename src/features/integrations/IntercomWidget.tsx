@@ -135,8 +135,8 @@ export function shutdownIntercom() {
   document
     .querySelectorAll(
       '.intercom-lightweight-app, .intercom-namespace, ' +
-        'iframe.intercom-launcher-frame, iframe.intercom-launcher-badge-frame, ' +
-        '#intercom-container, #intercom-frame',
+      'iframe.intercom-launcher-frame, iframe.intercom-launcher-badge-frame, ' +
+      '#intercom-container, #intercom-frame',
     )
     .forEach((el) => el.remove());
 }
@@ -238,7 +238,7 @@ export const IntercomWidget = () => {
           /* ignore */
         }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       active = false;
     };
@@ -391,15 +391,19 @@ export const IntercomWidget = () => {
     const latest = await getConversationData(null);
     if (!latest) return;
     const visible = typeof document === 'undefined' || !document.hidden;
-    const inThread = panelOpenRef.current && visible && viewRef.current === 'thread';
+    // inThread: panel open and currently in thread view (vs list view)
+    const inThread = panelOpenRef.current && visible;
+    const threadVisible = inThread && viewRef.current === 'thread';
     const curId = conversationIdRef.current;
-    const viewingLatest = inThread && !!curId && curId === latest.conversation_id;
+    const viewingLatest = threadVisible && !!curId && curId === latest.conversation_id;
     if (viewingLatest) {
       applyConversation(latest, true); // open thread changed → show inline + mark seen
     } else {
       refreshUnread(latest.messages || []);
       maybeNotify(latest.messages || [], latest.conversation_id);
-      if (inThread && curId && curId !== latest.conversation_id) {
+      // Fix 6: use threadVisible (not inThread) so list-view doesn't trigger a
+      // redundant thread fetch, but thread-view always stays live.
+      if (threadVisible && curId && curId !== latest.conversation_id) {
         const current = await getConversationData(curId);
         if (current) renderConversation(current); // keep a different open thread live
       }
@@ -411,6 +415,18 @@ export const IntercomWidget = () => {
   // Initial load to surface any unread replies on the launcher.
   useEffect(() => {
     if (ready) fetchConversation(null, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  // Fix 4: Refresh immediately when the user switches back to this tab after
+  // the page was hidden (avoids up-to-10s poll lag after tab restore).
+  useEffect(() => {
+    if (!ready) return;
+    const onVisibilityChange = () => {
+      if (!document.hidden) syncConversations();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
@@ -515,7 +531,7 @@ export const IntercomWidget = () => {
     // Ask once (on this user gesture) so we can surface replies as desktop
     // notifications when the panel is in the background.
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
+      Notification.requestPermission().catch(() => { });
     }
     if (messages.length === 0) setLoadingThread(true);
     fetchConversation(null, true).finally(() => setLoadingThread(false));
@@ -570,6 +586,11 @@ export const IntercomWidget = () => {
       // Intercom's search may not surface it for a few seconds.
       upsertConversationSummary(res.data);
     } catch {
+      // Fix 1+2: remove the ghost bubble and restore the draft so the user can
+      // retry immediately without retyping. The Retry button calls onSend again.
+      pendingRef.current = pendingRef.current.filter((p) => !(p.body === body && p.ts === ts));
+      setMessages((prev) => prev.filter((m) => m.id !== `tmp-${ts}`));
+      setDraft(body);
       setSendFailed(true);
     } finally {
       setSending(false);
@@ -675,7 +696,15 @@ export const IntercomWidget = () => {
                       <div className="ic-bubble">{m.body}</div>
                     </div>
                   ))}
-                  {sendFailed && <div className="ic-error">Couldn’t send your message. Please try again.</div>}
+                  {sendFailed && (
+                    <div className="ic-error">
+                      Couldn't send.{' '}
+                      {/* Fix 3: inline Retry button — draft is already restored */}
+                      <button className="ic-retry" onClick={onSend} disabled={sending}>
+                        Retry
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -697,7 +726,11 @@ export const IntercomWidget = () => {
                 placeholder="Write a message…"
                 value={draft}
                 disabled={sending}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  // Fix 2: dismiss the error banner as soon as the user starts editing
+                  if (sendFailed) setSendFailed(false);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') onSend();
                 }}
@@ -740,7 +773,7 @@ const WIDGET_STYLES = `
     --ic-bg:#f7f8fa;--ic-surface:#fff;--ic-border:#e8ebef;--ic-border-2:#eef1f4;
     --ic-text:#0f172a;--ic-text-3:#94a3b8;--ic-accent:#2563eb;--ic-accent-soft:#eff4ff;
     --ic-accent-2:#1e40af;
-    position:fixed;right:24px;bottom:24px;z-index:9000;font-family:inherit}
+    position:fixed;right:24px;bottom:60px;z-index:9000;font-family:inherit}
   .dark .ic-root{
     --ic-bg:#0d1117;--ic-surface:#161c26;--ic-border:#2a3240;--ic-border-2:#222a36;
     --ic-text:#e6edf3;--ic-text-3:#6b7686;--ic-accent:#4f8ff7;--ic-accent-soft:#16243a;
@@ -781,7 +814,9 @@ const WIDGET_STYLES = `
   .ic-row.me .ic-bubble{background:var(--ic-accent);color:#fff;border-top-right-radius:4px}
   .ic-bav{width:26px;height:26px;border-radius:50%;background:var(--ic-accent-soft);color:var(--ic-accent);
     display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0;align-self:flex-end}
-  .ic-error{font-size:11.5px;color:#dc2626;text-align:center;padding:2px 6px}
+  .ic-error{font-size:11.5px;color:#dc2626;text-align:center;padding:2px 6px;display:flex;align-items:center;justify-content:center;gap:6px}
+  .ic-retry{background:none;border:none;color:#dc2626;font-size:11.5px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0;font-family:inherit}
+  .ic-retry:disabled{opacity:.5;cursor:default}
   .ic-loading{flex:1;display:grid;place-items:center;min-height:120px}
   .ic-spinner{width:26px;height:26px;border:3px solid var(--ic-border);border-top-color:var(--ic-accent);
     border-radius:50%;animation:icspin .7s linear infinite}
