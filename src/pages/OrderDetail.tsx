@@ -2040,6 +2040,10 @@ function OrderDetailInner() {
                 order.prescription_medications.map((med, idx) => (
                   <React.Fragment key={idx}>
                     <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Medication</span>
+                      <span className="text-slate-900 dark:text-white font-medium text-right">{med.prescribed_name || med.name || "—"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
                       <span className="text-slate-500">Strength</span>
                       <span className="text-slate-900 dark:text-white font-medium">{med.strength || "None"}</span>
                     </div>

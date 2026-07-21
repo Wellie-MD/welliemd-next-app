@@ -54,6 +54,7 @@ export interface QuestionnairePhoto {
 // Prescribed medication from RX_WRITTEN webhook (PrescriptionEvent.medications)
 export interface PrescriptionMedication {
   name?: string
+  prescribed_name?: string
   strength?: string
   price?: string | number | null
   refills?: string
