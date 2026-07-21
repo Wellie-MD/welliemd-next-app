@@ -32,6 +32,7 @@ import { pharmacyApi } from "@/api/pharmacyApi";
 import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings";
 import { templateApi } from "@/api/questionnaires";
 import { useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { ServiceStatesSelector } from "@/components/shared/ServiceStatesSelector";
 
 type TreatmentOption = {
   value: string;  // slug, e.g. "branded_weight_loss"
@@ -63,14 +64,6 @@ type LinkedSupplyRow = {
   quantity: number;
   is_included: boolean;
 };
-
-const US_STATES = [
-  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
-  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
-  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
-  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
-  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR"
-];
 
 export function ProductFormModal({
   open,
@@ -729,63 +722,12 @@ export function ProductFormModal({
                 </Select>
               </div>
 
-              <div className="col-span-2 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <Label>Service States</Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Leave empty to inherit pharmacy coverage. Set product-specific states only when a formulation has different licensing rules.
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFormData((prev) => ({ ...prev, service_states: [...US_STATES] }))}
-                    >
-                      Select all states
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setFormData((prev) => ({ ...prev, service_states: [] }))}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {US_STATES.map((state) => {
-                    const isSelected = formData.service_states.includes(state);
-                    return (
-                      <Button
-                        key={state}
-                        type="button"
-                        variant={isSelected ? "default" : "outline"}
-                        size="sm"
-                        className="h-9 px-3"
-                        onClick={() => {
-                          setFormData((prev) => {
-                            const current = Array.isArray(prev.service_states) ? prev.service_states : [];
-                            const nextStates = current.includes(state)
-                              ? current.filter((s) => s !== state)
-                              : [...current, state];
-                            return { ...prev, service_states: nextStates };
-                          });
-                        }}
-                      >
-                        {state}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {formData.service_states.length > 0
-                    ? `${formData.service_states.length} state${formData.service_states.length === 1 ? "" : "s"} selected`
-                    : "No states selected"}
-                </div>
+              <div className="col-span-2">
+                <ServiceStatesSelector
+                  value={formData.service_states}
+                  onChange={(states) => setFormData((prev) => ({ ...prev, service_states: states }))}
+                  description="Leave empty to inherit pharmacy coverage. Set product-specific states only when a formulation has different licensing rules."
+                />
               </div>
 
               <div>
