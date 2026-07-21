@@ -21,9 +21,9 @@ import {
   useReorderSectionFields,
   useReorderProgramQuestions,
   useSaveProgram,
+  useConsents,
   treatmentQueryKeys,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
-import type { QuestionFlowAdapter, QuestionFlowItem } from "@/features/treatments/question-flow-builder/types";
 import { toast } from "@/components/ui/use-toast";
 
 // Sub-modals & components
@@ -38,7 +38,6 @@ import { QuestionListTable } from "@/features/treatments/common/components/Quest
 import { DeleteElementDialog } from "@/features/treatments/common/components/DeleteElementDialog";
 import { countQuestionTypes, filterQuestions } from "@/features/treatments/common/utils/questionList";
 
-import { QuestionFlowBuilder } from "@/features/treatments/question-flow-builder/components/QuestionFlowBuilder";
 import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 
 export interface SharedQuestionsListProps {
@@ -124,76 +123,30 @@ export function SharedQuestionsList({
     return [systemAuthQuestion, ...questions];
   }, [questions, entityId, entityName]);
 
-  // Flow-builder adapter derived from the live questions, so the Flow view and
-  // the List view share one source of truth and one persistence store. Adding
-  // an element via the modals (which updates `questions`) re-seeds the canvas;
-  // canvas reorders/deletes persist through the same program-questions store.
-  const flowSubtitle = entityType === "program"
-    ? `Internal Program • ${displayQuestions.length} elements`
-    : `Common Section • ${displayQuestions.length} fields`;
+  // Sections have no backing Program record, so the Flow view (which always
+  // renders through ProgramFlowBuilder — see below) gets a minimal synthetic
+  // one. Auth/consent edits made from a section's canvas only update this
+  // local override; there's no Program to persist them to.
+  const [sectionFlowOverrides, setSectionFlowOverrides] = useState<Partial<Program>>({});
+  const syntheticProgram = useMemo<Program>(() => ({
+    id: entityId,
+    name: entityName,
+    stage: "intake",
+    treatmentTypeKey: "",
+    visitType: "",
+    questionCount: displayQuestions.length,
+    checkoutQuestionCount: 0,
+    status: "draft",
+    updatedAt: new Date().toISOString(),
+    slug: entityId,
+    authConfig: { email: true, phone: false, identity: false, account: true },
+    checkoutQuestions: [],
+    consentIds: [],
+    ...sectionFlowOverrides,
+  }), [entityId, entityName, displayQuestions.length, sectionFlowOverrides]);
 
-  const flowBuilderAdapter = useMemo<QuestionFlowAdapter>(() => ({
-    entityType,
-    entityId,
-    title: headerTitle,
-    subtitle: flowSubtitle,
-    items: [...displayQuestions]
-      .sort((a, b) => a.order - b.order)
-      .map((q) => ({
-        id: q.id,
-        order: q.order,
-        text: q.text,
-        kind: q.kind,
-        required: q.required,
-        metadata: { section: q.section, choices: q.choices },
-      })),
-    saveItems: async (newItems: QuestionFlowItem[]) => {
-      const updated: ProgramQuestion[] = newItems.map((item, index) => {
-        const existing = questions.find((q) => q.id === item.id);
-        return {
-          choices: existing?.choices,
-          dqChoices: existing?.dqChoices,
-          flags: existing?.flags,
-          consentText: existing?.consentText,
-          checkoutProductIds: existing?.checkoutProductIds,
-          checkoutProducts: existing?.checkoutProducts,
-          visibilityRule: existing?.visibilityRule,
-          visibilityRuleGroup: existing?.visibilityRuleGroup,
-          includeInQa: existing?.includeInQa,
-          hiddenFromPatient: existing?.hiddenFromPatient,
-          prefillFromPrevious: existing?.prefillFromPrevious,
-          elementConfig: existing?.elementConfig,
-          id: item.id,
-          order: index + 1,
-          text: item.text,
-          kind: item.kind,
-          required: item.required,
-          section: existing?.section ?? (entityType === "section" ? entityName : "Default"),
-        };
-      });
-      if (entityType === "section") {
-        await treatmentsApi.saveSectionFields(
-          entityId,
-          updated.map((question) => ({
-            id: question.id,
-            sectionId: entityId,
-            order: question.order,
-            label: question.text,
-            kind: question.kind,
-            required: question.required,
-            configuration: question.elementConfig || {},
-          }))
-        );
-        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sectionFields(entityId) });
-        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sections() });
-      } else {
-        await treatmentsApi.saveProgramQuestions(entityId, updated);
-        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(entityId) });
-      }
-      setQuestions(updated);
-      toast({ title: "Flow Saved", description: "Question sequence saved successfully." });
-    },
-  }), [questions, displayQuestions, entityType, entityId, entityName, headerTitle, flowSubtitle, queryClient]);
+  const { data: fetchedConsents = [] } = useConsents();
+  const effectiveConsents = allConsents.length > 0 ? allConsents : fetchedConsents;
 
   // dnd-kit sensors
   const sensors = useSensors(
@@ -470,174 +423,90 @@ export function SharedQuestionsList({
     setActiveEditingQuestion(null);
   };
 
+  // The Flow view always renders through ProgramFlowBuilder — the same
+  // React Flow canvas Programs use — matching the prototype, where Sections
+  // and Programs share one flow-view implementation. Sections have no
+  // backing Program record, so we synthesize a minimal one; auth/consent
+  // settings edited from a Section's canvas are canvas-local only (there's
+  // nowhere to persist them yet), everything else (questions, checkout)
+  // already saves through the normal section-field mutations.
   if (viewMode === "flow") {
-    const subtitle = flowSubtitle;
-
-    if (entityType === "program" && program) {
-      return (
-        <div className="flex min-h-screen w-full flex-col bg-slate-50 p-6">
-          <QuestionListHeader
-            title={headerTitle}
-            subtitle={headerSubtitle}
-            extraActions={headerExtraActions}
-            reorderActive={false}
-            onBack={onBack}
-            onToggleReorder={() => onViewModeChange?.("list")}
-            onAddQuestion={() => {
-              setActiveEditingQuestion(null);
-              setIsQuestionOpen(true);
-            }}
-            onAddAuth={() => {
-              setActiveEditingQuestion(null);
-              setIsAuthOpen(true);
-            }}
-            onAddServiceArea={handleAddServiceArea}
-            onAddSection={() => {
-              setActiveEditingQuestion(null);
-              setIsSectionOpen(true);
-            }}
-            onAddConsent={() => {
-              setActiveEditingQuestion(null);
-              setIsConsentOpen(true);
-            }}
-            onAddCheckout={() => {
-              setActiveEditingQuestion(null);
-              setIsCheckoutOpen(true);
-            }}
-          />
-          <ProgramFlowBuilder
-            program={program}
-            questions={questions}
-            allConsents={allConsents}
-            onAddQuestion={() => {
-              setActiveEditingQuestion(null);
-              setIsQuestionOpen(true);
-            }}
-            onEditQuestion={(questionId) => {
-              const question = questions.find((item) => item.id === questionId) || null;
-              setActiveEditingQuestion(question);
-              setIsQuestionOpen(Boolean(question));
-            }}
-            onAddCheckoutQuestion={() => {
-              setActiveEditingQuestion(null);
-              setIsCheckoutOpen(true);
-            }}
-            onEditCheckoutQuestion={(checkoutQuestion) => {
-              setActiveEditingQuestion({
-                id: checkoutQuestion.id,
-                order: questions.length + 1,
-                text: checkoutQuestion.text,
-                kind: "checkout",
-                section: "Checkout",
-                required: true,
-                checkoutProducts: checkoutQuestion.products,
-                visibilityRuleGroup: checkoutQuestion.visibilityRules,
-              });
-              setIsCheckoutOpen(true);
-            }}
-            onSaveProgram={(updatedProgram) => saveProgramMutation.mutate(updatedProgram)}
-          />
-
-          <QuestionEditorDialog
-            open={isQuestionOpen}
-            onOpenChange={setIsQuestionOpen}
-            onSave={handleAddQuestionSave}
-            initialQuestionId={activeEditingQuestion?.id || null}
-            questions={questions}
-            programId={entityId}
-          />
-          <CheckoutQuestionModal
-            open={isCheckoutOpen}
-            onOpenChange={setIsCheckoutOpen}
-            onSave={handleAddCheckoutSave}
-            initialQuestion={activeEditingQuestion?.kind === "checkout" ? {
-              id: activeEditingQuestion.id,
-              text: activeEditingQuestion.text,
-              products: activeEditingQuestion.checkoutProducts || [],
-              visibilityRules: activeEditingQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
-            } : null}
-            programName={entityName}
-            screeningQuestions={questions}
-          />
-          <AuthSetupModal
-            open={isAuthOpen}
-            onOpenChange={setIsAuthOpen}
-            initialConfig={authConfig}
-            onSave={(config) => {
-              const authQuestion: ProgramQuestion = {
-                id: activeEditingQuestion?.id || createMockId("q-auth"),
-                order: activeEditingQuestion?.order || questions.length + 1,
-                text: "Patient Authentication (Email, Phone, Identity, Account)",
-                kind: "personal_details",
-                section: "Authentication",
-                required: true,
-                elementConfig: { authConfig: config },
-              };
-              saveElement(authQuestion, "Authentication Settings Saved");
-            }}
-          />
-          <SectionSelectorModal
-            open={isSectionOpen}
-            onOpenChange={setIsSectionOpen}
-            onSelect={(section) => {
-              saveElement({
-                id: createMockId("q-section"),
-                order: questions.length + 1,
-                text: section.name,
-                kind: "multiple_choice",
-                section: section.name,
-                required: true,
-                elementConfig: { sourceId: section.id },
-              }, "Common Section Attached");
-            }}
-          />
-          <ConsentSelectorModal
-            open={isConsentOpen}
-            onOpenChange={setIsConsentOpen}
-            onSelect={(consent) => {
-              saveElement({
-                id: createMockId("q-consent"),
-                order: questions.length + 1,
-                text: consent.name,
-                kind: "consent",
-                section: "Consents",
-                required: true,
-                consentText: `Patient must accept: ${consent.name}`,
-                elementConfig: { sourceId: consent.id },
-              }, "Consent Form Attached");
-            }}
-          />
-        </div>
-      );
-    }
+    const effectiveProgram = program ?? syntheticProgram;
 
     return (
-      <div className="flex flex-col min-h-screen bg-slate-50 w-full p-6">
-        <QuestionFlowBuilder
-          adapter={flowBuilderAdapter}
-          entityType={entityType}
+      <div className="flex min-h-screen w-full flex-col gap-6 bg-slate-50 p-6">
+        <QuestionListHeader
           title={headerTitle}
-          subtitle={subtitle}
-          viewMode="flow"
-          onViewModeChange={onViewModeChange || (() => {})}
-          onAddElementClick={() => {
-            // For macro-style "Add Element" button, just open question modal for now, or maybe dropdown
+          subtitle={headerSubtitle}
+          extraActions={headerExtraActions}
+          reorderActive={false}
+          onBack={onBack}
+          onToggleReorder={() => onViewModeChange?.("list")}
+          onAddQuestion={() => {
+            setActiveEditingQuestion(null);
             setIsQuestionOpen(true);
           }}
-          onAddItemRequest={(kind) => {
-            if (kind === "question") setIsQuestionOpen(true);
-            if (kind === "auth") setIsAuthOpen(true);
-            if (kind === "service_area") handleAddServiceArea();
-            if (kind === "section") setIsSectionOpen(true);
-            if (kind === "consent") setIsConsentOpen(true);
-            if (kind === "checkout") setIsCheckoutOpen(true);
-            if (!["question", "auth", "service_area", "section", "consent", "checkout"].includes(kind)) {
-              setIsQuestionOpen(true);
+          onAddAuth={() => {
+            setActiveEditingQuestion(null);
+            setIsAuthOpen(true);
+          }}
+          onAddServiceArea={handleAddServiceArea}
+          onAddSection={() => {
+            setActiveEditingQuestion(null);
+            setIsSectionOpen(true);
+          }}
+          onAddConsent={() => {
+            setActiveEditingQuestion(null);
+            setIsConsentOpen(true);
+          }}
+          onAddCheckout={() => {
+            setActiveEditingQuestion(null);
+            setIsCheckoutOpen(true);
+          }}
+        />
+        <ProgramFlowBuilder
+          program={effectiveProgram}
+          questions={questions}
+          allConsents={effectiveConsents}
+          onAddQuestion={() => {
+            setActiveEditingQuestion(null);
+            setIsQuestionOpen(true);
+          }}
+          onEditQuestion={(questionId) => {
+            const question = questions.find((item) => item.id === questionId) || null;
+            setActiveEditingQuestion(question);
+            setIsQuestionOpen(Boolean(question));
+          }}
+          onAddCheckoutQuestion={() => {
+            setActiveEditingQuestion(null);
+            setIsCheckoutOpen(true);
+          }}
+          onEditCheckoutQuestion={(checkoutQuestion) => {
+            setActiveEditingQuestion({
+              id: checkoutQuestion.id,
+              order: questions.length + 1,
+              text: checkoutQuestion.text,
+              kind: "checkout",
+              section: "Checkout",
+              required: true,
+              checkoutProducts: checkoutQuestion.products,
+              visibilityRuleGroup: checkoutQuestion.visibilityRules,
+            });
+            setIsCheckoutOpen(true);
+          }}
+          onSaveProgram={(updatedProgram) => {
+            if (program) {
+              saveProgramMutation.mutate(updatedProgram);
+            } else {
+              setSectionFlowOverrides((current) => ({
+                ...current,
+                authConfig: updatedProgram.authConfig,
+                consentIds: updatedProgram.consentIds,
+              }));
             }
           }}
-          onOpenPreview={onOpenPreview || (() => {})}
         />
-        {/* Render Modals in flow mode too! */}
+
         <QuestionEditorDialog
           open={isQuestionOpen}
           onOpenChange={setIsQuestionOpen}
@@ -650,9 +519,14 @@ export function SharedQuestionsList({
           open={isCheckoutOpen}
           onOpenChange={setIsCheckoutOpen}
           onSave={handleAddCheckoutSave}
-          initialQuestion={null}
+          initialQuestion={activeEditingQuestion?.kind === "checkout" ? {
+            id: activeEditingQuestion.id,
+            text: activeEditingQuestion.text,
+            products: activeEditingQuestion.checkoutProducts || [],
+            visibilityRules: activeEditingQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
+          } : null}
           programName={entityName}
-          programTreatmentTypeKey={program?.treatmentTypeKey}
+          programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
           screeningQuestions={questions}
         />
         <AuthSetupModal
@@ -661,9 +535,9 @@ export function SharedQuestionsList({
           initialConfig={authConfig}
           onSave={(config) => {
             const authQuestion: ProgramQuestion = {
-              id: createMockId("q-auth"),
-              order: questions.length + 1,
-              text: `Patient Authentication (Email, Phone, Identity, Account)`,
+              id: activeEditingQuestion?.id || createMockId("q-auth"),
+              order: activeEditingQuestion?.order || questions.length + 1,
+              text: "Patient Authentication (Email, Phone, Identity, Account)",
               kind: "personal_details",
               section: "Authentication",
               required: true,
@@ -677,7 +551,7 @@ export function SharedQuestionsList({
           onOpenChange={setIsSectionOpen}
           excludeSectionId={entityType === "section" ? entityId : undefined}
           onSelect={(section) => {
-            const sectionQuestion: ProgramQuestion = {
+            saveElement({
               id: createMockId("q-section"),
               order: questions.length + 1,
               text: section.name,
@@ -685,15 +559,14 @@ export function SharedQuestionsList({
               section: section.name,
               required: true,
               elementConfig: { sourceId: section.id },
-            };
-            saveElement(sectionQuestion, "Common Section Attached");
+            }, "Common Section Attached");
           }}
         />
         <ConsentSelectorModal
           open={isConsentOpen}
           onOpenChange={setIsConsentOpen}
           onSelect={(consent) => {
-            const consentQuestion: ProgramQuestion = {
+            saveElement({
               id: createMockId("q-consent"),
               order: questions.length + 1,
               text: consent.name,
@@ -702,8 +575,7 @@ export function SharedQuestionsList({
               required: true,
               consentText: `Patient must accept: ${consent.name}`,
               elementConfig: { sourceId: consent.id },
-            };
-            saveElement(consentQuestion, "Consent Form Attached");
+            }, "Consent Form Attached");
           }}
         />
       </div>
