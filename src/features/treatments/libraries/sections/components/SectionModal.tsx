@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSaveSection } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useSaveSection, useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
 import type { CommonSection, TreatmentLibraryScope } from "@/features/treatments/types";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
@@ -21,10 +21,18 @@ interface SectionModalProps {
   section?: CommonSection | null;
 }
 
-const treatmentSpecificVisitTypes = ["Weight", "GLP", "Microdose", "TRT", "HRT", "ED"];
-
 export function SectionModal({ open, onOpenChange, section }: SectionModalProps) {
   const { mutate: saveSection, isPending } = useSaveSection();
+  const { data: treatmentTypes = [] } = useTreatmentTypes();
+
+  const visitTypeOptions = useMemo(() => {
+    const keys = new Set<string>();
+    treatmentTypes.forEach((type) => {
+      if (type.intakeVisitType) keys.add(type.intakeVisitType);
+      if (type.followupVisitType) keys.add(type.followupVisitType);
+    });
+    return Array.from(keys).sort((a, b) => a.localeCompare(b));
+  }, [treatmentTypes]);
 
   const [name, setName] = useState("");
   const [scope, setScope] = useState<TreatmentLibraryScope | "">("");
@@ -139,7 +147,7 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
                     <SelectValue placeholder="Select visit type..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {treatmentSpecificVisitTypes.map((item) => (
+                    {visitTypeOptions.map((item) => (
                       <SelectItem key={item} value={item}>
                         {item}
                       </SelectItem>
