@@ -773,7 +773,7 @@ const WIDGET_STYLES = `
     --ic-bg:#f7f8fa;--ic-surface:#fff;--ic-border:#e8ebef;--ic-border-2:#eef1f4;
     --ic-text:#0f172a;--ic-text-3:#94a3b8;--ic-accent:#2563eb;--ic-accent-soft:#eff4ff;
     --ic-accent-2:#1e40af;
-    position:fixed;right:24px;bottom:60px;z-index:9000;font-family:inherit}
+    position:fixed;right:24px;bottom:24px;z-index:9000;font-family:inherit}
   .dark .ic-root{
     --ic-bg:#0d1117;--ic-surface:#161c26;--ic-border:#2a3240;--ic-border-2:#222a36;
     --ic-text:#e6edf3;--ic-text-3:#6b7686;--ic-accent:#4f8ff7;--ic-accent-soft:#16243a;

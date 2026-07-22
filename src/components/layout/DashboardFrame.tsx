@@ -188,7 +188,7 @@ export default function DashboardFrame() {
 
           <IntercomCardBanner />
 
-          <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
+          <main className="flex-1 bg-background min-w-0 overflow-x-hidden pb-16">
             <Suspense fallback={<PageLoadingFallback />}>
             <Routes>
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
