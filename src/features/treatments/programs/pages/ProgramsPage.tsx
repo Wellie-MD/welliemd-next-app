@@ -164,7 +164,13 @@ export default function ProgramsPage() {
 
   const handleProgramStatusChange = async (program: Program, status: ProgramStatus) => {
     if (program.status === status) return;
-    await updateProgramStatus.mutateAsync({ programId: program.id, status });
+    try {
+      await updateProgramStatus.mutateAsync({ programId: program.id, status });
+    } catch (error) {
+      showFloatingToast({
+        title: getTreatmentApiErrorMessage(error, "Failed to update program status"),
+      });
+    }
   };
 
   const handleCopyProgramUrl = async (program: Program) => {
