@@ -51,6 +51,40 @@ export default function LabOrders() {
     }
   }, []);
 
+  const exportToCsv = useCallback(() => {
+    if (rows.length === 0) {
+      alert("No orders to export");
+      return;
+    }
+    const headers = ["Order #", "Patient", "Email", "Phone", "Client", "Product", "Lab", "Order Status", "Payment", "Event", "Fulfillment", "Amount"];
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        [
+          row.display_id || row.id,
+          row.patient,
+          row.email,
+          row.phone || "",
+          row.client,
+          row.product,
+          row.lab_provider || "",
+          row.status,
+          row.payment,
+          row.labEvent,
+          row.fulfillment,
+          row.amount.toFixed(2),
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(",")
+      ),
+    ].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `lab-orders-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+  }, [rows]);
+
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
@@ -114,7 +148,7 @@ export default function LabOrders() {
             className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm h-10"
           />
         </div>
-        <Button variant="outline" size="sm" className="gap-2 h-10">
+        <Button variant="outline" size="sm" className="gap-2 h-10" onClick={exportToCsv}>
           <Download className="h-4 w-4" /> Export
         </Button>
       </div>

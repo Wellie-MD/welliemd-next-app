@@ -79,6 +79,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
   const [resultsOpen, setResultsOpen] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
   const [labResults, setLabResults] = useState<any>(null);
+  const [expandedTimeline, setExpandedTimeline] = useState(false);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -198,21 +199,18 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpen}>
-        <SheetContent className="w-full sm:max-w-[500px] overflow-y-auto p-4 sm:p-6 flex flex-col justify-between">
-          <div className="space-y-5">
-            <SheetHeader className="pb-4 border-b">
-              <SheetTitle className="flex items-center gap-2 text-lg font-bold">
-                <Hexagon className="h-5 w-5 text-foreground" />
-                Order Details
-              </SheetTitle>
-              <div className="text-[12px] text-muted-foreground font-mono mt-1">
+        <SheetContent className="w-full sm:max-w-[500px] p-0 flex flex-col h-screen">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+            <SheetHeader className="pb-2 border-b">
+              <SheetTitle className="flex items-center gap-2 text-base font-bold">
+                <Hexagon className="h-4 w-4 text-foreground" />
                 {labResults?.order?.display_id || order.display_id || order.id}
-              </div>
-              <div className="flex flex-wrap gap-2 mt-3">
+              </SheetTitle>
+              <div className="flex flex-wrap gap-1.5 mt-2">
                 <OrderPill status={order.status_display || order.status} />
                 <OrderPill status={order.payment_status || order.payment} />
                 <span
-                  className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border"
+                  className="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border"
                   style={{
                     backgroundColor: order.is_lab ? "#ccfbf1" : "#f1f5f9",
                     color: order.is_lab ? "#0f766e" : "#475569",
@@ -224,118 +222,93 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
               </div>
             </SheetHeader>
 
-            <div className="space-y-2.5">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Patient</div>
-              <div className="space-y-2 text-xs">
+            <div className="space-y-1.5">
+              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Patient</div>
+              <div className="space-y-1 text-xs">
                 <div className="flex items-center gap-2 text-foreground font-semibold">
-                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="truncate">{order.patient_name || order.patient}</span>
                 </div>
                 <div className="flex items-center gap-2 text-foreground font-semibold">
-                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="truncate">{order.patient_email || order.email}</span>
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate text-[11px]">{order.patient_email || order.email}</span>
                 </div>
                 <div className="flex items-center gap-2 text-foreground font-semibold">
-                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="truncate">{order.patient_phone || order.phone || "—"}</span>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2.5 pt-4 border-t">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Order Info</div>
-              <div className="grid grid-cols-2 gap-y-2 text-xs">
+            <div className="space-y-1 pt-2 border-t">
+              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Details</div>
+              <div className="grid grid-cols-2 gap-y-1 text-[11px]">
                 <div className="text-muted-foreground">Client</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{order.client_name || order.client}</div>
+                <div className="font-semibold text-foreground text-right truncate pl-2 text-xs">{order.client_name || order.client}</div>
 
                 <div className="text-muted-foreground">Product</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{orderProduct}</div>
+                <div className="font-semibold text-foreground text-right truncate pl-2 text-xs">{orderProduct}</div>
 
-                <div className="text-muted-foreground">{order.is_lab ? "Ordered panel" : "Ordered (final)"}</div>
-                <div className="text-right pl-2">
-                  <span
-                    className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border truncate max-w-full"
-                    style={{ backgroundColor: "#dcfce7", color: "#166534", borderColor: "#bbf7d0" }}
-                  >
-                    {orderProduct}
-                  </span>
-                </div>
-
-                <div className="text-muted-foreground">{order.is_lab ? "Ordering provider" : "Doctor"}</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{order.doctor_name || "—"}</div>
-
-                <div className="text-muted-foreground">Lab</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{orderLabProvider}</div>
+                <div className="text-muted-foreground">Lab / Provider</div>
+                <div className="font-semibold text-foreground text-right truncate pl-2 text-xs">{orderLabProvider}</div>
 
                 <div className="text-muted-foreground">Amount</div>
-                <div className="font-semibold text-foreground text-right pl-2">
+                <div className="font-semibold text-foreground text-right pl-2 text-xs">
                   ${orderAmount.toFixed(2)}
                 </div>
-
-                {!order.is_lab && (
-                  <>
-                    <div className="text-muted-foreground">Amount source</div>
-                    <div className="text-right pl-2">
-                      <span
-                        className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
-                        style={{ backgroundColor: "#f1f5f9", color: "#475569", borderColor: "#e2e8f0" }}
-                      >
-                        {order.visit === "Declined" || order.visit_status === "Declined" 
-                          ? "Declined" 
-                          : (order.visit === "Prescribed" || order.visit_status === "Prescribed" || order.status === "Completed")
-                            ? "Prescribed (final)"
-                            : "Requested"}
-                      </span>
-                    </div>
-                  </>
-                )}
               </div>
             </div>
 
-            <div className="space-y-2.5 pt-4 border-t">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Timeline</div>
-              <div className="space-y-3 text-xs">
-                {order.is_lab ? (
-                  (labResults?.lifecycle_events || order.lifecycle_events || []).length ? (
-                    ((labResults?.lifecycle_events || order.lifecycle_events || []) as LabLifecycleEvent[]).map((event) => (
-                      <div key={event.id || `${event.event_type}-${event.occurred_at}`} className="flex items-start justify-between gap-4">
-                        <div><div className="font-semibold text-foreground">{event.title || event.status || "Lab update"}</div><div className="text-muted-foreground">{event.description || ""}</div></div>
-                        <div className="shrink-0 text-right text-muted-foreground">{event.occurred_at ? new Date(event.occurred_at).toLocaleString() : "—"}</div>
-                      </div>
-                    ))
-                  ) : <div className="text-muted-foreground">No provider lifecycle events received yet.</div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2"><div className="text-muted-foreground">Ordered</div>
+            {expandedTimeline && (
+              <div className="space-y-2 pt-2 border-t">
+                <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Timeline</div>
+                <div className="space-y-2 text-xs max-h-32 overflow-y-auto">
+                  {order.is_lab ? (
+                    (labResults?.lifecycle_events || order.lifecycle_events || []).length ? (
+                      ((labResults?.lifecycle_events || order.lifecycle_events || []) as LabLifecycleEvent[]).slice(0, 5).map((event) => (
+                        <div key={event.id || `${event.event_type}-${event.occurred_at}`} className="flex items-start justify-between gap-2 text-[11px]">
+                          <div><div className="font-semibold text-foreground">{event.title || event.status || "Lab update"}</div></div>
+                          <div className="shrink-0 text-right text-muted-foreground whitespace-nowrap">{event.occurred_at ? new Date(event.occurred_at).toLocaleDateString() : "—"}</div>
+                        </div>
+                      ))
+                    ) : <div className="text-muted-foreground text-[11px]">No events yet.</div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]"><div className="text-muted-foreground">Ordered</div>
                     <div className="font-semibold text-foreground text-right">{order.timeline?.ordered || order.date || "—"}</div>
-
-                    <div className="text-muted-foreground">Sample collected</div>
+                    <div className="text-muted-foreground">Collected</div>
                     <div className="font-semibold text-foreground text-right">{order.timeline?.sample_collected || "—"}</div>
-
                     <div className="text-muted-foreground">Results</div>
                     <div className="font-semibold text-foreground text-right">{order.timeline?.results || "—"}</div></div>
-                  </>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+            {!expandedTimeline && (
+              <button
+                onClick={() => setExpandedTimeline(true)}
+                className="text-xs text-blue-600 hover:underline py-1"
+              >
+                + View timeline
+              </button>
+            )}
 
             {order.is_lab && (
-              <div className="pt-2 flex flex-col gap-2">
+              <div className="pt-1 flex flex-col gap-1.5">
                 {labResultsAvailable && (
                   <>
                     {hasStructuredResults && <Button
                       type="button"
                       variant="outline"
-                      className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                      className="w-full justify-center text-xs h-8 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1"
                       onClick={() => setResultsOpen(true)}
                     >
-                      <FileText className="h-4 w-4" />
-                      View lab results
+                      <FileText className="h-3.5 w-3.5" />
+                      View results
                     </Button>}
                     {labResults?.artifacts?.result_pdf_available && <Button
                       type="button"
                       variant="outline"
-                      className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                      className="w-full justify-center text-xs h-8 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1"
                       onClick={async () => {
                         try {
                           const blob = await labsApi.downloadAdminLabResultPdf(order.id, order.client_id);
@@ -345,15 +318,15 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                         }
                       }}
                     >
-                      <Download className="h-4 w-4" />
-                      Download report (PDF)
+                      <Download className="h-3.5 w-3.5" />
+                      Download report
                     </Button>}
                   </>
                 )}
                 {labResults?.artifacts?.requisition_available && <Button
                   type="button"
                   variant="outline"
-                  className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                  className="w-full justify-center text-xs h-8 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1"
                   onClick={async () => {
                     try {
                       const blob = await labsApi.downloadAdminLabRequisitionPdf(order.id, order.client_id);
@@ -363,20 +336,20 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                     }
                   }}
                 >
-                  <Download className="h-4 w-4" />
-                  Download requisition form
+                  <Download className="h-3.5 w-3.5" />
+                  Download requisition
                 </Button>}
               </div>
             )}
 
-            <div className="space-y-3 pt-4 border-t">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Update Order</div>
-              <div className="space-y-1.5">
-                <label htmlFor="drawer-order-status" className="text-xs font-semibold text-foreground block">
+            <div className="space-y-2 pt-2 border-t">
+              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Update</div>
+              <div className="space-y-1">
+                <label htmlFor="drawer-order-status" className="text-[11px] font-semibold text-foreground block">
                   Status
                 </label>
                 <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger id="drawer-order-status" className="h-9 text-xs">
+                  <SelectTrigger id="drawer-order-status" className="h-8 text-xs">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -388,44 +361,44 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 </Select>
               </div>
 
-              <div className="space-y-1.5 pt-1">
-                <label htmlFor="drawer-tracking-number" className="text-xs font-semibold text-foreground block">
-                  Tracking Number
+              <div className="space-y-1">
+                <label htmlFor="drawer-tracking-number" className="text-[11px] font-semibold text-foreground block">
+                  Tracking
                 </label>
                 <Input
                   id="drawer-tracking-number"
-                  placeholder="Enter tracking number"
+                  placeholder="Tracking #"
                   value={trackingNumber}
                   onChange={e => setTrackingNumber(e.target.value)}
-                  className="h-9 text-xs"
+                  className="h-8 text-xs"
                 />
               </div>
             </div>
           </div>
 
-          <SheetFooter className="border-t pt-4 flex flex-col-reverse sm:flex-row gap-2 justify-end mt-4">
+          <SheetFooter className="border-t p-3 sm:p-4 flex flex-col-reverse sm:flex-row gap-2 justify-end shrink-0">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="text-xs h-9 bg-slate-50 hover:bg-slate-100 text-slate-700 border-none w-full sm:w-auto"
+              className="text-xs h-8 bg-slate-50 hover:bg-slate-100 text-slate-700 border-none w-full sm:w-auto"
             >
               Close
             </Button>
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4 font-semibold w-full sm:w-auto"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3 font-semibold w-full sm:w-auto"
             >
-              {saving ? "Saving..." : "Save Changes"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
       <Dialog open={resultsOpen} onOpenChange={setResultsOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-lg sm:text-xl font-bold">
+        <DialogContent className="w-[95vw] sm:max-w-4xl h-[90vh] p-0 flex flex-col">
+          <DialogHeader className="border-b p-4 sm:p-6 pb-3 sm:pb-4 shrink-0">
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-lg sm:text-xl font-bold">
               <span>Lab Results</span>
               <div className="flex gap-2">
                 <Button
@@ -445,104 +418,106 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                   }}
                   className="h-8 text-xs font-semibold"
                 >
-                  <FileText className="h-3 w-3 mr-1" /> Get Results PDF
+                  <FileText className="h-3 w-3 mr-1" /> PDF
                 </Button>
               </div>
             </DialogTitle>
             <DialogDescription className="text-xs font-mono text-muted-foreground mt-1">
-              From Junction API &bull; Order reference: {labResults?.order?.display_id || order.display_id || order.id}
+              {labResults?.order?.display_id || order.display_id || order.id}
             </DialogDescription>
           </DialogHeader>
 
           {loadingResults ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              Loading biomarker results from Junction...
+            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              Loading results...
             </div>
           ) : labResults ? (
-            <div className="space-y-6 pt-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-muted/40 p-4 rounded-lg text-xs sm:text-sm border">
-                <div>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Patient Name</span>
-                  <span className="font-semibold text-foreground truncate block">{order.patient_name || order.patient}</span>
+            <>
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 bg-muted/40 p-3 rounded-lg text-xs border">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Patient</span>
+                    <span className="font-semibold text-foreground truncate block text-sm">{order.patient_name || order.patient}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Lab</span>
+                    <span className="font-semibold text-foreground truncate block text-sm">{orderLabProvider}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Collected</span>
+                    <span className="font-semibold text-foreground block text-sm">{order.timeline?.sample_collected || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Panel</span>
+                    <span className="font-semibold text-foreground truncate block text-sm">{orderProduct}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Reference</span>
+                    <span className="font-semibold text-foreground font-mono truncate block text-sm">{labResults?.order?.display_id || order.display_id || order.id}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Reported</span>
+                    <span className="font-semibold text-foreground block text-sm">{order.timeline?.results || "—"}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Lab Provider</span>
-                  <span className="font-semibold text-foreground truncate block">{orderLabProvider}</span>
+
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 p-2.5 rounded-md text-xs">
+                  <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-semibold shrink-0">
+                    Ready
+                  </Badge>
+                  <span className="font-medium">{extractLabResultRows(labResults).length} biomarkers reported</span>
                 </div>
-                <div>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Collection Date</span>
-                  <span className="font-semibold text-foreground block">{order.timeline?.sample_collected || "—"}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Panel Name</span>
-                  <span className="font-semibold text-foreground truncate block">{orderProduct}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Order reference</span>
-                  <span className="font-semibold text-foreground font-mono truncate block">{labResults?.order?.display_id || order.display_id || order.id}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Reporting Date</span>
-                  <span className="font-semibold text-foreground block">{order.timeline?.results || "—"}</span>
+
+                <div className="border rounded-md overflow-hidden bg-card">
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[450px] text-xs">
+                      <TableHeader className="bg-muted/50 h-8">
+                        <TableRow>
+                          <TableHead className="font-bold text-foreground text-xs">Biomarker</TableHead>
+                          <TableHead className="font-bold text-foreground text-xs">Result</TableHead>
+                          <TableHead className="font-bold text-foreground text-xs">Units</TableHead>
+                          <TableHead className="font-bold text-foreground text-xs">Range</TableHead>
+                          <TableHead className="font-bold text-foreground text-xs text-right">Flag</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {extractLabResultRows(labResults).map((bm: any) => {
+                          const flagLower = (bm.flag || "").toLowerCase();
+                          const isHigh = flagLower.includes("high");
+                          const isLow = flagLower.includes("low");
+                          const isCritical = flagLower.includes("critical");
+                          const isAbnormal = flagLower.includes("abnormal");
+
+                          let badgeColor = "bg-slate-100 text-slate-700 hover:bg-slate-100";
+                          if (isCritical) badgeColor = "bg-red-100 text-red-800 hover:bg-red-100 border border-red-300 font-bold";
+                          else if (isHigh || isAbnormal) badgeColor = "bg-rose-100 text-rose-800 hover:bg-rose-100";
+                          else if (isLow) badgeColor = "bg-sky-100 text-sky-800 hover:bg-sky-100";
+
+                          return (
+                            <TableRow key={bm.id} className="h-7">
+                              <TableCell className="font-medium text-foreground text-xs">{bm.name}</TableCell>
+                              <TableCell className="font-semibold text-xs">{bm.result}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs">{bm.units}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs">{bm.reference_range}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge className={`border-none font-semibold text-xs ${badgeColor}`}>
+                                  {bm.flag}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-md">
-                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-semibold w-fit">
-                  Results Ready
-                </Badge>
-                <span className="text-xs font-medium">All {extractLabResultRows(labResults).length} biomarkers successfully reported by lab.</span>
-              </div>
-
-              <div className="border rounded-md overflow-hidden bg-card">
-                <div className="overflow-x-auto w-full">
-                  <Table className="min-w-[500px]">
-                    <TableHeader className="bg-muted/50">
-                      <TableRow>
-                        <TableHead className="font-bold text-foreground">BIOMARKER</TableHead>
-                        <TableHead className="font-bold text-foreground">RESULT</TableHead>
-                        <TableHead className="font-bold text-foreground">UNITS</TableHead>
-                        <TableHead className="font-bold text-foreground">REFERENCE RANGE</TableHead>
-                        <TableHead className="font-bold text-foreground text-right">FLAG</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {extractLabResultRows(labResults).map((bm: any) => {
-                        const flagLower = (bm.flag || "").toLowerCase();
-                        const isHigh = flagLower.includes("high");
-                        const isLow = flagLower.includes("low");
-                        const isCritical = flagLower.includes("critical");
-                        const isAbnormal = flagLower.includes("abnormal");
-                        
-                        let badgeColor = "bg-slate-100 text-slate-700 hover:bg-slate-100";
-                        if (isCritical) badgeColor = "bg-red-100 text-red-800 hover:bg-red-100 border border-red-300 font-bold";
-                        else if (isHigh || isAbnormal) badgeColor = "bg-rose-100 text-rose-800 hover:bg-rose-100";
-                        else if (isLow) badgeColor = "bg-sky-100 text-sky-800 hover:bg-sky-100";
-
-                        return (
-                          <TableRow key={bm.id}>
-                            <TableCell className="font-medium text-foreground">{bm.name}</TableCell>
-                            <TableCell className="font-semibold">{bm.result}</TableCell>
-                            <TableCell className="text-muted-foreground text-xs">{bm.units}</TableCell>
-                            <TableCell className="text-muted-foreground text-xs">{bm.reference_range}</TableCell>
-                            <TableCell className="text-right">
-                              <Badge className={`border-none font-semibold ${badgeColor}`}>
-                                {bm.flag}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-
-              <DialogFooter className="border-t pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <DialogFooter className="border-t p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 bg-background">
                 <div className="text-[10px] sm:text-xs text-muted-foreground text-center sm:text-left">
-                  Electronic Signature: Mitchell Stotland MD (Quest Reviewing Physician)
+                  Signature: Mitchell Stotland MD
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto justify-end">
+                <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setResultsOpen(false)} className="text-xs h-8">
                     Close
                   </Button>
@@ -557,14 +532,14 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs h-8"
                   >
-                    <Download className="h-4 w-4 mr-2" /> Download report (PDF)
+                    <Download className="h-3.5 w-3.5 mr-1" /> Download
                   </Button>}
                 </div>
               </DialogFooter>
-            </div>
+            </>
           ) : (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              Failed to load lab results.
+            <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+              Failed to load results
             </div>
           )}
         </DialogContent>
