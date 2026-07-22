@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import ConnectState from './components/ConnectState';
 import ConnectedState from './components/ConnectedState';
 import TelemetryDashboard from './components/TelemetryDashboard';
@@ -588,7 +589,10 @@ export default function DevicesPage() {
           handleConnect(pendingId);
         }
       })
-      .catch(() => {})
+      .catch((error: any) => {
+        const message = error?.response?.data?.detail || error?.message || error?.error || "You are not allowed to connect wearables at this time.";
+        toast.error(message);
+      })
       .finally(() => {
         setLoading(false);
       });
