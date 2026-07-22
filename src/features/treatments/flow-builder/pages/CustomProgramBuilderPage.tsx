@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { AddToFlowDrawer } from "@/features/treatments/flow-builder/components/modals/AddToFlowDrawer";
 import { CheckoutOverrideEditDialog } from "@/features/treatments/flow-builder/components/modals/CheckoutOverrideEditDialog";
 import { CustomProgramFlowBuilder } from "@/features/treatments/flow-builder/components/CustomProgramFlowBuilder";
-import { PrototypeNotice } from "@/features/treatments/common/components";
 import { toast } from "@/components/ui/use-toast";
 import {
   useConsents,
@@ -170,10 +169,6 @@ export default function CustomProgramBuilderPage() {
 
   return (
     <div className="h-full max-h-screen flex flex-col p-6 space-y-4">
-      <PrototypeNotice>
-        Builder matches the prototype list view, flow view, add-to-flow drawer, slug editing, preview, and save controls.
-      </PrototypeNotice>
-
       <div className="flex-1 overflow-hidden">
         <CustomProgramFlowBuilder
           customProgram={customProgram}
