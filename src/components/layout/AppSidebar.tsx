@@ -1,7 +1,7 @@
 import { useState, useEffect, Fragment, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  BarChart3,
+  ChartLine,
   Users,
   Stethoscope,
   ShoppingBag,
@@ -51,7 +51,7 @@ const menuSections = [
   {
     label: "MANAGEMENT",
     items: [
-      { title: "Home", url: "/dashboard", icon: BarChart3 },
+      { title: "Dashboard", url: "/dashboard", icon: ChartLine },
       {
         title: "Patients",
         url: "/dashboard/patients",
