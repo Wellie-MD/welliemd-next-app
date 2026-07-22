@@ -73,9 +73,9 @@ type WearableDeviceData = {
   recovery?: number | null;
   sleepScore?: number | null;
   weightSeries?: number[];
-  stepsSeries?: number[];
-  sleepSeries?: number[];
-  readinessSeries?: number[];
+  stepsSeries?: { date: string; val: number }[];
+  sleepSeries?: { date: string; val: number }[];
+  readinessSeries?: { date: string; val: number }[];
   sleepDetail?: {
     deep?: number;
     light?: number;
@@ -86,7 +86,7 @@ type WearableDeviceData = {
   };
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
-  glucoseSeries?: number[];
+  glucoseSeries?: { date: string; val: number }[];
   avgGlucose?: number | null;
   latestGlucose?: number | null;
 };
@@ -426,41 +426,7 @@ export default function PatientDetailPage() {
     return "text-slate-700 bg-slate-50 border-slate-200";
   };
 
-  const renderTrendChart = (series: number[], unit = "", dec = 0, color = "#0ea5e9") => {
-    if (!series || series.length < 2) return null;
-    const w = 640, h = 140;
-    const padL = 14, padR = 46, padT = 24, padB = 24;
-    const n = series.length - 1;
-    const mn = Math.min(...series), mx = Math.max(...series), rng = (mx - mn) || 1;
-    const lo = mn - rng * 0.15;
-    const vr = mx + rng * 0.15 - lo || 1;
-    const X = (i: number) => padL + i * ((w - padL - padR) / n);
-    const Y = (v: number) => padT + (1 - (v - lo) / vr) * (h - padT - padB);
-    const pts = series.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
-    const area = `${padL},${h - padB} ${pts} ${w - padR},${h - padB}`;
-    const last = series[n];
-    return (
-      <svg viewBox={`0 0 ${w} ${h}`} className="h-auto w-full">
-        <polyline points={area} fill={color} opacity={0.08} stroke="none" />
-        <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {series.map((v, i) => (
-          <circle
-            key={i}
-            cx={X(i)}
-            cy={Y(v)}
-            r={i === n ? 3.4 : 2}
-            fill={color}
-            stroke={i === n ? "#fff" : undefined}
-            strokeWidth={i === n ? 1.3 : undefined}
-          />
-        ))}
-        <text x={X(n)} y={Y(last) - 8} fontSize={10.5} fontWeight={700} fill="#334155" textAnchor="end">
-          {dec ? last.toFixed(dec) : Math.round(last).toLocaleString()}
-          {unit ? ` ${unit}` : ""}
-        </text>
-      </svg>
-    );
-  };
+  // `renderTrendChart` has been extracted to `StaffTrendChart` component below to support interactive hooks
 
   const getOrderStatusTone = (status?: string) => {
     const s = (status || "").toLowerCase();
@@ -933,7 +899,7 @@ export default function PatientDetailPage() {
                                     <span className="text-sm font-normal text-slate-500"> /100</span>
                                   </div>
                                   {readinessSeries.length > 1 ? (
-                                    renderTrendChart(readinessSeries, "", 0)
+                                    <StaffTrendChart series={readinessSeries} dec={0} color="#0ea5e9" />
                                   ) : (
                                     <div className="p-4 text-center text-sm text-slate-500">Not enough history yet for a trend line.</div>
                                   )}
@@ -1041,7 +1007,7 @@ export default function PatientDetailPage() {
                                   </div>
                                 </CardHeader>
                                 <CardContent className="pt-4 space-y-4">
-                                  {activeTrend && renderTrendChart(activeTrend.series, activeTrend.unit, activeTrend.dec)}
+                                  {activeTrend && <StaffTrendChart series={activeTrend.series} unit={activeTrend.unit} dec={activeTrend.dec} color="#0ea5e9" />}
                                   {activeMetrics.length === 0 ? (
                                     <div className="p-4 text-center text-sm text-slate-500">No recent data available.</div>
                                   ) : (
@@ -1323,8 +1289,8 @@ function WeightTrendChart({
       >
         <defs>
           <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--km-acp)" />
-            <stop offset="100%" stopColor="var(--km-acp)" stopOpacity="0" />
+            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
           </linearGradient>
         </defs>
         {targetWeight !== null && (
@@ -1335,7 +1301,7 @@ function WeightTrendChart({
           />
         )}
         <path d={areaD} fill="url(#area-gradient)" stroke="none" />
-        <path d={pathD} fill="none" stroke="var(--km-ac)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path d={pathD} fill="none" stroke="#0ea5e9" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         
         {series.map((v, i) => {
           const isHovered = hoveredIndex === i;
@@ -1346,7 +1312,7 @@ function WeightTrendChart({
             <circle
               key={i} cx={X(i)} cy={Y(v)}
               r={isHovered ? 5 : (isLast ? 3.4 : 2.4)}
-              fill="var(--km-ac)"
+              fill="#0ea5e9"
               stroke={isLast || isHovered ? '#fff' : undefined}
               strokeWidth={isLast || isHovered ? 1.5 : undefined}
               style={{ transition: 'all 0.2s ease', pointerEvents: 'none' }}
@@ -1358,7 +1324,7 @@ function WeightTrendChart({
           <line
             x1={X(hoveredIndex)} y1={Y(series[hoveredIndex]!)}
             x2={X(hoveredIndex)} y2={h - padB}
-            stroke="var(--km-ac)" strokeWidth={1} strokeDasharray="3 3"
+            stroke="#0ea5e9" strokeWidth={1} strokeDasharray="3 3"
             opacity={0.5}
             pointerEvents="none"
           />
@@ -1405,6 +1371,159 @@ function WeightTrendChart({
           {points[hoveredIndex]!.bmi != null && (
             <div style={{ color: 'var(--km-t2)' }}>BMI: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.bmi}</b></div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StaffTrendChart({
+  series,
+  dec = 0,
+  color = '#0ea5e9',
+  unit = '',
+}: {
+  series: { date: string; val: number }[];
+  dec?: number;
+  color?: string;
+  unit?: string;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  if (!series || series.length < 2) return null;
+
+  const w = 640, h = 140;
+  const padL = 14, padR = 46, padT = 24, padB = 24;
+  
+  const n = series.length - 1;
+  const vals = series.map(s => s.val);
+  const mn = Math.min(...vals);
+  const mx = Math.max(...vals);
+  const rng = mx - mn || 1;
+  const lo = mn - rng * 0.15;
+  const vr = mx + rng * 0.15 - lo || 1;
+
+  // Map dates to timestamps for proportional X axis spacing
+  const times = series.map(s => new Date(s.date).getTime());
+  const mnTime = times[0]!;
+  const mxTime = times[n]!;
+  const timeRng = mxTime - mnTime || 1;
+
+  const X = (i: number) => padL + ((times[i]! - mnTime) / timeRng) * (w - padL - padR);
+  const Y = (v: number) => padT + (1 - (v - lo) / vr) * (h - padT - padB);
+
+  let pathD = `M ${X(0)},${Y(vals[0]!)}`;
+  for (let i = 0; i < n; i++) {
+    const p0x = X(i), p0y = Y(vals[i]!);
+    const p1x = X(i + 1), p1y = Y(vals[i + 1]!);
+    const cx = (p0x + p1x) / 2;
+    pathD += ` C ${cx},${p0y} ${cx},${p1y} ${p1x},${p1y}`;
+  }
+
+  const areaD = `${pathD} L ${w - padR},${h - padB} L ${padL},${h - padB} Z`;
+
+  const fmtD = (dStr: string) => {
+    const d = new Date(dStr);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  return (
+    <div className="relative w-full">
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="block h-auto w-full overflow-visible touch-none"
+        preserveAspectRatio="none"
+        onPointerMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const scaleX = w / rect.width;
+          const x = (e.clientX - rect.left) * scaleX;
+          if (x < padL - 10 || x > w - padR + 10) {
+            setHoveredIndex(null);
+            return;
+          }
+          // Find the closest point by X coordinate
+          let closestIdx = 0;
+          let minDist = Infinity;
+          for (let i = 0; i <= n; i++) {
+            const dist = Math.abs(X(i) - x);
+            if (dist < minDist) {
+              minDist = dist;
+              closestIdx = i;
+            }
+          }
+          setHoveredIndex(closestIdx);
+        }}
+        onPointerLeave={() => setHoveredIndex(null)}
+      >
+        <defs>
+          <linearGradient id={`area-gradient-${color.replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        
+        <path d={areaD} fill={`url(#area-gradient-${color.replace(/[^a-zA-Z0-9]/g, '')})`} stroke="none" />
+        <path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        
+        {series.map((s, i) => {
+          const isHovered = hoveredIndex === i;
+          const isLast = i === n;
+          const showDot = series.length < 30 || isHovered || isLast;
+          if (!showDot) return null;
+          return (
+            <circle
+              key={i} cx={X(i)} cy={Y(s.val)}
+              r={isHovered ? 5 : (isLast ? 3.4 : 2.4)}
+              fill={color}
+              stroke={isLast || isHovered ? '#fff' : undefined}
+              strokeWidth={isLast || isHovered ? 1.5 : undefined}
+              style={{ transition: 'all 0.2s ease', pointerEvents: 'none' }}
+            />
+          );
+        })}
+
+        {hoveredIndex !== null && (
+          <line
+            x1={X(hoveredIndex)} y1={Y(vals[hoveredIndex]!)}
+            x2={X(hoveredIndex)} y2={h - padB}
+            stroke={color} strokeWidth={1} strokeDasharray="3 3"
+            opacity={0.5}
+            pointerEvents="none"
+          />
+        )}
+
+        <text x={X(n)} y={Y(vals[n]!) - 10} fontSize={10.5} fontWeight={700} fill="#334155" textAnchor="end">
+          {dec ? vals[n]!.toFixed(dec) : Math.round(vals[n]!).toLocaleString()}
+          {unit ? ` ${unit}` : ''}
+        </text>
+      </svg>
+      
+      {hoveredIndex !== null && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${((X(hoveredIndex) / w) * 100)}%`,
+            top: `${((Y(vals[hoveredIndex]!) / h) * 100)}%`,
+            transform: 'translate(-50%, -115%)',
+            background: 'var(--km-s1, rgba(255, 255, 255, 0.9))',
+            backdropFilter: 'blur(8px)',
+            color: 'var(--km-t, #0f172a)',
+            padding: '4px 8px',
+            borderRadius: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            pointerEvents: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+            border: '1px solid var(--km-b, #e2e8f0)',
+            whiteSpace: 'nowrap',
+            zIndex: 10,
+          }}
+        >
+          {dec ? vals[hoveredIndex]!.toFixed(dec) : Math.round(vals[hoveredIndex]!).toLocaleString()}
+          {unit ? ` ${unit}` : ''}
+          <div style={{ fontSize: 9, color: 'var(--km-tm, #64748b)', fontWeight: 500, marginTop: 1 }}>
+            {fmtD(series[hoveredIndex]!.date)}
+          </div>
         </div>
       )}
     </div>
