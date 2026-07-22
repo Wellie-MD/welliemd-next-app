@@ -55,6 +55,12 @@ const comparisonForPreset = (range: DateRange, preset: string): DateRange => {
   return comparisonForRange(range);
 };
 const ratioPct = (value: number | null | undefined, total: number | null | undefined) => !total ? null : Math.round(((value || 0) / total) * 1000) / 10;
+const numberFromDisplay = (value: string | undefined) => {
+  if (!value) return undefined;
+  const normalized = value.replace(/[$,%\s,]/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
 const deltaText = (current: number | null | undefined, previous: number | null | undefined) => {
   const cur = current || 0, prev = previous || 0;
   if (!cur && !prev) return "no activity in prior period";
@@ -62,21 +68,21 @@ const deltaText = (current: number | null | undefined, previous: number | null |
   const change = Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10;
   return `${change >= 0 ? "▲ +" : "▼ "}${change}% vs prior period`;
 };
-const deltaTone = (current: number | null | undefined, previous: number | null | undefined, invert = false): "good" | "bad" | "neutral" => {
-  const cur = current || 0, prev = previous || 0;
-  if (!prev) return "neutral";
-  const change = ((cur - prev) / Math.abs(prev)) * 100;
-  return invert ? change <= 0 ? "good" : "bad" : change >= 0 ? "good" : "bad";
-};
-
-function MetricCard({ title, value, change, trend = "neutral", support, supportTone = "neutral" }: { title: string; value: string; change?: string; trend?: "up" | "down" | "neutral"; support?: string; supportTone?: "good" | "bad" | "warn" | "neutral" }) {
+function MetricCard({ title, value, change, trend = "neutral", support }: { title: string; value: string; change?: string; trend?: "up" | "down" | "neutral"; support?: string }) {
   const Icon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
-  const footerTone = supportTone === "good" ? "text-emerald-600 dark:text-emerald-400" : supportTone === "bad" ? "text-red-600 dark:text-red-400" : supportTone === "warn" ? "text-amber-600 dark:text-amber-400" : "text-slate-400";
+  const renderSupport = (text: string) => {
+    const match = text.match(/([▲▼]\s*)?([+-]?\d+(?:\.\d+)?%?)/);
+    if (!match || match.index == null) return text;
+    const token = `${match[1] || ""}${match[2]}`;
+    const numeric = Number(match[2].replace("%", ""));
+    const tone = numeric > 0 ? "text-emerald-600 dark:text-emerald-400" : numeric < 0 ? "text-red-600 dark:text-red-400" : "text-slate-400";
+    return <><span>{text.slice(0, match.index)}</span><span className={tone}>{token}</span><span>{text.slice(match.index + token.length)}</span></>;
+  };
   return <div className="rounded-[11px] border border-slate-200 bg-white px-4 py-3.5 shadow-none dark:border-slate-700 dark:bg-slate-900">
     <div className="text-[11px] font-medium text-slate-400">{title}</div>
     <div className="mt-1.5 text-[23px] font-bold tracking-tight text-slate-900 dark:text-slate-100">{value}</div>
-    <div className={cn("mt-1 flex min-h-4 items-center gap-1 text-[11px]", support ? footerTone : trend === "up" && "text-emerald-600 dark:text-emerald-400", !support && trend === "down" && "text-red-600 dark:text-red-400", !support && trend === "neutral" && "text-slate-400")}>
-      {support ? support : change && <><Icon className="h-3 w-3" />{change}<span className="text-slate-400">vs prior period</span></>}
+    <div className={cn("mt-1 flex min-h-4 items-center gap-1 text-[11px] text-slate-400", !support && trend === "up" && "text-emerald-600 dark:text-emerald-400", !support && trend === "down" && "text-red-600 dark:text-red-400")}>
+      {support ? renderSupport(support) : change && <><Icon className="h-3 w-3" />{change}<span className="text-slate-400">vs prior period</span></>}
     </div>
   </div>;
 }
@@ -271,20 +277,22 @@ export default function Dashboard() {
     const list = metrics?.kpis || [];
     const get = (names: string[]) => list.find((item) => names.includes(item.title));
     const revenue = get(["Revenue", "Captured Revenue"]); const expenses = get(["Expenses", "Total Expense"]); const net = get(["Net Profit", "Net Profit (margin)"]); const totalOrders = get(["Total Orders"]);
+    const totalRevenue = metrics?.total_revenue ?? numberFromDisplay(revenue?.value);
+    const totalExpenses = metrics?.total_expenses ?? numberFromDisplay(expenses?.value);
+    const totalProfit = metrics?.total_profit ?? numberFromDisplay(net?.value);
     const previousRevenue = charts.previous.at(-1)?.net_revenue as number | undefined;
     const previousCapturedOrders = charts.previous.at(-1)?.total_sales as number | undefined;
-    const expenseRatio = ratioPct(metrics?.total_expenses, metrics?.total_revenue);
-    const netRatio = ratioPct(metrics?.total_profit, metrics?.total_revenue);
-    const expenseTone = expenseRatio == null ? "neutral" as const : expenseRatio <= 70 ? "good" as const : expenseRatio <= 90 ? "warn" as const : "bad" as const;
+    const expenseRatio = ratioPct(totalExpenses, totalRevenue);
+    const netRatio = ratioPct(totalProfit, totalRevenue);
     const supportDelta = (metric: typeof revenue, fallback?: string) => metric?.change ? `${metric.change} vs prior period` : fallback;
     return [
-      { title: "Captured Revenue", value: revenue?.value || money(metrics?.total_revenue), change: revenue?.change, trend: revenue?.trend, support: supportDelta(revenue, deltaText(metrics?.total_revenue, previousRevenue)), supportTone: deltaTone(metrics?.total_revenue, previousRevenue) },
-      { title: "Expenses", value: expenses?.value || money(metrics?.total_expenses), change: expenses?.change, trend: expenses?.trend, support: expenseRatio == null ? "no revenue in period" : `${expenseRatio}% of revenue`, supportTone: expenseTone },
-      { title: "Net Profit (margin)", value: net?.value || money(metrics?.total_profit), change: net?.change, trend: net?.trend, support: netRatio == null ? "no revenue in period" : `${netRatio}% of revenue`, supportTone: netRatio == null ? "neutral" as const : netRatio >= 0 ? "good" as const : "bad" as const },
-      { title: "Total Orders", value: totalOrders?.value || count(metrics?.total_orders), change: totalOrders?.change, trend: totalOrders?.trend, support: supportDelta(totalOrders), supportTone: totalOrders?.trend === "down" ? "bad" as const : totalOrders?.trend === "up" ? "good" as const : "neutral" as const },
-      { title: "Captured Orders", value: count(metrics?.captured_orders ?? metrics?.total_sales), change: undefined, trend: "neutral" as const, support: deltaText(metrics?.captured_orders ?? metrics?.total_sales, previousCapturedOrders), supportTone: deltaTone(metrics?.captured_orders ?? metrics?.total_sales, previousCapturedOrders) },
-      { title: "Avg Order Value", value: money(metrics?.average_order_value), change: undefined, trend: "neutral" as const, support: "captured $ / captured orders", supportTone: "neutral" as const },
-      { title: "Conversion Rate", value: pct(metrics?.conversion_rate), change: undefined, trend: "neutral" as const, support: "captured / total orders", supportTone: "neutral" as const },
+      { title: "Captured Revenue", value: revenue?.value || money(totalRevenue), change: revenue?.change, trend: revenue?.trend, support: supportDelta(revenue, deltaText(totalRevenue, previousRevenue)) },
+      { title: "Expenses", value: expenses?.value || money(totalExpenses), change: expenses?.change, trend: expenses?.trend, support: expenseRatio == null ? "no revenue in period" : `${expenseRatio}% of revenue` },
+      { title: "Net Profit (margin)", value: net?.value || money(totalProfit), change: net?.change, trend: net?.trend, support: netRatio == null ? "no revenue in period" : `${netRatio}% of revenue` },
+      { title: "Total Orders", value: totalOrders?.value || count(metrics?.total_orders), change: totalOrders?.change, trend: totalOrders?.trend, support: supportDelta(totalOrders) },
+      { title: "Captured Orders", value: count(metrics?.captured_orders ?? metrics?.total_sales), change: undefined, trend: "neutral" as const, support: deltaText(metrics?.captured_orders ?? metrics?.total_sales, previousCapturedOrders) },
+      { title: "Avg Order Value", value: money(metrics?.average_order_value), change: undefined, trend: "neutral" as const, support: "captured $ / captured orders" },
+      { title: "Conversion Rate", value: pct(metrics?.conversion_rate), change: undefined, trend: "neutral" as const, support: "captured / total orders" },
     ];
   }, [charts.previous, metrics]);
   const applyPreset = (preset: typeof ranges[number]) => {
