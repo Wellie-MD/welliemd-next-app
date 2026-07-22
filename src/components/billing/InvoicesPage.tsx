@@ -411,12 +411,10 @@ function RevisionInvoiceModal({
         : currentRequestedProductTotal > 0
           ? currentRequestedProductTotal + consultationAmount
           : summaryInvoiceTotal;
-  const derivedHoldReleasedAmount = Math.max(0, baseInvoiceTotal - adjustedInvoiceTotal);
-  const holdReleasedAmount = Math.max(moneyNumber(summary?.hold_released_amount), derivedHoldReleasedAmount);
+  const capturedInvoiceTotal = moneyNumber(summary?.captured_amount || invoice.total_amount);
+  const holdReleasedAmount = Math.max(0, baseInvoiceTotal - capturedInvoiceTotal);
   const hasReleasedHold = Number.isFinite(holdReleasedAmount) && holdReleasedAmount > 0.005;
-  const captureStatusLabel = summary?.capture_status
-    ? formatLabel(summary.capture_status)
-    : hasReleasedHold && invoice.status === "paid"
+  const captureStatusLabel = hasReleasedHold && invoice.status === "paid"
       ? "Partially Captured"
     : formatLabel(invoice.status);
   const requestedLabel = requested?.prescribed_differs
@@ -545,7 +543,7 @@ function RevisionInvoiceModal({
                   <InvoiceMoneyRow label="Intended auth amount" value={baseInvoiceTotal} />
                   {hasReleasedHold && (
                     <>
-                      <InvoiceMoneyRow label="Captured amount" value={summary?.captured_amount || adjustedInvoiceTotal} />
+                      <InvoiceMoneyRow label="Captured amount" value={capturedInvoiceTotal} />
                       <InvoiceMoneyRow label="Hold released" value={holdReleasedAmount} formatted={`−${formatMoney(holdReleasedAmount)}`} tone="positive" />
                     </>
                   )}
