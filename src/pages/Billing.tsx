@@ -354,15 +354,7 @@ export default function Billing() {
         })
       : adjustments;
     const firstFallbackIsInitialPrescription = Boolean(
-      prescriptionEvents.length === 0 &&
-      fallbackAdjustments.length > 0 &&
-      fallbackAdjustments[0]?.kind === "no_charge_revision" &&
-      Math.abs(Number(fallbackAdjustments[0]?.adjustment_amount || 0)) < 0.005 &&
-      (
-        !requestedProductName ||
-        !fallbackAdjustments[0]?.product_name ||
-        fallbackAdjustments[0].product_name.trim().toLowerCase() === requestedProductName.trim().toLowerCase()
-      )
+      prescriptionEvents.length === 0 && fallbackAdjustments.length > 0
     );
     const pendingCredits = adjustments.filter(
       (adjustment) =>
@@ -696,7 +688,7 @@ export default function Billing() {
                         false,
                         productName,
                         "Total",
-                        isInitialFallback || isNoCharge ? undefined : adjustment
+                        isNoCharge ? undefined : adjustment
                       )}
                     </div>
                   </section>
