@@ -107,9 +107,10 @@ function PatientSummaryCard({ summary }: { summary: PatientSummary | undefined }
   </section>;
 }
 
-function LineChart({ title, dataKey, color, data, previous, currency, rangeLabel }: { title: string; dataKey: "total_sales" | "net_revenue" | "new_patients"; color: string; data: DashboardChartPoint[]; previous: DashboardChartPoint[]; currency?: boolean; rangeLabel: string }) {
+function LineChart({ title, dataKey, color, data, previous, currency, rangeLabel, activeRange }: { title: string; dataKey: "total_sales" | "net_revenue" | "new_patients"; color: string; data: DashboardChartPoint[]; previous: DashboardChartPoint[]; currency?: boolean; rangeLabel: string; activeRange: string }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const width = 900, height = 250, left = 42, right = 110, top = 24, bottom = 38;
+  const width = 900, height = 250, left = 42, right = 18, top = 24, bottom = 38;
+  const plotRight = width - right;
   const values = data.map((item) => Number(item[dataKey]) || 0);
   const previousValues = previous.map((item) => Number(item[dataKey]) || 0);
   const hasPrevious = previousValues.length > 1;
@@ -118,14 +119,26 @@ function LineChart({ title, dataKey, color, data, previous, currency, rangeLabel
   const smoothPath = (valuesToDraw: number[]) => {
     const points = valuesToDraw.map((value, index) => point(value, index, valuesToDraw.length));
     if (points.length < 3) return points.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+    const slopes = valuesToDraw.map((value, index) => {
+      const prev = valuesToDraw[index - 1];
+      const next = valuesToDraw[index + 1];
+      if (prev == null && next == null) return 0;
+      if (prev == null) return next - value;
+      if (next == null) return value - prev;
+      const leftSlope = value - prev;
+      const rightSlope = next - value;
+      if (leftSlope === 0 || rightSlope === 0 || Math.sign(leftSlope) !== Math.sign(rightSlope)) return 0;
+      return (leftSlope + rightSlope) / 2;
+    });
     let d = `M${points[0][0].toFixed(1)} ${points[0][1].toFixed(1)}`;
     for (let index = 0; index < points.length - 1; index += 1) {
-      const p0 = points[Math.max(0, index - 1)], p1 = points[index], p2 = points[index + 1], p3 = points[Math.min(points.length - 1, index + 2)];
-      const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-      let c1y = p1[1] + (p2[1] - p0[1]) / 6;
-      const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-      const c2y = Math.max(p2[1] - (p3[1] - p1[1]) / 6, Math.min(p1[1], p2[1]));
-      c1y = Math.max(c1y, Math.min(p1[1], p2[1]));
+      const p1 = points[index], p2 = points[index + 1];
+      const dx = (p2[0] - p1[0]) / 3;
+      const scale = (height - top - bottom) / max;
+      const c1x = p1[0] + dx;
+      const c2x = p2[0] - dx;
+      const c1y = p1[1] - (slopes[index] * scale) / 3;
+      const c2y = p2[1] + (slopes[index + 1] * scale) / 3;
       d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
     }
     return d;
@@ -137,6 +150,14 @@ function LineChart({ title, dataKey, color, data, previous, currency, rangeLabel
   const [previousX, previousY] = point(previousLatest, Math.max(previousValues.length - 1, 0), Math.max(previousValues.length, 1));
   const formatValue = (value: number) => currency ? money(value) : value.toLocaleString();
   const formatAxisDate = (day?: string) => day ? displayDate(day).replace(/, \d{4}$/, "") : "";
+  const formatMonthYear = (day?: string) => {
+    const parsed = day ? parseDateValue(day) : null;
+    return parsed ? `${format(parsed, "MMM")}'${format(parsed, "yy")}` : "";
+  };
+  const formatDayMonth = (day?: string) => {
+    const parsed = day ? parseDateValue(day) : null;
+    return parsed ? format(parsed, "dd MMM") : "";
+  };
   const incrementValues = values.map((value, index) => Math.max(0, value - (values[index - 1] || 0)));
   const bucket = (() => {
     const start = data[0]?.day ? parseDateValue(data[0].day) : null;
@@ -195,8 +216,43 @@ function LineChart({ title, dataKey, color, data, previous, currency, rangeLabel
   };
   const xTicks = (() => {
     if (!data.length) return [];
+    const tick = (index: number, label: string) => ({ index, label, x: point(0, index, data.length)[0] });
+    const indexForDay = (dayOfMonth: number) => {
+      const found = data.findIndex((item) => parseDateValue(item.day)?.getDate() === dayOfMonth);
+      return found >= 0 ? found : null;
+    };
+    if (activeRange === "tm") {
+      const start = tick(0, formatMonthYear(data[0]?.day));
+      const endDay = parseDateValue(data[data.length - 1]?.day)?.getDate() || 0;
+      const monthCadence = endDay > 20 ? [5, 10, 15, 20] : [3, 7, 11, 15];
+      const dayTicks = monthCadence
+        .map((day) => {
+          const index = indexForDay(day);
+          return index == null || index === 0 || index === data.length - 1 ? null : tick(index, formatDayMonth(data[index]?.day));
+        })
+        .filter((item): item is { index: number; label: string; x: number } => item != null);
+      return [start, ...dayTicks];
+    }
+    if (activeRange === "lm") {
+      const lastDate = parseDateValue(data[data.length - 1]?.day);
+      const nextMonth = lastDate ? new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 1) : null;
+      const ticks = [tick(0, formatMonthYear(data[0]?.day))];
+      [8, 16, 24].forEach((day) => {
+        const index = indexForDay(day);
+        if (index != null) ticks.push(tick(index, formatDayMonth(data[index]?.day)));
+      });
+      if (data.length > 1) ticks.push(tick(data.length - 1, nextMonth ? `${format(nextMonth, "MMM")}'${format(nextMonth, "yy")}` : formatMonthYear(data[data.length - 1]?.day)));
+      return ticks;
+    }
+    if (activeRange === "ytd") {
+      return data.reduce<{ index: number; label: string; x: number }[]>((ticks, item, index) => {
+        const parsed = parseDateValue(item.day);
+        if (parsed && parsed.getDate() === 1) ticks.push(tick(index, formatMonthYear(item.day)));
+        return ticks;
+      }, []);
+    }
     const candidates = [0, Math.round((data.length - 1) * 0.25), Math.round((data.length - 1) * 0.5), Math.round((data.length - 1) * 0.75), data.length - 1];
-    return Array.from(new Set(candidates)).map((index) => ({ index, label: formatAxisDate(data[index]?.day), x: point(0, index, data.length)[0] }));
+    return Array.from(new Set(candidates)).map((index) => tick(index, formatAxisDate(data[index]?.day)));
   })();
   const yTicks = [0, 1 / 3, 2 / 3, 1].map((fraction) => {
     const value = Math.round(max * fraction);
@@ -204,24 +260,22 @@ function LineChart({ title, dataKey, color, data, previous, currency, rangeLabel
     return { fraction, value, y };
   });
   return <section className="rounded-[11px] border border-slate-200 bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
-    <div><h2 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{title}</h2><div className="mt-0.5 text-[12px] text-slate-400">{rangeLabel}</div></div>
+    <div><h2 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">{title}</h2><div className="mt-0.5 text-[12px] font-normal text-slate-900 dark:text-slate-100">{rangeLabel}</div></div>
     <div className="my-3 flex min-h-[34px] items-start gap-6 text-[11.5px] text-slate-400">
       {bucket && <div>Peak {bucket.unit} · {bucket.label}<b className="block text-[14px] text-slate-900 dark:text-slate-100">{formatValue(bucket.value)}</b></div>}
     </div>
     <div className="relative h-[250px] w-full">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full cursor-crosshair overflow-visible" role="img" aria-label={`${title} chart`} onMouseMove={handlePointerMove} onMouseLeave={() => setHoverIndex(null)}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full cursor-default overflow-visible" role="img" aria-label={`${title} chart`} onMouseMove={handlePointerMove} onMouseLeave={() => setHoverIndex(null)}>
         <defs>
           <linearGradient id={`fill-${dataKey}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".22" /><stop offset=".7" stopColor={color} stopOpacity=".04" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient>
           <filter id={`shadow-${dataKey}`} x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2.5" stdDeviation="3.5" floodColor={color} floodOpacity=".28" /></filter>
         </defs>
-        {yTicks.map(({ fraction, value, y }) => <g key={fraction}><line x1={left} x2={width - right} y1={y} y2={y} className="stroke-slate-200 dark:stroke-slate-700" strokeDasharray={fraction === 0 ? undefined : "2 5"} opacity={fraction === 0 ? 1 : 0.8} /><text x={left - 8} y={fraction === 0 ? y - 4 : Math.max(top + 9, y - 5)} textAnchor="end" fontSize="11" className="fill-slate-400">{formatValue(value)}</text></g>)}
-        <line x1={left} x2={width - right} y1={height - bottom} y2={height - bottom} className="stroke-slate-200 dark:stroke-slate-700" />
+        {yTicks.map(({ fraction, value, y }) => <g key={fraction}><line x1={left} x2={plotRight} y1={y} y2={y} className="stroke-slate-200 dark:stroke-slate-700" strokeDasharray={fraction === 0 ? undefined : "2 5"} opacity={fraction === 0 ? 1 : 0.8} /><text x={left - 8} y={fraction === 0 ? y - 4 : Math.max(top + 9, y - 5)} textAnchor="end" fontSize="11" className="fill-slate-400">{formatValue(value)}</text></g>)}
+        <line x1={left} x2={plotRight} y1={height - bottom} y2={height - bottom} className="stroke-slate-200 dark:stroke-slate-700" />
         {hasPrevious && <path d={smoothPath(previousValues)} fill="none" className="stroke-slate-400" strokeWidth="2" strokeDasharray="5 6" strokeLinecap="round" opacity=".5" />}
-        <path d={`${currentPath} L${width - right} ${height - bottom} L${left} ${height - bottom} Z`} fill={`url(#fill-${dataKey})`} />
+        <path d={`${currentPath} L${plotRight} ${height - bottom} L${left} ${height - bottom} Z`} fill={`url(#fill-${dataKey})`} />
         <path d={currentPath} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" filter={`url(#shadow-${dataKey})`} />
         <circle cx={latestX} cy={latestY} r="9" fill={color} opacity=".18" /><circle cx={latestX} cy={latestY} r="4.5" fill={color} className="stroke-white dark:stroke-slate-900" strokeWidth="2" />
-        <text x={latestX + 14} y={Math.max(top + 8, latestY + 7)} fontSize="24" fontWeight="700" fill={color}>{formatValue(latest)}</text>
-        {hasPrevious && <text x={previousX + 14} y={previousY + (Math.abs(previousY - latestY) < 26 ? 26 : 7)} fontSize="17" className="fill-slate-400">{formatValue(previousLatest)}</text>}
         {hover && <g pointerEvents="none">
           <line x1={hover.currentPoint[0]} x2={hover.currentPoint[0]} y1={top} y2={height - bottom} className="stroke-slate-300 dark:stroke-slate-600" strokeDasharray="3 4" />
           {hasPrevious && <circle cx={hover.previousPoint[0]} cy={hover.previousPoint[1]} r="4.5" className="fill-slate-400 stroke-white dark:stroke-slate-900" strokeWidth="2" />}
@@ -327,11 +381,11 @@ export default function Dashboard() {
   const summary = metrics?.patient_summary;
   return <div className="min-h-full bg-[#f7f8fa] px-4 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-7 sm:py-6">
     <div className="mx-auto max-w-[1500px]">
-      <header className="mb-[18px] flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-        <div><h1 className="text-[22px] font-bold tracking-tight">Dashboard</h1><p className="mt-1 text-[13px] text-slate-400">{rangeLabel}</p></div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <div className="flex flex-wrap gap-1.5">{ranges.map((range) => <button key={range.value} onClick={() => applyPreset(range)} className={cn("rounded-[7px] border px-3 py-1.5 text-[12px] font-medium", activeRange === range.value ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300" : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300")}>{range.label}</button>)}</div>
-          <button type="button" onClick={toggleCustom} className={cn("rounded-[7px] border px-3 py-1.5 text-[12px] font-medium", activeRange === "custom" ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300" : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300")}>Custom</button>
+      <header className="mb-[18px] flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-start">
+        <div className="min-w-0"><h1 className="text-[22px] font-bold tracking-tight">Dashboard</h1><p className="mt-1 max-w-[620px] text-[13px] text-slate-400">{rangeLabel}</p></div>
+        <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_34px] items-center gap-1.5 sm:grid-cols-[repeat(6,max-content)_34px] 2xl:justify-end">
+          <div className="contents">{ranges.map((range) => <button key={range.value} onClick={() => applyPreset(range)} className={cn("h-[31px] rounded-[7px] border px-3 text-[12px] font-medium", activeRange === range.value ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300" : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300")}>{range.label}</button>)}</div>
+          <button type="button" onClick={toggleCustom} className={cn("h-[31px] rounded-[7px] border px-3 text-[12px] font-medium", activeRange === "custom" ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300" : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300")}>Custom</button>
           <Button variant="outline" size="sm" className="h-[31px] w-[34px] rounded-[7px] p-0" onClick={() => void load()} disabled={loading} aria-label="Refresh dashboard"><RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /></Button>
         </div>
       </header>
@@ -348,7 +402,7 @@ export default function Dashboard() {
       </div>}
       {error && <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">{error}</div>}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-7">{kpis.map((kpi) => <MetricCard key={kpi.title} {...kpi} />)}</div>
-      <div className="grid gap-[18px] xl:grid-cols-2"><LineChart title="Orders" dataKey="total_sales" color="#3b82f6" data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} /><PatientSummaryCard summary={summary} /><LineChart title="Captured Revenue" dataKey="net_revenue" color="#16a34a" currency data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} /><LineChart title="New Patients" dataKey="new_patients" color="#8b5cf6" data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} /></div>
+      <div className="grid gap-[18px] xl:grid-cols-2"><LineChart title="Orders" dataKey="total_sales" color="#3b82f6" data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} activeRange={activeRange} /><PatientSummaryCard summary={summary} /><LineChart title="Captured Revenue" dataKey="net_revenue" color="#16a34a" currency data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} activeRange={activeRange} /><LineChart title="New Patients" dataKey="new_patients" color="#8b5cf6" data={charts.current} previous={charts.previous} rangeLabel={chartRangeLabel} activeRange={activeRange} /></div>
       <div className="mt-[18px] grid gap-[18px] xl:grid-cols-2"><HistoryTable title="Order History" columns={[["date", "DATE"], ["orderNumber", "ORDER#"], ["name", "NAME"], ["product", "PRODUCT"], ["pharmacy", "PHARMACY"], ["amount", "AMOUNT"]]} rows={orders} empty="No orders in this period." navigateTo="/dashboard/orders" /><HistoryTable title="Payments — Auth & Capture" columns={[["date", "DATE"], ["patientName", "PATIENT"], ["orderNumber", "ORDER#"], ["authorized", "AUTHORIZED"], ["holdReleased", "HOLD RELEASED"], ["captured", "CAPTURED"]]} rows={payments} empty="No captured payments in this period." navigateTo="/dashboard/orders/payments" /></div>
       {loading && <div className="mt-3 text-xs text-slate-400">Loading dashboard data…</div>}
     </div>
