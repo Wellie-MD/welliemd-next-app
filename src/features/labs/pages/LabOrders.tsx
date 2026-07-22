@@ -1,13 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar as CalendarIcon, Download, Eye, RefreshCw, Search } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DataTable } from "@/components/ui/data-table";
 import { clientLabsApi, type LabOrder } from "@/features/labs/api";
 import { humanizeLabStatus } from "@/features/labs/constants/status";
 import { labPillTone } from "@/features/labs/constants/tones";
 import { junctionMockEnabled } from "@/features/labs/junctionMockData";
 import { cn } from "@/lib/utils";
+
+const ORDER_STATUS_OPTIONS = ["All", "Completed", "In Process", "Canceled", "Failed"];
+const PAYMENT_STATUS_OPTIONS = ["All", "Paid", "Pending", "Failed"];
+const LAB_EVENT_OPTIONS = [
+  "All", "Requisition Created", "Appointment Pending", "Appointment Scheduled",
+  "Sample Collected", "At Lab", "Partial Results", "Results Ready", "Failed", "Junction Auth Failed",
+];
+const FULFILLMENT_OPTIONS = ["All", "At Lab", "Results Ready"];
 
 const rowFromOrder = (order: LabOrder) => ({
   id: order.display_id || order.id,
@@ -23,196 +31,7 @@ const rowFromOrder = (order: LabOrder) => ({
   lab_event_label: humanizeLabStatus(order.ui_lab_event_label || order.lab_event_label || order.lab_event || "Lab Update"),
   price: order.total_paid,
   created_at: order.created_at,
-  resultsReady: `${order.results_status} ${order.order_status}`.toLowerCase().includes("result"),
 });
-
-export default function LabOrders() {
-  const navigate = useNavigate();
-  const [orders, setOrders] = useState<LabOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [orderStatus, setOrderStatus] = useState("All");
-  const [paymentStatus, setPaymentStatus] = useState("All");
-  const [fulfillment, setFulfillment] = useState("All");
-  const [labEvent, setLabEvent] = useState("All");
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const rows = await clientLabsApi.getLabOrders();
-        if (!cancelled) setOrders(rows);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const rows = useMemo(() => {
-    return orders.map(rowFromOrder).filter((row) => {
-      const term = search.trim().toLowerCase();
-      if (term) {
-        const haystack = [row.id, row.patient_name, row.patient_email, row.patient_phone, row.product_name].join(" ").toLowerCase();
-        if (!haystack.includes(term)) return false;
-      }
-      if (orderStatus !== "All" && row.status.toLowerCase() !== orderStatus.toLowerCase()) return false;
-      if (paymentStatus !== "All" && row.payment_status.toLowerCase() !== paymentStatus.toLowerCase()) return false;
-      if (fulfillment !== "All" && row.fulfillment_status.toLowerCase() !== fulfillment.toLowerCase()) return false;
-      if (labEvent !== "All" && row.lab_event_label.toLowerCase() !== labEvent.toLowerCase()) return false;
-      return true;
-    });
-  }, [orders, search, orderStatus, paymentStatus, fulfillment, labEvent]);
-
-  const reset = () => {
-    setSearch("");
-    setOrderStatus("All");
-    setPaymentStatus("All");
-    setFulfillment("All");
-    setLabEvent("All");
-  };
-
-  return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Lab Orders</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {junctionMockEnabled ? "Junction mock mode enabled" : "Live tenant lab orders"}
-        </p>
-      </div>
-
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm space-y-4">
-        <div className="flex flex-wrap gap-3 items-center">
-          <Select value={orderStatus} onValueChange={setOrderStatus}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="All order statuses" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All order statuses</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-              <SelectItem value="In Process">In Process</SelectItem>
-              <SelectItem value="Canceled">Canceled</SelectItem>
-              <SelectItem value="Failed">Failed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="All payments" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All payments</SelectItem>
-              <SelectItem value="Paid">Paid</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Failed">Failed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={labEvent} onValueChange={setLabEvent}>
-            <SelectTrigger className="w-[220px]"><SelectValue placeholder="All lab events" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All lab events</SelectItem>
-              <SelectItem value="Requisition Created">Requisition Created</SelectItem>
-              <SelectItem value="Appointment Pending">Appointment Pending</SelectItem>
-              <SelectItem value="Appointment Scheduled">Appointment Scheduled</SelectItem>
-              <SelectItem value="Sample Collected">Sample Collected</SelectItem>
-              <SelectItem value="At Lab">At Lab</SelectItem>
-              <SelectItem value="Partial Results">Partial Results</SelectItem>
-              <SelectItem value="Results Ready">Results Ready</SelectItem>
-              <SelectItem value="Failed">Failed</SelectItem>
-              <SelectItem value="Junction Auth Failed">Junction Auth Failed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={fulfillment} onValueChange={setFulfillment}>
-            <SelectTrigger className="w-[190px]"><SelectValue placeholder="All fulfillment" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All fulfillment</SelectItem>
-              <SelectItem value="At Lab">At Lab</SelectItem>
-              <SelectItem value="Results Ready">Results Ready</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={labEvent} onValueChange={setLabEvent}>
-            <SelectTrigger className="w-[190px]"><SelectValue placeholder="All Lab Events" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Lab Events</SelectItem>
-              <SelectItem value="Requisition Created">Requisition Created</SelectItem>
-              <SelectItem value="Appointment Pending">Appointment Pending</SelectItem>
-              <SelectItem value="Appointment Scheduled">Appointment Scheduled</SelectItem>
-              <SelectItem value="Sample Collected">Sample Collected</SelectItem>
-              <SelectItem value="At Lab">At Lab</SelectItem>
-              <SelectItem value="Partial Results">Partial Results</SelectItem>
-              <SelectItem value="Results Ready">Results Ready</SelectItem>
-              <SelectItem value="Failed">Failed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" onClick={reset} className="gap-1 h-9">
-            <RefreshCw className="h-3.5 w-3.5" /> Reset
-          </Button>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3 justify-between">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by order number, patient, email, or phone"
-              className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-white dark:bg-gray-950 border-gray-200"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-2 h-9"><CalendarIcon className="h-4 w-4" /> Date range</Button>
-            <Button variant="outline" size="sm" className="gap-2 h-9"><Download className="h-4 w-4" /> Export</Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm min-w-max">
-            <thead className="bg-gray-50 dark:bg-gray-800 border-b text-[11px] uppercase tracking-wider">
-              <tr>
-                {["Order #", "Patient", "Email", "Phone", "Product", "Lab", "Order Status", "Payment", "Event", "Fulfillment", "Amount", "Date", ""].map((head) => (
-                  <th key={head} className="px-3 py-3">{head}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {rows.map((row) => (
-                <tr key={row.raw_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                  <td className="px-3 py-4">
-                    <button onClick={() => navigate(`/dashboard/orders/labs/${row.raw_id}`)} className="text-blue-600 hover:underline font-semibold">
-                      {row.id}
-                    </button>
-                  </td>
-                  <td className="px-3 py-4 font-semibold">{row.patient_name}</td>
-                  <td className="px-3 py-4 text-gray-600">{row.patient_email}</td>
-                  <td className="px-3 py-4 text-gray-600">{row.patient_phone}</td>
-                  <td className="px-3 py-4 font-semibold">{row.product_name}</td>
-                  <td className="px-3 py-4">{row.lab_provider}</td>
-                  <td className="px-3 py-4"><StatusPill value={row.status} /></td>
-                  <td className="px-3 py-4"><StatusPill value={row.payment_status} /></td>
-                  <td className="px-3 py-4"><StatusPill value={row.lab_event_label} /></td>
-                  <td className="px-3 py-4"><StatusPill value={row.fulfillment_status} /></td>
-                  <td className="px-3 py-4 font-bold">${row.price.toFixed(2)}</td>
-                  <td className="px-3 py-4">{new Date(row.created_at).toLocaleDateString()}</td>
-                  <td className="px-3 py-4 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => navigate(`/dashboard/orders/labs/${row.raw_id}`)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {!loading && rows.length === 0 && (
-                <tr><td colSpan={13} className="px-3 py-8 text-center text-slate-500">No lab orders found</td></tr>
-              )}
-              {loading && (
-                <tr><td colSpan={13} className="px-3 py-8 text-center text-slate-500">Loading lab orders...</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function StatusPill({ value }: { value: string }) {
   const tone = labPillTone(value);
@@ -223,5 +42,153 @@ function StatusPill({ value }: { value: string }) {
     )}>
       {value || "-"}
     </span>
+  );
+}
+
+export default function LabOrders() {
+  const navigate = useNavigate();
+  const [orders, setOrders] = useState<LabOrder[]>([]);
+  const [count, setCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [orderStatus, setOrderStatus] = useState("All");
+  const [paymentStatus, setPaymentStatus] = useState("All");
+  const [fulfillment, setFulfillment] = useState("All");
+  const [labEvent, setLabEvent] = useState("All");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Debounce free-text search so every keystroke doesn't trigger a backend request.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Everything except `page` itself that should reset pagination back to page 1 when it changes.
+  const queryKey = JSON.stringify([debouncedSearch, orderStatus, paymentStatus, fulfillment, labEvent, pageSize]);
+  const prevQueryKeyRef = useRef(queryKey);
+
+  const loadOrders = useCallback(async (effectivePage: number, signal: { cancelled: boolean }) => {
+    setLoading(true);
+    try {
+      const result = await clientLabsApi.getLabOrders({
+        search: debouncedSearch || undefined,
+        status: orderStatus !== "All" ? orderStatus : undefined,
+        payment_status: paymentStatus !== "All" ? paymentStatus : undefined,
+        fulfillment_status: fulfillment !== "All" ? fulfillment : undefined,
+        lab_event: labEvent !== "All" ? labEvent : undefined,
+        page: effectivePage,
+        page_size: pageSize,
+      });
+      if (!signal.cancelled) {
+        setOrders(result.results);
+        setCount(result.count);
+        setTotalPages(result.totalPages);
+      }
+    } finally {
+      if (!signal.cancelled) setLoading(false);
+    }
+  }, [debouncedSearch, orderStatus, paymentStatus, fulfillment, labEvent, pageSize]);
+
+  useEffect(() => {
+    const signal = { cancelled: false };
+    const queryChanged = prevQueryKeyRef.current !== queryKey;
+    prevQueryKeyRef.current = queryKey;
+    // Reset to page 1 first when the query changed underneath the current page — this effect
+    // re-runs once `page` updates, so the fetch below never fires with a stale page number.
+    if (queryChanged && page !== 1) {
+      setPage(1);
+      return;
+    }
+    loadOrders(queryChanged ? 1 : page, signal);
+    return () => {
+      signal.cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey, page]);
+
+  const rows = useMemo(() => orders.map(rowFromOrder), [orders]);
+
+  const reset = () => {
+    setSearch("");
+    setOrderStatus("All");
+    setPaymentStatus("All");
+    setFulfillment("All");
+    setLabEvent("All");
+    setPage(1);
+  };
+
+  const columns = [
+    {
+      key: "id", label: "Order #", minWidth: "120px",
+      render: (_: unknown, row: any) => (
+        <button onClick={() => navigate(`/dashboard/orders/labs/${row.raw_id}`)} className="text-primary hover:underline font-semibold">
+          {row.id}
+        </button>
+      ),
+    },
+    { key: "patient_name", label: "Patient", minWidth: "160px", className: "font-medium" },
+    { key: "patient_email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+    { key: "patient_phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
+    { key: "product_name", label: "Product", minWidth: "160px", className: "font-medium" },
+    { key: "lab_provider", label: "Lab", minWidth: "100px" },
+    { key: "status", label: "Order Status", minWidth: "140px", render: (_: unknown, row: any) => <StatusPill value={row.status} /> },
+    { key: "payment_status", label: "Payment", minWidth: "120px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell", render: (_: unknown, row: any) => <StatusPill value={row.payment_status} /> },
+    { key: "lab_event_label", label: "Event", minWidth: "150px", render: (_: unknown, row: any) => <StatusPill value={row.lab_event_label} /> },
+    { key: "fulfillment_status", label: "Fulfillment", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell", render: (_: unknown, row: any) => <StatusPill value={row.fulfillment_status} /> },
+    { key: "price", label: "Amount", minWidth: "100px", render: (_: unknown, row: any) => <span className="font-bold">${row.price.toFixed(2)}</span> },
+    { key: "created_at", label: "Date", minWidth: "110px", render: (_: unknown, row: any) => new Date(row.created_at).toLocaleDateString() },
+    {
+      key: "actions", label: "", minWidth: "60px",
+      render: (_: unknown, row: any) => (
+        <Button size="sm" variant="ghost" onClick={() => navigate(`/dashboard/orders/labs/${row.raw_id}`)}>
+          <Eye className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
+
+  const filters = [
+    { key: "orderStatus", label: "Order Status", type: "select" as const, value: orderStatus, options: ORDER_STATUS_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All order statuses" : v })), onChange: setOrderStatus },
+    { key: "paymentStatus", label: "Payment", type: "select" as const, value: paymentStatus, options: PAYMENT_STATUS_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All payments" : v })), onChange: setPaymentStatus },
+    { key: "labEvent", label: "Lab Event", type: "select" as const, value: labEvent, options: LAB_EVENT_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All lab events" : v })), onChange: setLabEvent },
+    { key: "fulfillment", label: "Fulfillment", type: "select" as const, value: fulfillment, options: FULFILLMENT_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All fulfillment" : v })), onChange: setFulfillment },
+  ];
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Lab Orders</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {junctionMockEnabled ? "Junction mock mode enabled" : "Live tenant lab orders"}
+        </p>
+      </div>
+
+      <DataTable
+        data={rows}
+        columns={columns}
+        fitToWidth
+        searchPlaceholder="Search by order number, patient, email, or phone"
+        emptyMessage="No lab orders found"
+        showDatePicker={false}
+        showExport={false}
+        showResetFilters
+        filters={filters}
+        onSearch={setSearch}
+        onResetFilters={reset}
+        onRefresh={() => loadOrders(page, { cancelled: false })}
+        loading={loading}
+        pagination={{
+          currentPage: page,
+          totalPages,
+          pageSize,
+          totalCount: count,
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
+      />
+    </div>
   );
 }

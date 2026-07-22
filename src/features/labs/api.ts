@@ -171,6 +171,14 @@ export interface LabOrder {
   junction_policy_revision?: number | null;
 }
 
+export interface LabOrdersPage {
+  results: LabOrder[];
+  count: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface LabOrderDetail {
   order: LabOrder;
   panel_biomarkers: Biomarker[];
@@ -400,13 +408,58 @@ export const clientLabsApi = {
   },
 
   /**
-   * List standalone lab orders for the current tenant.
+   * List one page of standalone lab orders for the current tenant. Filtering and
+   * pagination both happen server-side — this returns exactly one page plus the
+   * backend's authoritative count/page metadata.
    * Backend: GET /api/v1/client/labs/orders/
    */
-  getLabOrders: async (params?: { search?: string; status?: string; lab_panel_id?: string }): Promise<LabOrder[]> => {
-    if (junctionMockEnabled) return mockLabOrders;
+  getLabOrders: async (params: {
+    search?: string;
+    status?: string;
+    payment_status?: string;
+    fulfillment_status?: string;
+    lab_event?: string;
+    lab_panel_id?: string;
+    page?: number;
+    page_size?: number;
+  } = {}): Promise<LabOrdersPage> => {
+    const page = params.page ?? 1;
+    const pageSize = params.page_size ?? 20;
+
+    if (junctionMockEnabled) {
+      // No real backend in mock mode — filter/paginate the static fixture in-memory instead.
+      const term = (params.search || "").trim().toLowerCase();
+      const matches = (value: string | undefined, filter?: string) =>
+        !filter || filter === "All" || (value || "").toLowerCase() === filter.toLowerCase();
+      const filtered = mockLabOrders.filter((order) => {
+        if (term) {
+          const haystack = [order.display_id, order.patient_name, order.patient_email, order.patient_phone, order.lab_panel_name]
+            .join(" ").toLowerCase();
+          if (!haystack.includes(term)) return false;
+        }
+        return matches(order.ui_order_status, params.status)
+          && matches(order.ui_payment_status, params.payment_status)
+          && matches(order.ui_fulfillment_status, params.fulfillment_status)
+          && matches(order.ui_lab_event_label, params.lab_event);
+      });
+      const start = (page - 1) * pageSize;
+      return {
+        results: filtered.slice(start, start + pageSize),
+        count: filtered.length,
+        page,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(filtered.length / pageSize)),
+      };
+    }
+
     const { data } = await axiosInstance.get(clientLabEndpoints.orders, { params });
-    return ((data.results ?? data ?? []) as Record<string, unknown>[]).map(normalizeOrder);
+    return {
+      results: ((data.results ?? []) as Record<string, unknown>[]).map(normalizeOrder),
+      count: typeof data.count === "number" ? data.count : 0,
+      page: typeof data.page === "number" ? data.page : page,
+      pageSize: typeof data.page_size === "number" ? data.page_size : pageSize,
+      totalPages: typeof data.total_pages === "number" ? data.total_pages : 1,
+    };
   },
 
   /**
