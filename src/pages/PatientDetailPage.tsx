@@ -353,7 +353,7 @@ export default function PatientDetailPage() {
         const hasConnected = conns.length > 0;
         if (hasConnected) {
           const [dataRes, vitalsRes] = await Promise.all([
-            api.get("/wearables/device-data/", { params: { patient_id: patientId, days: timeRange, skip_live_sync: true } }),
+            api.get("/wearables/device-data/", { params: { patient_id: patientId, days: timeRange } }),
             api.get("/medical/vitals/", { params: { patient_id: patientId, days: timeRange } }).catch(() => ({ data: [] })),
           ]);
           if (active) {
