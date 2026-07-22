@@ -87,7 +87,7 @@ export function AddElementDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" data-testid="add-element-button">
+        <Button type="button" size="sm" className="text-[11px] font-medium" data-testid="add-element-button">
           <Plus className="mr-2 h-4 w-4" />
           Add Element
           <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-80" />

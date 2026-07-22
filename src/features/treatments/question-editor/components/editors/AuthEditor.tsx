@@ -31,7 +31,6 @@ export function AuthEditor({
         title={`Patient Authentication · Step ${questionOrder}`}
         subtitle={programName}
         isEditMode={isEditMode}
-        activeQuestion={activeQuestion}
         hideSave={true}
         onClose={onClose}
         onSave={() => {}}

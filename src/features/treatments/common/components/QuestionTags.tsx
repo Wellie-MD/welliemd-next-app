@@ -5,8 +5,8 @@ const TAG_STYLES: Record<QuestionTagType, string> = {
   visibility: "bg-amber-100 text-amber-700",
   disqualifying: "bg-red-100 text-red-700",
   consent: "bg-purple-100 text-purple-700",
-  auth: "bg-orange-100 text-orange-700",
-  checkout: "bg-emerald-100 text-emerald-700",
+  auth: "bg-amber-100 text-amber-700",
+  checkout: "bg-green-100 text-green-700",
   section: "bg-blue-100 text-blue-800",
 };
 

@@ -3,8 +3,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Check, FileCheck, Layers3, LockKeyhole, Pencil, ShoppingCart, Trash2 } from "lucide-react";
 import type { ProgramQuestion } from "@/features/treatments/types";
 import { Button } from "@/components/ui/button";
-import { QuestionTags } from "@/features/treatments/common/components/QuestionTags";
-import { getQuestionTags } from "@/features/treatments/utils/questionTags";
 import {
   PROGRAM_AUTHORING_COPY,
   PROGRAM_ELEMENT_TONES,
@@ -107,7 +105,6 @@ export function ProgramQuestionsListRow({
           {typeof secondaryText === "string" && secondaryText && (
             <div className="truncate text-[9.5px] leading-3.5 text-slate-500">{secondaryText}</div>
           )}
-          <QuestionTags tags={getQuestionTags(question)} className="mt-1" />
         </div>
       </div>
 

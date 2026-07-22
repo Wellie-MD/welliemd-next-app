@@ -152,7 +152,6 @@ export function StandardEditor({
         title={programName}
         subtitle={`Question ${questionOrder} of ${questions.length || 1} ${isEditMode ? "- Edit" : "- Draft"}`}
         isEditMode={isEditMode}
-        activeQuestion={activeQuestion}
         onClose={onClose}
         onSave={handleSaveClick}
         onTestFlow={onTestFlow}

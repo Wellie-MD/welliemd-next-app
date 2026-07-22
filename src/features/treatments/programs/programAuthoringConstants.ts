@@ -72,14 +72,14 @@ export const PROGRAM_ELEMENT_TONES = {
     active: "border-l-amber-500 bg-amber-50/70",
   },
   checkout: {
-    icon: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    badge: "border-emerald-200 bg-emerald-50 text-emerald-800",
-    active: "border-l-emerald-500 bg-emerald-50/70",
+    icon: "border-green-200 bg-green-50 text-green-700",
+    badge: "border-green-200 bg-green-50 text-green-800",
+    active: "border-l-green-500 bg-green-50/70",
   },
   consent: {
-    icon: "border-violet-200 bg-violet-50 text-violet-700",
-    badge: "border-violet-200 bg-violet-50 text-violet-800",
-    active: "border-l-violet-500 bg-violet-50/70",
+    icon: "border-purple-200 bg-purple-50 text-purple-700",
+    badge: "border-purple-200 bg-purple-50 text-purple-800",
+    active: "border-l-purple-500 bg-purple-50/70",
   },
   section: {
     icon: "border-blue-200 bg-blue-50 text-blue-700",

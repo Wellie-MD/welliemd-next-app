@@ -1,14 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Play } from "lucide-react";
-import type { ProgramQuestion } from "@/features/treatments/types";
-import { QuestionTags } from "@/features/treatments/common/components/QuestionTags";
-import { getQuestionTags } from "@/features/treatments/utils/questionTags";
 
 interface QuestionEditorHeaderProps {
   title: string;
   subtitle: string;
   isEditMode: boolean;
-  activeQuestion?: ProgramQuestion | null;
   hideSave?: boolean;
   /** Called when the user clicks "Test Patient Flow". If omitted the button is disabled. */
   onTestFlow?: () => void;
@@ -20,7 +16,6 @@ export function QuestionEditorHeader({
   title,
   subtitle,
   isEditMode,
-  activeQuestion,
   hideSave = false,
   onTestFlow,
   onClose,
@@ -38,12 +33,9 @@ export function QuestionEditorHeader({
           Back
         </Button>
         <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-[15px] font-semibold leading-tight tracking-tight text-slate-900">
-              {title}
-            </h2>
-            <QuestionTags tags={getQuestionTags(activeQuestion)} />
-          </div>
+          <h2 className="text-[15px] font-semibold leading-tight tracking-tight text-slate-900">
+            {title}
+          </h2>
           <div className="mt-0.5 text-[10px] font-medium text-slate-400">
             {subtitle}
           </div>

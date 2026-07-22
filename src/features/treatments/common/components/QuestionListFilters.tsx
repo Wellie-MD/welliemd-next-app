@@ -35,36 +35,34 @@ export function QuestionListFilters({
   const visibleTypes = showEmptyTypes ? [...presentTypes, ...emptyTypes] : presentTypes;
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-[10px] border border-slate-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.02)]">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <span className="mr-1 shrink-0 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">TYPE</span>
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-[10px] border border-slate-200 bg-white px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.02)]">
+      <span className="mr-1 shrink-0 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400">TYPE</span>
+      <button
+        onClick={() => onSelectType("all")}
+        className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-[11px] font-semibold transition-colors ${selectedType === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
+      >
+        All <span className={`rounded-full px-1.5 text-[10px] ${selectedType === "all" ? "bg-white/20" : "bg-slate-200/70"}`}>{counts.all || 0}</span>
+      </button>
+      <span className="mx-1 h-5 w-px bg-slate-200" />
+      {visibleTypes.map((kind) => (
         <button
-          onClick={() => onSelectType("all")}
-          className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-[11px] font-semibold transition-colors ${selectedType === "all" ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"}`}
+          key={kind}
+          onClick={() => onSelectType(selectedType === kind ? "all" : kind)}
+          className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-[11px] font-semibold transition-colors ${selectedType === kind ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/50"}`}
         >
-          All <span className={`rounded-full px-1.5 text-[10px] ${selectedType === "all" ? "bg-white/20" : "bg-slate-200/70"}`}>{counts.all || 0}</span>
+          {PROGRAM_QUESTION_KIND_LABELS[kind]}
+          <span className={`rounded-full px-1.5 text-[10px] ${selectedType === kind ? "bg-white/20" : "bg-slate-100"}`}>{counts[kind] || 0}</span>
         </button>
-        <span className="mx-1 h-5 w-px bg-slate-200" />
-        {visibleTypes.map((kind) => (
-          <button
-            key={kind}
-            onClick={() => onSelectType(selectedType === kind ? "all" : kind)}
-            className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-[11px] font-semibold transition-colors ${selectedType === kind ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50/50"}`}
-          >
-            {PROGRAM_QUESTION_KIND_LABELS[kind]}
-            <span className={`rounded-full px-1.5 text-[10px] ${selectedType === kind ? "bg-white/20" : "bg-slate-100"}`}>{counts[kind] || 0}</span>
-          </button>
-        ))}
-        {emptyTypes.length > 0 && (
-          <button
-            onClick={() => setShowEmptyTypes((current) => !current)}
-            className="inline-flex h-7 items-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-[11px] font-semibold text-slate-400 transition-colors hover:border-blue-300 hover:text-blue-600"
-          >
-            {showEmptyTypes ? "Show fewer" : `+ ${emptyTypes.length} more types`}
-          </button>
-        )}
-      </div>
-      <div className="relative w-full shrink-0 lg:w-[300px]">
+      ))}
+      {emptyTypes.length > 0 && (
+        <button
+          onClick={() => setShowEmptyTypes((current) => !current)}
+          className="inline-flex h-7 items-center rounded-md border border-dashed border-slate-300 bg-white px-3 text-[11px] font-semibold text-slate-400 transition-colors hover:border-blue-300 hover:text-blue-600"
+        >
+          {showEmptyTypes ? "Show fewer" : `+ ${emptyTypes.length} more types`}
+        </button>
+      )}
+      <div className="relative w-full shrink-0 sm:w-[300px]">
         <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
         <Input
           placeholder={PROGRAM_AUTHORING_COPY.searchPlaceholder}

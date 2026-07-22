@@ -85,7 +85,6 @@ export function CheckoutEditor({
         title={`Checkout · Step ${questionOrder}`}
         subtitle={programName}
         isEditMode={isEditMode}
-        activeQuestion={activeQuestion}
         onClose={onClose}
         onSave={form.handleSaveModal}
         onTestFlow={onTestFlow}

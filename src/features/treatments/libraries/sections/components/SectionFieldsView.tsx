@@ -54,10 +54,10 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
 
   const headerExtraActions = (
     <div className="flex items-center gap-2">
-      <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50/80 p-1 shadow-sm h-10 mr-2">
+      <div className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-slate-50/80 p-0.5 shadow-sm">
         <button
           onClick={() => setViewMode("list")}
-          className={`flex items-center gap-1.5 rounded-md px-3.5 py-1 text-[12px] font-bold transition-all h-8 ${
+          className={`flex h-full items-center gap-1.5 rounded px-3 text-[11px] font-medium transition-all ${
             viewMode === "list"
               ? "bg-white text-blue-600 shadow-sm"
               : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
@@ -68,7 +68,7 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
         </button>
         <button
           onClick={() => setViewMode("flow")}
-          className={`flex items-center gap-1.5 rounded-md px-3.5 py-1 text-[12px] font-bold transition-all h-8 ${
+          className={`flex h-full items-center gap-1.5 rounded px-3 text-[11px] font-medium transition-all ${
             viewMode === "flow"
               ? "bg-white text-blue-600 shadow-sm"
               : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
@@ -80,7 +80,8 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
       </div>
       <Button
         onClick={() => setIsSimulateOpen(true)}
-        className="h-10 text-[13px] font-bold bg-[#0f766e] hover:bg-[#0d655e] text-white px-5 rounded-lg shadow-sm"
+        size="sm"
+        className="text-[11px] font-bold bg-[#0f766e] hover:bg-[#0d655e] text-white shadow-sm"
       >
         <Play className="h-4 w-4 mr-2 fill-white" />
         Preview
