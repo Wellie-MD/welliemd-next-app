@@ -181,6 +181,7 @@ export function QuestionnairePreviewDialog({
         isMatchingPreviewIdentityAcknowledgement({
           activeRequestId: appliedIdentityRequestRef.current,
           requestId: event.data.requestId,
+          requestedIdentity: identity,
           identity: event.data.identity,
           identities: Object.values(QUESTIONNAIRE_PREVIEW_IDENTITY) as QuestionnairePreviewIdentity[],
         })
@@ -248,7 +249,7 @@ export function QuestionnairePreviewDialog({
         identitySwitchTimerRef.current = null;
       }
     };
-  }, [onOpenChange, open, previewOrigin]);
+  }, [identity, onOpenChange, open, previewOrigin]);
 
   const refresh = () => {
     if (!previewOrigin) return;

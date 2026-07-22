@@ -12,6 +12,7 @@ assert(
   isMatchingPreviewIdentityAcknowledgement({
     activeRequestId: 4,
     requestId: 4,
+    requestedIdentity: "existing_patient",
     identity: "existing_patient",
     identities,
   }),
@@ -21,6 +22,7 @@ assert(
   !isMatchingPreviewIdentityAcknowledgement({
     activeRequestId: 4,
     requestId: 3,
+    requestedIdentity: "existing_patient",
     identity: "existing_patient",
     identities,
   }),
@@ -30,10 +32,21 @@ assert(
   !isMatchingPreviewIdentityAcknowledgement({
     activeRequestId: 4,
     requestId: 4,
+    requestedIdentity: "existing_patient",
     identity: "unknown",
     identities,
   }),
   "unknown identity acknowledgement should be ignored",
+);
+assert(
+  !isMatchingPreviewIdentityAcknowledgement({
+    activeRequestId: 4,
+    requestId: 4,
+    requestedIdentity: "existing_patient",
+    identity: "new_patient",
+    identities,
+  }),
+  "acknowledgement for the wrong requested identity should be ignored",
 );
 assert(
   hasPreviewIdentitySwitchTimedOut(100, 15100, 15000),
