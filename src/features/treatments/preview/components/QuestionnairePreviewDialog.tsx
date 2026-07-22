@@ -22,6 +22,7 @@ import {
   issuePreviewCapability,
   type PreviewCapability,
 } from "@/features/treatments/preview/api";
+import { isMatchingPreviewIdentityAcknowledgement } from "@/features/treatments/preview/identitySwitch";
 import type { PreviewContext } from "@/features/treatments/types";
 
 interface QuestionnairePreviewDialogProps {
@@ -34,6 +35,9 @@ interface QuestionnairePreviewDialogProps {
 interface PreviewMessage {
   type?: string;
   version?: number;
+  requestId?: number;
+  resetDurationMs?: number | null;
+  requestReceivedAt?: number | null;
   height?: number;
   pathname?: string;
   message?: string;
@@ -60,9 +64,17 @@ export function QuestionnairePreviewDialog({
   const appliedIdentityRef = useRef<QuestionnairePreviewIdentity>(
     QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
   );
+  const appliedIdentityRequestRef = useRef<number | null>(null);
+  const identitySwitchTimerRef = useRef<number | null>(null);
+  const identityRequestSequenceRef = useRef(0);
+  const identitySwitchStartedAtRef = useRef<number | null>(null);
   const [identity, setIdentity] = useState<QuestionnairePreviewIdentity>(
     QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
   );
+  const [appliedIdentity, setAppliedIdentity] = useState<QuestionnairePreviewIdentity>(
+    QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
+  );
+  const [identityRequestId, setIdentityRequestId] = useState(0);
   const [identitySwitching, setIdentitySwitching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -103,12 +115,21 @@ export function QuestionnairePreviewDialog({
 
   useEffect(() => {
     if (!open) {
+      if (identitySwitchTimerRef.current !== null) {
+        window.clearTimeout(identitySwitchTimerRef.current);
+        identitySwitchTimerRef.current = null;
+      }
+      appliedIdentityRequestRef.current = null;
       setCapability(null);
       return;
     }
     let active = true;
     setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
+    setAppliedIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
     appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
+    setIdentityRequestId(0);
+    identityRequestSequenceRef.current = 0;
+    appliedIdentityRequestRef.current = null;
     setIdentitySwitching(false);
     setReportedHeight(undefined);
     setReportedPath(undefined);
@@ -131,6 +152,11 @@ export function QuestionnairePreviewDialog({
       });
     return () => {
       active = false;
+      if (identitySwitchTimerRef.current !== null) {
+        window.clearTimeout(identitySwitchTimerRef.current);
+        identitySwitchTimerRef.current = null;
+      }
+      appliedIdentityRequestRef.current = null;
     };
   }, [open, previewContext.id, previewContext.type]);
 
@@ -152,16 +178,53 @@ export function QuestionnairePreviewDialog({
         setStatus("ready");
       } else if (
         event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.identityReady &&
+        isMatchingPreviewIdentityAcknowledgement({
+          activeRequestId: appliedIdentityRequestRef.current,
+          requestId: event.data.requestId,
+          identity: event.data.identity,
+          identities: Object.values(QUESTIONNAIRE_PREVIEW_IDENTITY) as QuestionnairePreviewIdentity[],
+        })
+      ) {
+        if (identitySwitchTimerRef.current !== null) {
+          window.clearTimeout(identitySwitchTimerRef.current);
+          identitySwitchTimerRef.current = null;
+        }
+        appliedIdentityRequestRef.current = null;
+        const duration = identitySwitchStartedAtRef.current
+          ? Math.round(performance.now() - identitySwitchStartedAtRef.current)
+          : null;
+        identitySwitchStartedAtRef.current = null;
+        setIdentitySwitching(false);
+        setStatus("ready");
+        if (event.data.message) {
+          setErrorMessage(event.data.message);
+        } else {
+          const nextIdentity = event.data.identity as QuestionnairePreviewIdentity;
+          appliedIdentityRef.current = nextIdentity;
+          setAppliedIdentity(nextIdentity);
+          setErrorMessage("");
+        }
+        if (import.meta.env.DEV) {
+          console.debug("[TreatmentPreview] identity switch acknowledged", {
+            durationMs: duration,
+            requestId: event.data.requestId,
+            childResetDurationMs: event.data.resetDurationMs,
+            childRequestReceivedAt: event.data.requestReceivedAt,
+          });
+        }
+      } else if (
+        event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.identityState &&
         Object.values(QUESTIONNAIRE_PREVIEW_IDENTITY).includes(
           event.data.identity as QuestionnairePreviewIdentity,
-        )
+        ) &&
+        appliedIdentityRequestRef.current === null
       ) {
-        appliedIdentityRef.current = event.data.identity as QuestionnairePreviewIdentity;
+        const nextIdentity = event.data.identity as QuestionnairePreviewIdentity;
+        appliedIdentityRef.current = nextIdentity;
+        setAppliedIdentity(nextIdentity);
+        setIdentity(nextIdentity);
         setIdentitySwitching(false);
-        if (event.data.message) {
-          setStatus("error");
-          setErrorMessage(event.data.message);
-        }
+        setErrorMessage("");
       } else if (
         event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.resize &&
         Number.isFinite(event.data.height)
@@ -178,12 +241,28 @@ export function QuestionnairePreviewDialog({
     };
 
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if (identitySwitchTimerRef.current !== null) {
+        window.clearTimeout(identitySwitchTimerRef.current);
+        identitySwitchTimerRef.current = null;
+      }
+    };
   }, [onOpenChange, open, previewOrigin]);
 
   const refresh = () => {
     if (!previewOrigin) return;
+    if (identitySwitchTimerRef.current !== null) {
+      window.clearTimeout(identitySwitchTimerRef.current);
+      identitySwitchTimerRef.current = null;
+    }
     appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
+    setAppliedIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
+    setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
+    setIdentityRequestId(0);
+    identityRequestSequenceRef.current = 0;
+    appliedIdentityRequestRef.current = null;
+    identitySwitchStartedAtRef.current = null;
     setIdentitySwitching(false);
     setStatus("loading");
     setErrorMessage("");
@@ -197,24 +276,56 @@ export function QuestionnairePreviewDialog({
     setRefreshKey((value) => value + 1);
   };
 
+  const requestIdentity = (nextIdentity: QuestionnairePreviewIdentity) => {
+    if (!previewOrigin || identitySwitching) return;
+    // The applied identity is already rendered. A retry for the same tab
+    // would never satisfy the pending-switch guard and could reintroduce the
+    // blocking state, so recovery uses Refresh for that case.
+    if (nextIdentity === appliedIdentity) return;
+    const requestId = ++identityRequestSequenceRef.current;
+    appliedIdentityRequestRef.current = requestId;
+    identitySwitchStartedAtRef.current = performance.now();
+    setErrorMessage("");
+    // A child-frame error must not leave a retry stranded behind the error
+    // state: the iframe is still mounted and can accept a correlated switch.
+    if (status !== "ready") setStatus("ready");
+    setIdentity(nextIdentity);
+    setIdentityRequestId(requestId);
+    setIdentitySwitching(true);
+  };
+
   useEffect(() => {
     if (
       !previewOrigin ||
       status !== "ready" ||
-      appliedIdentityRef.current === identity
+      appliedIdentityRef.current === identity ||
+      identityRequestId === 0 ||
+      appliedIdentityRequestRef.current !== identityRequestId
     ) {
       return;
     }
-    setIdentitySwitching(true);
+    if (identitySwitchTimerRef.current !== null) {
+      window.clearTimeout(identitySwitchTimerRef.current);
+    }
     iframeRef.current?.contentWindow?.postMessage(
       {
         type: QUESTIONNAIRE_PREVIEW_MESSAGE.identity,
         version: QUESTIONNAIRE_PREVIEW_DEFAULTS.protocolVersion,
         identity,
+        requestId: identityRequestId,
       },
       previewOrigin,
     );
-  }, [identity, previewOrigin, status]);
+    identitySwitchTimerRef.current = window.setTimeout(() => {
+      if (appliedIdentityRequestRef.current !== identityRequestId) return;
+      identitySwitchTimerRef.current = null;
+      appliedIdentityRequestRef.current = null;
+      identitySwitchStartedAtRef.current = null;
+      setIdentitySwitching(false);
+      setStatus("ready");
+      setErrorMessage("The preview patient switch timed out. Try again or refresh the preview.");
+    }, QUESTIONNAIRE_PREVIEW_DEFAULTS.identitySwitchTimeoutMs);
+  }, [identity, identityRequestId, previewOrigin, status]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -253,11 +364,11 @@ export function QuestionnairePreviewDialog({
           <div className="flex max-w-full rounded-md border border-border bg-card p-0.5" role="group" aria-label="Preview patient type">
             <button
               type="button"
-              onClick={() => setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient)}
+              onClick={() => requestIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient)}
               disabled={identitySwitching}
-              aria-pressed={identity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient}
+              aria-pressed={appliedIdentity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient}
               className={`treatment-preview-identity flex h-7 items-center gap-1.5 whitespace-nowrap rounded px-2.5 text-[11px] font-medium transition ${
-                identity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient
+                appliedIdentity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient
                   ? "bg-foreground text-background"
                   : "text-text-secondary hover:bg-muted"
               }`}
@@ -267,11 +378,11 @@ export function QuestionnairePreviewDialog({
             </button>
             <button
               type="button"
-              onClick={() => setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient)}
+              onClick={() => requestIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient)}
               disabled={identitySwitching}
-              aria-pressed={identity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient}
+              aria-pressed={appliedIdentity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient}
               className={`treatment-preview-identity flex h-7 items-center gap-1.5 whitespace-nowrap rounded px-2.5 text-[11px] font-medium transition ${
-                identity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient
+                appliedIdentity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient
                   ? "bg-foreground text-background"
                   : "text-text-secondary hover:bg-muted"
               }`}
@@ -294,9 +405,29 @@ export function QuestionnairePreviewDialog({
                 </div>
               </div>
             ) : null}
-            {status === "error" ? (
-              <div role="alert" className="absolute inset-x-3 top-3 z-10 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {errorMessage}
+            {errorMessage ? (
+              <div role="alert" className="absolute inset-x-3 top-3 z-10 flex items-center justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <span>{errorMessage}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  {identity !== appliedIdentity ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-7 border-destructive/30 px-2 text-[11px] text-destructive"
+                      onClick={() => requestIdentity(identity)}
+                    >
+                      Retry
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 border-destructive/30 px-2 text-[11px] text-destructive"
+                    onClick={refresh}
+                  >
+                    Refresh
+                  </Button>
+                </span>
               </div>
             ) : null}
             {iframeUrl ? (
