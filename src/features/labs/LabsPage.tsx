@@ -29,7 +29,7 @@ import LabResultModal from './components/LabResultModal';
 import LabBookingModal from './components/LabBookingModal';
 import LabOrderDetailModal from './components/LabOrderDetailModal';
 import LabResultCard from './components/LabResultCard';
-import LabStatusSummary from './components/LabStatusSummary';
+import LabOrderCard from './components/LabOrderCard';
 import LabResultsToolbar, { type ResultFilter, type ResultSort } from './components/LabResultsToolbar';
 import { panelFlaggedCount, panelReportedTimestamp } from './utils/resultPresentation';
 import { safeLabUrl } from './utils/urls';
@@ -233,6 +233,34 @@ export default function LabsPage() {
 
   // ── handlers ─────────────────────────────────────────────────────────────
 
+  // With `responseType: 'blob'`, axios delivers an error response's JSON body
+  // as a Blob too (not parsed JSON) — read it back out so the backend's
+  // actual reason (e.g. "Junction did not respond in time") isn't lost behind
+  // a generic message.
+  const extractPdfErrorMessage = async (error: unknown, fallback: string): Promise<string> => {
+    const data = (error as { response?: { data?: unknown } })?.response?.data;
+    if (data instanceof Blob) {
+      try {
+        const parsed = JSON.parse(await data.text());
+        if (typeof parsed?.detail === 'string') return parsed.detail;
+      } catch {
+        // not JSON — fall through to the generic message
+      }
+    }
+    return fallback;
+  };
+
+  const triggerBlobDownload = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleDownloadPdf = async (panel: GroupedLabPanel) => {
     if (!panel.standaloneOrderId) {
       alert('A downloadable PDF is not available for this result.');
@@ -241,34 +269,29 @@ export default function LabsPage() {
     setDownloadingPdf(true);
     try {
       const blob = await downloadStandaloneLabResultPdf(panel.standaloneOrderId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lab-result-${panel.orderId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      alert('Failed to download the result PDF. Please try again or contact support.');
+      triggerBlobDownload(blob, `lab-result-${panel.orderId}.pdf`);
+    } catch (error) {
+      alert(await extractPdfErrorMessage(error, 'Failed to download the result PDF. Please try again or contact support.'));
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadSubmissionResults = async (order: LabSubmission) => {
+    try {
+      const blob = await downloadStandaloneLabResultPdf(order.id);
+      triggerBlobDownload(blob, `lab-result-${order.master_id || order.id}.pdf`);
+    } catch (error) {
+      alert(await extractPdfErrorMessage(error, 'Failed to download the result PDF. Please try again or contact support.'));
     }
   };
 
   const handleDownloadRequisition = async (orderId: string) => {
     try {
       const blob = await downloadStandaloneLabRequisitionPdf(orderId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lab-requisition-${orderId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      alert('Failed to download the requisition PDF. Please try again or contact support.');
+      triggerBlobDownload(blob, `lab-requisition-${orderId}.pdf`);
+    } catch (error) {
+      alert(await extractPdfErrorMessage(error, 'Failed to download the requisition PDF. Please try again or contact support.'));
     }
   };
 
@@ -290,7 +313,7 @@ export default function LabsPage() {
 
   if (loading) {
     return (
-      <div className="pg">
+      <div className="pg" id="pg-labs">
         <h1 className="km-page-title">Labs</h1>
         <p className="km-page-sub">View your lab results</p>
         <div className="km-sc"><div className="km-empty"><div className="km-et">Loading lab data…</div></div></div>
@@ -300,7 +323,7 @@ export default function LabsPage() {
 
   if (error) {
     return (
-      <div className="pg">
+      <div className="pg" id="pg-labs">
         <h1 className="km-page-title">Labs</h1>
         <div className="km-sc">
           <div className="km-empty">
@@ -325,7 +348,46 @@ export default function LabsPage() {
       </div>
 
       <div id="labResultsPanel">
-        <LabStatusSummary attention={needsAttention} inProgress={inProgress} onOpen={setSelectedOrder} />
+        <div className="km-lab-section-label" style={{ margin: '2px 0 9px' }}>Needs your attention</div>
+        <div id="labAttn">
+          {needsAttention.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: 'var(--km-tm)', marginBottom: 18 }}>Nothing needs your attention.</div>
+          ) : (
+            <div className="km-lab-card-list">
+              {needsAttention.map(order => (
+                <LabOrderCard
+                  key={order.id}
+                  order={order}
+                  onOpen={() => setSelectedOrder(order)}
+                  onDownloadResults={() => void handleDownloadSubmissionResults(order)}
+                  onDownloadRequisition={() => void handleDownloadRequisition(order.id)}
+                  onBookAppointment={() => setBookingSubmission(order)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="km-lab-section-label" style={{ margin: '18px 0 9px' }}>In progress</div>
+        <div id="labProg">
+          {inProgress.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: 'var(--km-tm)', marginBottom: 18 }}>No labs in progress.</div>
+          ) : (
+            <div className="km-lab-card-list">
+              {inProgress.map(order => (
+                <LabOrderCard
+                  key={order.id}
+                  order={order}
+                  onOpen={() => setSelectedOrder(order)}
+                  onDownloadResults={() => void handleDownloadSubmissionResults(order)}
+                  onDownloadRequisition={() => void handleDownloadRequisition(order.id)}
+                  onBookAppointment={() => setBookingSubmission(order)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
         <LabResultsToolbar count={visibleResults.length} filter={resultFilter} sort={resultSort} onFilter={setResultFilter} onSort={setResultSort} />
         <div id="labDone">
           {visibleResults.length === 0 ? <EmptyBucket /> : (

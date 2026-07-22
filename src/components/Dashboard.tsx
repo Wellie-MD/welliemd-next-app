@@ -1,9 +1,9 @@
 import {
   MessageSquare,
   Package,
-  TestTubes,
   Compass,
 } from "lucide-react";
+import LabTestTubeIcon from "@/components/icons/LabTestTubeIcon";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
@@ -387,7 +387,7 @@ export default function Dashboard() {
           {[
             { icon: MessageSquare, label: "Message", desc: "Contact your care team", path: "/dashboard/messages?prefill=" + encodeURIComponent("Hi, I have a question for my care team.") },
             { icon: Package, label: "Orders", desc: "Track your deliveries", path: "/dashboard/orders" },
-            { icon: TestTubes, label: "Labs", desc: "View lab results", path: "/dashboard/labs" },
+            { icon: LabTestTubeIcon, label: "Labs", desc: "View lab results", path: "/dashboard/labs" },
             { icon: Compass, label: "Explore", desc: "Browse treatments", path: "/dashboard/explore" },
           ].map((qa) => (
             <div key={qa.label} className="km-qaitem" onClick={() => navigate(qa.path)}>

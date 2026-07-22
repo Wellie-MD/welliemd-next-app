@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   MessageSquare,
   Calendar,
-  TestTubes,
   Smartphone,
   Compass,
   Package,
@@ -17,6 +16,7 @@ import {
   Stethoscope,
   LucideIcon,
 } from "lucide-react";
+import LabTestTubeIcon from "@/components/icons/LabTestTubeIcon";
 import { useAuth } from "@/features/auth";
 import { useViewerIdentity } from "@/features/auth/hooks/use-viewer-identity";
 
@@ -31,7 +31,7 @@ const navigationItems: NavigationItem[] = [
   { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
   { icon: Stethoscope, label: "Treatments", path: "/dashboard/treatments" },
   { icon: Calendar, label: "Visits", path: "/dashboard/appointments" },
-  { icon: TestTubes, label: "Labs", path: "/dashboard/labs" },
+  { icon: LabTestTubeIcon, label: "Labs", path: "/dashboard/labs" },
   { icon: Smartphone, label: "Devices", path: "/dashboard/devices" },
   { icon: Compass, label: "Explore Treatments", path: "/dashboard/explore" },
   { icon: Package, label: "Orders", path: "/dashboard/orders" },
