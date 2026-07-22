@@ -38,8 +38,8 @@ export function ProgramFlowSidebar({
       },
       {
         id: "auth",
-        label: "Patient Authentication",
-        typeBadge: "SIGN IN / SIGN UP",
+        label: "Personal Details",
+        typeBadge: "ACCOUNT ENTRY",
         isSystem: true,
       },
       ...sortedQuestions.map((question, index) => ({

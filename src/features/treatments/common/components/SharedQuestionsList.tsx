@@ -104,7 +104,7 @@ export function SharedQuestionsList({
   const deleteSectionFieldMutation = useDeleteSectionField(entityId);
   const reorderSectionFieldsMutation = useReorderSectionFields(entityId);
 
-  // Every flow starts with Patient Authentication. Programs pre-inject a real
+  // Every flow starts with Personal Details. Programs pre-inject a real
   // one (see ProgramQuestionsList); for entities that don't (e.g. Sections),
   // lead the list with a non-persisted system entry so it always reads
   // correctly. It isn't part of `questions` state until something moves it.
@@ -114,7 +114,7 @@ export function SharedQuestionsList({
     const systemAuthQuestion: ProgramQuestion = {
       id: systemAuthId,
       order: 0,
-      text: "Patient Authentication",
+      text: "Personal Details",
       kind: "personal_details",
       section: entityName,
       required: true,
@@ -607,7 +607,7 @@ export function SharedQuestionsList({
             const authQuestion: ProgramQuestion = {
               id: activeEditingQuestion?.id || createMockId("q-auth"),
               order: activeEditingQuestion?.order || questions.length + 1,
-              text: "Patient Authentication (Email, Phone, Identity, Account)",
+              text: "Personal Details",
               kind: "personal_details",
               section: "Authentication",
               required: true,
@@ -730,7 +730,7 @@ export function SharedQuestionsList({
           const authQuestion: ProgramQuestion = {
             id: activeEditingQuestion?.id || createMockId("q-auth"),
             order: activeEditingQuestion?.order || questions.length + 1,
-            text: `Patient Authentication (Email, Phone, Identity, Account)`,
+            text: "Personal Details",
             kind: "personal_details",
             section: "Authentication",
             required: true,

@@ -3,8 +3,8 @@ import type { QuestionKind } from "@/features/treatments/types";
 export const PROGRAM_AUTHORING_COPY = {
   subtitle: "Manage questions for this template",
   searchPlaceholder: "Search questions, answers, or mapped field",
-  authTitle: "Patient Authentication",
-  authDescription: "Email — login if existing, create account if new",
+  authTitle: "Personal Details",
+  authDescription: "Required intake step — existing patients log in and new patients create an account.",
   checkoutSection: "Checkout",
   testFlow: "Test Patient Flow",
 } as const;
@@ -53,7 +53,7 @@ export const PROGRAM_QUESTION_KIND_LABELS: Record<QuestionKind, string> = {
   state_routing: "State Routing",
   medication_dose: "Medication Dose",
   pharmacy: "Pharmacy",
-  personal_details: "Authentication",
+  personal_details: "Personal Details",
   shipping_address: "Shipping Address",
   checkout: "Checkout",
   sex: "Sex",
@@ -94,4 +94,3 @@ export const PROGRAM_ELEMENT_TONES = {
 } as const;
 
 export const programAuthenticationId = (programId: string) => `program-auth-${programId}`;
-

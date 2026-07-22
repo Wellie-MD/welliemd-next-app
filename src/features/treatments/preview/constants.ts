@@ -4,6 +4,7 @@ export const QUESTIONNAIRE_PREVIEW_DEFAULTS = Object.freeze({
   modalMaxHeightPx: 780,
   modalWidthPx: 640,
   protocolVersion: 1,
+  identitySwitchTimeoutMs: 15000,
 });
 
 export const QUESTIONNAIRE_PREVIEW_API = Object.freeze({
@@ -29,6 +30,7 @@ export const QUESTIONNAIRE_PREVIEW_MESSAGE = Object.freeze({
   error: "welliemd:preview:error",
   identity: "welliemd:preview:identity",
   identityReady: "welliemd:preview:identity-ready",
+  identityState: "welliemd:preview:identity-state",
   refresh: "welliemd:preview:refresh",
 });
 
