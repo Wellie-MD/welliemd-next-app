@@ -118,18 +118,18 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
         const updatedOrder = await labsApi.updateAdminLabOrder(order.id, {
           status: normalizedStatus,
           tracking_number: trackingNumber,
-        });
+        }, order.client_id);
         toast({
           title: "Success",
           description: "Lab order status updated."
         });
         onOrderUpdated(updatedOrder);
         onOpenChange(false);
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
         toast({
           title: "Error",
-          description: "Failed to update order.",
+          description: e?.response?.data?.detail ?? "Failed to update order.",
           variant: "destructive"
         });
       } finally {

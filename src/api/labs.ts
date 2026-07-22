@@ -412,10 +412,13 @@ export const labsApi = {
 
   updateAdminLabOrder: async (
     orderId: string,
-    payload: { status?: string; tracking_number?: string }
+    payload: { status?: string; tracking_number?: string },
+    clientId?: string
   ): Promise<LabOrder> => {
     if (junctionMockEnabled) return updateMockLabOrder(orderId, payload);
-    const { data } = await axiosInstance.patch(adminLabEndpoints.orderManualUpdate(orderId), payload);
+    const { data } = await axiosInstance.patch(adminLabEndpoints.orderManualUpdate(orderId), payload, {
+      params: clientId ? { client_id: clientId } : undefined,
+    });
     return normalizeOrder(data.order || data);
   },
 
