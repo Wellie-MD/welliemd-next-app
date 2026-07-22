@@ -69,11 +69,8 @@ export const HEALTH_SECTIONS: HealthSection[] = [
   { id: 'sleep', title: 'Sleep', subtitle: 'last night' },
   { id: 'activity', title: 'Activity', subtitle: '7-day avg' },
   { id: 'heart', title: 'Heart', subtitle: '7-day avg' },
-  { id: 'body', title: 'Body', heading: 'Body composition', subtitle: 'latest' },
   { id: 'glucose', title: 'Glucose', subtitle: 'last 24h · CGM' },
-  { id: 'nutrition', title: 'Nutrition', subtitle: 'today' },
   { id: 'workouts', title: 'Workouts', subtitle: 'this week' },
-  { id: 'cycle', title: 'Cycle', subtitle: 'current' },
 ];
 
 /**
@@ -117,6 +114,6 @@ export const WEIGHT_DEFAULT: WeightData = {
  * Shared data categories (privacy section)
  */
 export const SHARED_CATEGORIES = [
-  'Sleep', 'Activity', 'Heart rate', 'Body & weight',
-  'Glucose', 'Nutrition', 'Workouts',
+  'Sleep', 'Activity', 'Heart rate',
+  'Glucose', 'Workouts',
 ];

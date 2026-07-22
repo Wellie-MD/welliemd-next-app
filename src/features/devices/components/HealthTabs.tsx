@@ -423,14 +423,6 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
     }
   }
 
-  // Override body trend with actual weight data
-  const bodyTrend = TRENDS.body
-    ? {
-        ...TRENDS.body,
-        series: weightData.points.map(p => ({ date: p.date, val: p.weight })),
-        step: timeRange <= 30 ? 'day' as const : 'week' as const,
-      }
-    : undefined;
 
   const sleepTrend: TrendData | undefined =
     deviceMetrics?.sleepSeries && deviceMetrics.sleepSeries.length > 1
@@ -509,7 +501,6 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
       {HEALTH_SECTIONS.map((sec) => {
         const isVisible = activeTab === sec.id;
         const overrideTrend =
-          sec.id === 'body' ? bodyTrend :
           sec.id === 'sleep' ? sleepTrend :
           sec.id === 'activity' ? activityTrend :
           sec.id === 'glucose' ? glucoseTrend :

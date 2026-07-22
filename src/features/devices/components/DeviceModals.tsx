@@ -83,7 +83,7 @@ export default function DeviceModals(props: DeviceModalsProps) {
       <ModalHeader title={props.consentReviewOnly ? 'What you share' : 'Before you connect'} onClose={() => props.setConsentOpen(false)} />
       <p style={{ fontSize: 13, color: 'var(--km-t2)', lineHeight: 1.6 }}>Connecting a device shares your health data with your care team, who use it to monitor your progress and adjust your treatment.</p>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.4px', textTransform: 'uppercase', color: 'var(--km-tm)', marginBottom: 8 }}>Data you'll share</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>{['Sleep', 'Activity', 'Heart rate', 'Body & weight', 'Glucose', 'Nutrition', 'Workouts'].map((item) => <span key={item} style={{ fontSize: 11.5, background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 999, padding: '5px 11px' }}>{item}</span>)}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>{['Sleep', 'Activity', 'Heart rate', 'Glucose', 'Workouts'].map((item) => <span key={item} style={{ fontSize: 11.5, background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 999, padding: '5px 11px' }}>{item}</span>)}</div>
       <div style={{ display: 'flex', gap: 10 }}><button type="button" onClick={() => props.setConsentOpen(false)} style={buttonStyle}>Cancel</button><button type="button" onClick={props.consentReviewOnly ? () => props.setConsentOpen(false) : props.onAgreeConsent} style={{ ...buttonStyle, flex: 1.4, background: 'var(--km-am)', color: '#fff', borderColor: 'var(--km-am)' }}>{props.consentReviewOnly ? 'Done' : 'Agree & connect'}</button></div>
     </Overlay>
 
