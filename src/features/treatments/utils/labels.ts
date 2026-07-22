@@ -19,7 +19,7 @@ export const formatDateUS = (iso: string): string => {
 
 export const formatFlowItemKind = (kind: FlowItemKind) => {
   const labels: Record<FlowItemKind, string> = {
-    authentication: "Patient Authentication",
+    authentication: "Personal Details",
     program: "Program",
     section: "Section",
     consent: "Consent",

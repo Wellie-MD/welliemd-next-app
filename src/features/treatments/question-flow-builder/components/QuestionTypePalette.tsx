@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Search, AlignLeft, CheckSquare, List, Hash, Calendar, Mail, Phone, MapPin, Upload, Scale, HeartPulse, Stethoscope, FileText, Lock, LayoutGrid, CheckCircle2 } from "lucide-react";
+import { Search, AlignLeft, CheckSquare, List, Hash, Calendar, Mail, Phone, MapPin, Upload, Scale, HeartPulse, Stethoscope, FileText, LayoutGrid, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { QuestionKind } from "@/features/treatments/types";
 import type { ProgramFlowPaletteAction, QuestionFlowPaletteAction } from "../types";
@@ -50,7 +50,6 @@ const SECTION_PALETTE_ITEMS: SectionPaletteItem[] = [
 
 const PROGRAM_PALETTE_ITEMS: ProgramPaletteItem[] = [
   { kind: "question", text: "Question", category: "element", icon: AlignLeft },
-  { kind: "auth", text: "Patient Authentication", category: "element", icon: Lock },
   { kind: "section", text: "Common Section", category: "element", icon: LayoutGrid },
   { kind: "consent", text: "Consent Form", category: "element", icon: FileText },
   { kind: "checkout", text: "Checkout", category: "element", icon: CheckCircle2 },

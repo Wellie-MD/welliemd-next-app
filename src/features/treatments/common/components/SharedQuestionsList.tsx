@@ -595,7 +595,7 @@ export function SharedQuestionsList({
               const authQuestion: ProgramQuestion = {
                 id: activeEditingQuestion?.id || createMockId("q-auth"),
                 order: activeEditingQuestion?.order || questions.length + 1,
-                text: "Patient Authentication (Email, Phone, Identity, Account)",
+                text: "Personal Details",
                 kind: "personal_details",
                 section: "Authentication",
                 required: true,
@@ -692,7 +692,7 @@ export function SharedQuestionsList({
             const authQuestion: ProgramQuestion = {
               id: createMockId("q-auth"),
               order: questions.length + 1,
-              text: `Patient Authentication (Email, Phone, Identity, Account)`,
+              text: "Personal Details",
               kind: "personal_details",
               section: "Authentication",
               required: true,
@@ -817,7 +817,7 @@ export function SharedQuestionsList({
           const authQuestion: ProgramQuestion = {
             id: activeEditingQuestion?.id || createMockId("q-auth"),
             order: activeEditingQuestion?.order || questions.length + 1,
-            text: `Patient Authentication (Email, Phone, Identity, Account)`,
+            text: "Personal Details",
             kind: "personal_details",
             section: "Authentication",
             required: true,

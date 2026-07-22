@@ -20,30 +20,21 @@ import { ProgramMetrics } from "@/features/treatments/programs/components/Progra
 import { ProgramCheckoutQuestions } from "@/features/treatments/programs/components/ProgramCheckoutQuestions";
 import { ProgramScreeningQuestions } from "@/features/treatments/programs/components/ProgramScreeningQuestions";
 import { ProgramConsents } from "@/features/treatments/programs/components/ProgramConsents";
-import { ProgramAuthentication } from "@/features/treatments/programs/components/ProgramAuthentication";
 import { ProgramEligibility } from "@/features/treatments/programs/components/ProgramEligibility";
 import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
-import { AuthSetupModal } from "@/features/treatments/programs/components/AuthSetupModal";
 import { SectionSelectorModal } from "@/features/treatments/programs/components/SectionSelectorModal";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
 import { AddConsentModal } from "@/features/treatments/programs/components/AddConsentModal";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
-import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSection, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { DeleteConfirmDialog } from "@/features/treatments/common/components";
 import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
 import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 
 
-
-const defaultAuthConfig = {
-  email: true,
-  phone: false,
-  identity: false,
-  account: true,
-};
 
 type ApiErrorData = {
   detail?: string;
@@ -123,7 +114,6 @@ export default function ProgramDetailPage() {
   // Dialog control states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isScreeningOpen, setIsScreeningOpen] = useState(false);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isSectionOpen, setIsSectionOpen] = useState(false);
   const [isConsentOpen, setIsConsentOpen] = useState(false);
   const [isSimulateOpen, setIsSimulateOpen] = useState(false);
@@ -165,11 +155,6 @@ export default function ProgramDetailPage() {
     ...universalConsents.map(c => ({ id: c.id, name: c.name, scope: "global" })),
     ...programSpecificConsents.map(c => ({ id: c.id, name: c.name, scope: "treatment" })),
   ];
-
-  const authEmail = foundProgram.authConfig?.email ?? true;
-  const authPhone = foundProgram.authConfig?.phone ?? false;
-  const authIdentity = foundProgram.authConfig?.identity ?? false;
-  const authAccount = foundProgram.authConfig?.account ? "At intake start (recommended)" : "Not required";
 
   const handleCopySlug = () => {
     navigator.clipboard.writeText(`welliemd.com/intake/${foundProgram.slug}`);
@@ -235,14 +220,6 @@ export default function ProgramDetailPage() {
     });
   };
 
-  const handleSaveAuthConfig = (config: ProgramAuthConfig) => {
-    saveProgramMutation.mutate({
-      ...foundProgram,
-      authConfig: config,
-    });
-    toast({ title: "Authentication Settings Saved" });
-  };
-
   const handleAttachSection = (section: CommonSection) => {
     const nextOrder = Math.max(0, ...allQuestions.map((question) => question.order || 0)) + 1;
     const sectionQuestion: ProgramQuestion = {
@@ -264,46 +241,6 @@ export default function ProgramDetailPage() {
     saveProgramMutation.mutate({
       ...foundProgram,
       consentIds: updatedConsents,
-    });
-  };
-
-  const setAuthEmail = (val: boolean) => {
-    saveProgramMutation.mutate({
-      ...foundProgram,
-      authConfig: {
-        ...(foundProgram.authConfig || defaultAuthConfig),
-        email: val,
-      }
-    });
-  };
-
-  const setAuthPhone = (val: boolean) => {
-    saveProgramMutation.mutate({
-      ...foundProgram,
-      authConfig: {
-        ...(foundProgram.authConfig || defaultAuthConfig),
-        phone: val,
-      }
-    });
-  };
-
-  const setAuthIdentity = (val: boolean) => {
-    saveProgramMutation.mutate({
-      ...foundProgram,
-      authConfig: {
-        ...(foundProgram.authConfig || defaultAuthConfig),
-        identity: val,
-      }
-    });
-  };
-
-  const setAuthAccount = (val: string) => {
-    saveProgramMutation.mutate({
-      ...foundProgram,
-      authConfig: {
-        ...(foundProgram.authConfig || defaultAuthConfig),
-        account: val.includes("recommended") || val === "true" || val === "At intake start (recommended)",
-      }
     });
   };
 
@@ -410,16 +347,6 @@ export default function ProgramDetailPage() {
             consents={consentsForUI}
             onAddConsent={() => setIsConsentOpen(true)}
           />
-          <ProgramAuthentication
-            authEmail={authEmail}
-            authPhone={authPhone}
-            authIdentity={authIdentity}
-            authAccount={authAccount}
-            setAuthEmail={setAuthEmail}
-            setAuthPhone={setAuthPhone}
-            setAuthIdentity={setAuthIdentity}
-            setAuthAccount={setAuthAccount}
-          />
           <ProgramEligibility
             sexRequirement={foundProgram.sexRequirement || "any"}
             minAge={foundProgram.minAge ?? null}
@@ -511,13 +438,6 @@ export default function ProgramDetailPage() {
         onOpenChange={setIsConsentOpen}
         onAddConsent={handleAddConsentById}
         attachedConsentIds={foundProgram.consentIds || []}
-      />
-
-      <AuthSetupModal
-        open={isAuthOpen}
-        onOpenChange={setIsAuthOpen}
-        initialConfig={foundProgram.authConfig || defaultAuthConfig}
-        onSave={handleSaveAuthConfig}
       />
 
       <SectionSelectorModal

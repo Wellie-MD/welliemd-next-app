@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { ShieldAlert } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import type { ProgramAuthConfig } from "@/features/treatments/types";
 
 interface AuthSetupModalProps {
@@ -12,72 +10,25 @@ interface AuthSetupModalProps {
   initialConfig?: ProgramAuthConfig;
 }
 
-export function AuthSetupModal({ open, onOpenChange, onSave, initialConfig }: AuthSetupModalProps) {
-  const [email, setEmail] = useState(true);
-  const [phone, setPhone] = useState(false);
-  const [identity, setIdentity] = useState(false);
-  const [account, setAccount] = useState(true);
-
-  useEffect(() => {
-    if (open && initialConfig) {
-      setEmail(!!initialConfig.email);
-      setPhone(!!initialConfig.phone);
-      setIdentity(!!initialConfig.identity);
-      setAccount(!!initialConfig.account);
-    }
-  }, [open, initialConfig]);
-
-  const handleSave = () => {
-    onSave({ email, phone, identity, account });
-    onOpenChange(false);
-  };
-
+export function AuthSetupModal({ open, onOpenChange }: AuthSetupModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6">
         <DialogHeader>
-          <div className="flex items-center gap-2 text-amber-600 mb-2">
-            <ShieldAlert className="h-5 w-5" />
+          <div className="flex items-center gap-2 text-blue-600 mb-2">
+            <LockKeyhole className="h-5 w-5" />
             <DialogTitle className="text-base font-bold text-slate-900">
-              Patient Authentication Requirements
+              Personal Details · Locked first step
             </DialogTitle>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Configure the authentication steps a patient must complete before they can access the screening questions or complete checkout.
+            This required questionnaire step collects name, email, US phone number, and the Terms, Privacy Policy, and Telehealth consent before account creation or login.
           </p>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-xs font-bold text-slate-800">Email Verification</label>
-              <p className="text-[10px] text-slate-400">Send a verification email to authenticate the patient.</p>
-            </div>
-            <Switch checked={email} onCheckedChange={setEmail} />
-          </div>
-
-          <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-            <div>
-              <label className="text-xs font-bold text-slate-800">SMS Verification</label>
-              <p className="text-[10px] text-slate-400">Require an SMS text code to verify the patient's phone number.</p>
-            </div>
-            <Switch checked={phone} onCheckedChange={setPhone} />
-          </div>
-
-          <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-            <div>
-              <label className="text-xs font-bold text-slate-800">Photo Identity Match (ID.me / Persona)</label>
-              <p className="text-[10px] text-slate-400">Require government-issued photo ID upload and facial matching.</p>
-            </div>
-            <Switch checked={identity} onCheckedChange={setIdentity} />
-          </div>
-
-          <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-            <div>
-              <label className="text-xs font-bold text-slate-800">Account Creation</label>
-              <p className="text-[10px] text-slate-400">Force the patient to choose a password and register an account.</p>
-            </div>
-            <Switch checked={account} onCheckedChange={setAccount} />
+        <div className="py-4">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-800">
+            New patients create an account from this step. Existing patients use the standard login route. Email verification, SMS OTP, and photo-ID toggles are not part of the intake boundary.
           </div>
         </div>
 
@@ -89,12 +40,7 @@ export function AuthSetupModal({ open, onOpenChange, onSave, initialConfig }: Au
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Save Configuration
-          </Button>
+          <Button onClick={() => onOpenChange(false)} className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white">Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

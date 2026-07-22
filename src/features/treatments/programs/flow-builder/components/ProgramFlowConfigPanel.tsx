@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Info, Plus, Save, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import type { ConsentForm, Program, ProgramCheckoutQuestion, ProgramQuestion } from "../../../types";
 
@@ -18,15 +17,8 @@ interface ProgramFlowConfigPanelProps {
   onEditCheckoutQuestion?: (checkoutQuestionId: string) => void;
 }
 
-const defaultAuthConfig = {
-  email: true,
-  phone: false,
-  identity: false,
-  account: true,
-};
-
 const panelTitle = (nodeType: string | null) => {
-  if (nodeType === "auth") return "Authentication Settings";
+  if (nodeType === "auth") return "Personal Details";
   if (nodeType === "consent") return "Consents";
   if (nodeType === "checkout") return "Checkout Routing";
   if (nodeType === "start") return "Start";
@@ -45,23 +37,11 @@ export function ProgramFlowConfigPanel({
   onAddCheckoutQuestion,
   onEditCheckoutQuestion,
 }: ProgramFlowConfigPanelProps) {
-  const [authEmail, setAuthEmail] = useState(true);
-  const [authPhone, setAuthPhone] = useState(false);
-  const [authIdentity, setAuthIdentity] = useState(false);
-  const [authAccount, setAuthAccount] = useState(true);
   const [selectedConsentIds, setSelectedConsentIds] = useState<string[]>([]);
   const [checkoutQuestions, setCheckoutQuestions] = useState<ProgramCheckoutQuestion[]>([]);
 
   useEffect(() => {
     if (!open || !nodeId) return;
-
-    if (nodeType === "auth") {
-      const config = program.authConfig || defaultAuthConfig;
-      setAuthEmail(config.email);
-      setAuthPhone(config.phone);
-      setAuthIdentity(config.identity);
-      setAuthAccount(config.account);
-    }
 
     if (nodeType === "consent") {
       setSelectedConsentIds(program.consentIds || []);
@@ -73,19 +53,6 @@ export function ProgramFlowConfigPanel({
   }, [open, nodeId, nodeType, program]);
 
   if (!open || !nodeId) return null;
-
-  const handleSaveAuth = () => {
-    onSaveProgram({
-      ...program,
-      authConfig: {
-        email: authEmail,
-        phone: authPhone,
-        identity: authIdentity,
-        account: authAccount,
-      },
-    });
-    onClose();
-  };
 
   const handleSaveConsents = () => {
     onSaveProgram({
@@ -124,46 +91,13 @@ export function ProgramFlowConfigPanel({
         )}
 
         {nodeType === "auth" && (
-          <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-              Authentication Requirements
+          <div className="space-y-4 rounded-xl border border-blue-200 bg-blue-50 p-6 text-sm text-blue-900">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-blue-700">
+              Personal Details · Locked first step
             </h3>
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-6">
-                <div>
-                  <Label className="text-sm font-bold text-slate-900">Email Address</Label>
-                  <p className="text-xs text-slate-500">Collect and verify patient email address.</p>
-                </div>
-                <Switch checked={authEmail} onCheckedChange={setAuthEmail} />
-              </div>
-              <div className="flex items-start justify-between gap-6">
-                <div>
-                  <Label className="text-sm font-bold text-slate-900">Phone Verification</Label>
-                  <p className="text-xs text-slate-500">Verify mobile number by SMS code.</p>
-                </div>
-                <Switch checked={authPhone} onCheckedChange={setAuthPhone} />
-              </div>
-              <div className="flex items-start justify-between gap-6">
-                <div>
-                  <Label className="text-sm font-bold text-slate-900">Identity Verification</Label>
-                  <p className="text-xs text-slate-500">Require a government-issued ID upload.</p>
-                </div>
-                <Switch checked={authIdentity} onCheckedChange={setAuthIdentity} />
-              </div>
-              <div className="flex items-start justify-between gap-6">
-                <div>
-                  <Label className="text-sm font-bold text-slate-900">Require Account Creation</Label>
-                  <p className="text-xs text-slate-500">Require password setup before assessment.</p>
-                </div>
-                <Switch checked={authAccount} onCheckedChange={setAuthAccount} />
-              </div>
-            </div>
-            <div className="flex justify-end border-t border-slate-100 pt-4">
-              <Button onClick={handleSaveAuth} className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
-                <Save className="mr-2 h-4 w-4" />
-                Save Authentication
-              </Button>
-            </div>
+            <p className="leading-relaxed">
+              Patients enter their name, email, US phone number, and required consent here. Existing patients log in and new patients create an account. This system boundary cannot be configured, duplicated, deleted, or reordered.
+            </p>
           </div>
         )}
 

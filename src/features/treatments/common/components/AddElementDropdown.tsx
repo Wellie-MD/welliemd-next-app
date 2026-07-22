@@ -2,7 +2,6 @@ import {
   ChevronDown,
   FileCheck,
   LayoutTemplate,
-  LockKeyhole,
   MapPin,
   Plus,
   ShoppingCart,
@@ -27,7 +26,7 @@ interface AddElementDropdownProps {
 
 export function AddElementDropdown({
   onAddQuestion,
-  onAddAuth,
+  onAddAuth: _onAddAuth,
   onAddServiceArea,
   onAddSection,
   onAddConsent,
@@ -41,14 +40,6 @@ export function AddElementDropdown({
       icon: CircleHelp,
       color: "text-slate-900",
       iconClass: "bg-indigo-100 text-indigo-600 border-indigo-100",
-    },
-    {
-      label: "Patient Authentication",
-      description: "Email, SMS code, photo ID, or account creation requirements.",
-      onClick: onAddAuth,
-      icon: LockKeyhole,
-      color: "text-slate-900",
-      iconClass: "bg-amber-100 text-amber-600 border-amber-100",
     },
     {
       label: "Service Area Check",

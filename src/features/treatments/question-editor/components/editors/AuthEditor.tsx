@@ -28,7 +28,7 @@ export function AuthEditor({
   return (
     <div className="flex flex-col h-full w-full bg-slate-50">
       <QuestionEditorHeader
-        title={`Patient Authentication · Step ${questionOrder}`}
+        title={`Personal Details · Step ${questionOrder}`}
         subtitle={programName}
         isEditMode={isEditMode}
         activeQuestion={activeQuestion}
@@ -47,12 +47,12 @@ export function AuthEditor({
               <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-100 text-amber-700">
                 <LockKeyhole className="h-3 w-3" />
               </span>
-              <h2 className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-slate-800">Patient Authentication</h2>
+              <h2 className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-slate-800">Personal Details</h2>
             </div>
             <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-4">
-              <div className="text-[12px] font-bold text-slate-900">Email — login if existing, create account if new</div>
+              <div className="text-[12px] font-bold text-slate-900">Name, email, phone, consent — login if existing, create account if new</div>
               <p className="mt-1 text-[11px] leading-5 text-slate-600">
-                The patient enters their email address. The system checks for an existing account and routes accordingly — no further configuration is required.
+                This locked step collects the patient&apos;s personal details, validates the US phone number, captures required consent, and routes existing patients to login or new patients to account creation. No email/SMS verification or photo-ID configuration is used here.
               </p>
             </div>
 
