@@ -19,22 +19,22 @@ interface QuestionListHeaderProps {
 
 export function QuestionListHeader(props: QuestionListHeaderProps) {
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+    <header className="flex items-center justify-between bg-transparent">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={props.onBack} className="h-8 w-8 text-slate-500 border-slate-200 hover:bg-slate-50 rounded-lg">
+        <Button variant="outline" size="icon" onClick={props.onBack} className="h-8 w-8 rounded-md border-slate-200 bg-white text-slate-500 shadow-none hover:bg-slate-50">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-xl font-bold text-slate-900 leading-tight">{props.title}</h1>
-          <p className="text-[13px] text-slate-500 mt-0.5">{props.subtitle}</p>
+          <h1 className="text-[20px] font-semibold leading-tight tracking-[-0.02em] text-slate-950">{props.title}</h1>
+          <p className="mt-1 text-[11px] text-slate-400">{props.subtitle}</p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {props.extraActions}
         <Button
           variant={props.reorderActive ? "secondary" : "outline"}
           onClick={props.onToggleReorder}
-          className={`h-9 px-4 text-[13px] font-semibold shadow-sm rounded-lg ${
+          className={`h-9 rounded-md border-0 px-3 text-[11px] font-medium shadow-none ${
             props.reorderActive
               ? "bg-slate-100 text-slate-900 border-slate-300"
               : "text-slate-600 border-slate-200 hover:bg-slate-50"

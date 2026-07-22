@@ -119,6 +119,25 @@ export const useSaveProgram = () => {
   });
 };
 
+export const useSaveProgramLabRequirements = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      programId,
+      requirements,
+    }: {
+      programId: string;
+      requirements: Program["labRequirements"];
+    }) => treatmentsApi.saveProgramLabRequirements(programId, requirements || []),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() }),
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() }),
+      ]);
+    },
+  });
+};
+
 export const useUpdateProgramSlug = () => {
   const queryClient = useQueryClient();
   return useMutation({

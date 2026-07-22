@@ -64,9 +64,6 @@ export interface ProgramQuestion {
   kind: QuestionKind;
   section: string;
   required: boolean;
-  /** True for the auto-inserted Patient Authentication step every flow starts
-      with when none was explicitly added — not persisted, not removable. */
-  system?: boolean;
   answerCount?: number;
   flags?: Array<"conditional" | "disqualifying" | "consent">;
   choices?: string[];

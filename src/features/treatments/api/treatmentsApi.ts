@@ -31,6 +31,7 @@ export const treatmentsApi = {
   listPrograms: programsApi.list,
   getProgram: programsApi.get,
   saveProgram: async (program) => programsApi.save(program, await treatmentTypesApi.list()),
+  saveProgramLabRequirements: programsApi.saveLabRequirements,
   updateProgramSlug: programsApi.updateSlug,
   updateProgramStatus: (id: string, status: ProgramStatus) => programsApi.updateStatus(id, status),
   archiveProgram: programsApi.archive,

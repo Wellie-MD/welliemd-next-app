@@ -71,7 +71,13 @@ const findCycle = (parentOf: Map<string, string>, orderedIds: string[]): string[
  * disappearing from the canvas.
  */
 export function normalizeProgramFlowData(questions: ProgramQuestion[]): NormalizedProgramFlow {
-  const sortedQuestions = [...questions].sort((a, b) => {
+  // Authentication and checkout are fixed graph boundary nodes. They are
+  // materialized in the flat authoring list for parity with the patient flow,
+  // but must never be duplicated as ordinary graph questions.
+  const graphQuestions = questions.filter(
+    (question) => question.kind !== "personal_details" && question.kind !== "checkout"
+  );
+  const sortedQuestions = [...graphQuestions].sort((a, b) => {
     const orderDiff = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);
     return orderDiff || a.id.localeCompare(b.id);
   });

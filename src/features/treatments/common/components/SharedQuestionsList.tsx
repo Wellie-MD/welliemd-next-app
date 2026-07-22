@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import {
   DndContext,
   KeyboardSensor,
@@ -105,23 +104,24 @@ export function SharedQuestionsList({
   const deleteSectionFieldMutation = useDeleteSectionField(entityId);
   const reorderSectionFieldsMutation = useReorderSectionFields(entityId);
 
-  // Every flow starts with Patient Authentication. If no auth element was
-  // explicitly added, lead the list with a non-persisted system entry so it
-  // always reads correctly — matching the patient flow, where auth always
-  // comes first. It isn't part of `questions` state and can't be removed.
+  // Every flow starts with Patient Authentication. Programs pre-inject a real
+  // one (see ProgramQuestionsList); for entities that don't (e.g. Sections),
+  // lead the list with a non-persisted system entry so it always reads
+  // correctly. It isn't part of `questions` state until something moves it.
+  const systemAuthId = `auth-system-${entityId}`;
   const displayQuestions = useMemo<ProgramQuestion[]>(() => {
     if (questions.some((q) => q.kind === "personal_details")) return questions;
     const systemAuthQuestion: ProgramQuestion = {
-      id: `auth-system-${entityId}`,
+      id: systemAuthId,
       order: 0,
       text: "Patient Authentication",
       kind: "personal_details",
       section: entityName,
       required: true,
-      system: true,
+      elementConfig: { system: true, locked: true },
     };
     return [systemAuthQuestion, ...questions];
-  }, [questions, entityId, entityName]);
+  }, [questions, systemAuthId, entityName]);
 
   // Sections have no backing Program record, so the Flow view (which always
   // renders through ProgramFlowBuilder — see below) gets a minimal synthetic
@@ -156,51 +156,87 @@ export function SharedQuestionsList({
     })
   );
 
+  const listItemToCheckoutQuestion = (question: ProgramQuestion): ProgramCheckoutQuestion => ({
+    id: question.id,
+    text: question.text,
+    products: question.checkoutProducts || [],
+    visibilityRules: question.visibilityRuleGroup || { mode: "simple", rules: [] },
+  });
+
   // Patient Authentication can be dragged like any other row — the prototype
   // never pins it first, only its Actions column is restricted (no delete).
   // It isn't a real record until something actually moves it, so dragging it
   // specifically materializes it into a genuine persisted question first,
-  // then reorders. Dragging any other row leaves it untouched (it's not part
-  // of `questions`, and stays virtually pinned first until it's the one moved).
-  const persistOrder = (updated: ProgramQuestion[], previousQuestions: ProgramQuestion[]) => {
-    const reorderMutation = entityType === "section"
-      ? reorderSectionFieldsMutation
-      : reorderQuestionsMutation;
-
-    reorderMutation.mutate(
-      updated.map((q) => q.id),
-      {
-        onSuccess: () => {
-          toast({ title: "Order Saved", description: "The list order has been successfully saved." });
-        },
-        onError: () => {
-          setQuestions(previousQuestions);
-          toast({ title: "Error", description: "Failed to save the new order.", variant: "destructive" });
-        },
-      }
-    );
-  };
-
+  // then reorders. Checkout options stay grouped at the end of the intake and
+  // persist through the program record instead of the question-order endpoint.
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const systemAuthId = `auth-system-${entityId}`;
+    const oldIndex = displayQuestions.findIndex((q) => q.id === active.id);
+    const newIndex = displayQuestions.findIndex((q) => q.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const sourceQuestion = displayQuestions[oldIndex];
+    const targetQuestion = displayQuestions[newIndex];
+
+    if (entityType === "program" && sourceQuestion.kind !== targetQuestion.kind &&
+        (sourceQuestion.kind === "checkout" || targetQuestion.kind === "checkout")) {
+      toast({
+        title: "Checkout stays at the end of the intake",
+        description: "Reorder screening questions and checkout options within their own groups.",
+      });
+      return;
+    }
+
     const previousQuestions = questions;
+    const isSystemDrag = sourceQuestion.elementConfig?.system === true;
+    const reordered = arrayMove(displayQuestions, oldIndex, newIndex).map((q, idx) => ({
+      ...q,
+      order: idx + 1,
+      elementConfig: q.id === sourceQuestion.id && isSystemDrag
+        ? { ...q.elementConfig, system: undefined }
+        : q.elementConfig,
+    }));
 
-    if (active.id === systemAuthId) {
-      const oldIndex = displayQuestions.findIndex((q) => q.id === active.id);
-      const newIndex = displayQuestions.findIndex((q) => q.id === over.id);
-      if (oldIndex === -1 || newIndex === -1) return;
+    setQuestions(reordered);
 
-      const reordered = arrayMove(displayQuestions, oldIndex, newIndex).map((q, idx) => ({
-        ...q,
-        order: idx + 1,
-        system: q.id === systemAuthId ? undefined : q.system,
-      }));
-      const authRow = reordered.find((q) => q.id === systemAuthId)!;
+    if (entityType === "program" && program && sourceQuestion.kind === "checkout") {
+      const checkoutQuestions = reordered
+        .filter((question) => question.kind === "checkout")
+        .map(listItemToCheckoutQuestion);
+      treatmentsApi.saveProgram({
+        ...program,
+        checkoutQuestions,
+        checkoutQuestionCount: checkoutQuestions.length,
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+        toast({ title: "Checkout Order Saved" });
+      }).catch(() => {
+        setQuestions(previousQuestions);
+        toast({ title: "Error", description: "Failed to save checkout order.", variant: "destructive" });
+      });
+      return;
+    }
 
-      setQuestions(reordered);
+    const persistOrder = () => {
+      const reorderMutation = entityType === "section" ? reorderSectionFieldsMutation : reorderQuestionsMutation;
+      reorderMutation.mutate(
+        reordered.filter((q) => q.kind !== "checkout" && q.elementConfig?.system !== true).map((q) => q.id),
+        {
+          onSuccess: () => {
+            toast({ title: "Order Saved", description: "The list order has been successfully saved." });
+          },
+          onError: () => {
+            setQuestions(previousQuestions);
+            toast({ title: "Error", description: "Failed to save the new order.", variant: "destructive" });
+          },
+        }
+      );
+    };
+
+    if (isSystemDrag) {
+      const authRow = reordered.find((q) => q.id === sourceQuestion.id)!;
       const mutation = entityType === "section" ? saveSectionFieldMutation : saveQuestionMutation;
       const payload = entityType === "section"
         ? {
@@ -210,11 +246,11 @@ export function SharedQuestionsList({
             label: authRow.text,
             kind: authRow.kind,
             required: authRow.required,
-            configuration: {},
+            configuration: authRow.elementConfig || {},
           }
         : authRow;
       mutation.mutate(payload as never, {
-        onSuccess: () => persistOrder(reordered, previousQuestions),
+        onSuccess: persistOrder,
         onError: () => {
           setQuestions(previousQuestions);
           toast({ title: "Error", description: "Failed to save the new order.", variant: "destructive" });
@@ -223,17 +259,7 @@ export function SharedQuestionsList({
       return;
     }
 
-    const oldIndex = questions.findIndex((q) => q.id === active.id);
-    const newIndex = questions.findIndex((q) => q.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const updated = arrayMove(questions, oldIndex, newIndex).map((q, idx) => ({
-      ...q,
-      order: idx + 1,
-    }));
-
-    setQuestions(updated);
-    persistOrder(updated, previousQuestions);
+    persistOrder();
   };
 
   const processedQuestions = useMemo(
@@ -387,13 +413,6 @@ export function SharedQuestionsList({
         .filter((productId): productId is string => Boolean(productId)),
       visibilityRuleGroup: checkout.visibilityRules,
     },
-  });
-
-  const listItemToCheckoutQuestion = (question: ProgramQuestion): ProgramCheckoutQuestion => ({
-    id: question.id,
-    text: question.text,
-    products: question.checkoutProducts || [],
-    visibilityRules: question.visibilityRuleGroup || { mode: "simple", rules: [] },
   });
 
   const handleAddCheckoutSave = async (data: Omit<ProgramCheckoutQuestion, "id">) => {
@@ -564,6 +583,7 @@ export function SharedQuestionsList({
           initialQuestionId={activeEditingQuestion?.id || null}
           questions={displayQuestions}
           programId={entityId}
+          programName={entityName}
         />
         <CheckoutQuestionModal
           open={isCheckoutOpen}
@@ -633,7 +653,7 @@ export function SharedQuestionsList({
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 w-full">
+    <div className="flex min-h-screen w-full flex-col bg-slate-50 p-6">
       <QuestionListHeader
         title={headerTitle}
         subtitle={headerSubtitle}
@@ -649,18 +669,15 @@ export function SharedQuestionsList({
         onAddCheckout={() => { setActiveEditingQuestion(null); setIsCheckoutOpen(true); }}
       />
 
-      <main className="flex-1 p-6 w-full">
-        <div className="mb-3.5">
-          <QuestionListFilters
-            counts={typeCounts}
-            selectedType={typeFilter}
-            searchQuery={searchQuery}
-            onSelectType={setTypeFilter}
-            onSearchChange={setSearchQuery}
-          />
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+      <main className="mt-7 w-full flex-1">
+        <QuestionListFilters
+          counts={typeCounts}
+          selectedType={typeFilter}
+          searchQuery={searchQuery}
+          onSelectType={setTypeFilter}
+          onSearchChange={setSearchQuery}
+        />
+        <div className="flex flex-col overflow-hidden rounded-[10px] border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.02)]">
           <QuestionListTable
             questions={processedQuestions}
             reorderActive={isReorderActive}
@@ -680,6 +697,7 @@ export function SharedQuestionsList({
         initialQuestionId={activeEditingQuestion?.id || null}
         questions={displayQuestions}
         programId={entityId}
+        programName={entityName}
       />
 
       <CheckoutQuestionModal

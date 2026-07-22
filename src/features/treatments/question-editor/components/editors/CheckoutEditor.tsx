@@ -85,12 +85,13 @@ export function CheckoutEditor({
         title={`Checkout · Step ${questionOrder}`}
         subtitle={programName}
         isEditMode={isEditMode}
+        activeQuestion={activeQuestion}
         onClose={onClose}
         onSave={form.handleSaveModal}
         onTestFlow={onTestFlow}
       />
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_340px] overflow-hidden">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_380px]">
         {sidebar}
 
         <main className="overflow-y-auto p-6 bg-white border-r border-slate-150">

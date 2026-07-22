@@ -2,7 +2,7 @@ import { Lock } from "lucide-react";
 
 export function AuthPatientPreview() {
   return (
-    <aside className="bg-[#0f1117] flex flex-col h-full overflow-hidden w-[340px] shrink-0 border-l border-slate-200">
+    <aside className="flex h-full w-[380px] shrink-0 flex-col overflow-hidden border-l border-slate-800 bg-[#0f172a]">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -12,7 +12,7 @@ export function AuthPatientPreview() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 flex justify-center">
-        <div className="w-[300px] bg-white rounded-xl shadow-xl overflow-hidden flex flex-col mt-4">
+        <div className="mt-4 flex w-[320px] flex-col overflow-hidden rounded-xl bg-white shadow-xl">
           <div className="bg-slate-50 border-b border-slate-100 px-3 py-2.5 flex items-center gap-2 shrink-0">
             <div className="flex gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-red-400" />

@@ -1,6 +1,6 @@
 import { QuestionEditorHeader } from "@/features/treatments/question-editor/components/shell/QuestionEditorHeader";
 import { AuthPatientPreview } from "../previews/AuthPatientPreview";
-import { Lock } from "lucide-react";
+import { Info, LockKeyhole } from "lucide-react";
 import type { ProgramQuestion } from "@/features/treatments/types";
 
 interface AuthEditorProps {
@@ -31,20 +31,21 @@ export function AuthEditor({
         title={`Patient Authentication · Step ${questionOrder}`}
         subtitle={programName}
         isEditMode={isEditMode}
+        activeQuestion={activeQuestion}
         hideSave={true}
         onClose={onClose}
         onSave={() => {}}
         onTestFlow={onTestFlow}
       />
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_340px] overflow-hidden">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_380px]">
         {sidebar}
 
         <main className="overflow-y-auto p-8 bg-white border-r border-slate-150 relative">
           <div className="max-w-2xl mx-auto space-y-5">
             <div className="flex items-center gap-2">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-amber-100 text-yellow-700">
-                <Lock className="h-3 w-3" />
+              <div className="flex h-5 w-5 items-center justify-center rounded bg-amber-100 text-amber-700">
+                <LockKeyhole className="h-3 w-3" />
               </div>
               <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-800">Patient Authentication</h3>
             </div>
@@ -86,10 +87,7 @@ export function AuthEditor({
             </div>
 
             <div className="flex items-start gap-2.5 rounded-md border border-blue-200 bg-blue-50 p-3">
-              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#1d4ed8" strokeWidth={2} className="mt-0.5 shrink-0">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 16v-4m0-4h.01" />
-              </svg>
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
               <div className="text-[12px] leading-relaxed text-blue-800">
                 This step appears at position <strong>{questionOrder}</strong> of the patient's intake flow.
                 Drag the card in the list to move it earlier or later.
