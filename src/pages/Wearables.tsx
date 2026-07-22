@@ -91,7 +91,7 @@ export default function Wearables() {
   };
 
   return (
-    <div className="p-6 pb-24 space-y-6" style={{ position: 'relative' }}>
+    <div className="p-6 space-y-6" style={{ position: 'relative' }}>
       {/* Toast Notification */}
       <div
         className={`pd-toast ${toastMsg ? 'show' : ''}`}
@@ -431,17 +431,17 @@ export default function Wearables() {
                       <tr style={{ borderBottom: '1px solid var(--km-b)' }}>
                         {['Name', 'Treatment', 'Connection', 'Device(s)', 'Last Sync', 'Latest Weight', 'Readiness', ''].map((h, i) => (
                           <th
-                             key={i}
-                             style={{
-                               textAlign: i === 6 ? 'right' : 'left',
-                               fontSize: 10,
-                               fontWeight: 700,
-                               letterSpacing: '.04em',
-                               textTransform: 'uppercase',
-                               color: 'var(--km-tm)',
-                               padding: '10px 12px',
-                               whiteSpace: 'nowrap'
-                             }}
+                            key={i}
+                            style={{
+                              textAlign: i === 6 ? 'right' : 'left',
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: '.04em',
+                              textTransform: 'uppercase',
+                              color: 'var(--km-tm)',
+                              padding: '10px 12px',
+                              whiteSpace: 'nowrap'
+                            }}
                           >
                             {h}
                           </th>
