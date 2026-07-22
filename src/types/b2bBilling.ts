@@ -48,6 +48,32 @@ export interface B2BInvoiceItem {
   created_at: string;
 }
 
+export interface B2BInvoicePrescriptionItem {
+  name?: string;
+  med_id?: string;
+  rx_id?: string;
+  quantity?: string | number | null;
+  refills?: string | number | null;
+  strength?: string | number | null;
+  medication_amount?: string;
+  shipping_amount?: string;
+  product_total?: string;
+  patient_amount?: string;
+}
+
+export interface B2BInvoicePrescriptionEvent {
+  name?: string;
+  event_kind?: 'initial_prescription' | 'revision' | string;
+  revision_number?: number | string | null;
+  occurred_at?: string | null;
+  webhook_event_id?: string;
+  medication_amount?: string;
+  shipping_amount?: string;
+  product_total?: string;
+  patient_total?: string;
+  items?: B2BInvoicePrescriptionItem[];
+}
+
 export interface B2BInvoice {
   id: string;
   invoice_number: string;
@@ -100,7 +126,7 @@ export interface B2BInvoice {
   revision_adjustments?: Array<{
     id: string;
     invoice_number: string;
-    kind: 'supplemental_charge' | 'credit_note';
+    kind: 'supplemental_charge' | 'credit_note' | 'no_charge_revision';
     status: string;
     revision_number?: number | string | null;
     product_name?: string;
@@ -109,13 +135,18 @@ export interface B2BInvoice {
     product_total: string;
     adjustment_amount: string;
     created_at?: string | null;
+    source?: string;
   }>;
+  prescription_events?: B2BInvoicePrescriptionEvent[];
   adjustment_summary?: {
     invoice_total: string;
     supplemental_charges: string;
     credit_notes: string;
     net_adjustment: string;
     adjusted_total: string;
+    captured_amount?: string;
+    hold_released_amount?: string;
+    capture_status?: string;
   } | null;
 
   // Source tracking
