@@ -87,14 +87,10 @@ export function AddElementDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          className="h-9 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm hover:bg-blue-700"
-          data-testid="add-element-button"
-        >
-          <Plus className="mr-1.5 h-3.5 w-3.5" />
+        <Button type="button" data-testid="add-element-button">
+          <Plus className="mr-2 h-4 w-4" />
           Add Element
-          <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-80" />
+          <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-80" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

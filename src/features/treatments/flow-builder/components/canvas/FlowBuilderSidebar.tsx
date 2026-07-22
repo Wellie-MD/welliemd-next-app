@@ -51,7 +51,7 @@ export function FlowBuilderSidebar({
             placeholder="Search by name or type"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs outline-none transition-colors focus:border-[#12517A] focus:bg-white"
+            className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs outline-none transition-colors focus:border-[#2563eb] focus:bg-white"
             data-testid="flow-builder-sidebar-search"
           />
         </div>
@@ -93,7 +93,7 @@ export function FlowBuilderSidebar({
                   type="checkbox"
                   checked={checked}
                   readOnly
-                  className="h-3.5 w-3.5 rounded border-slate-300 text-[#12517A] focus:ring-[#12517A]"
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-[#2563eb] focus:ring-[#2563eb]"
                   aria-label={`${checked ? "Remove" : "Add"} ${item.name}`}
                 />
                 <span className="truncate text-[11.5px] font-semibold text-slate-700">{item.name}</span>
@@ -110,7 +110,7 @@ export function FlowBuilderSidebar({
 
       <div className="flex shrink-0 items-center justify-between border-t border-slate-100 bg-white p-3">
         <span className="text-[11px] font-semibold text-slate-500">{items.length} items</span>
-        <Button variant="outline" size="sm" className="h-7 border-slate-200 text-xs text-[#12517A] hover:bg-slate-50" onClick={onOpenDrawer} data-testid="create-flow-library-item">
+        <Button variant="outline" size="sm" className="h-7 border-slate-200 text-xs text-[#2563eb] hover:bg-slate-50" onClick={onOpenDrawer} data-testid="create-flow-library-item">
           <Plus className="mr-1.5 h-3 w-3" />
           Create new
         </Button>

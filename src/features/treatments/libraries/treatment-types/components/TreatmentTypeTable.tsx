@@ -60,7 +60,7 @@ export function TreatmentTypeTable({
                 <TableCell className="font-medium">
                   <Link
                     to={`/dashboard/treatments/treatment-types/${type.key}`}
-                    className="text-slate-900 hover:text-[#12517A] hover:underline"
+                    className="text-slate-900 hover:text-blue-600 hover:underline"
                   >
                     {type.name}
                   </Link>
@@ -115,7 +115,7 @@ export function TreatmentTypeTable({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-[#12517A]"
+                      className="h-8 w-8 text-slate-400 hover:text-blue-600"
                       title="Edit"
                       onClick={() => onEdit?.(type.key)}
                     >

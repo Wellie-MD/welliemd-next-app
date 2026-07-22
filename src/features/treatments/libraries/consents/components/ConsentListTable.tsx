@@ -45,7 +45,7 @@ export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPrev
           {consents.map((consent) => (
             <TableRow key={consent.id} className="group hover:bg-slate-50/50">
               <TableCell className="px-4 font-medium">
-                <div className="text-slate-900 cursor-pointer hover:text-[#2563eb] hover:underline" onClick={() => onViewDetail?.(consent.id)}>
+                <div className="text-slate-900 cursor-pointer hover:text-blue-600 hover:underline" onClick={() => onViewDetail?.(consent.id)}>
                   {consent.name}
                 </div>
                 <div className="text-xs text-slate-500 font-normal mt-1">
@@ -74,10 +74,10 @@ export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPrev
               <TableCell className="px-4 text-slate-500 text-xs">{formatDateUS(consent.updatedAt)}</TableCell>
               <TableCell className="px-4 text-right">
                 <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#2563eb]" title="Preview" onClick={() => onPatientPreview?.(consent.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" title="Preview" onClick={() => onPatientPreview?.(consent.id)}>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#2563eb]" title="Edit" onClick={() => onEdit?.(consent.id)}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" title="Edit" onClick={() => onEdit?.(consent.id)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                   {onArchive && !consent.isArchived && (

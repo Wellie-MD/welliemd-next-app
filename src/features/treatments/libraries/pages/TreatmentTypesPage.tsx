@@ -92,7 +92,7 @@ export default function TreatmentTypesPage() {
         title="Treatment Types"
         subtitle="The catalog of treatments your clinic offers. Each row is a specific treatment with its intake and follow-up visit-type identifiers. Multiple treatment types can share the same visit-type identifiers (e.g. Branded GLP and Compounded GLP both route under weightloss)."
         actions={
-          <Button onClick={handleCreate} className="bg-[#12517A] text-white hover:bg-[#12517A]/90" data-testid="create-treatment-type">
+          <Button onClick={handleCreate} data-testid="create-treatment-type">
             <Plus className="mr-2 h-4 w-4" />
             Create Treatment Type
           </Button>

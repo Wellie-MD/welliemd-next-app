@@ -57,7 +57,7 @@ export function ConsentPatientPreviewModal({ open, onOpenChange, consent }: Cons
               </span>
               {/* .preview-back-btn — disabled (this is always the only/first page) */}
               <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#2563eb] bg-white text-[#2563eb] opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-blue-600 bg-white text-blue-600 opacity-40"
                 aria-hidden="true"
               >
                 <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2.5} />

@@ -166,7 +166,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="e.g., Consent (Telehealth)"
-                  className="focus-visible:border-[#2563eb] focus-visible:ring-[3px] focus-visible:ring-[#eff4ff] focus-visible:ring-offset-0"
+                  className="focus-visible:border-blue-600 focus-visible:ring-[3px] focus-visible:ring-[#eff4ff] focus-visible:ring-offset-0"
                   data-testid="consent-name-input"
                 />
               </div>
@@ -180,7 +180,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                       key={value}
                       className={cn(
                         "flex flex-1 cursor-pointer items-center gap-1.5 rounded-md border px-2 transition-colors",
-                        scope === value ? "border-[#2563eb] bg-blue-50/20" : "border-slate-200 bg-white"
+                        scope === value ? "border-blue-600 bg-blue-50/20" : "border-slate-200 bg-white"
                       )}
                     >
                       <input
@@ -242,7 +242,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                     <Input
                       value={option.text}
                       onChange={(event) => handleOptionTextChange(option.id, event.target.value)}
-                      className="h-9 flex-1 bg-white focus-visible:border-[#2563eb] focus-visible:ring-[3px] focus-visible:ring-[#eff4ff] focus-visible:ring-offset-0"
+                      className="h-9 flex-1 bg-white focus-visible:border-blue-600 focus-visible:ring-[3px] focus-visible:ring-[#eff4ff] focus-visible:ring-offset-0"
                       placeholder="Option text…"
                       aria-label="Answer option text"
                     />
@@ -314,7 +314,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending} className="bg-[#2563eb] text-white hover:bg-[#2563eb]/90" data-testid="consent-save">
+            <Button type="submit" disabled={isPending} className="bg-blue-600 text-white hover:bg-blue-700" data-testid="consent-save">
               {isPending ? "Saving…" : consentId ? "Save Changes" : "Create Consent"}
             </Button>
           </div>

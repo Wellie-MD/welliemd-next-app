@@ -269,7 +269,7 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
+            <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-700">
               {program ? "Save Changes" : "Create Custom Program"}
             </Button>
           </div>

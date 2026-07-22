@@ -81,13 +81,13 @@ export function AddToFlowDrawer({
                 onClick={() => setActiveTab(tab.id as TabKey)}
                 className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${
                   activeTab === tab.id
-                    ? "text-[#12517A]"
+                    ? "text-[#2563eb]"
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
                 {tab.label}
                 {activeTab === tab.id && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#12517A] rounded-t-full"></span>
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2563eb] rounded-t-full"></span>
                 )}
               </button>
             ))}

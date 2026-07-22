@@ -110,7 +110,7 @@ export function FlowBuilderCanvas({
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add item
           </Button>
-          <Button size="sm" className="h-8 bg-[#12517A] text-xs text-white hover:bg-[#12517A]/90" onClick={onSave} data-testid="canvas-save-custom-program">
+          <Button size="sm" onClick={onSave} data-testid="canvas-save-custom-program">
             <Check className="mr-1.5 h-3.5 w-3.5" />
             Save
           </Button>

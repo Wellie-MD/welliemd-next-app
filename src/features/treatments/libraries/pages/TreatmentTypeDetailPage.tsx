@@ -122,7 +122,7 @@ export default function TreatmentTypeDetailPage() {
                 <p className="text-xs text-slate-400">
                   Eligibility module would reference <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">{intakeVisitType}</code>
                 </p>
-                <Button size="sm" className="bg-[#2563eb] text-white hover:bg-blue-700" onClick={() => navigate(LIBRARY_LINKS.eligibility)}>
+                <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => navigate(LIBRARY_LINKS.eligibility)}>
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
                   Create onboarding module
                 </Button>
@@ -159,7 +159,7 @@ export default function TreatmentTypeDetailPage() {
         title="Products"
         subtitle="Medications and offerings prescribed within this visit type. Routing config decides which product a patient gets matched to based on their answers."
         action={
-          <Button size="sm" className="bg-[#2563eb] text-white hover:bg-blue-700" onClick={() => setIsProductDialogOpen(true)} data-testid="visit-type-add-product">
+          <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => setIsProductDialogOpen(true)} data-testid="visit-type-add-product">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add product
           </Button>
@@ -263,7 +263,7 @@ function ProgramRow({ name, status, to }: { name: string; status: string; to: st
 
 function LibraryLink({ to, children }: { to: string; children: React.ReactNode }) {
   return (
-    <Link to={to} className="text-xs font-semibold text-[#2563eb] hover:underline">
+    <Link to={to} className="text-xs font-semibold text-blue-600 hover:underline">
       {children}
     </Link>
   );

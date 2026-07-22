@@ -47,7 +47,7 @@ export function FlowBuilderHeader({
                   <span className="text-slate-400">welliemd.com/start/</span>
                   <input
                     type="text"
-                    className="w-32 border-b border-[#12517A] bg-transparent font-semibold text-slate-900 outline-none"
+                    className="w-32 border-b border-blue-600 bg-transparent font-semibold text-slate-900 outline-none"
                     value={slugInput}
                     onChange={(event) => onSlugInputChange(event.target.value)}
                     data-testid="custom-program-slug-input"
@@ -82,7 +82,7 @@ export function FlowBuilderHeader({
 
         <div className="flex flex-wrap items-center gap-3 md:justify-end">
           <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
-          <Button variant="secondary" className="bg-[#12517A] text-white hover:bg-[#12517A]/90" onClick={onOpenDrawer} data-testid="open-add-to-flow-drawer">
+          <Button variant="secondary" onClick={onOpenDrawer} data-testid="open-add-to-flow-drawer">
             <Plus className="mr-2 h-4 w-4" />
             Add to flow
           </Button>
@@ -90,7 +90,7 @@ export function FlowBuilderHeader({
             <Eye className="mr-2 h-4 w-4" />
             Preview
           </Button>
-          <Button onClick={onSave} className="bg-[#12517A] text-white hover:bg-[#12517A]/90" data-testid="save-custom-program-flow">
+          <Button onClick={onSave} data-testid="save-custom-program-flow">
             <Save className="mr-2 h-4 w-4" />
             Save Plan
           </Button>

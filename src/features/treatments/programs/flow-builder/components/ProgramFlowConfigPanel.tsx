@@ -159,7 +159,7 @@ export function ProgramFlowConfigPanel({
               </div>
             </div>
             <div className="flex justify-end border-t border-slate-100 pt-4">
-              <Button onClick={handleSaveAuth} className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
+              <Button onClick={handleSaveAuth}>
                 <Save className="mr-2 h-4 w-4" />
                 Save Authentication
               </Button>
@@ -212,7 +212,7 @@ export function ProgramFlowConfigPanel({
               )}
             </div>
             <div className="flex justify-end border-t border-slate-100 pt-4">
-              <Button onClick={handleSaveConsents} className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
+              <Button onClick={handleSaveConsents}>
                 <Save className="mr-2 h-4 w-4" />
                 Save Consents
               </Button>

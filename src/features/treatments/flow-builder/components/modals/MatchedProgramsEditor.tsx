@@ -150,7 +150,7 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
           <div className="mr-auto flex items-center gap-1.5 text-xs text-slate-500">{invalid ? <AlertTriangle className="h-4 w-4 text-rose-500" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}{invalid ? "Complete every condition before saving." : "Rules are valid."}</div>
           <Button variant="outline" onClick={() => setPreviewMode(true)}>Preview Answers</Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={saving || invalid} className="bg-[#12517A] hover:bg-[#12517A]/90" onClick={async () => { setSaving(true); try { await onSave(draft); onOpenChange(false); } finally { setSaving(false); } }}>{saving ? "Saving…" : "Save Rules"}</Button>
+          <Button disabled={saving || invalid} onClick={async () => { setSaving(true); try { await onSave(draft); onOpenChange(false); } finally { setSaving(false); } }}>{saving ? "Saving…" : "Save Rules"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

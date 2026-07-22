@@ -146,7 +146,7 @@ export function CheckoutOptionTab({ onAddItem }: CheckoutOptionTabProps) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-slate-500 text-sm">
-        <Loader2 className="h-6 w-6 animate-spin mb-2 text-[#12517A]" />
+        <Loader2 className="h-6 w-6 animate-spin mb-2 text-[#2563eb]" />
         Loading product records...
       </div>
     );

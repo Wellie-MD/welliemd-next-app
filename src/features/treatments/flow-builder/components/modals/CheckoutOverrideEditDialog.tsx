@@ -97,7 +97,7 @@ export function CheckoutOverrideEditDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!productName.trim()} className="bg-[#12517A] hover:bg-[#12517A]/90" onClick={handleSave}>Save Override</Button>
+          <Button disabled={!productName.trim()} onClick={handleSave}>Save Override</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

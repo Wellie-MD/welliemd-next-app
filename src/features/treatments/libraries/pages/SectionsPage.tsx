@@ -144,7 +144,6 @@ export default function SectionsPage() {
           <Button
             type="button"
             onClick={handleCreate}
-            className="h-9 bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700"
             data-testid="sections-create-button"
           >
             <Plus className="mr-2 h-4 w-4" />

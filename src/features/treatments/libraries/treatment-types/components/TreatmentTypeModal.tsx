@@ -147,7 +147,7 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending} className="bg-[#2563eb] text-white hover:bg-blue-700" data-testid="treatment-type-save">
+            <Button type="submit" disabled={isPending} className="bg-blue-600 text-white hover:bg-blue-700" data-testid="treatment-type-save">
               {isPending ? "Saving…" : treatmentTypeKey ? "Update Treatment Type" : "Create Treatment Type"}
             </Button>
           </div>

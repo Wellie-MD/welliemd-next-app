@@ -50,7 +50,7 @@ export function VisitTypeProductsTable({ products, onEditProduct }: VisitTypePro
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-slate-400 opacity-0 transition-opacity hover:text-[#12517A] group-hover:opacity-100"
+                    className="h-8 w-8 text-slate-400 opacity-0 transition-opacity hover:text-blue-600 group-hover:opacity-100"
                     title="Edit product"
                     onClick={() => onEditProduct?.(product.id)}
                     data-testid={`visit-type-product-edit-${product.id}`}

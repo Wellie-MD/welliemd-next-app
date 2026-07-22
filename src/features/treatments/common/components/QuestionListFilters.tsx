@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FILTERABLE_KIND_ORDER, formatKindLabel } from "@/features/treatments/common/utils/questionList";
 
@@ -25,57 +26,69 @@ export function QuestionListFilters({
     .sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
   const emptyTypes = FILTERABLE_KIND_ORDER.filter((kind) => !(counts[kind] > 0));
 
-  const pillClass = (active: boolean) =>
-    `inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
-      active ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-    }`;
-
   return (
-    <div className="p-4 flex flex-wrap items-center gap-4 justify-between rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-2.5 flex-wrap">
-        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mr-2">TYPE</span>
-        <button onClick={() => onSelectType("all")} className={pillClass(selectedType === "all")}>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wider text-gray-500">Type</span>
+        <Button variant={selectedType === "all" ? "default" : "outline"} size="sm" onClick={() => onSelectType("all")}>
           All {counts.all}
-        </button>
+        </Button>
         {presentTypes.map((kind) => (
-          <button key={kind} onClick={() => onSelectType(kind)} className={pillClass(selectedType === kind)}>
+          <Button
+            key={kind}
+            variant={selectedType === kind ? "default" : "outline"}
+            size="sm"
+            onClick={() => onSelectType(kind)}
+          >
             {formatKindLabel(kind)} {counts[kind]}
-          </button>
+          </Button>
         ))}
         {emptyTypes.length > 0 && (
           showEmpty ? (
             <>
               {emptyTypes.map((kind) => (
-                <button key={kind} onClick={() => onSelectType(kind)} className={pillClass(selectedType === kind)}>
+                <Button
+                  key={kind}
+                  variant={selectedType === kind ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onSelectType(kind)}
+                >
                   {formatKindLabel(kind)} 0
-                </button>
+                </Button>
               ))}
-              <button
-                onClick={() => setShowEmpty(false)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-white text-slate-400 border border-dashed border-slate-250 hover:bg-slate-50/50"
-              >
+              <Button variant="outline" size="sm" onClick={() => setShowEmpty(false)}>
                 Show fewer
-              </button>
+              </Button>
             </>
           ) : (
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setShowEmpty(true)}
               title={`${emptyTypes.length} other question types are available`}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-white text-slate-400 border border-dashed border-slate-250 hover:bg-slate-50/50"
             >
               + {emptyTypes.length} more types
-            </button>
+            </Button>
           )
         )}
       </div>
-      <div className="relative">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+      <div className="relative max-w-xl">
         <Input
           placeholder="Search questions, answers, or mapped field"
           value={searchQuery}
           onChange={(event) => onSearchChange(event.target.value)}
-          className="pl-9 w-[320px] h-9 text-[13px] bg-white border-slate-200 rounded-lg shadow-sm"
+          className="pr-9"
         />
+        {searchQuery && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            onClick={() => onSearchChange("")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );

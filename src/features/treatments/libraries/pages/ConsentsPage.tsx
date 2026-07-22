@@ -149,7 +149,7 @@ export default function ConsentsPage() {
         title="Consent Forms"
         subtitle="Legal documents shown to patients. Global consents appear on every visit; Treatment Specific consents are conditionally shown."
         actions={
-          <Button onClick={handleCreate} className="bg-[#2563eb] text-white hover:bg-[#2563eb]/90" data-testid="create-consent">
+          <Button onClick={handleCreate} data-testid="create-consent">
             <Plus className="mr-2 h-4 w-4" />
             Create Consent
           </Button>

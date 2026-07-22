@@ -47,8 +47,8 @@ export function ProgramQuestionsListRow({
       ref={setNodeRef}
       style={style}
       onClick={() => onEdit(question)}
-      className={`grid grid-cols-[80px_1fr_120px_160px_100px] gap-6 px-6 py-4 items-center border-b border-slate-150 transition-colors group cursor-pointer ${
-        isDragging ? "bg-slate-100/50 shadow-md" : "bg-white hover:bg-slate-50/80"
+      className={`grid grid-cols-[80px_1fr_120px_160px_100px] gap-6 px-6 py-4 items-center border-b border-gray-100 transition-all duration-200 group cursor-pointer ${
+        isDragging ? "bg-gray-100/50 shadow-md" : "bg-white hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent"
       }`}
     >
       {/* 1. Drag & Index */}

@@ -1,7 +1,6 @@
-import { Download, Trash2, Search } from "lucide-react";
+import { Download, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 export type SectionScopeFilter = "all" | "global" | "shared" | "treatment";
 
@@ -30,59 +29,55 @@ export function SectionToolbar({
   onExport,
 }: SectionToolbarProps) {
   return (
-    <div className="mb-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="mb-4 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        {scopeFilters.map((filter) => {
-          const active = scopeFilter === filter.value;
-          return (
-            <button
-              key={filter.value}
-              type="button"
-              onClick={() => onScopeFilterChange(filter.value)}
-              className={cn(
-                "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-                active
-                  ? "border-blue-200 bg-blue-50 text-blue-700"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              )}
-              data-testid={`sections-filter-${filter.value}`}
-            >
-              {filter.label}
-            </button>
-          );
-        })}
+        {scopeFilters.map((filter) => (
+          <Button
+            key={filter.value}
+            variant={scopeFilter === filter.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => onScopeFilterChange(filter.value)}
+            data-testid={`sections-filter-${filter.value}`}
+          >
+            {filter.label}
+          </Button>
+        ))}
 
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={onResetFilters}
-          className="inline-flex items-center gap-1.5 rounded-md border border-transparent px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+          className="gap-1"
           data-testid="sections-reset-filters"
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <RotateCcw className="h-3 w-3" />
           Reset Filters
-        </button>
+        </Button>
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-xl">
           <Input
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
             placeholder="Search sections by name or scope"
-            className="h-9 border-slate-200 bg-white pl-9 text-sm shadow-sm"
+            className="pr-9"
             data-testid="sections-search-input"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              onClick={() => onSearchQueryChange("")}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          className="h-9 rounded-md border-slate-200 px-3 text-xs font-medium text-slate-600 shadow-sm hover:bg-slate-50"
-          onClick={onExport}
-          data-testid="sections-export-button"
-        >
-          <Download className="mr-1.5 h-3.5 w-3.5" />
+        <Button variant="outline" onClick={onExport} className="ml-auto gap-2" data-testid="sections-export-button">
+          <Download className="h-4 w-4" />
           Export
         </Button>
       </div>

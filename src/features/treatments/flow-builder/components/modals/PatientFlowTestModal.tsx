@@ -52,7 +52,7 @@ export function PatientFlowTestModal({
                   Open in new tab
                 </a>
               </Button>
-              <Button onClick={() => onOpenChange(false)} className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
+              <Button onClick={() => onOpenChange(false)}>
                 Close
               </Button>
             </div>

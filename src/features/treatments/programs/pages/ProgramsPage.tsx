@@ -406,19 +406,17 @@ export default function ProgramsPage() {
             <Button
               variant="outline"
               onClick={() => navigate("/dashboard/treatments/programs/assignment-history")}
-              className="h-9 px-4 text-xs font-semibold rounded-lg shadow-sm"
             >
-              <History className="mr-1.5 h-4 w-4" />
+              <History className="mr-2 h-4 w-4" />
               Assignment History
             </Button>
             <Button
               variant="outline"
               onClick={() => setIsAssignOpen(true)}
               disabled={filteredPrograms.length === 0}
-              className="h-9 px-4 text-xs font-semibold rounded-lg shadow-sm"
               data-testid="assign-programs-client"
             >
-              <Users className="mr-1.5 h-4 w-4" />
+              <Users className="mr-2 h-4 w-4" />
               Assign to Clients
             </Button>
             <Button
@@ -427,9 +425,8 @@ export default function ProgramsPage() {
                 setPrefillStage(undefined);
                 setIsCreateOpen(true);
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-4 text-xs rounded-lg shadow-sm"
             >
-              <Plus className="mr-1.5 h-4 w-4 stroke-[2.5]" />
+              <Plus className="mr-2 h-4 w-4" />
               Create Program
             </Button>
           </div>
@@ -487,6 +484,7 @@ export default function ProgramsPage() {
             onPreview={handlePreviewProgram}
             onDuplicate={handleDuplicateProgram}
             onArchive={handleArchiveProgram}
+            onToggleStatus={handleToggleStatus}
             duplicatingProgramId={duplicatingProgramId}
             archivingProgramId={archivingProgramId}
           />

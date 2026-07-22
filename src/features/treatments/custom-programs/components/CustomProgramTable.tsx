@@ -63,26 +63,26 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
       <Table>
-        <TableHeader className="bg-slate-50">
-          <TableRow>
-            <TableHead className="w-[280px] text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <TableHeader>
+          <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-200">
+            <TableHead className="w-[280px] px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">
               Name
             </TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Type
+            <TableHead className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">
+              Scope
             </TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <TableHead className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">
               Audience
             </TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <TableHead className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">
               Onboarding Stage
             </TableHead>
-            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <TableHead className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">
               Updated
             </TableHead>
-            <TableHead className="text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <TableHead className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-700">
               Actions
             </TableHead>
           </TableRow>
@@ -91,49 +91,57 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
           {customPrograms.map((program) => {
             const isMulti = isCustomProgramMulti(program);
             return (
-              <TableRow key={program.id} className="group transition-colors hover:bg-slate-50/50">
-                <TableCell className="font-medium">
+              <TableRow
+                key={program.id}
+                className="group border-b border-gray-100 transition-all duration-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent"
+              >
+                <TableCell className="px-4 py-4 font-medium">
                   <div className="flex flex-col">
-                    <Link
-                      to={`/dashboard/treatments/custom-programs/${program.id}/builder`}
-                      className="text-slate-900 font-semibold hover:text-blue-600 hover:underline flex items-center gap-1.5"
-                    >
-                      {program.name}
-                    </Link>
-                    <span className="mt-1 text-xs text-slate-400 truncate max-w-[260px]">
-                      {program.description}
-                    </span>
-                    <span className="mt-1">
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        to={`/dashboard/treatments/custom-programs/${program.id}/builder`}
+                        className="text-gray-900 font-semibold hover:text-blue-600 hover:underline flex items-center gap-1.5"
+                      >
+                        {program.name}
+                        {isMulti && (
+                          <span className="rounded px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide bg-pink-50 text-[#9d174d] border border-pink-200">
+                            Multi
+                          </span>
+                        )}
+                      </Link>
                       <RuntimeReadinessBadge state={program.assignmentRuntimeState} />
+                    </div>
+                    <span className="mt-1 text-xs text-gray-400 truncate max-w-[260px]">
+                      {program.description}
                     </span>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="px-4 py-4">
                   {isMulti ? (
                     <span className="inline-block rounded px-2 py-0.5 text-xs font-semibold bg-pink-50 text-[#9d174d] border border-pink-200">
                       Multi-treatment
                     </span>
                   ) : (
-                    <span className="inline-block rounded px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                    <span className="inline-block rounded px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
                       Single treatment
                     </span>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="px-4 py-4">
                   <div className="flex items-center gap-2">
                     {renderAudienceBadge(program.audience)}
-                    <span className="inline-block rounded border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-600">
+                    <span className="inline-block rounded border border-gray-200 bg-white px-2 py-0.5 font-mono text-xs font-semibold text-gray-600">
                       {program.minAge}
                       {program.maxAge ? `-${program.maxAge}` : "+"}
                     </span>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="px-4 py-4">
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-semibold text-xs text-slate-900">
+                    <span className="font-semibold text-xs text-gray-900">
                       {program.onboardingName || program.name}
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-gray-400">
                       {program.runtimeSummary?.status === "ready"
                         ? `${program.runtimeSummary.effectiveQuestionCount} patient steps · ${program.runtimeSummary.screeningQuestionCount} screening`
                         : program.runtimeSummary
@@ -142,16 +150,16 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className="text-xs text-slate-500">
+                <TableCell className="px-4 py-4 text-xs text-gray-500">
                   {formatDate(program.updatedAt)}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="px-4 py-4 text-right">
                   <div className="flex justify-end gap-1">
                     <Button
                       asChild
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-slate-100"
+                      className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-gray-100"
                       title="Open Builder"
                     >
                       <Link to={`/dashboard/treatments/custom-programs/${program.id}/builder`}>
@@ -161,7 +169,7 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-slate-100"
+                      className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-gray-100"
                       title="Preview"
                       onClick={() => onPreview?.(program)}
                     >
@@ -171,7 +179,7 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-slate-100"
+                        className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-gray-100"
                         title="Edit Settings"
                         onClick={() => onEdit(program)}
                       >
@@ -182,7 +190,7 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
                         title="Delete"
                         onClick={() => onDelete(program.id)}
                       >

@@ -43,22 +43,25 @@ export function SectionListTable({
   onDelete,
 }: SectionListTableProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <Table>
-        <TableHeader className="bg-slate-50">
-          <TableRow>
-            <TableHead className="w-[300px] px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Name</TableHead>
-            <TableHead className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Scope</TableHead>
-            <TableHead className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Visit Type</TableHead>
-            <TableHead className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Fields</TableHead>
-            <TableHead className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Last Updated</TableHead>
-            <TableHead className="px-4 text-right text-[10px] font-bold uppercase tracking-wider text-slate-500">Actions</TableHead>
+        <TableHeader>
+          <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-200">
+            <TableHead className="w-[300px] px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">Name</TableHead>
+            <TableHead className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">Scope</TableHead>
+            <TableHead className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">Visit Type</TableHead>
+            <TableHead className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">Fields</TableHead>
+            <TableHead className="px-3 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">Last Updated</TableHead>
+            <TableHead className="px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-700">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sections.map((section) => (
-            <TableRow key={section.id} className="h-[54px] hover:bg-slate-50/60">
-              <TableCell className="px-4">
+            <TableRow
+              key={section.id}
+              className="group border-b border-gray-100 transition-all duration-200 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent"
+            >
+              <TableCell className="px-4 py-4">
                 <button
                   type="button"
                   onClick={() => onOpen(section)}
@@ -68,15 +71,15 @@ export function SectionListTable({
                   {section.name}
                 </button>
               </TableCell>
-              <TableCell className="px-4">
+              <TableCell className="px-4 py-4">
                 <StatusPill tone={scopeTone(section.scope)}>{formatScope(section.scope)}</StatusPill>
               </TableCell>
-              <TableCell className="px-4">
+              <TableCell className="px-4 py-4">
                 <StatusPill tone="purple">{formatVisitTypeLabel(section)}</StatusPill>
               </TableCell>
-              <TableCell className="px-4 text-xs font-medium text-slate-700">{section.fieldCount}</TableCell>
-              <TableCell className="px-4 text-xs text-slate-600">{formatDisplayDate(section.updatedAt)}</TableCell>
-              <TableCell className="px-4">
+              <TableCell className="px-4 py-4 text-xs font-medium text-gray-700">{section.fieldCount}</TableCell>
+              <TableCell className="px-4 py-4 text-xs text-gray-600">{formatDisplayDate(section.updatedAt)}</TableCell>
+              <TableCell className="px-4 py-4">
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"

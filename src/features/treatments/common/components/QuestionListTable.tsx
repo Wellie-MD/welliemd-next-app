@@ -16,18 +16,18 @@ interface QuestionListTableProps {
 export function QuestionListTable(props: QuestionListTableProps) {
   return (
     <>
-      <div className="grid grid-cols-[80px_1fr_120px_160px_100px] gap-6 px-6 py-3 bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-        <div>{props.reorderActive ? "DRAG / #" : "#"}</div>
-        <div>QUESTION OR ELEMENT</div>
-        <div>REQUIRED</div>
-        <div>TYPE</div>
-        <div className="text-right">ACTIONS</div>
+      <div className="grid grid-cols-[80px_1fr_120px_160px_100px] gap-6 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-200 px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-700">
+        <div>{props.reorderActive ? "Drag / #" : "#"}</div>
+        <div>Question or Element</div>
+        <div>Required</div>
+        <div>Type</div>
+        <div className="text-right">Actions</div>
       </div>
       <DndContext sensors={props.sensors} collisionDetection={closestCenter} onDragEnd={props.onDragEnd}>
         <SortableContext items={props.questions.map((question) => question.id)} strategy={verticalListSortingStrategy}>
-          <div className="divide-y divide-slate-100 min-h-[160px] bg-white">
+          <div className="divide-y divide-gray-100 min-h-[160px] bg-white">
             {props.questions.length === 0 ? (
-              <div className="p-12 text-center text-[13px] text-slate-400 italic">No questions match your criteria.</div>
+              <div className="p-12 text-center text-[13px] text-gray-400 italic">No questions match your criteria.</div>
             ) : props.questions.map((question, index) => (
               <ProgramQuestionsListRow
                 key={question.id}

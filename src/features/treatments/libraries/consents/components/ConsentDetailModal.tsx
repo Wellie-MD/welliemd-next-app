@@ -107,7 +107,7 @@ export function ConsentDetailModal({ open, onOpenChange, consent, onEdit }: Cons
             Close
           </Button>
           <Button
-            className="bg-[#2563eb] text-white hover:bg-[#2563eb]/90"
+            className="bg-blue-600 text-white hover:bg-blue-700"
             onClick={() => {
               onOpenChange(false);
               onEdit(consent.id);
