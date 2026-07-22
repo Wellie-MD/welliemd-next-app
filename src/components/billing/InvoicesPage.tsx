@@ -34,6 +34,11 @@ function invoiceAmount(inv: Pick<Invoice, "total_amount" | "amount">) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function moneyNumber(value: string | number | undefined | null) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function invoiceSupplementalTotal(inv: DisplayInvoice) {
   return (inv.supplementalInvoices || []).reduce(
     (sum, child) => sum + invoiceAmount(child),
@@ -386,13 +391,34 @@ function RevisionInvoiceModal({
   const prescriptionEvents = invoice.prescription_events || [];
   const summary = invoice.adjustment_summary;
   const netAdjustment = Number(summary?.net_adjustment || 0);
-  const holdReleasedAmount = Number(summary?.hold_released_amount || 0);
+  const requestedProductName = requested?.product_name || "";
+  const requestedProductTotal = requested?.product_total || 0;
+  const summaryInvoiceTotal = moneyNumber(summary?.invoice_total || invoice.total_amount);
+  const adjustedInvoiceTotal = moneyNumber(summary?.adjusted_total || invoice.total_amount);
+  const intendedAuthorizationAmount = moneyNumber(invoice.intended_authorization_amount);
+  const originalRequestedProductTotal = moneyNumber(requested?.original_requested_product_total);
+  const currentRequestedProductTotal = moneyNumber(requested?.product_total);
+  const consultationAmount = moneyNumber(requested?.consultation_amount);
+  const requestedAuthorizedTotal =
+    originalRequestedProductTotal > 0
+      ? originalRequestedProductTotal + consultationAmount
+      : 0;
+  const baseInvoiceTotal = requestedAuthorizedTotal > 0
+    ? requestedAuthorizedTotal
+    : intendedAuthorizationAmount > summaryInvoiceTotal &&
+      intendedAuthorizationAmount > adjustedInvoiceTotal
+        ? intendedAuthorizationAmount
+        : currentRequestedProductTotal > 0
+          ? currentRequestedProductTotal + consultationAmount
+          : summaryInvoiceTotal;
+  const derivedHoldReleasedAmount = Math.max(0, baseInvoiceTotal - adjustedInvoiceTotal);
+  const holdReleasedAmount = Math.max(moneyNumber(summary?.hold_released_amount), derivedHoldReleasedAmount);
   const hasReleasedHold = Number.isFinite(holdReleasedAmount) && holdReleasedAmount > 0.005;
   const captureStatusLabel = summary?.capture_status
     ? formatLabel(summary.capture_status)
+    : hasReleasedHold && invoice.status === "paid"
+      ? "Partially Captured"
     : formatLabel(invoice.status);
-  const requestedProductName = requested?.product_name || "";
-  const requestedProductTotal = requested?.product_total || 0;
   const requestedLabel = requested?.prescribed_differs
     ? (requested?.original_requested_product_name || "Original request")
     : (requested?.product_name || "Original prescription");
@@ -467,10 +493,10 @@ function RevisionInvoiceModal({
               <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
               <div className="mt-3 flex items-center gap-3">
                 <span className="text-2xl font-bold text-slate-950 dark:text-white">
-                  {formatMoney(summary?.invoice_total ?? invoice.total_amount)}
+                  {formatMoney(baseInvoiceTotal)}
                 </span>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusBadgeClassStatic(invoice.status)}`}>
-                  {formatLabel(invoice.status)}
+                  {captureStatusLabel}
                 </span>
               </div>
               <div className="mt-1 text-xs text-slate-400">
@@ -498,7 +524,7 @@ function RevisionInvoiceModal({
             </section>
             <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amounts</h4>
-              <InvoiceMoneyRow label="Invoice total" value={summary?.invoice_total} />
+              <InvoiceMoneyRow label="Invoice total" value={baseInvoiceTotal} />
               {Number(summary?.supplemental_charges || 0) > 0 && (
                 <InvoiceMoneyRow label="Supplemental charges" value={summary?.supplemental_charges} formatted={`+${formatMoney(summary?.supplemental_charges)}`} tone="negative" />
               )}
@@ -506,9 +532,9 @@ function RevisionInvoiceModal({
                 <InvoiceMoneyRow label="Credit notes" value={summary?.credit_notes} formatted={`−${formatMoney(summary?.credit_notes)}`} tone="positive" />
               )}
               {hasReleasedHold && (
-                <InvoiceMoneyRow label="Authorization hold released" value={summary?.hold_released_amount} formatted={`−${formatMoney(summary?.hold_released_amount)}`} tone="positive" />
+                <InvoiceMoneyRow label="Authorization hold released" value={holdReleasedAmount} formatted={`−${formatMoney(holdReleasedAmount)}`} tone="positive" />
               )}
-              <InvoiceMoneyRow label="Adjusted total" value={summary?.adjusted_total} strong />
+              <InvoiceMoneyRow label="Adjusted total" value={adjustedInvoiceTotal} strong />
             </section>
             <section className="px-5 py-4">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Payment diagnostics</h4>
@@ -516,11 +542,11 @@ function RevisionInvoiceModal({
                 <summary className="cursor-pointer text-xs font-medium text-sky-600">Show auth &amp; capture details</summary>
                 <div className="mt-2">
                   <InvoiceInfoRow label="Billing period" value="N/A to N/A" />
-                  <InvoiceMoneyRow label="Intended auth amount" value={summary?.invoice_total || invoice.intended_authorization_amount} />
+                  <InvoiceMoneyRow label="Intended auth amount" value={baseInvoiceTotal} />
                   {hasReleasedHold && (
                     <>
-                      <InvoiceMoneyRow label="Captured amount" value={summary?.captured_amount || summary?.adjusted_total} />
-                      <InvoiceMoneyRow label="Hold released" value={summary?.hold_released_amount} formatted={`−${formatMoney(summary?.hold_released_amount)}`} tone="positive" />
+                      <InvoiceMoneyRow label="Captured amount" value={summary?.captured_amount || adjustedInvoiceTotal} />
+                      <InvoiceMoneyRow label="Hold released" value={holdReleasedAmount} formatted={`−${formatMoney(holdReleasedAmount)}`} tone="positive" />
                     </>
                   )}
                   <InvoiceInfoRow label="Capture status" value={captureStatusLabel} />
