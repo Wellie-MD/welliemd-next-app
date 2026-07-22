@@ -39,7 +39,7 @@ export interface TrendData {
   unit: string;
   dec: number;
   lowerBetter: boolean;
-  series: number[] | null;
+  series: { date: string; val: number }[] | null;
   step?: 'week' | 'day' | undefined;
 }
 
@@ -87,12 +87,12 @@ export interface DeviceMetrics {
   readiness: number;
   recovery: number;
   sleepScore: number;
-  stepsSeries?: number[];
-  sleepSeries?: number[];
+  stepsSeries?: { date: string; val: number }[];
+  sleepSeries?: { date: string; val: number }[];
   sleepDetail?: SleepDetail;
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
-  glucoseSeries?: number[];
+  glucoseSeries?: { date: string; val: number }[];
   avgGlucose?: number | null;
   latestGlucose?: number | null;
 }
@@ -135,12 +135,12 @@ export interface DeviceDataResponse {
   readiness?: number;
   recovery?: number;
   sleepScore?: number;
-  stepsSeries?: number[];
-  sleepSeries?: number[];
+  stepsSeries?: { date: string; val: number }[];
+  sleepSeries?: { date: string; val: number }[];
   sleepDetail?: SleepDetail;
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
-  glucoseSeries?: number[];
+  glucoseSeries?: { date: string; val: number }[];
   avgGlucose?: number | null;
   latestGlucose?: number | null;
 }

@@ -7,114 +7,164 @@ import { HEALTH_SECTIONS, HEALTH, TRENDS } from '../constants';
 function TrendChart({
   series,
   dec = 0,
-  step = 'day',
   color = 'var(--km-ac)',
   w = 500,
   h = 160,
+  unit = '',
 }: {
-  series: number[];
+  series: { date: string; val: number }[];
   dec?: number;
-  step?: string;
   color?: string;
   w?: number;
   h?: number;
+  unit?: string;
 }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
   if (!series || series.length < 2) return null;
 
   const padL = 14,
     padR = 40,
     padT = 36,
     padB = 30;
+  
   const n = series.length - 1;
-  const mn = Math.min(...series);
-  const mx = Math.max(...series);
+  const vals = series.map(s => s.val);
+  const mn = Math.min(...vals);
+  const mx = Math.max(...vals);
   const rng = mx - mn || 1;
   const lo = mn - rng * 0.15;
   const vr = mx + rng * 0.15 - lo || 1;
 
-  const X = (i: number) => padL + i * ((w - padL - padR) / n);
+  // Map dates to timestamps for proportional X axis spacing
+  const times = series.map(s => new Date(s.date).getTime());
+  const mnTime = times[0]!;
+  const mxTime = times[n]!;
+  const timeRng = mxTime - mnTime || 1;
+
+  const X = (i: number) => padL + ((times[i]! - mnTime) / timeRng) * (w - padL - padR);
   const Y = (v: number) => padT + (1 - (v - lo) / vr) * (h - padT - padB);
 
-  const pts = series.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
-  const area = `${padL},${h - padB} ${pts} ${w - padR},${h - padB}`;
+  let pathD = `M ${X(0)},${Y(vals[0]!)}`;
+  for (let i = 0; i < n; i++) {
+    const p0x = X(i), p0y = Y(vals[i]!);
+    const p1x = X(i + 1), p1y = Y(vals[i + 1]!);
+    const cx = (p0x + p1x) / 2;
+    pathD += ` C ${cx},${p0y} ${cx},${p1y} ${p1x},${p1y}`;
+  }
 
-  const fmtD = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
-  const today = new Date();
-  const stepDays = step === 'week' ? 7 : 1;
+  const areaD = `${pathD} L ${w - padR},${h - padB} L ${padL},${h - padB} Z`;
+
+  const fmtD = (dStr: string) => {
+    const d = new Date(dStr);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
   const ti = [0, Math.round(n / 2), n].filter((v, ix, a) => a.indexOf(v) === ix);
 
-  const labelSet = new Set<number>([0, n]);
-  let minI = 0, maxI = 0;
-  series.forEach((v, i) => {
-    if (v < series[minI]!) minI = i;
-    if (v > series[maxI]!) maxI = i;
-  });
-  labelSet.add(minI);
-  labelSet.add(maxI);
-
-  const labeledPoints = Array.from(labelSet).map((i) => {
-    const v = series[i]!;
-    const cy = Y(v);
-    const ty = Math.max(12, cy - 20);
-    const anchor = i === 0 ? 'start' : i === n ? 'end' : 'middle';
-    return { i, v, ty, anchor };
-  });
-  const sorted = [...labeledPoints].sort((a, b) => X(a.i) - X(b.i));
-  const visible: typeof sorted = [];
-  sorted.forEach((pt) => {
-    const last = visible[visible.length - 1];
-    if (!last || Math.abs(X(pt.i) - X(last.i)) > 32) visible.push(pt);
-  });
   return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      style={{ width: '100%', height: 'auto', display: 'block' }}
-      preserveAspectRatio="none"
-    >
-      <polyline points={area} fill={color} opacity={0.1} stroke="none" />
-      <polyline
-        points={pts}
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      {series.map((v, i) => (
-        <circle key={i} cx={X(i)} cy={Y(v)} r={i === n ? 3.4 : 2} fill={color}
-          stroke={i === n ? '#fff' : undefined} strokeWidth={i === n ? 1.3 : undefined}
-        />
-      ))}
-      {visible.map(({ i, v, ty, anchor }) => (
-        <text
-          key={`lbl-${i}`}
-          x={X(i)}
-          y={ty}
-          fontSize={9.5}
-          fontWeight={700}
-          fill="var(--km-t2)"
-          textAnchor={anchor as any}
-        >
-          {dec ? v.toFixed(dec) : Math.round(v).toLocaleString()}
-        </text>
-      ))}
-      {ti.map((i) => {
-        const d = new Date(today);
-        d.setDate(d.getDate() - (n - i) * stepDays);
-        return (
+    <div style={{ position: 'relative' }}>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible', touchAction: 'none' }}
+        preserveAspectRatio="none"
+        onPointerMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const scaleX = w / rect.width;
+          const x = (e.clientX - rect.left) * scaleX;
+          if (x < padL - 10 || x > w - padR + 10) {
+            setHoveredIndex(null);
+            return;
+          }
+          // Find the closest point by X coordinate
+          let closestIdx = 0;
+          let minDist = Infinity;
+          for (let i = 0; i <= n; i++) {
+            const dist = Math.abs(X(i) - x);
+            if (dist < minDist) {
+              minDist = dist;
+              closestIdx = i;
+            }
+          }
+          setHoveredIndex(closestIdx);
+        }}
+        onPointerLeave={() => setHoveredIndex(null)}
+      >
+        <defs>
+          <linearGradient id={`area-gradient-${color.replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        
+        <path d={areaD} fill={`url(#area-gradient-${color.replace(/[^a-zA-Z0-9]/g, '')})`} stroke="none" />
+        <path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        
+        {series.map((s, i) => {
+          const isHovered = hoveredIndex === i;
+          const isLast = i === n;
+          const showDot = series.length < 30 || isHovered || isLast;
+          if (!showDot) return null;
+          return (
+            <circle
+              key={i} cx={X(i)} cy={Y(s.val)}
+              r={isHovered ? 5 : (isLast ? 3.4 : 2.4)}
+              fill={color}
+              stroke={isLast || isHovered ? '#fff' : undefined}
+              strokeWidth={isLast || isHovered ? 1.5 : undefined}
+              style={{ transition: 'all 0.2s ease', pointerEvents: 'none' }}
+            />
+          );
+        })}
+
+        {hoveredIndex !== null && (
+          <line
+            x1={X(hoveredIndex)} y1={Y(vals[hoveredIndex]!)}
+            x2={X(hoveredIndex)} y2={h - padB}
+            stroke={color} strokeWidth={1} strokeDasharray="3 3"
+            opacity={0.5}
+            pointerEvents="none"
+          />
+        )}
+
+        {ti.map((i) => (
           <text
-            key={`date-${i}`}
-            x={X(i)}
-            y={h - 4}
-            fontSize={10}
-            fill="var(--km-tm)"
+            key={`date-${i}`} x={X(i)} y={h - 4} fontSize={10} fill="var(--km-tm)"
             textAnchor={i === 0 ? 'start' : i === n ? 'end' : 'middle'}
           >
-            {fmtD(d)}
+            {fmtD(series[i]!.date)}
           </text>
-        );
-      })}
-    </svg>
+        ))}
+      </svg>
+      
+      {hoveredIndex !== null && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${((X(hoveredIndex) / w) * 100)}%`,
+            top: `${((Y(vals[hoveredIndex]!) / h) * 100)}%`,
+            transform: 'translate(-50%, -115%)',
+            background: 'var(--km-s)',
+            color: 'var(--km-t)',
+            padding: '4px 8px',
+            borderRadius: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            pointerEvents: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+            border: '1px solid var(--km-b)',
+            whiteSpace: 'nowrap',
+            zIndex: 10,
+          }}
+        >
+          {dec ? vals[hoveredIndex]!.toFixed(dec) : Math.round(vals[hoveredIndex]!).toLocaleString()}
+          {unit ? ` ${unit}` : ''}
+          <div style={{ fontSize: 9, color: 'var(--km-tm)', fontWeight: 500, marginTop: 1 }}>
+            {fmtD(series[hoveredIndex]!.date)}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -186,10 +236,10 @@ function DataSection({
 
   let trendSection: React.ReactNode = null;
   if (trend && trend.series && trend.series.length > 0) {
-    const seriesArr: number[] = trend.series;
+    const seriesArr = trend.series;
     const seriesLen = seriesArr.length;
-    const last = seriesArr[seriesLen - 1] as number;
-    const first = seriesArr[0] as number;
+    const last = seriesArr[seriesLen - 1]!.val;
+    const first = seriesArr[0]!.val;
     const delta = Number((last - first).toFixed(trend.dec || 0));
     const better = trend.lowerBetter ? delta < 0 : delta > 0;
     const col = delta === 0 ? 'var(--km-tm)' : better ? 'var(--km-gr)' : 'var(--km-am)';
@@ -222,6 +272,7 @@ function DataSection({
         series={seriesArr}
         dec={trend.dec}
         step={trend.step ?? 'day'}
+        unit={trend.unit}
         color="var(--km-ac)"
       />
     </div>
@@ -376,7 +427,7 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
   const bodyTrend = TRENDS.body
     ? {
         ...TRENDS.body,
-        series: weightData.series,
+        series: weightData.points.map(p => ({ date: p.date, val: p.weight })),
         step: timeRange <= 30 ? 'day' as const : 'week' as const,
       }
     : undefined;
