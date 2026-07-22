@@ -173,7 +173,13 @@ export default function DevicesPage() {
 
   // Initial live sync on mount (background)
   useEffect(() => {
-    getDeviceData(7, false).catch(console.error);
+    getDeviceData(7, false)
+      .then(() => {
+        // Re-fetch the UI data from the DB now that the background sync has completed
+        fetchDeviceDataList(timeRange, true);
+      })
+      .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchConnectionsList = useCallback(async (skipConnections = false) => {
