@@ -1,19 +1,30 @@
 // src/pages/dashboard/Products.tsx
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { format, parseISO } from "date-fns"
-import { ChevronLeft, ChevronRight, Loader2, RotateCcw, Search } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { format, parseISO } from "date-fns";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 
-import { productApi, Product, ProductListParams, PURCHASE_TYPE_OPTIONS } from "@/api/products"
-import AddProductForm from "@/components/products/AddProductForm"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import {
+  productApi,
+  Product,
+  ProductListParams,
+  PURCHASE_TYPE_OPTIONS,
+} from "@/api/products";
+import AddProductForm from "@/components/products/AddProductForm";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -21,124 +32,142 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
-const ALL_VALUE = "all"
-const PAGE_SIZE_OPTIONS = [5, 10, 20, 50]
+const ALL_VALUE = "all";
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 type Option = {
-  value: string
-  label: string
-}
+  value: string;
+  label: string;
+};
 
 function formatDate(value?: string) {
-  if (!value) return "-"
+  if (!value) return "-";
   try {
-    return format(parseISO(value), "MM/dd/yyyy")
+    return format(parseISO(value), "MM/dd/yyyy");
   } catch {
-    return "-"
+    return "-";
   }
 }
 
 function formatDrugForm(value?: string) {
-  if (!value) return "-"
-  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+  if (!value) return "-";
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function getPurchaseTypeLabel(value?: string) {
-  if (!value) return "-"
-  return PURCHASE_TYPE_OPTIONS.find((opt) => opt.value === value)?.label || value
+  if (!value) return "-";
+  return (
+    PURCHASE_TYPE_OPTIONS.find((opt) => opt.value === value)?.label || value
+  );
 }
 
 function dedupeOptions(options: Option[]) {
-  const seen = new Set<string>()
+  const seen = new Set<string>();
   return options.filter((option) => {
-    if (!option.value || seen.has(option.value)) return false
-    seen.add(option.value)
-    return true
-  })
+    if (!option.value || seen.has(option.value)) return false;
+    seen.add(option.value);
+    return true;
+  });
 }
 
 function extractProducts(response: unknown): Product[] {
   if (response && typeof response === "object" && "results" in response) {
-    return ((response as { results?: Product[] }).results ?? [])
+    return (response as { results?: Product[] }).results ?? [];
   }
-  return Array.isArray(response) ? response as Product[] : []
+  return Array.isArray(response) ? (response as Product[]) : [];
 }
 
 function getProductPharmacyName(product: Product) {
-  return product.pharmacy_name?.trim() || ""
+  return product.pharmacy_name?.trim() || "";
 }
 
 export default function Products() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [optionProducts, setOptionProducts] = useState<Product[]>([])
-  const [categoryOptions, setCategoryOptions] = useState<Option[]>([])
-  const [search, setSearch] = useState("")
-  const [category, setCategory] = useState(ALL_VALUE)
-  const [purchaseType, setPurchaseType] = useState(ALL_VALUE)
-  const [pharmacy, setPharmacy] = useState(ALL_VALUE)
-  const [status, setStatus] = useState(ALL_VALUE)
-  const [treatmentType, setTreatmentType] = useState(ALL_VALUE)
-  const [editing, setEditing] = useState<Product | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const [pageSize, setPageSize] = useState(50)
-  const { toast } = useToast()
+  const [products, setProducts] = useState<Product[]>([]);
+  const [optionProducts, setOptionProducts] = useState<Product[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<Option[]>([]);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState(ALL_VALUE);
+  const [purchaseType, setPurchaseType] = useState(ALL_VALUE);
+  const [pharmacy, setPharmacy] = useState(ALL_VALUE);
+  const [status, setStatus] = useState(ALL_VALUE);
+  const [treatmentType, setTreatmentType] = useState(ALL_VALUE);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const { toast } = useToast();
 
-  const fetchProducts = useCallback(async (page = 1, size = pageSize) => {
-    try {
-      setLoading(true)
+  const fetchProducts = useCallback(
+    async (page = 1, size = pageSize) => {
+      try {
+        setLoading(true);
 
-      const params: ProductListParams = {
-        page,
-        page_size: size,
+        const params: ProductListParams = {
+          page,
+          page_size: size,
+        };
+
+        if (search.trim()) params.search = search.trim();
+        if (category !== ALL_VALUE) params.category = category;
+        if (purchaseType !== ALL_VALUE)
+          params.purchase_type =
+            purchaseType as ProductListParams["purchase_type"];
+        if (pharmacy !== ALL_VALUE) params.pharmacy = pharmacy;
+        if (status !== ALL_VALUE) params.is_active = status === "active";
+        if (treatmentType !== ALL_VALUE) params.treatment_type = treatmentType;
+
+        const response = await productApi.listProducts(params);
+
+        if (response && typeof response === "object" && "results" in response) {
+          const count = Number((response as { count?: number }).count || 0);
+          setProducts(extractProducts(response));
+          setTotalCount(count);
+          setTotalPages(Math.max(1, Math.ceil(count / size)));
+        } else {
+          const items = extractProducts(response);
+          setProducts(items);
+          setTotalCount(items.length);
+          setTotalPages(1);
+        }
+
+        setCurrentPage(page);
+      } catch (e) {
+        console.error("Failed to fetch products:", e);
+        toast({
+          title: "Error",
+          description: "Failed to fetch products",
+          variant: "destructive",
+        });
+        setProducts([]);
+        setTotalCount(0);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
       }
-
-      if (search.trim()) params.search = search.trim()
-      if (category !== ALL_VALUE) params.category = category
-      if (purchaseType !== ALL_VALUE) params.purchase_type = purchaseType as ProductListParams["purchase_type"]
-      if (pharmacy !== ALL_VALUE) params.pharmacy = pharmacy
-      if (status !== ALL_VALUE) params.is_active = status === "active"
-      if (treatmentType !== ALL_VALUE) params.treatment_type = treatmentType
-
-      const response = await productApi.listProducts(params)
-
-      if (response && typeof response === "object" && "results" in response) {
-        const count = Number((response as { count?: number }).count || 0)
-        setProducts(extractProducts(response))
-        setTotalCount(count)
-        setTotalPages(Math.max(1, Math.ceil(count / size)))
-      } else {
-        const items = extractProducts(response)
-        setProducts(items)
-        setTotalCount(items.length)
-        setTotalPages(1)
-      }
-
-      setCurrentPage(page)
-    } catch (e) {
-      console.error("Failed to fetch products:", e)
-      toast({
-        title: "Error",
-        description: "Failed to fetch products",
-        variant: "destructive",
-      })
-      setProducts([])
-      setTotalCount(0)
-      setTotalPages(1)
-    } finally {
-      setLoading(false)
-    }
-  }, [category, pageSize, pharmacy, purchaseType, search, status, toast, treatmentType])
+    },
+    [
+      category,
+      pageSize,
+      pharmacy,
+      purchaseType,
+      search,
+      status,
+      toast,
+      treatmentType,
+    ],
+  );
 
   useEffect(() => {
-    fetchProducts(1, pageSize)
-  }, [fetchProducts, pageSize])
+    fetchProducts(1, pageSize);
+  }, [fetchProducts, pageSize]);
 
   useEffect(() => {
     const fetchFilterOptions = async () => {
@@ -146,34 +175,40 @@ export default function Products() {
         const [categories, productsResponse] = await Promise.all([
           productApi.getCouponCategories(),
           productApi.listProducts({ page: 1, page_size: 1000 }),
-        ])
+        ]);
 
         setCategoryOptions(
           (categories.categories || []).map((item) => ({
             value: String(item.id),
             label: item.name,
-          }))
-        )
-        setOptionProducts(extractProducts(productsResponse))
+          })),
+        );
+        setOptionProducts(extractProducts(productsResponse));
       } catch (e) {
-        console.error("Failed to fetch product filter options:", e)
-        setCategoryOptions([])
-        setOptionProducts([])
+        console.error("Failed to fetch product filter options:", e);
+        setCategoryOptions([]);
+        setOptionProducts([]);
       }
-    }
+    };
 
-    fetchFilterOptions()
-  }, [])
+    fetchFilterOptions();
+  }, []);
 
   const allKnownProducts = useMemo(
-    () => dedupeOptions([...optionProducts, ...products].map((product) => ({
-      value: product.id,
-      label: product.name,
-    }))).map((option) => option.value)
-      .map((id) => [...optionProducts, ...products].find((product) => product.id === id))
-      .filter(Boolean) as Product[],
-    [optionProducts, products]
-  )
+    () =>
+      dedupeOptions(
+        [...optionProducts, ...products].map((product) => ({
+          value: product.id,
+          label: product.name,
+        })),
+      )
+        .map((option) => option.value)
+        .map((id) =>
+          [...optionProducts, ...products].find((product) => product.id === id),
+        )
+        .filter(Boolean) as Product[],
+    [optionProducts, products],
+  );
 
   const mergedCategoryOptions = useMemo(() => {
     const fromProducts = allKnownProducts
@@ -181,41 +216,44 @@ export default function Products() {
       .map((product) => ({
         value: String(product.category),
         label: product.category_name || String(product.category),
-      }))
+      }));
 
     return dedupeOptions([...categoryOptions, ...fromProducts]).sort((a, b) =>
-      a.label.localeCompare(b.label)
-    )
-  }, [allKnownProducts, categoryOptions])
+      a.label.localeCompare(b.label),
+    );
+  }, [allKnownProducts, categoryOptions]);
 
   const pharmacyOptions = useMemo(() => {
-    const byPharmacyId = new Map<string, string>()
+    const byPharmacyId = new Map<string, string>();
 
     for (const product of allKnownProducts) {
-      const pharmacyId = product.pharmacy ? String(product.pharmacy) : ""
-      const pharmacyName = getProductPharmacyName(product)
+      const pharmacyId = product.pharmacy ? String(product.pharmacy) : "";
+      const pharmacyName = getProductPharmacyName(product);
       if (pharmacyId && pharmacyName) {
-        byPharmacyId.set(pharmacyId, pharmacyName)
+        byPharmacyId.set(pharmacyId, pharmacyName);
       }
     }
 
     return Array.from(byPharmacyId.entries())
       .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label))
-  }, [allKnownProducts])
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [allKnownProducts]);
 
   const treatmentTypeOptions = useMemo(
     () =>
       dedupeOptions(
         allKnownProducts
-          .filter((product) => product.treatment_type_id && product.treatment_type_name)
+          .filter(
+            (product) =>
+              product.treatment_type_id && product.treatment_type_name,
+          )
           .map((product) => ({
             value: String(product.treatment_type_id),
             label: String(product.treatment_type_name),
           })),
       ).sort((a, b) => a.label.localeCompare(b.label)),
     [allKnownProducts],
-  )
+  );
 
   const hasActiveFilters =
     category !== ALL_VALUE ||
@@ -223,26 +261,26 @@ export default function Products() {
     pharmacy !== ALL_VALUE ||
     status !== ALL_VALUE ||
     treatmentType !== ALL_VALUE ||
-    Boolean(search.trim())
+    Boolean(search.trim());
 
-  const showingStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const showingEnd = Math.min(currentPage * pageSize, totalCount)
+  const showingStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingEnd = Math.min(currentPage * pageSize, totalCount);
 
   const resetFilters = () => {
-    setCategory(ALL_VALUE)
-    setPurchaseType(ALL_VALUE)
-    setPharmacy(ALL_VALUE)
-    setStatus(ALL_VALUE)
-    setTreatmentType(ALL_VALUE)
-    setSearch("")
-    setCurrentPage(1)
-  }
+    setCategory(ALL_VALUE);
+    setPurchaseType(ALL_VALUE);
+    setPharmacy(ALL_VALUE);
+    setStatus(ALL_VALUE);
+    setTreatmentType(ALL_VALUE);
+    setSearch("");
+    setCurrentPage(1);
+  };
 
   const handlePageSizeChange = (value: string) => {
-    const nextPageSize = Number(value)
-    setPageSize(nextPageSize)
-    setCurrentPage(1)
-  }
+    const nextPageSize = Number(value);
+    setPageSize(nextPageSize);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="min-h-full bg-slate-50 dark:bg-slate-950/20 px-5 py-8 sm:px-7 lg:px-9">
@@ -258,62 +296,62 @@ export default function Products() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-            <FilterSelect
-              label="Category"
-              value={category}
-              placeholder="All Categories"
-              options={mergedCategoryOptions}
-              onValueChange={(value) => {
-                setCategory(value)
-                setCurrentPage(1)
-              }}
-            />
-            <FilterSelect
-              label="Purchase Type"
-              value={purchaseType}
-              placeholder="All Types"
-              options={PURCHASE_TYPE_OPTIONS}
-              onValueChange={(value) => {
-                setPurchaseType(value)
-                setCurrentPage(1)
-              }}
-            />
-            <FilterSelect
-              label="Pharmacy"
-              value={pharmacy}
-              placeholder="All Pharmacies"
-              options={pharmacyOptions}
-              onValueChange={(value) => {
-                setPharmacy(value)
-                setCurrentPage(1)
-              }}
-            />
-            <FilterSelect
-              label="Treatment Type (New)"
-              value={treatmentType}
-              placeholder="All Treatment Types"
-              options={treatmentTypeOptions}
-              onValueChange={(value) => {
-                setTreatmentType(value)
-                setCurrentPage(1)
-              }}
-            />
-            <FilterSelect
-              label="Status"
-              value={status}
-              placeholder="All Statuses"
-              options={[
-                { value: "active", label: "Active" },
-                { value: "inactive", label: "Inactive" },
-              ]}
-              onValueChange={(value) => {
-                setStatus(value)
-                setCurrentPage(1)
-              }}
-            />
-            <div className="space-y-2">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end ">
+          <div className="grid gap-3 sm:grid-cols-2 xl:justify-items-stretch lg:grid-cols-4 xl:grid-cols-5">
+              <FilterSelect
+                label="Category"
+                value={category}
+                placeholder="All Categories"
+                options={mergedCategoryOptions}
+                onValueChange={(value) => {
+                  setCategory(value);
+                  setCurrentPage(1);
+                }}
+              />
+              <FilterSelect
+                label="Purchase Type"
+                value={purchaseType}
+                placeholder="All Types"
+                options={PURCHASE_TYPE_OPTIONS}
+                onValueChange={(value) => {
+                  setPurchaseType(value);
+                  setCurrentPage(1);
+                }}
+              />
+              <FilterSelect
+                label="Pharmacy"
+                value={pharmacy}
+                placeholder="All Pharmacies"
+                options={pharmacyOptions}
+                onValueChange={(value) => {
+                  setPharmacy(value);
+                  setCurrentPage(1);
+                }}
+              />
+              <FilterSelect
+                label="Treatment Type (New)"
+                value={treatmentType}
+                placeholder="All Treatment Types"
+                options={treatmentTypeOptions}
+                onValueChange={(value) => {
+                  setTreatmentType(value);
+                  setCurrentPage(1);
+                }}
+              />
+              <FilterSelect
+                label="Status"
+                value={status}
+                placeholder="All Statuses"
+                options={[
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
+                ]}
+                onValueChange={(value) => {
+                  setStatus(value);
+                  setCurrentPage(1);
+                }}
+              />
+            <div className="space-y-2 xl:col-span-5">
               <label className="block text-xs font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400">
                 Search
               </label>
@@ -322,8 +360,8 @@ export default function Products() {
                 <Input
                   value={search}
                   onChange={(event) => {
-                    setSearch(event.target.value)
-                    setCurrentPage(1)
+                    setSearch(event.target.value);
+                    setCurrentPage(1);
                   }}
                   placeholder="Search products..."
                   className="h-11 w-full rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-10 text-[15px] text-slate-700 dark:text-slate-200 shadow-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-sky-300"
@@ -361,7 +399,9 @@ export default function Products() {
                   <ProductTableHead>Drug Form</ProductTableHead>
                   <ProductTableHead>Status</ProductTableHead>
                   <ProductTableHead>Purchase Type</ProductTableHead>
-                  <ProductTableHead>Treatment Type / Routing (New)</ProductTableHead>
+                  <ProductTableHead>
+                    Treatment Type / Routing (New)
+                  </ProductTableHead>
                   <ProductTableHead>Created At</ProductTableHead>
                 </TableRow>
               </TableHeader>
@@ -383,7 +423,8 @@ export default function Products() {
                       role="button"
                       onClick={() => setEditing(product)}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") setEditing(product)
+                        if (event.key === "Enter" || event.key === " ")
+                          setEditing(product);
                       }}
                       className="h-[62px] cursor-pointer border-slate-200 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
                     >
@@ -393,42 +434,63 @@ export default function Products() {
                       <ProductTableCell>
                         <Pill tone="blue">{product.category_name || "-"}</Pill>
                       </ProductTableCell>
-                      <ProductTableCell>{getProductPharmacyName(product) || "-"}</ProductTableCell>
-                      <ProductTableCell>{formatDrugForm(product.rx_drug_form)}</ProductTableCell>
+                      <ProductTableCell>
+                        {getProductPharmacyName(product) || "-"}
+                      </ProductTableCell>
+                      <ProductTableCell>
+                        {formatDrugForm(product.rx_drug_form)}
+                      </ProductTableCell>
                       <ProductTableCell>
                         <Pill tone={product.is_active ? "green" : "red"}>
                           {product.is_active ? "Active" : "Inactive"}
                         </Pill>
                       </ProductTableCell>
                       <ProductTableCell>
-                        <Pill tone="blue">{getPurchaseTypeLabel(product.purchase_type)}</Pill>
+                        <Pill tone="blue">
+                          {getPurchaseTypeLabel(product.purchase_type)}
+                        </Pill>
                       </ProductTableCell>
                       <ProductTableCell>
                         {product.product_type === "supply" ? (
-                          <span className="text-xs text-slate-400">Not applicable</span>
+                          <span className="text-xs text-slate-400">
+                            Not applicable
+                          </span>
                         ) : (
                           <div className="space-y-1">
-                            <Pill tone={product.treatment_type_name ? "blue" : "red"}>
+                            <Pill
+                              tone={
+                                product.treatment_type_name ? "blue" : "red"
+                              }
+                            >
                               {product.treatment_type_name || "Unassigned"}
                             </Pill>
                             {product.treatment_type_is_active === false && (
                               <Pill tone="red">Inactive Treatment Type</Pill>
                             )}
                             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              Intake: {product.derived_intake_visit_type || "Not configured"}
+                              Intake:{" "}
+                              {product.derived_intake_visit_type ||
+                                "Not configured"}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              Follow-up: {product.derived_followup_visit_type || "Not configured"}
+                              Follow-up:{" "}
+                              {product.derived_followup_visit_type ||
+                                "Not configured"}
                             </div>
                           </div>
                         )}
                       </ProductTableCell>
-                      <ProductTableCell>{formatDate(product.created_at)}</ProductTableCell>
+                      <ProductTableCell>
+                        {formatDate(product.created_at)}
+                      </ProductTableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">
+                    <TableCell
+                      colSpan={8}
+                      className="h-40 text-center text-sm text-slate-500 dark:text-slate-400"
+                    >
                       No products found.
                     </TableCell>
                   </TableRow>
@@ -440,7 +502,10 @@ export default function Products() {
           <div className="flex flex-col gap-4 border-t border-slate-200 dark:border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
               <span>Rows per page</span>
-              <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+              <Select
+                value={String(pageSize)}
+                onValueChange={handlePageSizeChange}
+              >
                 <SelectTrigger className="h-9 w-[72px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-755 dark:text-slate-200">
                   <SelectValue />
                 </SelectTrigger>
@@ -487,17 +552,17 @@ export default function Products() {
             product={editing}
             open={Boolean(editing)}
             onOpenChange={(open) => {
-              if (!open) setEditing(null)
+              if (!open) setEditing(null);
             }}
             onSuccess={() => {
-              setEditing(null)
-              fetchProducts(currentPage, pageSize)
+              setEditing(null);
+              fetchProducts(currentPage, pageSize);
             }}
           />
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function FilterSelect({
@@ -507,11 +572,11 @@ function FilterSelect({
   options,
   onValueChange,
 }: {
-  label: string
-  value: string
-  placeholder: string
-  options: Option[]
-  onValueChange: (value: string) => void
+  label: string;
+  value: string;
+  placeholder: string;
+  options: Option[];
+  onValueChange: (value: string) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -532,59 +597,67 @@ function FilterSelect({
         </SelectContent>
       </Select>
     </div>
-  )
+  );
 }
 
 function ProductTableHead({
   className,
   children,
 }: {
-  className?: string
-  children: React.ReactNode
+  className?: string;
+  children: React.ReactNode;
 }) {
   return (
     <TableHead
       className={cn(
         "h-11 px-5 text-xs font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400",
-        className
+        className,
       )}
     >
       {children}
     </TableHead>
-  )
+  );
 }
 
 function ProductTableCell({
   className,
   children,
 }: {
-  className?: string
-  children: React.ReactNode
+  className?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <TableCell className={cn("px-5 py-3 text-[15px] text-slate-500 dark:text-slate-400", className)}>
+    <TableCell
+      className={cn(
+        "px-5 py-3 text-[15px] text-slate-500 dark:text-slate-400",
+        className,
+      )}
+    >
       {children}
     </TableCell>
-  )
+  );
 }
 
 function Pill({
   tone,
   children,
 }: {
-  tone: "blue" | "green" | "red"
-  children: React.ReactNode
+  tone: "blue" | "green" | "red";
+  children: React.ReactNode;
 }) {
   return (
     <span
       className={cn(
         "inline-flex min-h-7 items-center rounded-md px-3 text-sm font-medium",
-        tone === "blue" && "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
-        tone === "green" && "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400",
-        tone === "red" && "bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+        tone === "blue" &&
+          "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+        tone === "green" &&
+          "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400",
+        tone === "red" &&
+          "bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400",
       )}
     >
       {children}
     </span>
-  )
+  );
 }
