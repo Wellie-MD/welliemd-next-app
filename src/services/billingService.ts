@@ -121,6 +121,9 @@ export interface Invoice {
     credit_notes: string;
     net_adjustment: string;
     adjusted_total: string;
+    captured_amount?: string;
+    hold_released_amount?: string;
+    capture_status?: string;
   } | null;
   intended_authorization_amount?: string | number;
   authorization_retry_count?: number;

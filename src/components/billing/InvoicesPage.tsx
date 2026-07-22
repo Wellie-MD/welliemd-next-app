@@ -386,6 +386,11 @@ function RevisionInvoiceModal({
   const prescriptionEvents = invoice.prescription_events || [];
   const summary = invoice.adjustment_summary;
   const netAdjustment = Number(summary?.net_adjustment || 0);
+  const holdReleasedAmount = Number(summary?.hold_released_amount || 0);
+  const hasReleasedHold = Number.isFinite(holdReleasedAmount) && holdReleasedAmount > 0.005;
+  const captureStatusLabel = summary?.capture_status
+    ? formatLabel(summary.capture_status)
+    : formatLabel(invoice.status);
   const requestedProductName = requested?.product_name || "";
   const requestedProductTotal = requested?.product_total || 0;
   const requestedLabel = requested?.prescribed_differs
@@ -500,6 +505,9 @@ function RevisionInvoiceModal({
               {Number(summary?.credit_notes || 0) > 0 && (
                 <InvoiceMoneyRow label="Credit notes" value={summary?.credit_notes} formatted={`−${formatMoney(summary?.credit_notes)}`} tone="positive" />
               )}
+              {hasReleasedHold && (
+                <InvoiceMoneyRow label="Authorization hold released" value={summary?.hold_released_amount} formatted={`−${formatMoney(summary?.hold_released_amount)}`} tone="positive" />
+              )}
               <InvoiceMoneyRow label="Adjusted total" value={summary?.adjusted_total} strong />
             </section>
             <section className="px-5 py-4">
@@ -508,7 +516,14 @@ function RevisionInvoiceModal({
                 <summary className="cursor-pointer text-xs font-medium text-sky-600">Show auth &amp; capture details</summary>
                 <div className="mt-2">
                   <InvoiceInfoRow label="Billing period" value="N/A to N/A" />
-                  <InvoiceMoneyRow label="Intended auth amount" value={invoice.intended_authorization_amount || summary?.invoice_total} />
+                  <InvoiceMoneyRow label="Intended auth amount" value={summary?.invoice_total || invoice.intended_authorization_amount} />
+                  {hasReleasedHold && (
+                    <>
+                      <InvoiceMoneyRow label="Captured amount" value={summary?.captured_amount || summary?.adjusted_total} />
+                      <InvoiceMoneyRow label="Hold released" value={summary?.hold_released_amount} formatted={`−${formatMoney(summary?.hold_released_amount)}`} tone="positive" />
+                    </>
+                  )}
+                  <InvoiceInfoRow label="Capture status" value={captureStatusLabel} />
                   <InvoiceInfoRow label="Auth retry count" value={invoice.authorization_retry_count ?? 0} />
                   <InvoiceInfoRow label="Next auth retry" value={invoice.authorization_next_retry_at ? formatDate(invoice.authorization_next_retry_at) : "—"} />
                   <InvoiceInfoRow label="Auth error code" value={invoice.authorization_last_error_code || "—"} />
