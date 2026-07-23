@@ -8,8 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { exportToCSV } from "@/utils/exportUtils"
-import { ChevronLeft, ChevronRight, Eye, RotateCcw, Calendar, Download, Search, X } from "lucide-react"
+import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
+import { ChevronLeft, ChevronRight, Eye, RotateCcw, Calendar, Download, Loader2, Search, X } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { format } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -97,6 +97,20 @@ const statusBadgeClass = (s: string) => {
   return "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600"
 }
 
+const transformOrderForDisplay = (o: Order) => ({
+  ...o,
+  order_number: o.order_id || o.display_id || "-",
+  patient_name: o.patient?.full_name || (o as any).patient_name || o.name || o.email || "-",
+  patient_email: (o as any).patient_email || o.email || "-",
+  patient_phone: (o as any).patient_phone || o.phone || "-",
+  product_name: o.product_name || "-",
+  pharmacy_name: o.pharmacy_name || o.pharmacy_display || "-",
+  order_date: o.created_at,
+  amount: o.pricing?.grand_total || o.grand_total || o.payable_amount || o.amount || "0.00",
+  status: o.status || "created",
+  status_display: (o as any).status_display,
+})
+
 const columns = [
   { key: "order_number", label: "Order #", minWidth: "140px" },
   { key: "patient_name", label: "Patient Name", minWidth: "160px" },
@@ -118,6 +132,7 @@ export default function Orders() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [isLoading, setIsLoading] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [orderStatus, setOrderStatus] = useState("All")
@@ -141,18 +156,33 @@ export default function Orders() {
 
   const hasActiveFilters = orderStatus !== "All" || categoryId !== "all" || pharmacyId !== "all" || paymentStatus !== "All" || debouncedSearch || dateRange?.from || dateRange?.to
 
-  const displayOrders = useMemo(() => orders.map((o) => ({
-    ...o,
-    order_number: o.order_id || o.display_id || "-",
-    patient_name: o.patient?.full_name || (o as any).patient_name || o.name || o.email || "-",
-    patient_email: (o as any).patient_email || o.email || "-",
-    patient_phone: (o as any).patient_phone || o.phone || "-",
-    product_name: o.product_name || "-",
-    pharmacy_name: o.pharmacy_name || o.pharmacy_display || "-",
-    order_date: o.created_at,
-    amount: o.pricing?.grand_total || o.grand_total || o.payable_amount || o.amount || "0.00",
-    status: o.status || "created",
-  })), [orders])
+  const displayOrders = useMemo(() => orders.map(transformOrderForDisplay), [orders])
+
+  const getOrderParams = useCallback((page: number, exportPageSize: number): Record<string, string | number> => {
+    const params: Record<string, string | number> = {
+      page,
+      page_size: exportPageSize,
+    }
+    if (debouncedSearch) params.search = debouncedSearch
+    if (orderStatus !== "All") {
+      const apiStatus = ORDER_STATUS_TO_API[orderStatus]
+      if (apiStatus) params.status = apiStatus
+    }
+    if (categoryId !== "all") params["product__category__id"] = categoryId
+    if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
+    if (paymentStatus !== "All") params.payment_status = paymentStatus.toLowerCase()
+    if (dateRange?.from) {
+      const startDate = new Date(dateRange.from)
+      startDate.setHours(0, 0, 0, 0)
+      params["created_at__gte"] = startDate.toISOString()
+
+      const endDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
+      endDate.setHours(23, 59, 59, 999)
+      params["created_at__lte"] = endDate.toISOString()
+    }
+
+    return params
+  }, [debouncedSearch, orderStatus, categoryId, pharmacyId, paymentStatus, dateRange])
 
   const loadOrders = useCallback(async () => {
     setIsLoading(true)
@@ -168,28 +198,7 @@ export default function Orders() {
         if (cats.length > 0 || pharms.length > 0) filterOptionsLoadedRef.current = true
       }
 
-      const params: Record<string, string | number> = {
-        page: currentPage,
-        page_size: pageSize,
-      }
-      if (debouncedSearch) params.search = debouncedSearch
-      if (orderStatus !== "All") {
-        const apiStatus = ORDER_STATUS_TO_API[orderStatus]
-        if (apiStatus) params.status = apiStatus
-      }
-      if (categoryId !== "all") params["product__category__id"] = categoryId
-      if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
-      if (paymentStatus !== "All") params.payment_status = paymentStatus.toLowerCase()
-      if (dateRange?.from) {
-        const startDate = new Date(dateRange.from)
-        startDate.setHours(0, 0, 0, 0)
-        params["created_at__gte"] = startDate.toISOString()
-
-        const endDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
-        endDate.setHours(23, 59, 59, 999)
-        params["created_at__lte"] = endDate.toISOString()
-      }
-
+      const params = getOrderParams(currentPage, pageSize)
       const data = await ordersApi.fetchOrders(params)
       setOrders(data.results)
       setTotalCount(data.count ?? data.results.length)
@@ -198,7 +207,7 @@ export default function Orders() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, pageSize, debouncedSearch, orderStatus, categoryId, pharmacyId, paymentStatus, dateRange])
+  }, [currentPage, pageSize, getOrderParams])
 
   useEffect(() => {
     loadOrders()
@@ -221,8 +230,20 @@ export default function Orders() {
     setCurrentPage(1)
   }
 
-  const handleExport = () => {
-    exportToCSV(displayOrders, columns.map((c) => ({ key: c.key, label: c.label })), "orders_export")
+  const handleExport = async () => {
+    setIsExporting(true)
+    setError(null)
+    try {
+      const allOrders = await fetchAllPaginatedResults((page, exportPageSize) =>
+        ordersApi.fetchOrders(getOrderParams(page, exportPageSize))
+      )
+      const exportRows = allOrders.map(transformOrderForDisplay)
+      exportToCSV(exportRows, columns.map((c) => ({ key: c.key, label: c.label })), "orders_export")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export orders")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -274,9 +295,15 @@ export default function Orders() {
             <button
               type="button"
               onClick={handleExport}
+              disabled={isExporting}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-muted-foreground bg-card border border-border rounded-lg hover:bg-accent"
             >
-              <Download className="h-4 w-4" /> Export
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {isExporting ? "Exporting..." : "Export"}
             </button>
             <button
               type="button"
