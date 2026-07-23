@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { clientApi } from "@/api/clientApi";
-import type { B2BInvoice, B2BInvoicePrescriptionItem } from "@/types/b2bBilling";
+import type { B2BInvoice, B2BInvoicePrescriptionEvent, B2BInvoicePrescriptionItem } from "@/types/b2bBilling";
 import { GitBranch, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -330,11 +330,50 @@ export default function Billing() {
     const showImplicitBaseRevision = Boolean(
       requested?.prescribed_differs && adjustments.length === 0 && !splitCaptureAdjustmentMirrorsBase
     );
+    type RevisionAdjustment = NonNullable<B2BInvoice["revision_adjustments"]>[number];
+    const normalizeProductName = (value?: string) => (value || "").trim().toLowerCase();
     const adjustmentForRevision = (revisionNumber: number) =>
       adjustments.find((adjustment) => Number(adjustment.revision_number ?? -1) === revisionNumber);
-    const prescriptionEventAdjustmentIds = new Set(
+    const adjustmentForPrescriptionEvent = (
+      event: B2BInvoicePrescriptionEvent,
+      index: number,
+      usedAdjustmentIds: Set<string>
+    ): RevisionAdjustment | undefined => {
+      const eventName = normalizeProductName(event.name);
+      const eventRevisionNumber = Number(event.revision_number);
+      const expectedRevisionNumber = index === 0
+        ? 0
+        : Number.isFinite(eventRevisionNumber) && eventRevisionNumber > 0
+          ? eventRevisionNumber
+          : index;
+      const isUnused = (adjustment: RevisionAdjustment) => !usedAdjustmentIds.has(adjustment.id);
+      const isSameProduct = (adjustment: RevisionAdjustment) =>
+        Boolean(eventName && normalizeProductName(adjustment.product_name) === eventName);
+
+      if (index > 0) {
+        const byRevision = adjustments.find(
+          (adjustment) =>
+            isUnused(adjustment) &&
+            Number(adjustment.revision_number ?? -1) === expectedRevisionNumber &&
+            (!eventName || isSameProduct(adjustment))
+        );
+        if (byRevision) return byRevision;
+      }
+
+      return adjustments.find((adjustment) => isUnused(adjustment) && isSameProduct(adjustment));
+    };
+    const prescriptionEventAdjustmentMap = new Map<number, RevisionAdjustment>();
+    const prescriptionEventAdjustmentIds = new Set<string>();
+    prescriptionEvents.forEach((event, index) => {
+      const adjustment = adjustmentForPrescriptionEvent(event, index, prescriptionEventAdjustmentIds);
+      if (adjustment) {
+        prescriptionEventAdjustmentMap.set(index, adjustment);
+        prescriptionEventAdjustmentIds.add(adjustment.id);
+      }
+    });
+    const prescriptionEventNames = new Set(
       prescriptionEvents
-        .map((_event, index) => index === 0 ? null : adjustmentForRevision(index)?.id)
+        .map((event) => normalizeProductName(event.name))
         .filter(Boolean)
     );
     const prescriptionRevisionNumbers = new Set(
@@ -348,6 +387,7 @@ export default function Billing() {
     const fallbackAdjustments = prescriptionEvents.length > 0
       ? adjustments.filter((adjustment) => {
           if (prescriptionEventAdjustmentIds.has(adjustment.id)) return false;
+          if (prescriptionEventNames.has(normalizeProductName(adjustment.product_name))) return false;
           if (adjustment.kind !== "no_charge_revision") return true;
           const revisionNumber = Number(adjustment.revision_number);
           return Number.isFinite(revisionNumber) && prescriptionRevisionNumbers.has(revisionNumber);
@@ -373,20 +413,6 @@ export default function Billing() {
       (sum, adjustment) => sum + Number(adjustment.adjustment_amount || 0),
       0
     );
-
-    const prescriptionSummaryText = (
-      name?: string,
-      total?: string | number,
-      shipping?: string | number
-    ) => {
-      const cleanName = (name || "").trim();
-      if (!cleanName) return null;
-      const shippingAmount = Number(shipping || 0);
-      const shippingText = Number.isFinite(shippingAmount) && shippingAmount > 0
-        ? ` + Shipping at ${money(shippingAmount)}`
-        : "";
-      return `${cleanName} at ${money(total)}${shippingText}.`;
-    };
 
     const renderCostTable = (
       medication?: string,
@@ -623,17 +649,13 @@ export default function Billing() {
               </section>
               {prescriptionEvents.map((event, index) => {
                 const revisionNumber = index;
-                const adjustment = index === 0 ? undefined : adjustmentForRevision(revisionNumber);
+                const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
                 const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
-                const summaryText = index === 0
-                  ? prescriptionSummaryText(event.name, event.patient_total || event.product_total, event.shipping_amount)
-                  : null;
                 return (
                   <section key={event.webhook_event_id || `${sectionLabel}-${index}`} className="border-b p-5">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       {sectionLabel} · {event.name || "Prescribed product"}
                     </h4>
-                    {summaryText && <p className="mt-2 text-xs text-muted-foreground">{summaryText}</p>}
                     <div className="mt-2">
                       {renderProductCostTable(event.items, {
                         medication: event.medication_amount,
@@ -648,14 +670,9 @@ export default function Billing() {
               })}
               {prescriptionEvents.length === 0 && showImplicitBaseRevision && (
                 <section className="border-b p-5">
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Initial prescription · {requested?.product_name || "Prescribed product"}
-                  </h4>
-                  {prescriptionSummaryText(requested?.product_name, requested?.product_total, requested?.shipping_amount) && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {prescriptionSummaryText(requested?.product_name, requested?.product_total, requested?.shipping_amount)}
-                    </p>
-                  )}
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Initial prescription · {requested?.product_name || "Prescribed product"}
+                </h4>
                   <div className="mt-2">
                     {renderCostTable(
                       requested?.medication_amount,
@@ -679,15 +696,11 @@ export default function Billing() {
                   : firstFallbackIsInitialPrescription ? index : index + 1;
                 const sectionLabel = isInitialFallback ? "Initial prescription" : `Revision ${displayRevisionNumber}`;
                 const productName = adjustment.product_name || "Revised prescription";
-                const summaryText = isInitialFallback
-                  ? prescriptionSummaryText(productName, adjustment.product_total, adjustment.shipping_amount)
-                  : null;
                 return (
                   <section key={adjustment.id} className="border-b p-5">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       {sectionLabel} · {productName}
                     </h4>
-                    {summaryText && <p className="mt-2 text-xs text-muted-foreground">{summaryText}</p>}
                     <div className="mt-2">
                       {renderCostTable(
                         adjustment.medication_amount,
