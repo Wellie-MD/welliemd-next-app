@@ -947,7 +947,15 @@ export default function PatientDetailPage() {
                                           ].map(opt => (
                                             <button
                                               key={opt.days}
-                                              onClick={() => setTimeRange(opt.days)}
+                                              onClick={() => {
+                                                if (opt.days === 90 || opt.days === 365) {
+                                                  toast({
+                                                    title: 'Fetching extended historical data. This may take a moment...',
+                                                    duration: 4000,
+                                                  });
+                                                }
+                                                setTimeRange(opt.days);
+                                              }}
                                               className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                                                 timeRange === opt.days
                                                   ? 'bg-slate-900 text-white'
