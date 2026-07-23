@@ -3,34 +3,40 @@ import { useNavigate } from "react-router-dom"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Eye } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Eye, RotateCcw } from "lucide-react"
 import { DateRange } from "react-day-picker"
-import { ordersApi, Order } from "@/api/ordersApi"
+import { ordersApi, Order, FilterOption } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
 
-/** Match admin portal order status filter pills → API `status` param */
-const ORDER_STATUS_FILTER_LABELS = [
-  "All",
-  "Created",
-  "Payment Pending",
-  "Processing",
-  "Visit Failed",
-  "Visit Pending",
-  "Consult Scheduled",
-  "Consult Rescheduled",
-  "Consult Canceled",
-  "No Show",
-  "Referred",
-  "Prescribed",
-  "Billing Pending",
-  "Rx Sent",
-  "In Fulfillment",
-  "Shipped",
-  "In Transit",
-  "Out for Delivery",
-  "Delivered",
-  "Delivery Failed",
-  "Canceled",
+const ORDER_STATUS_OPTIONS = [
+  { label: "All", value: "all" },
+  { label: "Created", value: "created" },
+  { label: "Payment Pending", value: "payment_pending" },
+  { label: "Processing", value: "processing" },
+  { label: "Visit Failed", value: "visit_failed" },
+  { label: "Visit Pending", value: "visit_pending" },
+  { label: "Consult Scheduled", value: "consult_scheduled" },
+  { label: "Consult Rescheduled", value: "consult_rescheduled" },
+  { label: "Consult Canceled", value: "consult_canceled" },
+  { label: "No Show", value: "no_show" },
+  { label: "Referred", value: "referred" },
+  { label: "Prescribed", value: "prescribed" },
+  { label: "Billing Pending", value: "billing_pending" },
+  { label: "Rx Sent", value: "rx_sent" },
+  { label: "In Fulfillment", value: "in_fulfillment" },
+  { label: "Shipped", value: "shipped" },
+  { label: "In Transit", value: "in_transit" },
+  { label: "Out for Delivery", value: "out_for_delivery" },
+  { label: "Delivered", value: "delivered" },
+  { label: "Delivery Failed", value: "delivery_failed" },
+  { label: "Canceled", value: "canceled" },
 ] as const
 
 const ORDER_STATUS_TO_API: Record<string, string> = {
@@ -56,7 +62,13 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   Canceled: "canceled",
 }
 
-const PAYMENT_STATUS_FILTER_LABELS = ["All", "Paid", "Pending", "Failed"] as const
+const PAYMENT_STATUS_OPTIONS = [
+  { label: "All", value: "all" },
+  { label: "Paid", value: "paid" },
+  { label: "Pending", value: "pending" },
+  { label: "Failed", value: "failed" },
+  { label: "Refunded", value: "refunded" },
+] as const
 
 const orderColumns = [
   { key: "order_id", label: "Order #", minWidth: "120px", className: "font-medium" },
@@ -177,8 +189,13 @@ const formatStatusLabel = (value?: string | null) => {
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
-  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
-  const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
+  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("all")
+  const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("all")
+  const [categoryId, setCategoryId] = useState("all")
+  const [pharmacyId, setPharmacyId] = useState("all")
+  const [categories, setCategories] = useState<FilterOption[]>([])
+  const [pharmacies, setPharmacies] = useState<FilterOption[]>([])
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(true)
   const [date, setDate] = useState<DateRange | undefined>()
   /** Remount DataTable so toolbar search input clears when filters reset */
   const [dataTableKey, setDataTableKey] = useState(0)
@@ -198,6 +215,19 @@ export default function Orders() {
     }, 350)
     return () => clearTimeout(timeout)
   }, [searchTerm])
+
+  useEffect(() => {
+    let mounted = true
+    Promise.all([ordersApi.fetchCategories(), ordersApi.fetchPharmacies()]).then(
+      ([categoriesData, pharmaciesData]) => {
+        if (!mounted) return
+        setCategories(categoriesData)
+        setPharmacies(pharmaciesData)
+        setFilterOptionsLoading(false)
+      }
+    )
+    return () => { mounted = false }
+  }, [])
 
   const displayOrders = useMemo(() => orders.map(o => {
     const paymentSettlementAmount = (o as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount
@@ -232,41 +262,26 @@ export default function Orders() {
 
   const filteredOrders = useMemo(() => displayOrders, [displayOrders])
 
-  // Same pill layout as admin portal: Order Status group, then Payment Status group
-  const filters = useMemo(
-    () => [
-      ...ORDER_STATUS_FILTER_LABELS.map((status) => ({
-        key: `order-${status}`,
-        label: status === "All" ? "Order Status" : status,
-        type: "button" as const,
-        value: activeOrderStatusFilter === status ? status : undefined,
-        onClick: () => setActiveOrderStatusFilter(status),
-      })),
-      ...PAYMENT_STATUS_FILTER_LABELS.map((status) => ({
-        key: `payment-${status}`,
-        label: status === "All" ? "Payment Status" : status,
-        type: "button" as const,
-        value: activePaymentStatusFilter === status ? status : undefined,
-        onClick: () => setActivePaymentStatusFilter(status),
-      })),
-    ],
-    [activeOrderStatusFilter, activePaymentStatusFilter]
+  const hasActiveFilters = Boolean(
+    activeOrderStatusFilter !== "all" ||
+    activePaymentStatusFilter !== "all" ||
+    categoryId !== "all" ||
+    pharmacyId !== "all" ||
+    searchTerm ||
+    date?.from
   )
 
   const handleResetFilters = useCallback(() => {
-    setActivePaymentStatusFilter("All")
-    setActiveOrderStatusFilter("All")
+    setActivePaymentStatusFilter("all")
+    setActiveOrderStatusFilter("all")
+    setCategoryId("all")
+    setPharmacyId("all")
     setDate(undefined)
     setSearchTerm("")
     setDebouncedSearchTerm("")
     setCurrentPage(1)
     setDataTableKey((k) => k + 1)
   }, [])
-
-  const normalizePaymentStatus = (status: string) => {
-    if (status === "All") return undefined
-    return status.toLowerCase()
-  }
 
   const loadOrders = useCallback(async () => {
     setIsLoadingOrders(true)
@@ -277,13 +292,11 @@ export default function Orders() {
         page_size: pageSize,
       }
       if (debouncedSearchTerm) params.search = debouncedSearchTerm
-      if (activeOrderStatusFilter !== "All") {
-        const apiStatus = ORDER_STATUS_TO_API[activeOrderStatusFilter]
-        if (apiStatus) params.status = apiStatus
-      }
-      const paymentStatus = normalizePaymentStatus(activePaymentStatusFilter)
+      if (activeOrderStatusFilter !== "all") params.status = activeOrderStatusFilter
       // Backend maps captured/approved → "paid" (same as admin dashboard), not raw NMI status
-      if (paymentStatus) params.payment_status = paymentStatus
+      if (activePaymentStatusFilter !== "all") params.payment_status = activePaymentStatusFilter
+      if (categoryId !== "all") params["product__category__id"] = categoryId
+      if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
       if (date?.from) params["created_at__gte"] = date.from.toISOString().slice(0, 10)
       if (date?.to) params["created_at__lte"] = date.to.toISOString().slice(0, 10)
 
@@ -302,6 +315,8 @@ export default function Orders() {
     debouncedSearchTerm,
     activeOrderStatusFilter,
     activePaymentStatusFilter,
+    categoryId,
+    pharmacyId,
     date,
   ])
 
@@ -311,7 +326,7 @@ export default function Orders() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, date])
+  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, categoryId, pharmacyId, date])
 
   const handleRefresh = useCallback(() => {
     loadOrders()
@@ -337,6 +352,73 @@ export default function Orders() {
       {error && (
         <div className="text-sm text-red-600">{error}</div>
       )}
+
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="flex flex-col gap-1.5 min-w-[150px]">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order Status</label>
+          <Select value={activeOrderStatusFilter} onValueChange={setActiveOrderStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              {ORDER_STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5 min-w-[150px]">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Product Category</label>
+          <Select value={categoryId} onValueChange={setCategoryId} disabled={filterOptionsLoading}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={String(c.id)} value={String(c.id)}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5 min-w-[150px]">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pharmacy</label>
+          <Select value={pharmacyId} onValueChange={setPharmacyId} disabled={filterOptionsLoading}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Pharmacies" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Pharmacies</SelectItem>
+              {pharmacies.map((p) => (
+                <SelectItem key={String(p.id)} value={String(p.id)}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5 min-w-[150px]">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Payment Status</label>
+          <Select value={activePaymentStatusFilter} onValueChange={setActivePaymentStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Payment Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAYMENT_STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {hasActiveFilters && (
+          <Button variant="outline" size="sm" onClick={handleResetFilters} className="gap-1">
+            <RotateCcw className="h-3 w-3" />
+            Reset Filters
+          </Button>
+        )}
+      </div>
 
       <DataTable
         key={dataTableKey}
@@ -488,8 +570,7 @@ export default function Orders() {
         searchPlaceholder="Search by order number, patient name, email, or phone"
         showDatePicker={true}
         showExport={true}
-        showResetFilters={true}
-        filters={filters}
+        showResetFilters={false}
         dateRange={date}
         onDateRangeChange={setDate}
         onSearch={setSearchTerm}
