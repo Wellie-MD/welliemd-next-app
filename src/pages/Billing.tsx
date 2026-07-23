@@ -491,11 +491,18 @@ export default function Billing() {
           fallback.adjustment
         );
       }
-      const shippingTotal = productRows.reduce((sum, item) => sum + moneyNumber(item.shipping_amount), 0);
+      const medicationTotal = productRows.reduce((sum, item) => {
+        const amount = Number(item.medication_amount || 0);
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
+      const shippingTotal = productRows.reduce((sum, item) => {
+        const amount = Number(item.shipping_amount || 0);
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
       const explicitTotal = Number(fallback.total);
       const computedTotal = Number.isFinite(explicitTotal)
         ? explicitTotal
-        : productRows.reduce((sum, item) => sum + moneyNumber(item.medication_amount || item.product_total), 0) + shippingTotal;
+        : medicationTotal + shippingTotal;
       const adjustment = fallback.adjustment;
       const isCredit = adjustment?.kind === "credit_note";
       const isNoCharge = adjustment?.kind === "no_charge_revision";
@@ -550,7 +557,7 @@ export default function Billing() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
-        <div className="w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-2xl">
+        <div className="w-full max-w-[880px] overflow-hidden rounded-xl border bg-white shadow-2xl">
           <header className="border-b px-5 py-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -576,14 +583,14 @@ export default function Billing() {
 
           <div className="grid md:grid-cols-[320px_1fr]">
             <aside className="border-b md:border-b-0 md:border-r">
-              <section className="border-b p-5">
+              <section className="border-b px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
                 {infoRow("Client", (invoice as any).client_name || "-")}
                 {infoRow("Client order #", <span className="font-mono">{getClientOrderNumber(invoice)}</span>)}
                 {infoRow("Type", "Reimbursement")}
                 {infoRow("Issued", invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString() : "-")}
               </section>
-              <section className="border-b p-5">
+              <section className="border-b px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Amounts</h4>
                 {infoRow("Invoice total", money(baseInvoiceTotal))}
                 {Number(summary?.supplemental_charges || 0) > 0 &&
@@ -594,7 +601,7 @@ export default function Billing() {
                   infoRow("Authorization hold released", <span className="text-emerald-600">−{money(holdReleasedAmount)}</span>)}
                 {infoRow("Adjusted total", <strong>{money(adjustedInvoiceTotal)}</strong>)}
               </section>
-              <section className="p-5">
+              <section className="px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Payment diagnostics</h4>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs font-medium text-sky-600">Show auth &amp; capture details</summary>
@@ -615,7 +622,7 @@ export default function Billing() {
 
             <main>
               {Number(requested?.consultation_amount || 0) > 0 && (
-                <section className="border-b p-5">
+                <section className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Consultation</h4>
                   <table className="mt-2 w-full table-fixed text-xs">
                     {sharedColgroup}
@@ -631,7 +638,7 @@ export default function Billing() {
                   </table>
                 </section>
               )}
-              <section className="border-b p-5">
+              <section className="border-b px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Requested · {requestedLabel}
                 </h4>
@@ -652,7 +659,7 @@ export default function Billing() {
                 const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
                 const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
                 return (
-                  <section key={event.webhook_event_id || `${sectionLabel}-${index}`} className="border-b p-5">
+                  <section key={event.webhook_event_id || `${sectionLabel}-${index}`} className="border-b px-5 py-4">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       {sectionLabel} · {event.name || "Prescribed product"}
                     </h4>
@@ -669,10 +676,10 @@ export default function Billing() {
                 );
               })}
               {prescriptionEvents.length === 0 && showImplicitBaseRevision && (
-                <section className="border-b p-5">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Initial prescription · {requested?.product_name || "Prescribed product"}
-                </h4>
+                <section className="border-b px-5 py-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Initial prescription · {requested?.product_name || "Prescribed product"}
+                  </h4>
                   <div className="mt-2">
                     {renderCostTable(
                       requested?.medication_amount,
@@ -685,7 +692,6 @@ export default function Billing() {
                 </section>
               )}
               {fallbackAdjustments.map((adjustment, index) => {
-                const isNoCharge = adjustment.kind === "no_charge_revision";
                 const explicitRevisionNumber = Number(adjustment.revision_number);
                 const isInitialFallback = firstFallbackIsInitialPrescription && index === 0;
                 const normalizedRevisionNumber = firstFallbackIsInitialPrescription && Number.isFinite(explicitRevisionNumber) && explicitRevisionNumber > 0
@@ -697,7 +703,7 @@ export default function Billing() {
                 const sectionLabel = isInitialFallback ? "Initial prescription" : `Revision ${displayRevisionNumber}`;
                 const productName = adjustment.product_name || "Revised prescription";
                 return (
-                  <section key={adjustment.id} className="border-b p-5">
+                  <section key={adjustment.id} className="border-b px-5 py-4">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       {sectionLabel} · {productName}
                     </h4>
@@ -709,7 +715,7 @@ export default function Billing() {
                         false,
                         productName,
                         "Total",
-                        isNoCharge ? undefined : adjustment
+                        isInitialFallback ? undefined : adjustment
                       )}
                     </div>
                   </section>
