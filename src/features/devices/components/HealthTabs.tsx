@@ -461,7 +461,7 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
       : undefined;
 
   const workoutsTrend: TrendData | undefined =
-    deviceMetrics?.workoutsSeries && deviceMetrics.workoutsSeries.length > 1
+    deviceMetrics?.workoutsSeries && deviceMetrics.workoutsSeries.length > 1 && deviceMetrics.workoutsSeries.some(s => s.val > 0)
       ? {
           label: 'Active time',
           unit: 'min',
