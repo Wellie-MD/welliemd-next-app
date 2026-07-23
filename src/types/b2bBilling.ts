@@ -111,6 +111,20 @@ export interface B2BInvoice {
   
   // Line items
   line_items?: B2BInvoiceItem[];
+  revision_adjustments?: Array<{
+    id: string;
+    invoice_number: string;
+    kind: 'supplemental_charge' | 'credit_note' | 'no_charge_revision';
+    status: string;
+    revision_number?: number | string | null;
+    product_name?: string;
+    medication_amount: string;
+    shipping_amount: string;
+    product_total: string;
+    adjustment_amount: string;
+    created_at?: string | null;
+    source?: string;
+  }>;
 }
 
 export interface SetupIntentResponse {

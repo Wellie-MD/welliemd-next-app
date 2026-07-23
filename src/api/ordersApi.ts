@@ -54,6 +54,7 @@ export interface QuestionnairePhoto {
 // Prescribed medication from RX_WRITTEN webhook (PrescriptionEvent.medications)
 export interface PrescriptionMedication {
   name?: string
+  prescribed_name?: string
   strength?: string
   price?: string | number | null
   refills?: string
@@ -409,6 +410,7 @@ export interface Order {
   consult_cost_to_client?: string | null
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
+  billing_pending_reason?: string | null
   activity_events?: OrderActivityEvent[]
   episode_id?: string | null
   line_items?: OrderLineItem[]
@@ -481,6 +483,12 @@ export interface SendCheckoutLinkResponse {
   message?: string
   order_id?: string
   order_display_id?: string
+}
+
+export interface ResendReceiptResponse {
+  success: boolean
+  message?: string
+  recipient_email?: string
 }
 
 export interface UpdateQuestionnaireImagesPayload {
@@ -607,6 +615,28 @@ export const sendCheckoutLink = async (id: string): Promise<SendCheckoutLinkResp
   }
 }
 
+export const resendReceipt = async (id: string): Promise<ResendReceiptResponse> => {
+  try {
+    const { data } = await api.post<ResendReceiptResponse>(`${ENDPOINT}${id}/receipt/resend/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to resend receipt for order ${id}:`, error)
+    throw error
+  }
+}
+
+export const downloadReceipt = async (id: string): Promise<Blob> => {
+  try {
+    const { data } = await api.get(`${ENDPOINT}${id}/receipt/download/`, {
+      responseType: "blob",
+    })
+    return data
+  } catch (error) {
+    console.error(`Failed to download receipt for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const changeProduct = async (
   orderId: string,
   newProductId: number | string,
@@ -686,6 +716,8 @@ export const ordersApi = {
   refundOrder,
   retryPayment,
   sendCheckoutLink,
+  resendReceipt,
+  downloadReceipt,
   changeProduct,
   updateOrderQuestionnaireImages,
   fetchCategories,

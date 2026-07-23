@@ -25,6 +25,11 @@ import {
   CheckCircle2,
   AlertCircle,
   XCircle,
+  Copy,
+  Edit,
+  ExternalLink,
+  Download,
+
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -180,6 +185,8 @@ export default function OrderDetail() {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
   const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
   const [sendCheckoutLinkLoading, setSendCheckoutLinkLoading] = useState(false)
+  const [resendReceiptLoading, setResendReceiptLoading] = useState(false)
+  const [downloadReceiptLoading, setDownloadReceiptLoading] = useState(false)
   const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
@@ -241,6 +248,60 @@ export default function OrderDetail() {
       })
     } finally {
       setSendCheckoutLinkLoading(false)
+    }
+  }
+
+  const handleDownloadReceipt = async () => {
+    if (!order?.id || downloadReceiptLoading) return
+
+    try {
+      setDownloadReceiptLoading(true)
+      const blob = await ordersApi.downloadReceipt(order.id)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `receipt-${order.order_id || order.display_id || order.id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to download receipt."
+      toast({
+        title: message,
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadReceiptLoading(false)
+    }
+  }
+
+  const handleResendReceipt = async () => {
+    if (!order?.id || resendReceiptLoading) return
+
+    try {
+      setResendReceiptLoading(true)
+      const response = await ordersApi.resendReceipt(order.id)
+      toast({
+        title: response.message || "Receipt email sent.",
+        description: response.recipient_email ? `Sent to ${response.recipient_email}` : undefined,
+      })
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to resend receipt."
+      toast({
+        title: message,
+        variant: "destructive",
+      })
+    } finally {
+      setResendReceiptLoading(false)
     }
   }
 
@@ -493,6 +554,33 @@ export default function OrderDetail() {
   const isAllowedStatus = status === "created" || status === "payment_pending"
   const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
+  const canUseReceipt = ["captured", "approved", "succeeded", "refunded"].includes(paymentStatus) || paymentCaptured
+
+  const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
+  const initialReqPrice = parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
+  const initialReqShipping = parseAmt(order?.requested_medicines?.[0]?.shipping_fee) ?? 0;
+  const initialReqDiscount = parseAmt(order?.pricing?.discount_total ?? (order?.pricing as any)?.discount_amount ?? order?.discount_amount) ?? 0;
+  let trueAuthAmount = parseAmt((order as any)?.base_authorization_amount);
+  if (trueAuthAmount == null) {
+    trueAuthAmount = Math.max(0, initialReqPrice - initialReqDiscount) + initialReqShipping;
+  }
+  const trueCapAmount = parseAmt((order as any)?.base_captured_amount) ?? parseAmt(order?.pricing?.grand_total) ?? 0;
+  const trueHoldReleasedAmt = Math.max(0, trueAuthAmount - trueCapAmount);
+  const timelineCapturedStatuses = new Set(["captured", "approved", "succeeded"])
+  const timelineSettlementTransactions = Array.isArray(order.payment_settlement_transactions)
+    ? order.payment_settlement_transactions
+    : []
+  const timelineCapturedFromTransactions = timelineSettlementTransactions.reduce((total, tx) => {
+    const txStatus = String(tx.status || "").toLowerCase()
+    if (!timelineCapturedStatuses.has(txStatus)) return total
+    return total + (parseAmt(tx.amount) ?? 0)
+  }, 0)
+  const timelineCapturedFromFields =
+    (parseAmt((order as any)?.base_captured_amount) ?? 0) +
+    (parseAmt((order as any)?.supplemental_captured_amount) ?? 0)
+  const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
+  const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
+
   const changeProductTooltip =
     "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
 
@@ -934,10 +1022,100 @@ export default function OrderDetail() {
         return evt.description || "Lab update received."
       })()
 
+      const cleanDescription = (evt: any, baseDesc?: string) => {
+        let desc = baseDesc || evt.description || ""
+        const transitionMatch = desc.match(/^([^\n]+? -> [^\n]+?)(?:\n|$)/);
+        if (transitionMatch) {
+          const parts = transitionMatch[1].split(" -> ");
+          if (parts.length === 2 && parts[0].length < 30 && parts[1].length < 30) {
+            desc = desc.substring(transitionMatch[1].length).trim();
+          }
+        }
+        if (evt.event_type === "rx_revision" && desc.includes("Unknown Product")) {
+          const pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+          if (pName) desc = desc.replace("Unknown Product", pName);
+        }
+        if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
+          const match = desc.match(/Newly prescribed:\s*([\s\S]*?)(?=(?:\.\s*|\n)(?:Supplemental|Refund)|$)/)
+          if (match) {
+            let newDesc = `Prescribed: ${match[1].trim()}`
+            if (!newDesc.endsWith(".")) newDesc += "."
+            if (desc.includes("Supplemental capture triggered")) {
+              const suppMatch = desc.match(/Supplemental capture triggered for (\$[\d,.]+)/)
+              if (suppMatch) newDesc += `\nSupplemental capture of ${suppMatch[1]}.`
+            }
+            if (desc.includes("Refund required")) {
+              const refundMatch = desc.match(/Refund required for (\$[\d,.]+)/)
+              if (refundMatch) newDesc += `\nRefund of ${refundMatch[1]}.`
+            }
+            return newDesc
+          }
+        }
+
+        // Show unresolved product name on billing_pending events
+        if (evt.event_type === "status.billing_pending") {
+          const evtPayload = evt.payload || {} as any;
+          if (evtPayload.mapping_status === "unresolved" || evtPayload.decision === "unresolved") {
+            const rawName = evtPayload.prescribed_medication_name || "";
+            desc = rawName
+              ? `${desc}\nPrescribed: ${rawName} — catalog mapping unresolved.`.trim()
+              : `${desc}\nPrescription catalog mapping unresolved.`.trim()
+          }
+        }
+
+        // Inject prescribed product into initial Prescribed event if missing
+        if (evt.event_type === "status.prescribed") {
+          if (!desc.includes("Prescribed: ")) {
+            const evtPayload = evt.payload || {} as any;
+            const mappingUnresolved = evtPayload.mapping_status === "unresolved" || evtPayload.decision === "unresolved";
+
+            if (mappingUnresolved) {
+              const rawName = evtPayload.prescribed_medication_name || "";
+              desc = rawName
+                ? `${desc}\nPrescribed: ${rawName} (mapping unresolved).`.trim()
+                : `${desc}\nPrescription mapping unresolved.`.trim()
+            } else {
+              let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+
+              if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
+                desc = `${desc}\nPrescribed: ${pName}.`.trim()
+              }
+            }
+          }
+
+          // Inject capture details if missing
+          if (!desc.includes("Captured $") && hasActualCapturedTimelineAmount) {
+            if (trueAuthAmount != null && trueAuthAmount > timelineCapturedAmount) {
+              const holdReleased = Math.max(0, trueAuthAmount - timelineCapturedAmount)
+              desc += `\nCaptured $${timelineCapturedAmount.toFixed(2)} of $${trueAuthAmount.toFixed(2)} authorized.\nRemaining $${holdReleased.toFixed(2)} hold released.`
+            } else if (trueAuthAmount != null && timelineCapturedAmount > trueAuthAmount) {
+              const supplemental = timelineCapturedAmount - trueAuthAmount
+              desc += `\nCaptured $${trueAuthAmount.toFixed(2)}.\nSupplemental capture of $${supplemental.toFixed(2)}.`
+            } else {
+              desc += `\nCaptured $${timelineCapturedAmount.toFixed(2)}.`
+            }
+          }
+        }
+
+        return desc || undefined
+      }
+
+      let rawTitle = evt.title || evt.event_type.replace(/\./g, " ")
+      if (rawTitle === "Order Created") rawTitle = "Created"
+      if (rawTitle === "Patient Payment Authorized") rawTitle = "Order amount authorized"
+      if (rawTitle === "Patient Payment Captured") rawTitle = "Payment Captured"
+      if (rawTitle === "Patient Payment Failed") rawTitle = "Payment Failed"
+      if (rawTitle === "Patient Authorization Voided") rawTitle = "Payment Voided"
+      if (rawTitle === "Patient Payment Refunded") rawTitle = "Payment Refunded"
+      if (rawTitle === "Order status updated to Rx Sent") rawTitle = "Rx Sent"
+      if (rawTitle === "Product Prescribed") rawTitle = "Prescribed"
+      if (rawTitle === "Visit Created") rawTitle = "Visit Pending"
+
+
       return {
-        title: evt.title || evt.event_type.replace(/\./g, " "),
+        title: rawTitle,
         date: formatDateTime(evt.occurred_at),
-        description: labDescription || evt.description || undefined,
+        description: labDescription || cleanDescription(evt),
         icon,
         iconBg,
         actions,
@@ -1708,6 +1886,7 @@ export default function OrderDetail() {
                         </>
                       )}
 
+
                       {hasSplitSettlement ? (
                         <>
                           <tr>
@@ -2025,6 +2204,7 @@ export default function OrderDetail() {
                       <p className="text-sm text-slate-500 mt-1">
                         RX Received: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(order.prescription_source_received_at)}</span>
                       </p>
+
                     )}
                     {order.prescription_source_event_id && (
                       <p className="text-xs text-slate-500 mt-2 break-all">
@@ -2060,7 +2240,9 @@ export default function OrderDetail() {
                     <div className="space-y-3">
                       {(order.prescription_medications || []).map((med, idx) => (
                         <div key={`pharm-med-${idx}`} className="rounded-lg border p-4 bg-background/60 shadow-sm">
-                          <p className="font-medium text-slate-900 dark:text-white">{med.name || "Medication"}</p>
+                          <p className="font-medium text-slate-900 dark:text-white">
+                            {med.prescribed_name || med.name || "Medication"}
+                          </p>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-slate-500">
                             <span className="flex items-center gap-1">
                               <span className="text-slate-400">Strength:</span>
@@ -2243,7 +2425,8 @@ export default function OrderDetail() {
                 <span className="text-slate-900 dark:text-white font-medium">{formatDate(order.paymentDate) || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Provider</span>
+                <span className="text-slate-500 dark:text-slate-400">Gateway</span>
+
                 <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor || "—"}</span>
               </div>
               <div className="flex justify-between">
@@ -2289,6 +2472,38 @@ export default function OrderDetail() {
                   )}
                 </div>
               </div>
+              {canUseReceipt && (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px]"
+                    onClick={handleDownloadReceipt}
+                    disabled={downloadReceiptLoading}
+                  >
+                    {downloadReceiptLoading ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Download className="mr-1 h-3 w-3" />
+                    )}
+                    Download Receipt
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 border-blue-200 text-[11px] text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
+                    onClick={handleResendReceipt}
+                    disabled={resendReceiptLoading}
+                  >
+                    {resendReceiptLoading ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Mail className="mr-1 h-3 w-3" />
+                    )}
+                    Resend Receipt
+                  </Button>
+                </div>
+              )}
               {hasSplitSettlement && (
                 <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3 space-y-2 text-sm">
                   <div className="flex items-center justify-between">
@@ -2306,6 +2521,7 @@ export default function OrderDetail() {
                 </div>
               )}
               {refundedAmount > 0 && (
+
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">Refunded</span>
                   <span className="text-red-600 dark:text-red-400 font-medium">-${refundedAmount.toFixed(2)}</span>

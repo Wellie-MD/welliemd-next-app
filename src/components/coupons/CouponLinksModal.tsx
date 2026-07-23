@@ -178,7 +178,7 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
       try {
         const data = await templateApi.listTemplates()
         const results = Array.isArray(data) ? data : (data as any)?.results ?? []
-        const publishedOnly = results.filter((t: QuestionnaireTemplate) => t.is_published)
+        const publishedOnly = results.filter((t: QuestionnaireTemplate) => t.is_published && t.questionnaire_type === 'onboarding')
         if (!cancelled) setTemplates(publishedOnly)
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "Failed to load questionnaires")
@@ -225,7 +225,7 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Links for Coupon{selectedCoupon ? `: ${selectedCoupon.code}` : ""}</DialogTitle>
         </DialogHeader>
