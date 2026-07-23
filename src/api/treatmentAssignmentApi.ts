@@ -13,6 +13,18 @@ export interface AssignmentDependencyNode {
   facts: Record<string, unknown>;
 }
 
+export interface AssignmentSequenceStage {
+  key: string;
+  order: number;
+  label: string;
+  status: string;
+  action: string;
+  action_route: string;
+  owner: "admin" | "environment" | "tenant" | "external_provider";
+  actionable: boolean;
+  nodes: AssignmentDependencyNode[];
+}
+
 export interface AssignmentImpact {
   added: AssignmentDependencyNode[];
   removed: AssignmentDependencyNode[];
@@ -52,6 +64,23 @@ export interface AssignmentPreflight {
   update_available: boolean;
   previous_source_checksum: string;
   impact: AssignmentImpact;
+  destination: {
+    environment: string;
+    normalized_host: string;
+    source: string;
+    policy_version: number;
+    reachability: string;
+  };
+  sequence: AssignmentSequenceStage[];
+  next_action: AssignmentSequenceStage | null;
+  issues: Array<
+    AssignmentDependencyNode & {
+      owner: string;
+      retryable: boolean;
+      action: string;
+      action_route: string;
+    }
+  >;
 }
 
 export interface AssignmentStep {
@@ -87,6 +116,7 @@ export interface AssignmentOperation {
   attempt_count: number;
   last_error_code: string;
   last_error_detail: string;
+  retryable: boolean;
   cancel_requested: boolean;
   preflight: AssignmentPreflight;
   result: Record<string, unknown>;

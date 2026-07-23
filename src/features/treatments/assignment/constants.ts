@@ -5,9 +5,12 @@ export const ASSIGNMENT_SOURCE = {
 
 export const PREFLIGHT_STATUS = {
   ready: "ready",
-  blocked: "blocked",
+  blockedConfiguration: "blocked_configuration",
+  blockedDependency: "blocked_dependency",
   pendingExternal: "pending_external",
-  stale: "stale",
+  unreachable: "unreachable",
+  unauthorized: "unauthorized",
+  stale: "stale_release",
 } as const;
 
 export const OPERATION_STATUS = {
@@ -32,6 +35,7 @@ export const RETRYABLE_OPERATION_STATUSES = new Set<string>([
 ]);
 
 export const ASSIGNMENT_POLL_INTERVAL_MS = 1200;
+export const ASSIGNMENT_MAX_POLL_ATTEMPTS = 50;
 
 export const RUNTIME_STATE_LABELS: Record<string, string> = {
   pending_dependencies: "Pending dependencies",
@@ -81,4 +85,24 @@ export const DEPENDENCY_LABELS: Record<string, string> = {
   section: "Sections",
   consent: "Consents",
   custom_program: "Custom Programs",
+};
+
+export const ASSIGNMENT_STAGE_LABELS: Record<string, string> = {
+  ready: "Ready",
+  complete: "Complete",
+  action_required: "Action required",
+  pending_external: "Pending externally",
+  update_required: "Update required",
+};
+
+export const ASSIGNMENT_ACTION_LABELS: Record<string, string> = {
+  publish: "Publish",
+  configure_treatment: "Configure treatment",
+  assign_products: "Assign products",
+  assign_supplies: "Assign supplies",
+  configure_labs: "Configure labs",
+  assign_program: "Assign program",
+  configure_client: "Configure client",
+  recheck: "Recheck readiness",
+  assign_parent: "Assign",
 };
