@@ -1,11 +1,44 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Eye, RefreshCw, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Download, RefreshCw, RotateCcw, Search } from "lucide-react";
 import { labsApi, type LabOrder } from "@/api/labs";
 import { junctionMockEnabled } from "@/api/junctionMockData";
 import { OrderDetailDrawer as LabOrderDetailDrawer } from "@/features/labs/components/LabOrderDetailDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { labPillTone } from "@/features/labs/constants/tones";
+
+const ORDER_STATUS_OPTIONS = ["All", "In Process", "Completed", "Canceled", "Failed"];
+const PAYMENT_OPTIONS = ["All", "Paid", "Pending", "Failed", "Refunded"];
+const FULFILLMENT_OPTIONS = ["All", "Received", "Collecting Sample", "With Lab", "Completed", "Canceled", "Failed", "In Process"];
+const LAB_EVENT_OPTIONS = [
+  "All",
+  "Requisition Created",
+  "Requisition Bypassed",
+  "Kit Registration Required",
+  "Kit Registered",
+  "Appointment Pending",
+  "Appointment Scheduled",
+  "Appointment Cancelled",
+  "Kit Shipped",
+  "Kit Delivered",
+  "Shipping Problem",
+  "Sample Collected",
+  "At Lab",
+  "Partial Results",
+  "Lab Processing Blocked",
+  "Redraw Required",
+  "Results Ready",
+  "Canceled",
+  "Failed",
+];
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+const humanize = (value?: string) => {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return "-";
+  return trimmed.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+};
 
 const rowFromOrder = (order: LabOrder) => ({
   ...order,
@@ -17,8 +50,9 @@ const rowFromOrder = (order: LabOrder) => ({
   client: order.client_name,
   product: order.product_name,
   amount: order.price,
+  orderStatus: humanize(order.status),
   payment: order.payment_status,
-  fulfillment: order.fulfillment_status || "At Lab",
+  fulfillment: order.fulfillment_status || "Received",
   labEvent: order.lab_event_label || order.visit_status,
   date: order.timeline.ordered || "",
 });
@@ -26,19 +60,49 @@ const rowFromOrder = (order: LabOrder) => ({
 export default function LabOrders() {
   const [orders, setOrders] = useState<LabOrder[]>([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("All");
+  const [paymentFilter, setPaymentFilter] = useState("All");
+  const [fulfillmentFilter, setFulfillmentFilter] = useState("All");
+  const [labEventFilter, setLabEventFilter] = useState("All");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [labEventFilter, setLabEventFilter] = useState("All");
 
-  const loadOrders = useCallback(async () => {
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, orderStatusFilter, paymentFilter, fulfillmentFilter, labEventFilter]);
+
+  const loadOrders = async () => {
     setLoading(true);
     setLoadError("");
     try {
-      setOrders(await labsApi.getAdminLabOrders());
+      const data = await labsApi.getAdminLabOrders({
+        search: debouncedSearch || undefined,
+        status: orderStatusFilter === "All" ? undefined : orderStatusFilter,
+        payment_status: paymentFilter === "All" ? undefined : paymentFilter,
+        fulfillment_status: fulfillmentFilter === "All" ? undefined : fulfillmentFilter,
+        lab_event: labEventFilter === "All" ? undefined : labEventFilter,
+        page,
+        page_size: pageSize,
+      });
+      setOrders(data.results);
+      setTotalPages(data.total_pages || 1);
+      setTotalCount(data.count || 0);
     } catch (error: any) {
       setOrders([]);
+      setTotalPages(1);
+      setTotalCount(0);
       const responseData = error?.response?.data;
       setLoadError(
         responseData?.detail ||
@@ -49,20 +113,24 @@ export default function LabOrders() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     loadOrders();
-  }, [loadOrders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, debouncedSearch, orderStatusFilter, paymentFilter, fulfillmentFilter, labEventFilter]);
 
-  const rows = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return orders.map(rowFromOrder).filter((row) => {
-      if (labEventFilter !== "All" && row.labEvent !== labEventFilter) return false;
-      if (!term) return true;
-      return [row.id, row.patient, row.email, row.phone, row.client, row.product].join(" ").toLowerCase().includes(term);
-    });
-  }, [orders, search, labEventFilter]);
+  const resetFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
+    setOrderStatusFilter("All");
+    setPaymentFilter("All");
+    setFulfillmentFilter("All");
+    setLabEventFilter("All");
+    setPage(1);
+  };
+
+  const rows = orders.map(rowFromOrder);
 
   return (
     <div className="p-6 space-y-6">
@@ -73,50 +141,84 @@ export default function LabOrders() {
             {junctionMockEnabled ? "Junction mock mode enabled" : "Control-plane lab order view"}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={loadOrders} className="gap-2">
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={loadOrders} className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Download className="h-4 w-4" /> Export
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg border p-4 flex flex-col sm:flex-row gap-3 justify-between">
-        <Select value={labEventFilter} onValueChange={setLabEventFilter}>
-          <SelectTrigger className="w-[200px] h-10 text-sm">
-            <SelectValue placeholder="All Lab Events" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Lab Events</SelectItem>
-            <SelectItem value="Requisition Created">Requisition Created</SelectItem>
-            <SelectItem value="Requisition Bypassed">Requisition Bypassed</SelectItem>
-            <SelectItem value="Kit Registration Required">Kit Registration Required</SelectItem>
-            <SelectItem value="Kit Registered">Kit Registered</SelectItem>
-            <SelectItem value="Appointment Pending">Appointment Pending</SelectItem>
-            <SelectItem value="Appointment Scheduled">Appointment Scheduled</SelectItem>
-            <SelectItem value="Appointment Cancelled">Appointment Cancelled</SelectItem>
-            <SelectItem value="Kit Shipped">Kit Shipped</SelectItem>
-            <SelectItem value="Kit Delivered">Kit Delivered</SelectItem>
-            <SelectItem value="Shipping Problem">Shipping Problem</SelectItem>
-            <SelectItem value="Sample Collected">Sample Collected</SelectItem>
-            <SelectItem value="At Lab">At Lab</SelectItem>
-            <SelectItem value="Partial Results">Partial Results</SelectItem>
-            <SelectItem value="Lab Processing Blocked">Lab Processing Blocked</SelectItem>
-            <SelectItem value="Redraw Required">Redraw Required</SelectItem>
-            <SelectItem value="Results Ready">Results Ready</SelectItem>
-            <SelectItem value="Canceled">Canceled</SelectItem>
-            <SelectItem value="Failed">Failed</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="relative flex-1">
+      <div className="rounded-lg border bg-white p-4 space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
+            <SelectTrigger className="w-[170px] h-10 text-sm">
+              <SelectValue placeholder="Order Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {ORDER_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === "All" ? "All order status" : option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+            <SelectTrigger className="w-[160px] h-10 text-sm">
+              <SelectValue placeholder="Payment" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAYMENT_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === "All" ? "All payment" : option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={fulfillmentFilter} onValueChange={setFulfillmentFilter}>
+            <SelectTrigger className="w-[180px] h-10 text-sm">
+              <SelectValue placeholder="Fulfillment" />
+            </SelectTrigger>
+            <SelectContent>
+              {FULFILLMENT_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === "All" ? "All fulfillment" : option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={labEventFilter} onValueChange={setLabEventFilter}>
+            <SelectTrigger className="w-[210px] h-10 text-sm">
+              <SelectValue placeholder="Lab Event" />
+            </SelectTrigger>
+            <SelectContent>
+              {LAB_EVENT_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === "All" ? "All lab events" : option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button variant="outline" size="sm" onClick={resetFilters} className="gap-2 h-10">
+            <RotateCcw className="h-4 w-4" /> Reset Filters
+          </Button>
+        </div>
+
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
+          <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by order, patient, email, phone, client, or product"
-            className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm h-10"
+            className="pl-9"
           />
         </div>
-        <Button variant="outline" size="sm" className="gap-2 h-10">
-          <Download className="h-4 w-4" /> Export
-        </Button>
       </div>
 
       <div className="bg-white rounded-lg border overflow-hidden">
@@ -132,7 +234,7 @@ export default function LabOrders() {
           <table className="w-full text-left text-sm min-w-max">
             <thead className="bg-slate-50 border-b text-[11px] uppercase tracking-wider text-slate-600">
               <tr>
-                {["Order #", "Patient", "Email", "Phone", "Client", "Product", "Lab", "Order Status", "Payment", "Event", "Fulfillment", "Amount", ""].map((head) => (
+                {["Order #", "Patient", "Email", "Phone", "Client", "Product", "Lab", "Order Status", "Payment", "Fulfillment", "Lab Event", "Amount"].map((head) => (
                   <th key={head} className="px-3 py-3">{head}</th>
                 ))}
               </tr>
@@ -157,33 +259,46 @@ export default function LabOrders() {
                   <td className="px-3 py-4">{row.client}</td>
                   <td className="px-3 py-4 font-semibold">{row.product}</td>
                   <td className="px-3 py-4">{row.lab_provider}</td>
-                  <td className="px-3 py-4"><Pill value={row.status} /></td>
+                  <td className="px-3 py-4"><Pill value={row.orderStatus} /></td>
                   <td className="px-3 py-4"><Pill value={row.payment} /></td>
-                  <td className="px-3 py-4"><Pill value={row.labEvent} /></td>
                   <td className="px-3 py-4"><Pill value={row.fulfillment} /></td>
+                  <td className="px-3 py-4"><Pill value={row.labEvent} /></td>
                   <td className="px-3 py-4 font-bold">${row.amount.toFixed(2)}</td>
-                  <td className="px-3 py-4 text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedOrder(row);
-                        setDrawerOpen(true);
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </td>
                 </tr>
               ))}
               {!loading && !loadError && rows.length === 0 && (
-                <tr><td colSpan={13} className="px-3 py-8 text-center text-slate-500">No lab orders found</td></tr>
+                <tr><td colSpan={12} className="px-3 py-8 text-center text-slate-500">No lab orders found</td></tr>
               )}
               {loading && (
-                <tr><td colSpan={13} className="px-3 py-8 text-center text-slate-500">Loading lab orders...</td></tr>
+                <tr><td colSpan={12} className="px-3 py-8 text-center text-slate-500">Loading lab orders...</td></tr>
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <span>{totalCount === 0 ? "No lab orders" : `${totalCount.toLocaleString()} lab order${totalCount === 1 ? "" : "s"}`}</span>
+          <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setPage(1); }}>
+            <SelectTrigger className="h-9 w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>
+            Previous
+          </Button>
+          <Button variant="outline" size="sm" disabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>
+            Next
+          </Button>
         </div>
       </div>
 

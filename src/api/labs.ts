@@ -396,10 +396,50 @@ export const labsApi = {
     return data;
   },
 
-  getAdminLabOrders: async (): Promise<LabOrder[]> => {
-    if (junctionMockEnabled) return mockLabOrders;
-    const { data } = await axiosInstance.get(adminLabEndpoints.orders);
-    return (data.results || data || []).map(normalizeOrder);
+  getAdminLabOrders: async (params: {
+    search?: string;
+    status?: string;
+    payment_status?: string;
+    fulfillment_status?: string;
+    lab_event?: string;
+    page?: number;
+    page_size?: number;
+  } = {}): Promise<{ count: number; page: number; page_size: number; total_pages: number; results: LabOrder[] }> => {
+    if (junctionMockEnabled) {
+      const term = (params.search || "").trim().toLowerCase();
+      const matches = (value: string | undefined, filter: string | undefined) =>
+        !filter || (value || "").trim().toLowerCase() === filter.trim().toLowerCase();
+      const filtered = mockLabOrders.filter((order) => {
+        if (!matches(order.ui_order_status || order.status, params.status)) return false;
+        if (!matches(order.ui_payment_status || order.payment_status, params.payment_status)) return false;
+        if (!matches(order.ui_fulfillment_status || order.fulfillment_status, params.fulfillment_status)) return false;
+        if (!matches(order.ui_lab_event_label || order.lab_event_label, params.lab_event)) return false;
+        if (!term) return true;
+        return [order.display_id, order.patient_name, order.patient_email, order.patient_phone, order.client_name, order.product_name]
+          .join(" ")
+          .toLowerCase()
+          .includes(term);
+      });
+      const page = params.page || 1;
+      const pageSize = params.page_size || filtered.length || 20;
+      const start = (page - 1) * pageSize;
+      return {
+        count: filtered.length,
+        page,
+        page_size: pageSize,
+        total_pages: Math.max(1, Math.ceil(filtered.length / pageSize)),
+        results: filtered.slice(start, start + pageSize),
+      };
+    }
+    const { data } = await axiosInstance.get(adminLabEndpoints.orders, { params });
+    const results = (data.results || data || []).map(normalizeOrder);
+    return {
+      count: data.count ?? results.length,
+      page: data.page ?? 1,
+      page_size: data.page_size ?? results.length,
+      total_pages: data.total_pages ?? 1,
+      results,
+    };
   },
 
   getAdminLabOrderResults: async (orderId: string, clientId?: string) => {
