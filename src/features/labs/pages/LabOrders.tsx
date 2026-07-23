@@ -196,9 +196,11 @@ export default function LabOrders() {
     {
       key: "actions", label: "", minWidth: "60px",
       render: (_: unknown, row: any) => (
-        <Button size="sm" variant="ghost" onClick={() => navigate(`/dashboard/orders/labs/${row.raw_id}`)}>
-          <Eye className="h-4 w-4" />
-        </Button>
+        <div className="flex h-full items-center">
+          <Button size="sm" variant="ghost" onClick={() => navigate(`/dashboard/orders/labs/${row.raw_id}`)}>
+            <Eye className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
