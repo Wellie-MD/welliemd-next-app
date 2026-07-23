@@ -388,7 +388,7 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
       dynamicMetrics.activity.push({ l: 'Steps', v: deviceMetrics.steps, u: '/day' });
     }
     if (deviceMetrics.activeDays && deviceMetrics.activeDays !== '0') {
-      dynamicMetrics.activity.push({ l: 'Active days', v: deviceMetrics.activeDays, u: 'of 7' });
+      dynamicMetrics.activity.push({ l: 'Active days', v: deviceMetrics.activeDays, u: `of ${timeRange}` });
     }
 
     if (deviceMetrics.restingHr && deviceMetrics.restingHr !== '0') {
