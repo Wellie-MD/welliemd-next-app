@@ -460,6 +460,18 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
         }
       : undefined;
 
+  const workoutsTrend: TrendData | undefined =
+    deviceMetrics?.workoutsSeries && deviceMetrics.workoutsSeries.length > 1
+      ? {
+          label: 'Active time',
+          unit: 'min',
+          dec: 0,
+          lowerBetter: false,
+          series: deviceMetrics.workoutsSeries,
+          step: 'day',
+        }
+      : undefined;
+
   return (
     <div>
       <div
@@ -504,6 +516,7 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
           sec.id === 'sleep' ? sleepTrend :
           sec.id === 'activity' ? activityTrend :
           sec.id === 'glucose' ? glucoseTrend :
+          sec.id === 'workouts' ? workoutsTrend :
           undefined;
 
         return (

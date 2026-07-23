@@ -92,6 +92,7 @@ export interface DeviceMetrics {
   sleepDetail?: SleepDetail;
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
+  workoutsSeries?: { date: string; val: number }[];
   glucoseSeries?: { date: string; val: number }[];
   avgGlucose?: number | null;
   latestGlucose?: number | null;
@@ -140,6 +141,7 @@ export interface DeviceDataResponse {
   sleepDetail?: SleepDetail;
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
+  workoutsSeries?: { date: string; val: number }[];
   glucoseSeries?: { date: string; val: number }[];
   avgGlucose?: number | null;
   latestGlucose?: number | null;
