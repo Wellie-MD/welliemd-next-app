@@ -81,7 +81,6 @@ const statusColors: Record<string, string> = {
   prescribed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   billing_pending: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
   rx_sent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
-  in_fulfillment: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   shipped: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
   in_transit: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   out_for_delivery: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
@@ -104,7 +103,6 @@ const statusLabels: Record<string, string> = {
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
-  in_fulfillment: "In Fulfillment",
   shipped: "Shipped",
   in_transit: "In Transit",
   out_for_delivery: "Out for Delivery",
@@ -901,7 +899,7 @@ export default function OrderDetail() {
       ) {
         icon = "medical_services"
         iconBg = "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-4 border-white dark:border-slate-800"
-      } else if (status === "in_fulfillment" || eventType.includes("in_fulfillment")) {
+      } else if (eventType.includes("in_fulfillment")) {
         icon = "local_shipping"
         iconBg = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800"
       } else if (status === "shipped") {
@@ -2429,7 +2427,7 @@ export default function OrderDetail() {
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Gateway</span>
 
-                <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor || "—"}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor ? orderProcessorGatewayLabel : "—"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Trans ID</span>
