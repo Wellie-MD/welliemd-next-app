@@ -859,6 +859,34 @@ export default function PatientDetailPage() {
                           ))}
                         </div>
 
+                        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                          <h3 className="mb-2 text-sm font-semibold text-slate-900">Data Sources Priority</h3>
+                          <p className="mb-3 text-xs text-slate-500">
+                            The priority this patient has configured for deduplicating their vitals data (read-only).
+                          </p>
+                          {patient.vitals_source_priority && patient.vitals_source_priority.length > 0 ? (
+                            <div className="flex flex-col gap-2">
+                              {patient.vitals_source_priority.map((source, index) => {
+                                const labels: Record<string, string> = {
+                                  questionnaire: 'Clinical Intake (Questionnaire)',
+                                  patient_portal: 'Manual Dashboard Logs',
+                                  wearable: 'Smart Devices (Wearables)',
+                                };
+                                return (
+                                  <div key={source} className="flex items-center gap-3 rounded-md bg-slate-50 px-3 py-2 text-sm border border-slate-100">
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-600">
+                                      {index + 1}
+                                    </span>
+                                    <span className="font-medium text-slate-700">{labels[source] || source}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-slate-500 italic">No custom priority set by patient.</div>
+                          )}
+                        </div>
+
                         {wearableData && (() => {
                           const {
                             sleep: sleepMetrics,
@@ -882,6 +910,8 @@ export default function PatientDetailPage() {
                               ? { series: wearableData.stepsSeries, unit: "", dec: 0 }
                               : healthTab === "glucose" && wearableData.glucoseSeries && wearableData.glucoseSeries.length > 1
                               ? { series: wearableData.glucoseSeries, unit: "mg/dL", dec: 0 }
+                              : healthTab === "workouts" && wearableData.workoutsSeries && wearableData.workoutsSeries.length > 1
+                              ? { series: wearableData.workoutsSeries, unit: "min", dec: 0 }
                               : null;
 
                           const readinessSeries = wearableData.readinessSeries || [];
@@ -919,7 +949,35 @@ export default function PatientDetailPage() {
                               </Card>
 
                               {vitalsData.length > 0 && (() => {
-                                const sortedVitals = [...vitalsData].sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
+                                const priorityList = patient?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
+                                const byDate = new Map<string, any>();
+                                
+                                for (const entry of vitalsData) {
+                                  if (entry.weight_lbs == null) continue;
+                                  
+                                  const dateKey = entry.measured_at.split('T')[0];
+                                  const existing = byDate.get(dateKey);
+                                  
+                                  if (!existing) {
+                                    byDate.set(dateKey, entry);
+                                  } else {
+                                    const existingRank = priorityList.indexOf(existing.source);
+                                    const newRank = priorityList.indexOf(entry.source);
+                                    
+                                    const eRank = existingRank === -1 ? 999 : existingRank;
+                                    const nRank = newRank === -1 ? 999 : newRank;
+                                    
+                                    if (nRank < eRank) {
+                                      byDate.set(dateKey, entry);
+                                    } else if (nRank === eRank && new Date(entry.measured_at).getTime() > new Date(existing.measured_at).getTime()) {
+                                      byDate.set(dateKey, entry);
+                                    }
+                                  }
+                                }
+
+                                const sortedVitals = Array.from(byDate.values())
+                                  .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
+
                                 const points = sortedVitals.map(v => ({
                                   date: v.measured_at,
                                   weight: Number(v.weight_lbs),
