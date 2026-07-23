@@ -66,6 +66,7 @@ interface DataTableProps {
   data: unknown[];
   columns: Column[];
   hideToolbar?: boolean;
+  hideFilters?: boolean;
   searchPlaceholder?: string;
   emptyMessage?: string;
   showDatePicker?: boolean;
@@ -89,6 +90,7 @@ export function DataTable({
   data,
   columns,
   hideToolbar = false,
+  hideFilters = false,
   searchPlaceholder = "Search...",
   emptyMessage = "No results found",
   showDatePicker = false,
@@ -193,35 +195,37 @@ export function DataTable({
     <div className="space-y-4">
       {!hideToolbar && (
         <>
-          {/* All filters in a single line */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {filters.map((filter) => (
-              <Button
-                key={filter.key}
-                variant={filter.value ? "default" : "outline"}
-                size="sm"
-                onClick={filter.onClick}
-                className={
-                  filter.value ? "bg-primary text-primary-foreground" : ""
-                }
-              >
-                {filter.label}
-              </Button>
-            ))}
+          {/* Filter Buttons (only if not hidden) */}
+          {!hideFilters && filters.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {filters.map((filter) => (
+                <Button
+                  key={filter.key}
+                  variant={filter.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={filter.onClick}
+                  className={
+                    filter.value ? "bg-primary text-primary-foreground" : ""
+                  }
+                >
+                  {filter.label}
+                </Button>
+              ))}
 
-            {/* Reset Filters Button */}
-            {showResetFilters && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onResetFilters}
-                className="gap-1"
-              >
-                <RotateCcw className="h-3 w-3" />
-                Reset Filters
-              </Button>
-            )}
-          </div>
+              {/* Reset Filters Button */}
+              {showResetFilters && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onResetFilters}
+                  className="gap-1"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Reset Filters
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Search Box, Date Picker, Export and Refresh in same line */}
           <div className="flex items-center gap-4">

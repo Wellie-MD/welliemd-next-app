@@ -25,7 +25,6 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['@tanstack/react-query', 'zustand', 'axios', 'date-fns', 'lucide-react'],
-          'auth': ['./src/pages/auth/SignIn', './src/pages/auth/ForgotPassword', './src/pages/auth/ResetPassword', './src/pages/auth/RegisterInvitation'],
           'orders-payments': ['./src/pages/Orders', './src/pages/Payments'],
           'clients': ['./src/pages/Clients', './src/pages/ClientForm', './src/pages/ClientLifecycle'],
           'products': ['./src/pages/Products', './src/pages/ProductConfig', './src/pages/ProductDoseMappings', './src/pages/Supplies', './src/pages/ArchiveProducts'],
