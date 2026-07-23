@@ -60,10 +60,10 @@ const PAYMENT_STATUS_FILTER_LABELS = ["All", "Paid", "Pending", "Failed"] as con
 
 const orderColumns = [
   { key: "order_id", label: "Order #", minWidth: "120px", className: "font-medium" },
-  { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
-  { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell max-w-[220px]" },
-  { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[140px]" },
-  { key: "pharmacy_display", label: "Pharmacy", minWidth: "150px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[180px]" },
+  { key: "patient_name", label: "Patient", minWidth: "160px" },
+  { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+  { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
+  { key: "pharmacy_display", label: "Pharmacy", minWidth: "150px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
   { key: "orderDate", label: "Order Date", minWidth: "120px" },
   { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
   { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
@@ -72,7 +72,7 @@ const orderColumns = [
   { key: "visitStatus", label: "Visit Status", minWidth: "120px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
   { key: "orderStatus", label: "Order Status", minWidth: "150px" },
   { key: "orderTotal", label: "Order Total", minWidth: "110px" },
-  { key: "tracking_number", label: "Tracking #", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[160px]" },
+  { key: "tracking_number", label: "Tracking #", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
   { key: "actions", label: "Actions", minWidth: "110px", render: (_: any, row: any) => null }
 ]
 
