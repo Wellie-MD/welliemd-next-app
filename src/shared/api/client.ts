@@ -212,12 +212,13 @@ const createApiClient = (): AxiosInstance => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
       const superAdminSession = getPersistedSuperAdminSession();
 
-      if ((error.response?.status === 401 || error.response?.status === 403) && superAdminSession) {
-        const isAuthMeEndpoint = originalRequest?.url?.includes('/auth/me/');
-        if (!isAuthMeEndpoint) {
-          return Promise.reject(transformAxiosError(error));
-        }
-
+      // Backend now reliably returns 401 only for genuine session invalidity (expired/
+      // revoked/missing) and 403 for business-rule denials (e.g. read-only mode blocking
+      // a write) — so only 401 here means "log out"; a 403 is shown as a normal error
+      // by whatever code catches the rejected promise, not treated as session expiry.
+      if (error.response?.status === 401 && superAdminSession) {
+        // Previously only redirected for /auth/me/, so an expired impersonated session
+        // just silently failed every other request (still looked logged in, no data).
         clearPersistedAuthStore();
         const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
         const normalizedPath = pathname.replace(/\/+$/, '');
