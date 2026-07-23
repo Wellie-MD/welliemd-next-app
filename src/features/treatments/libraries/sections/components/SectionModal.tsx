@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSaveSection } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useSaveSection, useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
 import type { CommonSection, TreatmentLibraryScope } from "@/features/treatments/types";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
@@ -28,6 +28,7 @@ interface SectionModalProps {
 
 export function SectionModal({ open, onOpenChange, section }: SectionModalProps) {
   const { mutate: saveSection, isPending } = useSaveSection();
+  const { data: treatmentTypes = [] } = useTreatmentTypes();
 
   const [name, setName] = useState("");
   const [scope, setScope] = useState<TreatmentLibraryScope | "">("");
@@ -46,9 +47,13 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
   // attached to this section (in case it references one outside the list).
   const visitTypeOptions = useMemo(() => {
     const keys = new Set(baseVisitTypes);
+    treatmentTypes.forEach((type) => {
+      if (type.intakeVisitType) keys.add(type.intakeVisitType);
+      if (type.followupVisitType) keys.add(type.followupVisitType);
+    });
     (section?.visitTypeKeys ?? []).forEach((key) => keys.add(key));
-    return Array.from(keys);
-  }, [section]);
+    return Array.from(keys).sort((a, b) => a.localeCompare(b));
+  }, [section, treatmentTypes]);
 
   const isTreatment = scope === "treatment";
   const isShared = scope === "shared";

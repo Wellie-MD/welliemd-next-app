@@ -1,6 +1,6 @@
 import type { Edge } from "reactflow";
 
-export type LayoutType = "start" | "auth" | "question" | "consent" | "checkout" | "product" | "end";
+export type LayoutType = "start" | "auth" | "question" | "section" | "consent" | "checkout" | "product" | "end";
 
 export type FlowEdgeKind = "sequential" | "conditional" | "return" | "product";
 

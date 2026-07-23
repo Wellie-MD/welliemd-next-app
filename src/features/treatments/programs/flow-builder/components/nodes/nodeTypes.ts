@@ -1,6 +1,7 @@
 import StartNode from "./StartNode";
 import AuthNode from "./AuthNode";
 import QuestionNode from "./QuestionNode";
+import SectionNode from "./SectionNode";
 import ConsentNode from "./ConsentNode";
 import CheckoutNode from "./CheckoutNode";
 import ProductNode from "./ProductNode";
@@ -10,6 +11,7 @@ export const nodeTypes = {
   start: StartNode,
   auth: AuthNode,
   question: QuestionNode,
+  section: SectionNode,
   consent: ConsentNode,
   checkout: CheckoutNode,
   product: ProductNode,

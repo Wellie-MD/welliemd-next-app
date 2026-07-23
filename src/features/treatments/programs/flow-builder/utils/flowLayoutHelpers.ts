@@ -12,6 +12,7 @@ export const NODE_WIDTHS: Record<LayoutType, number> = {
   start: 140,
   auth: 140,
   question: 300,
+  section: 140,
   consent: 300,
   checkout: 140,
   product: 200,
@@ -22,6 +23,7 @@ export const BASE_HEIGHTS: Record<LayoutType, number> = {
   start: 58,
   auth: 66,
   question: 116,
+  section: 66,
   consent: 156,
   checkout: 66,
   product: 74,
@@ -145,6 +147,7 @@ export const centerToPosition = (centerX: number, y: number, type: LayoutType) =
 });
 
 export function nodeHeight(question: ProgramQuestion): number {
+  if (question.kind === "section") return BASE_HEIGHTS.section;
   if (question.kind === "consent") return BASE_HEIGHTS.consent;
 
   const choiceCount = question.choices?.length ?? 0;

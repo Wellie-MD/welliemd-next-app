@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Lock, Flag, ChevronUp, MoreHorizontal, Grid2X2 } from "lucide-react";
+import { Search, Lock, Flag, ChevronUp, MoreHorizontal, Grid2X2, Layers3 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { ProgramQuestion } from "../../../types";
 
@@ -9,6 +9,7 @@ type FlowElement = {
   typeBadge: string;
   isSystem: boolean;
   index?: number;
+  kind?: string;
 };
 
 interface ProgramFlowSidebarProps {
@@ -27,6 +28,10 @@ export function ProgramFlowSidebar({
   const flowElements = useMemo<FlowElement[]>(() => {
     const sortedQuestions = [...questions].sort(
       (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER)
+    ).filter((question) =>
+      question.kind !== "personal_details" &&
+      question.kind !== "checkout" &&
+      question.elementConfig?.system !== true
     );
 
     return [
@@ -45,9 +50,10 @@ export function ProgramFlowSidebar({
       ...sortedQuestions.map((question, index) => ({
         id: question.id,
         label: question.text || "(untitled question)",
-        typeBadge: "QUESTION",
+        typeBadge: question.kind === "section" ? "SECTION" : "QUESTION",
         isSystem: false,
         index: index + 1,
+        kind: question.kind,
       })),
       {
         id: "consent",
@@ -154,6 +160,8 @@ export function ProgramFlowSidebar({
                       ) : (
                         <Lock className="h-2.5 w-2.5" />
                       )
+                    ) : element.kind === "section" ? (
+                      <Layers3 className="h-2.5 w-2.5 text-violet-500" />
                     ) : (
                       String(element.index)
                     )}

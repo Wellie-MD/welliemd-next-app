@@ -120,6 +120,15 @@ test("synchronizes relation mirrors and drops matching rules for detached Progra
   assert.deepEqual(Object.keys(synced.programMatchingRules), ["program-1"]);
 });
 
+test("keeps a parent section when only reusable fields are selected", () => {
+  const synced = synchronizeCustomProgramStructure(customProgram([]), [
+    { ...item("field-row", "section_field", "section-1"), mappedField: "field-1" },
+  ]);
+
+  assert.deepEqual(synced.sectionIds, ["section-1"]);
+  assert.equal(synced.flowItems.find((candidate) => candidate.id === "field-row")?.kind, "section_field");
+});
+
 test("reorders within a stage and rejects cross-stage movement", () => {
   const flow = canonicalizeCustomProgramFlowItems([
     item("q-1", "routing_question"),

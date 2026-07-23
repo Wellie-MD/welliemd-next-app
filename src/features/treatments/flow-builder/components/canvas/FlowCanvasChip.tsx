@@ -37,10 +37,10 @@ function getChipPresentation(item: FlowCanvasItem) {
       icon: <Lock className="h-3 w-3 text-slate-400" />,
     };
   }
-  if (item.kind === "section") {
+  if (item.kind === "section" || item.kind === "section_field") {
     return {
       className: "bg-sky-50 border-sky-200 text-sky-900",
-      typeLabel: "Section",
+      typeLabel: item.kind === "section_field" ? "Section field" : "Section",
       icon: <LayoutGrid className="h-3 w-3 text-sky-400" />,
     };
   }

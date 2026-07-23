@@ -24,7 +24,9 @@ interface BuildFlowGraphArgs {
 
 export function buildFlowGraph({ flowItems, getConsentScope, getConsentVisitTypeKeys }: BuildFlowGraphArgs) {
   const routingItems = flowItems.filter((item) => item.kind === "routing_question");
-  const sectionItems = flowItems.filter((item) => item.kind === "section");
+  const sectionItems = flowItems.filter(
+    (item) => item.kind === "section" || item.kind === "section_field",
+  );
   const programItems = flowItems.filter((item) => item.kind === "program");
   const consentItems = flowItems.filter((item) => item.kind === "consent");
   const universalConsents = consentItems.filter((item) => getConsentScope(item.title) !== "treatment");

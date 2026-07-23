@@ -122,6 +122,8 @@ export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): Pr
   includeInQa: record.includeInQa ?? record.include_in_qa_section ?? true,
   hiddenFromPatient: record.hiddenFromPatient ?? false,
   prefillFromPrevious: record.prefillFromPrevious ?? false,
+  elementConfig: record.elementConfig ?? record.element_config ??
+    record.validation_rules?.element_config ?? record.validation?.element_config,
 });
 
 export const questionToRecord = (question: ProgramQuestion): ProgramQuestionRecord => ({
@@ -134,6 +136,7 @@ export const questionToRecord = (question: ProgramQuestion): ProgramQuestionReco
   visibilityRules: question.visibilityRuleGroup,
   visibility_rules: question.visibilityRuleGroup,
   include_in_qa_section: question.includeInQa,
+  element_config: question.elementConfig,
 });
 
 export const treatmentTypeFromRecord = (record: TreatmentTypeRecord): TreatmentType => ({

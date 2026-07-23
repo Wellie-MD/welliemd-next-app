@@ -21,7 +21,7 @@ interface AddToFlowDrawerProps {
   sections: CommonSection[];
   consents: ConsentForm[];
   onAddItem: (item: CustomProgramBuilderAddItem) => void;
-  flowItems?: Array<{ kind: string; title: string }>;
+  flowItems?: Array<{ kind: string; title: string; sourceId?: string; mappedField?: string }>;
 }
 
 type TabKey = "fields" | "question" | "eligibility" | "consent" | "checkout";
