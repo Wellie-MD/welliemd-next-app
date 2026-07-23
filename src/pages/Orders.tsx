@@ -56,7 +56,7 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   Canceled: "canceled",
 }
 
-const PAYMENT_STATUS_FILTER_LABELS = ["All", "Paid", "Pending", "Failed"] as const
+const PAYMENT_STATUS_FILTER_LABELS = ["All", "Paid", "Pending", "Failed", "Refunded"] as const
 
 const orderColumns = [
   { key: "order_id", label: "Order #", minWidth: "120px", className: "font-medium" },
