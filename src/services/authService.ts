@@ -63,7 +63,7 @@ export const authService = {
     const { data } = await api.post<LoginResponse>('/auth/login/', {
       ...credentials,
       email: normalizeEmail(credentials.email),
-      // portal: 'client'
+      portal: 'admin',
     });
     const { access: accessToken } = data;
 

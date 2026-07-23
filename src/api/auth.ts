@@ -18,6 +18,7 @@ export const login = async (email: string, password: string): Promise<LoginRespo
   const { data } = await api.post<LoginResponse>("/auth/login/", {
     email: normalizeEmail(email),
     password,
+    portal: "admin",
   });
   return data;
 };
