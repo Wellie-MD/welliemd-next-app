@@ -93,7 +93,7 @@ type WearableDeviceData = {
 
 type MetricItem = { l: string; v: string | number; u?: string };
 
-function buildWearableMetrics(data: WearableDeviceData | null) {
+function buildWearableMetrics(data: WearableDeviceData | null, timeRange: number) {
   const sleep: MetricItem[] = [];
   const activity: MetricItem[] = [];
   const heart: MetricItem[] = [];
@@ -114,7 +114,7 @@ function buildWearableMetrics(data: WearableDeviceData | null) {
   }
 
   if (data.steps && data.steps !== "--" && data.steps !== "0") activity.push({ l: "Steps", v: data.steps, u: "/day" });
-  if (data.activeDays && data.activeDays !== "--" && data.activeDays !== "0") activity.push({ l: "Active days", v: data.activeDays, u: "of 7" });
+  if (data.activeDays && data.activeDays !== "--" && data.activeDays !== "0") activity.push({ l: "Active days", v: data.activeDays, u: `of ${timeRange}` });
   if (data.restingHr && data.restingHr !== "--" && data.restingHr !== "0") {
     activity.push({ l: "Resting HR", v: data.restingHr, u: "bpm" });
     heart.push({ l: "Resting HR", v: data.restingHr, u: "bpm" });
@@ -866,7 +866,7 @@ export default function PatientDetailPage() {
                             heart: heartMetrics,
                             workouts: workoutsMetrics,
                             glucose: glucoseMetrics,
-                          } = buildWearableMetrics(wearableData);
+                          } = buildWearableMetrics(wearableData, timeRange);
                           const healthTabs: { id: "sleep" | "activity" | "heart" | "workouts" | "glucose"; label: string; metrics: MetricItem[] }[] = [
                             { id: "sleep", label: "Sleep", metrics: sleepMetrics },
                             { id: "activity", label: "Activity", metrics: activityMetrics },
