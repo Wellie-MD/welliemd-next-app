@@ -44,6 +44,7 @@ const ProgramsPage = lazy(() => import("@/features/treatments/programs/pages/Pro
 const ProgramDetailPage = lazy(() => import("@/features/treatments/programs/pages/ProgramDetailPage"));
 const CustomProgramsPage = lazy(() => import("@/features/treatments/custom-programs/pages/CustomProgramsPage"));
 const CustomProgramBuilderPage = lazy(() => import("@/features/treatments/custom-programs/pages/CustomProgramBuilderPage"));
+const EmailAnalytics = lazy(() => import("@/pages/EmailAnalytics"));
 
 function PageLoadingFallback() {
   return <div className="flex min-h-[calc(100vh-58px)] items-center justify-center bg-background" role="status" aria-label="Loading page">
@@ -213,6 +214,7 @@ export default function DashboardFrame() {
                 }
               />
               <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+              <Route path="/analytics/email" element={<ProtectedRoute><EmailAnalytics /></ProtectedRoute>} />
               <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
               <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
               <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
