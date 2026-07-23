@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import billingService, { Invoice, InvoiceListResponse, InvoicePrescriptionItem } from "@/services/billingService";
+import billingService, { Invoice, InvoiceListResponse, InvoicePrescriptionEvent, InvoicePrescriptionItem } from "@/services/billingService";
 import { Link } from "react-router-dom";
 import { Loader2, Search, Eye, GitBranch } from "lucide-react";
 import { toast } from "sonner";
@@ -365,20 +365,6 @@ const renderProductCostTable = (
   );
 };
 
-const prescriptionSummaryText = (
-  name?: string,
-  total?: string | number,
-  shipping?: string | number
-) => {
-  const cleanName = (name || "").trim();
-  if (!cleanName) return null;
-  const shippingAmount = Number(shipping || 0);
-  const shippingText = Number.isFinite(shippingAmount) && shippingAmount > 0
-    ? ` + Shipping at ${formatMoney(shippingAmount)}`
-    : "";
-  return `${cleanName} at ${formatMoney(total)}${shippingText}.`;
-};
-
 function RevisionInvoiceModal({
   invoice,
   onClose,
@@ -444,11 +430,50 @@ function RevisionInvoiceModal({
   const showImplicitBaseRevision = Boolean(
     requested?.prescribed_differs && adjustments.length === 0 && !splitCaptureAdjustmentMirrorsBase
   );
+  type RevisionAdjustment = NonNullable<Invoice["revision_adjustments"]>[number];
+  const normalizeProductName = (value?: string) => (value || "").trim().toLowerCase();
   const adjustmentForRevision = (revisionNumber: number) =>
     adjustments.find((adjustment) => Number(adjustment.revision_number ?? -1) === revisionNumber);
-  const prescriptionEventAdjustmentIds = new Set(
+  const adjustmentForPrescriptionEvent = (
+    event: InvoicePrescriptionEvent,
+    index: number,
+    usedAdjustmentIds: Set<string>
+  ): RevisionAdjustment | undefined => {
+    const eventName = normalizeProductName(event.name);
+    const eventRevisionNumber = Number(event.revision_number);
+    const expectedRevisionNumber = index === 0
+      ? 0
+      : Number.isFinite(eventRevisionNumber) && eventRevisionNumber > 0
+        ? eventRevisionNumber
+        : index;
+    const isUnused = (adjustment: RevisionAdjustment) => !usedAdjustmentIds.has(adjustment.id);
+    const isSameProduct = (adjustment: RevisionAdjustment) =>
+      Boolean(eventName && normalizeProductName(adjustment.product_name) === eventName);
+
+    if (index > 0) {
+      const byRevision = adjustments.find(
+        (adjustment) =>
+          isUnused(adjustment) &&
+          Number(adjustment.revision_number ?? -1) === expectedRevisionNumber &&
+          (!eventName || isSameProduct(adjustment))
+      );
+      if (byRevision) return byRevision;
+    }
+
+    return adjustments.find((adjustment) => isUnused(adjustment) && isSameProduct(adjustment));
+  };
+  const prescriptionEventAdjustmentMap = new Map<number, RevisionAdjustment>();
+  const prescriptionEventAdjustmentIds = new Set<string>();
+  prescriptionEvents.forEach((event, index) => {
+    const adjustment = adjustmentForPrescriptionEvent(event, index, prescriptionEventAdjustmentIds);
+    if (adjustment) {
+      prescriptionEventAdjustmentMap.set(index, adjustment);
+      prescriptionEventAdjustmentIds.add(adjustment.id);
+    }
+  });
+  const prescriptionEventNames = new Set(
     prescriptionEvents
-      .map((event, index) => index === 0 ? null : adjustmentForRevision(index)?.id)
+      .map((event) => normalizeProductName(event.name))
       .filter(Boolean)
   );
   const prescriptionRevisionNumbers = new Set(
@@ -462,6 +487,7 @@ function RevisionInvoiceModal({
   const fallbackAdjustments = prescriptionEvents.length > 0
     ? adjustments.filter((adjustment) => {
         if (prescriptionEventAdjustmentIds.has(adjustment.id)) return false;
+        if (prescriptionEventNames.has(normalizeProductName(adjustment.product_name))) return false;
         if (adjustment.kind !== "no_charge_revision") return true;
         const revisionNumber = Number(adjustment.revision_number);
         return Number.isFinite(revisionNumber) && prescriptionRevisionNumbers.has(revisionNumber);
@@ -593,17 +619,13 @@ function RevisionInvoiceModal({
             </section>
             {prescriptionEvents.map((event, index) => {
               const revisionNumber = index;
-              const adjustment = index === 0 ? undefined : adjustmentForRevision(revisionNumber);
+              const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
               const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
-              const summaryText = index === 0
-                ? prescriptionSummaryText(event.name, event.patient_total || event.product_total, event.shipping_amount)
-                : null;
               return (
                 <section key={event.webhook_event_id || `${sectionLabel}-${index}`} className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     {sectionLabel} · {event.name || "Prescribed product"}
                   </h4>
-                  {summaryText && <p className="mt-2 text-xs text-slate-400">{summaryText}</p>}
                   <div className="mt-2">
                     {renderProductCostTable(event.items, {
                       medication: event.medication_amount,
@@ -621,11 +643,6 @@ function RevisionInvoiceModal({
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Initial prescription · {requested?.product_name || "Prescribed product"}
                 </h4>
-                {prescriptionSummaryText(requested?.product_name, requested?.product_total, requested?.shipping_amount) && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    {prescriptionSummaryText(requested?.product_name, requested?.product_total, requested?.shipping_amount)}
-                  </p>
-                )}
                 <div className="mt-2">
                   {renderCostTable(
                     requested?.medication_amount,
@@ -650,15 +667,11 @@ function RevisionInvoiceModal({
                 : firstFallbackIsInitialPrescription ? index : index + 1;
               const sectionLabel = isInitialFallback ? "Initial prescription" : `Revision ${displayRevisionNumber}`;
               const productName = adjustment.product_name || "Revised prescription";
-              const summaryText = isInitialFallback
-                ? prescriptionSummaryText(productName, adjustment.product_total, adjustment.shipping_amount)
-                : null;
               return (
                 <section key={adjustment.id} className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     {sectionLabel} · {productName}
                   </h4>
-                  {summaryText && <p className="mt-2 text-xs text-slate-400">{summaryText}</p>}
                   <div className="mt-2">
                     {renderCostTable(
                       adjustment.medication_amount,
