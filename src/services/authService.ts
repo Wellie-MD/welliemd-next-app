@@ -1,6 +1,6 @@
 import axios from 'axios';
 import api from '../api/axiosInstance';
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore, type AuthUser } from '../store/useAuthStore';
 
 interface LoginCredentials {
   email: string;
@@ -13,68 +13,119 @@ interface RegisterCredentials {
   password: string;
 }
 
-interface User {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  phone?: string | null;
-  avatar_url?: string | null;
-  permissions?: string[];
-  is_platform_owner?: boolean;
-  can_access_cross_tenant_access_users?: boolean;
-  can_deactivate_cross_tenant_access_users?: boolean;
-}
-
 interface LoginResponse {
   access: string;
-  user: User;
+  refresh: string;
+  user: AuthUser;
 }
 
 interface RegisterResponse {
   access: string;
-  user: User;
+  refresh: string;
+  user: AuthUser;
 }
 
 interface RefreshResponse {
   access: string;
+  refresh: string;
+  user_id: string;
 }
 
-let refreshPromise: Promise<string | null> | null = null;
+interface ApiErrorPayload {
+  email?: string[];
+  current_password?: string[];
+  new_password?: string[];
+  non_field_errors?: string[];
+  detail?: string;
+  message?: string;
+}
+
+interface RefreshedSession {
+  accessToken: string;
+  refreshToken: string;
+  userId: string;
+}
+
+class AuthIdentityMismatchError extends Error {
+  constructor(context: string) {
+    super(`Authenticated identity mismatch during ${context}`);
+    this.name = 'AuthIdentityMismatchError';
+  }
+}
+
+let refreshPromise: Promise<RefreshedSession> | null = null;
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
-const AUTH_SYNC_EVENT_KEY = "admin-auth-sync-event";
+const getApiErrorData = (error: unknown): ApiErrorPayload | undefined =>
+  axios.isAxiosError<ApiErrorPayload>(error) ? error.response?.data : undefined;
 
-const broadcastAuthSync = (type: "login" | "logout") => {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(
-      AUTH_SYNC_EVENT_KEY,
-      JSON.stringify({ type, ts: Date.now() })
-    );
-  } catch (error) {
-    console.warn("Failed to broadcast auth sync event:", error);
+const describeError = (error: unknown): unknown =>
+  getApiErrorData(error) || (error instanceof Error ? error.message : error);
+
+const assertSameIdentity = (
+  expectedUserId: string | undefined,
+  actualUserId: string,
+  context: string,
+) => {
+  if (expectedUserId && expectedUserId !== actualUserId) {
+    throw new AuthIdentityMismatchError(context);
   }
 };
 
+const fetchProfileWithToken = async (accessToken: string): Promise<AuthUser> => {
+  const directAxios = axios.create({
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+    withCredentials: true,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+  const { data } = await directAxios.get<AuthUser>('/auth/me/');
+  return data;
+};
+
+const performRefresh = async (refreshToken: string): Promise<RefreshedSession> => {
+  const refreshAxios = axios.create({
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+    withCredentials: true,
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const { data } = await refreshAxios.post<RefreshResponse>('/auth/token/refresh/', {
+    refresh: refreshToken,
+  });
+  if (!data.access || !data.refresh || !data.user_id) {
+    throw new Error('Refresh response did not include an access token and user identity');
+  }
+  return { accessToken: data.access, refreshToken: data.refresh, userId: data.user_id };
+};
+
+const getRefreshedSession = async (refreshToken: string): Promise<RefreshedSession> => {
+  if (!refreshPromise) {
+    refreshPromise = performRefresh(refreshToken).finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+};
+
 export const authService = {
-  login: async (credentials: LoginCredentials): Promise<User> => {
+  login: async (credentials: LoginCredentials): Promise<AuthUser> => {
     const { data } = await api.post<LoginResponse>('/auth/login/', {
       ...credentials,
       email: normalizeEmail(credentials.email),
       portal: 'admin',
     });
-    const { access: accessToken } = data;
+    const { access: accessToken, refresh: refreshToken } = data;
 
     // Put token in store first so /auth/me/ request includes Authorization.
     // Always load profile from /auth/me/ so the UI matches the JWT identity
     // (full UserSerializer: full_name, avatar_url, etc.) — not the login payload alone.
     useAuthStore.getState().setAccessToken(accessToken);
     try {
-      const { data: profile } = await api.get<User>('/auth/me/');
-      useAuthStore.getState().login(accessToken, profile);
-      broadcastAuthSync("login");
+      const { data: profile } = await api.get<AuthUser>('/auth/me/');
+      assertSameIdentity(data.user.id, profile.id, 'login');
+      useAuthStore.getState().login(accessToken, refreshToken, profile);
       return profile;
     } catch (e) {
       useAuthStore.getState().logout();
@@ -82,7 +133,7 @@ export const authService = {
     }
   },
 
-  register: async (credentials: RegisterCredentials): Promise<User> => {
+  register: async (credentials: RegisterCredentials): Promise<AuthUser> => {
     if (!credentials.name?.trim()) {
       throw new Error('Name is required');
     }
@@ -105,19 +156,20 @@ export const authService = {
 
       useAuthStore.getState().setAccessToken(data.access);
       try {
-        const { data: profile } = await api.get<User>('/auth/me/');
-        useAuthStore.getState().login(data.access, profile);
-        broadcastAuthSync("login");
+        const { data: profile } = await api.get<AuthUser>('/auth/me/');
+        assertSameIdentity(data.user.id, profile.id, 'registration');
+        useAuthStore.getState().login(data.access, data.refresh, profile);
         return profile;
       } catch (e) {
         useAuthStore.getState().logout();
         throw e;
       }
-    } catch (error: any) {
-      console.error('Registration error:', error.response?.data);
+    } catch (error: unknown) {
+      const errorData = getApiErrorData(error);
+      console.error('Registration error:', errorData);
 
-      if (error.response?.data) {
-        const data = error.response.data;
+      if (errorData) {
+        const data = errorData;
         if (data.email && Array.isArray(data.email) && data.email.length > 0) {
           throw new Error(data.email[0]);
         } else if (data.detail) {
@@ -132,75 +184,38 @@ export const authService = {
 
   logout: async (): Promise<void> => {
     try {
-      await api.post('/auth/logout/');
+      const refreshToken = useAuthStore.getState().refreshToken;
+      await api.post('/auth/logout/', refreshToken ? { refresh: refreshToken } : {});
     } catch (error) {
       console.error('Logout failed, clearing client-side state anyway.', error);
     } finally {
       useAuthStore.getState().logout();
-      broadcastAuthSync("logout");
     }
   },
 
-  refreshAccessToken: async (): Promise<string | null> => {
-    // Prevent multiple simultaneous refresh requests
-    if (refreshPromise) {
-      return refreshPromise;
-    }
-
-    refreshPromise = (async () => {
-      try {
-        // Create a new axios instance without interceptors to avoid infinite loops
-        const refreshAxios = axios.create({
-          baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
-          withCredentials: true,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const { data } = await refreshAxios.post<RefreshResponse>('/auth/token/refresh/');
-        const newAccessToken = data.access;
-
-        if (!newAccessToken) {
-          throw new Error('No access token received in refresh response');
-        }
-
-        // Update the auth store with the new token
-        const authStore = useAuthStore.getState();
-        authStore.setAccessToken(newAccessToken);
-
-        // Update user data to ensure consistency
-        if (authStore.user) {
-          try {
-            const userData = await authService.getMe();
-            if (userData) {
-              authStore.setUser(userData);
-            }
-          } catch (error) {
-            console.warn('Failed to refresh user data after token refresh:', error);
-          }
-        }
-
-        return newAccessToken;
-      } catch (error: any) {
-        console.error('Token refresh failed:', error.response?.data || error.message);
-        useAuthStore.getState().logout();
-        throw error;
-      } finally {
-        refreshPromise = null;
-      }
-    })();
-
-    return refreshPromise;
-  },
-
-  getMe: async (throwOnError = false): Promise<User | null> => {
+  refreshAccessToken: async (expectedUserId?: string): Promise<string | null> => {
     try {
-      const { data } = await api.get<User>('/auth/me/');
+      const refreshToken = useAuthStore.getState().refreshToken;
+      if (!refreshToken) throw new Error('No tab refresh token available');
+      const refreshed = await getRefreshedSession(refreshToken);
+      assertSameIdentity(expectedUserId, refreshed.userId, 'token refresh');
+      useAuthStore.getState().setAccessToken(refreshed.accessToken);
+      useAuthStore.getState().setRefreshToken(refreshed.refreshToken);
+      return refreshed.accessToken;
+    } catch (error: unknown) {
+      console.error('Token refresh failed:', describeError(error));
+      useAuthStore.getState().logout();
+      throw error;
+    }
+  },
+
+  getMe: async (throwOnError = false): Promise<AuthUser | null> => {
+    try {
+      const { data } = await api.get<AuthUser>('/auth/me/');
       useAuthStore.getState().setUser(data);
       return data;
-    } catch (error: any) {
-      if (error.response?.status === 401) {
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
         useAuthStore.getState().logout();
 
         if (throwOnError) {
@@ -212,7 +227,7 @@ export const authService = {
   },
 
   // Restore authentication state on app initialization
-  hydrateAuth: async (): Promise<void> => {
+  hydrateAuth: async (expectedUserId?: string): Promise<boolean> => {
     const { setHydratingState } = await import('../api/axiosInstance');
     setHydratingState(true);
 
@@ -220,26 +235,29 @@ export const authService = {
     authStore.setLoading(true);
 
     try {
-      // Try to refresh token on page load
-      const newAccessToken = await authService.refreshAccessToken();
-
-      if (newAccessToken) {
-        // Create a direct axios call to avoid interceptor conflicts during hydration
-        const directAxios = axios.create({
-          baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
-          withCredentials: true,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${newAccessToken}`
-          },
-        });
-
-        const { data } = await directAxios.get<User>('/auth/me/');
-        authStore.login(newAccessToken, data);
-        return;
+      const refreshToken = useAuthStore.getState().refreshToken;
+      if (!refreshToken) throw new Error('No tab refresh token available');
+      const refreshed = await getRefreshedSession(refreshToken);
+      assertSameIdentity(expectedUserId, refreshed.userId, 'session hydration');
+      const profile = await fetchProfileWithToken(refreshed.accessToken);
+      assertSameIdentity(refreshed.userId, profile.id, 'profile hydration');
+      authStore.login(refreshed.accessToken, refreshed.refreshToken, profile);
+      return true;
+    } catch (error: unknown) {
+      console.log(
+        'Session restoration failed:',
+        error instanceof Error ? error.message : 'Unknown authentication error',
+      );
+      if (error instanceof AuthIdentityMismatchError) {
+        try {
+          window.sessionStorage.setItem(
+            'welliemd-admin-auth-message',
+            'Your admin session changed. Please sign in again.',
+          );
+        } catch {
+          // The sign-in redirect still occurs when storage is unavailable.
+        }
       }
-    } catch (error: any) {
-      console.log('Session restoration failed:', error.message);
     } finally {
       setHydratingState(false);
       authStore.setLoading(false);
@@ -247,6 +265,7 @@ export const authService = {
 
     // If refresh failed, ensure clean logout
     authStore.logout();
+    return false;
   },
 
   requestPasswordReset: async (email: string): Promise<void> => {
@@ -272,10 +291,11 @@ export const authService = {
       // On success, logout and redirect to login
       await authService.logout();
       window.location.href = '/auth/signin';
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Extract error message from response
-      if (error.response?.data) {
-        const data = error.response.data;
+      const errorData = getApiErrorData(error);
+      if (errorData) {
+        const data = errorData;
         if (data.current_password && Array.isArray(data.current_password) && data.current_password.length > 0) {
           throw new Error(data.current_password[0]);
         } else if (data.new_password && Array.isArray(data.new_password) && data.new_password.length > 0) {

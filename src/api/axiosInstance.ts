@@ -77,7 +77,7 @@ axiosInstance.interceptors.response.use(
       try {
         console.log('Attempting to refresh access token...');
         const { authService } = await import('../services/authService');
-        const newAccessToken = await authService.refreshAccessToken();
+        const newAccessToken = await authService.refreshAccessToken(authStore.user?.id);
         
         if (newAccessToken) {
           // Update the authorization header for the original request

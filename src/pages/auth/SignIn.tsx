@@ -21,6 +21,15 @@ const SignIn = () => {
   const isLoading = useAuthStore((state) => state.isLoading);
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [sessionMessage] = useState<string | null>(() => {
+    try {
+      const message = window.sessionStorage.getItem('welliemd-admin-auth-message');
+      window.sessionStorage.removeItem('welliemd-admin-auth-message');
+      return message;
+    } catch {
+      return null;
+    }
+  });
   const { showToast, ToastComponent } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,6 +66,11 @@ const SignIn = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {sessionMessage && (
+            <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+              {sessionMessage}
+            </p>
+          )}
           <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
             <Input
