@@ -13,14 +13,26 @@ export const useAdminOrders = (initialParams: OrdersQueryParams = {}) => {
   });
   const [queryParams, setQueryParams] = useState<OrdersQueryParams>(initialParams);
   
-  // Use ref to track if initial load is done
   const initialLoadDone = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadOrders = useCallback(async (params: OrdersQueryParams) => {
+    // Abort any previous in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setLoading(true);
+
     try {
-      setLoading(true);
-      const data = await getAdminOrders(params);
-      
+      const data = await getAdminOrders(params, controller.signal);
+
+      // If this request was superseded by a newer one, discard the result
+      if (controller.signal.aborted) return;
+
       setOrders(data.orders);
       setPagination({
         page: data.page,
@@ -29,11 +41,18 @@ export const useAdminOrders = (initialParams: OrdersQueryParams = {}) => {
         total_pages: data.total_pages,
       });
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
+      // Silently ignore cancellation errors
+      if (err.name === 'CanceledError') return;
+      if (controller.signal.aborted) return;
+
       console.error("Failed to load admin orders:", err);
       setError(err as Error);
     } finally {
-      setLoading(false);
+      // Only update loading state if this request wasn't superseded
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -43,6 +62,11 @@ export const useAdminOrders = (initialParams: OrdersQueryParams = {}) => {
       initialLoadDone.current = true;
     }
     loadOrders(queryParams);
+
+    // Cleanup: abort in-flight request on unmount or queryParams change
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [queryParams, loadOrders]);
 
   const setPage = useCallback((page: number) => {
