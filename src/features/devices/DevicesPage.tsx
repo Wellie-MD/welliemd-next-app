@@ -169,6 +169,11 @@ export default function DevicesPage() {
   }, []);
 
   useEffect(() => {
+    if (timeRange === 90 || timeRange === 365) {
+      toast.info('Fetching your extended historical data. This may take a moment...', {
+        duration: 4000,
+      });
+    }
     fetchDeviceDataList(timeRange, true);
   }, [timeRange, fetchDeviceDataList]);
 
@@ -287,6 +292,9 @@ export default function DevicesPage() {
 
       if (!stillPending) {
         if (formatted !== null && formatted.some(c => pendingProviders.includes(c.provider) && c.status === 'connected')) {
+          toast.success('Device successfully connected. Your health data is being synced...', {
+            duration: 5000,
+          });
           fetchConnectionsList(true);
         }
         clearParams();
