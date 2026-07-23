@@ -35,7 +35,6 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   prescribed:         { label: 'Prescribed',         css: 'km-badge km-badge-blue' },
   billing_pending:    { label: 'Billing Pending',    css: 'km-badge km-badge-amber' },
   rx_sent:            { label: 'Rx Sent',            css: 'km-badge km-badge-green' },
-  in_fulfillment:     { label: 'In Fulfillment',     css: 'km-badge km-badge-blue' },
   in_transit:         { label: 'In Transit',        css: 'km-badge km-badge-blue' },
   out_for_delivery:   { label: 'Out for Delivery',   css: 'km-badge km-badge-amber' },
   delivered:          { label: 'Delivered',          css: 'km-badge km-badge-green' },
