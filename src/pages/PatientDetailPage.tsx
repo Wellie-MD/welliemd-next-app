@@ -910,7 +910,7 @@ export default function PatientDetailPage() {
                               ? { series: wearableData.stepsSeries, unit: "", dec: 0 }
                               : healthTab === "glucose" && wearableData.glucoseSeries && wearableData.glucoseSeries.length > 1
                               ? { series: wearableData.glucoseSeries, unit: "mg/dL", dec: 0 }
-                              : healthTab === "workouts" && wearableData.workoutsSeries && wearableData.workoutsSeries.length > 1
+                              : healthTab === "workouts" && wearableData.workoutsSeries && wearableData.workoutsSeries.length > 1 && wearableData.workoutsSeries.some(s => s.val > 0)
                               ? { series: wearableData.workoutsSeries, unit: "min", dec: 0 }
                               : null;
 
