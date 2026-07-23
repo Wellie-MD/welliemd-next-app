@@ -1,16 +1,8 @@
-/**
- * Devices API service — Junction Wearables integration.
- *
- * SECURITY: The Junction API key is a server secret. The browser only talks
- * to YOUR backend; the backend holds the key and calls Junction.
- */
 import { apiClient } from '@/shared/api/client';
 import { DEVICE_ENDPOINTS } from './constants';
 import type { ConnectionResponse, DeviceDataResponse, HealthGoalResponse, LinkSessionResponse, VitalsEntry } from './types';
 
-/**
- * Fetch the permitted wearable providers for the patient client context.
- */
+
 export async function listWearableProviders(): Promise<{ success: boolean; sources: any[] }> {
   const response = await apiClient.get<{ success: boolean; sources: any[] }>(
     DEVICE_ENDPOINTS.providers
@@ -18,9 +10,6 @@ export async function listWearableProviders(): Promise<{ success: boolean; sourc
   return response.data;
 }
 
-/**
- * Create a Link Token so the patient can authorize a device connection.
- */
 export async function createLinkSession(provider: string, patientId: string): Promise<LinkSessionResponse> {
   const response = await apiClient.post<{ success: boolean; demo?: boolean; session: any }>(
     DEVICE_ENDPOINTS.oauthSession,
@@ -33,9 +22,6 @@ export async function createLinkSession(provider: string, patientId: string): Pr
   };
 }
 
-/**
- * Get the patient's active device connections.
- */
 export async function getConnections(): Promise<ConnectionResponse[]> {
   const response = await apiClient.get<{ success: boolean; connections: any[] }>(
     DEVICE_ENDPOINTS.connections
@@ -44,11 +30,7 @@ export async function getConnections(): Promise<ConnectionResponse[]> {
   return allConns.filter(c => c.status === 'connected' || c.status === 'error' || c.status === 'pending');
 }
 
-/**
- * Ask the backend to check Junction directly for this patient's pending
- * connections instead of waiting on the webhook (which can't reach a local
- * dev backend, and has no periodic fallback in production either).
- */
+
 export async function syncConnections(): Promise<ConnectionResponse[]> {
   const response = await apiClient.post<{ success: boolean; connections: any[] }>(
     DEVICE_ENDPOINTS.syncConnections
@@ -57,18 +39,11 @@ export async function syncConnections(): Promise<ConnectionResponse[]> {
   return allConns.filter(c => c.status === 'connected' || c.status === 'error' || c.status === 'pending');
 }
 
-/**
- * Get aggregated device data (weight, steps, sleep, etc.).
- */
-export async function getDeviceData(): Promise<DeviceDataResponse> {
-  const response = await apiClient.get<DeviceDataResponse>(DEVICE_ENDPOINTS.deviceData);
+export async function getDeviceData(days = 7, skipLiveSync = false): Promise<DeviceDataResponse> {
+  const response = await apiClient.get<DeviceDataResponse>(`${DEVICE_ENDPOINTS.deviceData}?days=${days}&skip_live_sync=${skipLiveSync}`);
   return response.data;
 }
 
-/**
- * Get the patient's persisted weight/height/BMI history — the single source
- * of truth for the dashboard graph (questionnaire baseline + manual + wearable).
- */
 export async function getVitalsHistory(days = 90): Promise<VitalsEntry[]> {
   const response = await apiClient.get<{ results?: VitalsEntry[] } | VitalsEntry[]>(
     `${DEVICE_ENDPOINTS.vitals}?days=${days}`
@@ -77,10 +52,6 @@ export async function getVitalsHistory(days = 90): Promise<VitalsEntry[]> {
   return Array.isArray(data) ? data : data?.results ?? [];
 }
 
-/**
- * Manually log a weight entry from the dashboard. Height/BMI are resolved
- * and computed server-side.
- */
 export async function logWeight(weightLbs: number): Promise<VitalsEntry> {
   const response = await apiClient.post<VitalsEntry>(DEVICE_ENDPOINTS.vitals, {
     weight_lbs: weightLbs,
@@ -88,9 +59,6 @@ export async function logWeight(weightLbs: number): Promise<VitalsEntry> {
   return response.data;
 }
 
-/**
- * Deregister (disconnect) a provider connection.
- */
 export async function deregisterProvider(connectionId: string): Promise<{ ok: boolean }> {
   const response = await apiClient.post<{ success: boolean }>(
     DEVICE_ENDPOINTS.disconnect(connectionId)
@@ -98,9 +66,7 @@ export async function deregisterProvider(connectionId: string): Promise<{ ok: bo
   return { ok: response.data.success };
 }
 
-/**
- * Reconnect a connection.
- */
+
 export async function reconnectProvider(connectionId: string): Promise<{ success: boolean; demo?: boolean; session: any }> {
   const response = await apiClient.post<{ success: boolean; session: any }>(
     DEVICE_ENDPOINTS.reconnect(connectionId)
@@ -108,9 +74,7 @@ export async function reconnectProvider(connectionId: string): Promise<{ success
   return response.data;
 }
 
-/**
- * Get the patient's consent status.
- */
+
 export async function getConsent(): Promise<{ success: boolean; consent: any }> {
   const response = await apiClient.get<{ success: boolean; consent: any }>(
     DEVICE_ENDPOINTS.consent
@@ -118,9 +82,7 @@ export async function getConsent(): Promise<{ success: boolean; consent: any }> 
   return response.data;
 }
 
-/**
- * Update the patient's consent status.
- */
+
 export async function updateConsent(consentGranted: boolean, patientId?: string): Promise<{ success: boolean; consent: any }> {
   const payload: any = { consent_granted: consentGranted };
   if (patientId) {
@@ -133,9 +95,7 @@ export async function updateConsent(consentGranted: boolean, patientId?: string)
   return response.data;
 }
 
-/**
- * Delete patient's health data.
- */
+
 export async function deleteHealthData(confirm: boolean, patientId?: string, reason?: string): Promise<{ success: boolean; result: any }> {
   const payload: any = { confirm, reason };
   if (patientId) {
@@ -160,9 +120,6 @@ export async function saveHealthGoal(targetBmi: number): Promise<HealthGoalRespo
   return response.data;
 }
 
-/**
- * Helper: format a connection response from the server into a local connection object.
- */
 export function formatConnection(c: ConnectionResponse): {
   id: string;
   provider: string;

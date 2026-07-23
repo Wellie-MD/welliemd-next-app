@@ -123,7 +123,7 @@ function DevicesSkeleton() {
 }
 
 export default function DevicesPage() {
-  const { patientProfile } = useProfile();
+  const { patientProfile, updatePatientProfile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* State */
@@ -137,26 +137,12 @@ export default function DevicesPage() {
   const [allowedProviders, setAllowedProviders] = useState<Provider[]>([]);
   const [connectionSyncError, setConnectionSyncError] = useState('');
   const [priorityModalOpen, setPriorityModalOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState(30);
 
-  const fetchConnectionsList = useCallback(async () => {
-    setLoading(true);
+  const fetchDeviceDataList = useCallback(async (days = 30, skipLiveSync = true) => {
     try {
-      const [connectionsResult, vitalsResult, goalResult, dataResult, profileResult] = await Promise.allSettled([
-        getConnections(),
-        getVitalsHistory(),
-        getHealthGoal(),
-        getDeviceData(),
-        profileService.getPatientProfile(),
-      ]);
-
-      if (connectionsResult.status === 'fulfilled') {
-        const formatted = connectionsResult.value.map(formatConnection);
-        setConnections(formatted);
-        setDeviceConnected(formatted.length > 0);
-      }
-
-      if (dataResult.status === 'fulfilled' && dataResult.value) {
-        const data = dataResult.value;
+      const data = await getDeviceData(days, skipLiveSync);
+      if (data) {
         setDeviceMetrics(prev => ({
           ...prev,
           ...(data.steps && { steps: data.steps }),
@@ -175,6 +161,35 @@ export default function DevicesPage() {
           ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
           ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
         }));
+      }
+    } catch (e) {
+      console.error('Failed to fetch device data', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDeviceDataList(timeRange, true);
+  }, [timeRange, fetchDeviceDataList]);
+
+  // Initial live sync on mount (background)
+  useEffect(() => {
+    getDeviceData(7, false).catch(console.error);
+  }, []);
+
+  const fetchConnectionsList = useCallback(async (skipConnections = false) => {
+    setLoading(true);
+    try {
+      const [connectionsResult, vitalsResult, goalResult, profileResult] = await Promise.allSettled([
+        skipConnections ? Promise.resolve(null) : getConnections(),
+        getVitalsHistory(timeRange),
+        getHealthGoal(),
+        profileService.getPatientProfile(),
+      ]);
+
+      if (connectionsResult.status === 'fulfilled' && connectionsResult.value !== null) {
+        const formatted = connectionsResult.value.map(formatConnection);
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
       }
 
       setWeight(prev => {
@@ -195,21 +210,24 @@ export default function DevicesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [timeRange]);
 
-  // Connections/vitals/device-data are all resolved server-side from the
-  // authenticated user (JWT) — no patientProfile.id needed to load them, so
-  // this must not be gated on the separate patientProfile fetch (which can
-  // legitimately fail/404 without blocking the rest of this page).
+  const checkIsPendingConnect = () => {
+    if (searchParams.get('wearable_connect') === 'pending') return true;
+    if (typeof window !== 'undefined') {
+      return window.location.href.includes('wearable_connect=pending');
+    }
+    return false;
+  };
+  
+  const isPendingConnect = checkIsPendingConnect();
+  
+  const initialIsPendingConnectRef = useRef(isPendingConnect);
+
   useEffect(() => {
-    fetchConnectionsList().finally(() => setInitialLoading(false));
+    fetchConnectionsList(initialIsPendingConnectRef.current).finally(() => setInitialLoading(false));
   }, [fetchConnectionsList]);
 
-  // The webhook that normally flips a connection from "pending" to
-  // "connected" can't reach a local dev backend, and even in production
-  // there's no fallback if it's ever dropped — so this asks Junction
-  // directly instead of waiting. Reused by both the bounded auto-poll below
-  // and the manual "Check status" button on a pending connection card.
   const handleRefreshStatus = useCallback(async () => {
     setConnectionSyncError('');
     try {
@@ -217,56 +235,71 @@ export default function DevicesPage() {
       const formatted = conns.map((c) => formatConnection(c));
       setConnections(formatted);
       setDeviceConnected(formatted.length > 0);
+      
+      // Also refresh the device data via live sync
+      fetchDeviceDataList(timeRange, false);
+      
       return formatted;
     } catch {
       setConnectionSyncError('Unable to check the connection right now. Please try again.');
       return null;
     }
-  }, []);
+  }, [fetchDeviceDataList]);
 
-  // Right after the OAuth redirect we land back with `wearable_connect=pending`
-  // — that's the one moment we know it's worth actively polling, since OAuth
-  // completion latency is usually just a few seconds. Bounded so this never
-  // runs forever if the connection genuinely stays pending.
-  const pollingRef = useRef(false);
   useEffect(() => {
-    const wearableConnect = searchParams.get('wearable_connect');
-    const provider = searchParams.get('provider');
-    if (wearableConnect !== 'pending' || pollingRef.current) return;
-    pollingRef.current = true;
-
-    let cancelled = false;
-    const maxAttempts = 10;
-    const intervalMs = 4000;
+    const pendingProviders = connections.filter(c => c.status === 'pending').map(c => c.provider);
+    if (pendingProviders.length === 0) return;
+    
+    let isCancelled = false;
+    let pollTimeout: NodeJS.Timeout;
+    let attempt = 0;
+    const maxAttempts = 30;
+    const flatDelayMs = 1500;
 
     const clearParams = () => {
-      const next = new URLSearchParams(searchParams);
-      next.delete('wearable_connect');
-      next.delete('provider');
-      setSearchParams(next, { replace: true });
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('wearable_connect');
+        next.delete('provider');
+        return next;
+      }, { replace: true });
     };
 
-    (async function poll() {
-      for (let attempt = 0; attempt < maxAttempts && !cancelled; attempt++) {
-        const formatted = await handleRefreshStatus();
-        const stillPending = formatted?.some(
-          (c) => c.provider === provider && c.status === 'pending'
-        );
-        if (!stillPending) break;
-        await new Promise((resolve) => setTimeout(resolve, intervalMs));
-      }
-      if (!cancelled) {
+    const runPoll = async () => {
+      if (isCancelled) return;
+      if (attempt >= maxAttempts) {
         clearParams();
-        pollingRef.current = false;
+        setConnectionSyncError(''); 
+        return;
       }
-    })();
+
+      const formatted = await handleRefreshStatus();
+      if (isCancelled) return;
+
+      const stillPending = formatted !== null && formatted.some(c => pendingProviders.includes(c.provider) && c.status === 'pending');
+
+      if (!stillPending) {
+        if (formatted !== null && formatted.some(c => pendingProviders.includes(c.provider) && c.status === 'connected')) {
+          fetchConnectionsList(true);
+        }
+        clearParams();
+        setConnectionSyncError('');
+        return;
+      }
+
+      setConnectionSyncError(`Checking connection status... (Attempt ${attempt + 1}/${maxAttempts})`);
+
+      attempt++;
+      pollTimeout = setTimeout(runPoll, flatDelayMs);
+    };
+
+    runPoll();
 
     return () => {
-      cancelled = true;
-      pollingRef.current = false;
+      isCancelled = true;
+      if (pollTimeout) clearTimeout(pollTimeout);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, handleRefreshStatus]);
+  }, [connections, handleRefreshStatus, fetchConnectionsList, setSearchParams]);
 
   useEffect(() => {
     async function loadConsent() {
@@ -297,17 +330,12 @@ export default function DevicesPage() {
         const response = await listWearableProviders();
         if (response.success && response.sources) {
           const mappedProviders: Provider[] = response.sources.map((s: any) => {
-            // Backend tells us which slugs support a direct web OAuth redirect;
-            // everything else (Apple Health, Beurer, etc.) is still a real,
-            // connectable provider — it just requires the mobile app.
-            const notWebConnectable = s.oauth_supported === false;
             const logoUrl: string | undefined = s.logo_url || undefined;
 
             const existing = PROVIDERS.find(p => p.id === s.slug);
             if (existing) {
               return {
                 ...existing,
-                mobile: existing.mobile || notWebConnectable,
                 ...(logoUrl ? { logoUrl } : {}),
               };
             }
@@ -331,7 +359,6 @@ export default function DevicesPage() {
               kind,
               gives,
               ic,
-              mobile: notWebConnectable,
               ...(logoUrl ? { logoUrl } : {}),
             };
           });
@@ -509,7 +536,7 @@ export default function DevicesPage() {
   const handleSavePriority = useCallback(async (priorityList: string[]) => {
     if (!patientProfile?.id) return;
     try {
-      await profileService.updatePatientProfile({
+      await updatePatientProfile({
         phone: patientProfile.phone || '',
         date_of_birth: patientProfile.date_of_birth || '',
         address: patientProfile.address || '',
@@ -528,7 +555,7 @@ export default function DevicesPage() {
     } catch (error) {
       console.error("Failed to save priority", error);
     }
-  }, [patientProfile]);
+  }, [patientProfile, updatePatientProfile]);
 
   /* ─── Consent (from non-review / "Before you connect") ─── */
   const handleAgreeConsent = useCallback(() => {
@@ -627,7 +654,13 @@ export default function DevicesPage() {
             onConnect={handleConnect}
           />
         )}
-        <TelemetryDashboard deviceMetrics={deviceMetrics} weight={weight} onOpenGoalModal={handleOpenGoal} />
+        <TelemetryDashboard 
+          deviceMetrics={deviceMetrics} 
+          weight={weight} 
+          onOpenGoalModal={handleOpenGoal}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange} 
+        />
         {deviceConnected && <DataPrivacyCard consent={consent} onOpenConsent={() => { setConsentReviewOnly(true); setConsentOpen(true); }} onOpenDeleteData={() => setDeleteDataOpen(true)} />}
       </>}
       <DeviceModals

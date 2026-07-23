@@ -16,7 +16,7 @@ import { getActiveTreatmentVisits } from "@/features/visits/utils/activeTreatmen
 import { getOrders } from "@/shared/api/ordersApi";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { getPatientFollowUps } from "@/features/followups/api";
-import { getConnections, getDeviceData, formatConnection, getVitalsHistory, logWeight } from "@/features/devices/api";
+import { getConnections, getDeviceData, formatConnection, getVitalsHistory, logWeight, getHealthGoal } from "@/features/devices/api";
 import { WeightTrendCard, ReadinessCard } from "@/features/devices/components/TelemetryDashboard";
 import LogWeightModal from "@/features/devices/components/LogWeightModal";
 import { WEIGHT_DEFAULT, DEVICE_METRICS_DEFAULT } from "@/features/devices/constants";
@@ -176,10 +176,11 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchWearables = async () => {
       try {
-        const [connections, vitalsHistory, patientProfile] = await Promise.all([
+        const [connections, vitalsHistory, patientProfile, healthGoal] = await Promise.all([
           getConnections(),
           getVitalsHistory(),
           profileService.getPatientProfile(),
+          getHealthGoal().catch(() => null),
         ]);
         
         const priorityList = patientProfile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
@@ -200,7 +201,13 @@ export default function Dashboard() {
           }
         }
 
-        setWeight((prev) => buildWeightData(vitalsHistory, prev, priorityList));
+        setWeight((prev) => {
+          const next = buildWeightData(vitalsHistory, prev, priorityList);
+          return {
+            ...next,
+            targetBmi: healthGoal?.goal ? Number(healthGoal.goal.target_bmi) : next.targetBmi,
+          };
+        });
       } catch (error) {
         console.error("Failed to fetch wearables summary", error);
       } finally {
