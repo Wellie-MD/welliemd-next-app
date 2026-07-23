@@ -277,7 +277,7 @@ export default function Billing() {
   const renderRevisionInvoiceModal = (invoice: B2BInvoice) => {
     const requested = invoice.requested_breakdown;
     const adjustments = invoice.revision_adjustments || [];
-    const prescriptionEvents = invoice.prescription_events || [];
+    const rawPrescriptionEvents = invoice.prescription_events || [];
     const summary = invoice.adjustment_summary;
     const netAdjustment = Number(summary?.net_adjustment || 0);
     const requestedProductName = requested?.product_name || "";
@@ -332,6 +332,88 @@ export default function Billing() {
     );
     type RevisionAdjustment = NonNullable<B2BInvoice["revision_adjustments"]>[number];
     const normalizeProductName = (value?: string) => (value || "").trim().toLowerCase();
+    const revisionSortNumber = (adjustment: RevisionAdjustment) => {
+      const revisionNumber = Number(adjustment.revision_number);
+      return Number.isFinite(revisionNumber) ? revisionNumber : Number.MAX_SAFE_INTEGER;
+    };
+    const isConcreteAdjustment = (adjustment: RevisionAdjustment) => {
+      const productName = normalizeProductName(adjustment.product_name);
+      return (
+        ["supplemental_charge", "credit_note"].includes(adjustment.kind) &&
+        Boolean(productName) &&
+        productName !== "revised prescription" &&
+        productName !== "original prescription" &&
+        moneyNumber(adjustment.product_total) > 0
+      );
+    };
+    const sortedConcreteAdjustments = adjustments
+      .filter(isConcreteAdjustment)
+      .sort((left, right) => {
+        const revisionDelta = revisionSortNumber(left) - revisionSortNumber(right);
+        if (revisionDelta !== 0) return revisionDelta;
+        return String(left.created_at || "").localeCompare(String(right.created_at || ""));
+      });
+    const hasAdjustmentInitial = sortedConcreteAdjustments.some(
+      (adjustment) => revisionSortNumber(adjustment) === 0
+    );
+    const basePrescriptionEvent: B2BInvoicePrescriptionEvent | null =
+      sortedConcreteAdjustments.length > 0 &&
+      !hasAdjustmentInitial &&
+      Boolean(requested?.product_name) &&
+      moneyNumber(requested?.product_total) > 0
+        ? {
+            name: requested?.product_name,
+            event_kind: "initial_prescription",
+            revision_number: null,
+            occurred_at: invoice.created_at || null,
+            webhook_event_id: "",
+            medication_amount: requested?.medication_amount,
+            shipping_amount: requested?.shipping_amount,
+            product_total: requested?.product_total,
+            patient_total: requested?.product_total,
+            items: [
+              {
+                name: requested?.product_name,
+                medication_amount: requested?.medication_amount,
+                shipping_amount: requested?.shipping_amount,
+                product_total: requested?.product_total,
+                patient_amount: requested?.product_total,
+              },
+            ],
+          }
+        : null;
+    const adjustmentBackedEvents = [
+      ...(basePrescriptionEvent ? [basePrescriptionEvent] : []),
+      ...sortedConcreteAdjustments.map((adjustment): B2BInvoicePrescriptionEvent => ({
+        name: adjustment.product_name,
+        event_kind: revisionSortNumber(adjustment) === 0 ? "initial_prescription" : "revision",
+        revision_number: revisionSortNumber(adjustment) === 0 ? null : revisionSortNumber(adjustment),
+        occurred_at: adjustment.created_at || null,
+        webhook_event_id: "",
+        medication_amount: adjustment.medication_amount,
+        shipping_amount: adjustment.shipping_amount,
+        product_total: adjustment.product_total,
+        patient_total: adjustment.product_total,
+        items: [
+          {
+            name: adjustment.product_name,
+            medication_amount: adjustment.medication_amount,
+            shipping_amount: adjustment.shipping_amount,
+            product_total: adjustment.product_total,
+            patient_amount: adjustment.product_total,
+          },
+        ],
+      })),
+    ];
+    const rawHasPositiveEvent = rawPrescriptionEvents.some((event) => moneyNumber(event.product_total) > 0);
+    const prescriptionEvents = adjustmentBackedEvents.length > 0
+      ? adjustmentBackedEvents
+      : rawPrescriptionEvents.filter((event) => {
+          const name = normalizeProductName(event.name);
+          if (!name || name === "revised prescription" || name === "original prescription") return false;
+          if (rawHasPositiveEvent && moneyNumber(event.product_total) <= 0) return false;
+          return true;
+        });
     const adjustmentForRevision = (revisionNumber: number) =>
       adjustments.find((adjustment) => Number(adjustment.revision_number ?? -1) === revisionNumber);
     const adjustmentForPrescriptionEvent = (
