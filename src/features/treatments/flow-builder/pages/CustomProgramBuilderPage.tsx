@@ -44,6 +44,13 @@ export default function CustomProgramBuilderPage() {
             description: "Intake flow sequence updated successfully.",
           });
         },
+        onError: () => {
+          toast({
+            title: "Unable to update flow",
+            description: "The flow could not be saved. Please try again.",
+            variant: "destructive",
+          });
+        },
       }
     );
   };
@@ -84,6 +91,13 @@ export default function CustomProgramBuilderPage() {
             description: `Successfully added ${item.title} to flow.`,
           });
           setIsDrawerOpen(false);
+        },
+        onError: () => {
+          toast({
+            title: "Unable to add item",
+            description: "The item could not be added to the flow. Please try again.",
+            variant: "destructive",
+          });
         },
       }
     );
