@@ -4046,3 +4046,66 @@ body {
   margin-top: 0 !important;
   padding-top: 0 !important;
 }
+
+/* Prototype Labs card design styles */
+#pg-labs .card {
+  background: var(--km-s1);
+  border: 1px solid var(--km-b);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(20,18,12,.04);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.dark #pg-labs .card {
+  box-shadow: 0 1px 2px rgba(0,0,0,.3);
+}
+#pg-labs .card-p {
+  padding: 22px;
+}
+#pg-labs .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-radius: 11px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .15s;
+  text-decoration: none;
+}
+#pg-labs .btn svg {
+  width: 15px;
+  height: 15px;
+}
+#pg-labs .btn-p {
+  background: #161d2b;
+  color: #ffffff;
+}
+.dark #pg-labs .btn-p {
+  background: #f3f1ec;
+  color: #161d2b;
+}
+#pg-labs .btn-p:hover {
+  opacity: .9;
+}
+#pg-labs .btn-o {
+  background: var(--km-s2);
+  color: var(--km-t);
+  border: 1px solid var(--km-b);
+}
+#pg-labs .btn-o:hover {
+  background: var(--km-s3);
+}
+#pg-labs .btn-g {
+  background: transparent;
+  color: var(--km-tm);
+  border: 1px solid var(--km-b);
+}
+#pg-labs .btn-g:hover {
+  background: var(--km-s2);
+}
+

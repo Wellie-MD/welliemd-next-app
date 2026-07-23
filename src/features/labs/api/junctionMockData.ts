@@ -1,7 +1,18 @@
-export const junctionMockEnabled =
-  String((import.meta as any).env?.VITE_JUNCTION_MOCK || (import.meta as any).env?.VITE_ENABLE_JUNCTION_MOCK || "").toLowerCase() === "true";
+export const junctionMockEnabled = true;
 
 export const mockStandaloneResults = [
+  {
+    order_id: "LAB-DUMMY-01",
+    lab_panel_name: "Dummy Complete Blood Count",
+    lab_provider: "Quest Diagnostics",
+    collected_at: "2026-07-22T10:00:00Z",
+    reported_at: "2026-07-23T08:00:00Z",
+    status: "results_ready",
+    biomarkers: [
+      { biomarker: "Hemoglobin", result: "14.2", units: "g/dL", reference_range: "12.0 - 16.0", flag: "normal" },
+      { biomarker: "Platelets", result: "350", units: "K/uL", reference_range: "150 - 450", flag: "normal" }
+    ]
+  },
   {
     order_id: "LAB-10042",
     lab_panel_name: "Comprehensive Metabolic Panel",
@@ -40,6 +51,25 @@ export const mockStandaloneResults = [
 ];
 
 export const mockStandaloneSubmissions = [
+  {
+    id: "LAB-DUMMY-02",
+    patient_name: "Sofia Nguyen",
+    submission_status: "pending",
+    submitted_at: "2026-07-20T11:00:00Z",
+    lab_panel_name: "Dummy Urinalysis",
+    lab_provider: "Quest Diagnostics",
+    collection_method: "walk_in_test",
+    collection_method_display: "Walk-in lab draw",
+    stage: "requisition_created",
+    stage_display: "Requisition ready — book or walk in",
+    bucket: "needs_attention",
+    requisition_available: true,
+    requisition_pdf_url: "mock-url",
+    booking_link: "https://questdiagnostics.com/booking",
+    lifecycle_events: [
+      { title: "Requisition Created", description: "Requisition form is available", occurredAt: "2026-07-20T11:05:00Z" }
+    ]
+  },
   {
     id: "LAB-10044",
     patient_name: "Nora Patel",
