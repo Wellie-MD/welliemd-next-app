@@ -103,6 +103,11 @@ export const mockLabOrderResults = (orderId: string) => {
     lifecycle_events: events,
     result: { biomarkers: resultRows },
     biomarkers: resultRows,
+    artifacts: {
+      requisition_available: true,
+      result_pdf_available: Boolean(order.resultsReady),
+    },
+    appointment_booking_link: method === "testkit" ? null : "https://app.junction.com/mock/appointments/" + order.id,
   };
 };
 

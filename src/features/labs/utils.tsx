@@ -1,6 +1,13 @@
 /** Shared utility functions for the admin Labs feature. */
 import React from "react";
 
+/** Turns a raw snake_case/keyword status ("in_process") into a plain-English label ("In Process"). */
+export function humanizeStatus(value?: string): string {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return "-";
+  return trimmed.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export function getCollectionMethodLabel(method: string): string {
   const map: Record<string, string> = {
     at_home_phlebotomy: "At-home phlebotomy",

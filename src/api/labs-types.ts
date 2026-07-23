@@ -242,6 +242,7 @@ export interface LabOrder {
   junction_policy_revision?: number | null;
   doctor_name?: string;
   tracking_number?: string;
+  collection_method?: string;
   timeline: {
     ordered?: string;
     sample_collected?: string;

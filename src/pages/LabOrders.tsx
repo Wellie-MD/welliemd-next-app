@@ -7,6 +7,7 @@ import { junctionMockEnabled } from "@/api/junctionMockData";
 import { OrderDetailDrawer as LabOrderDetailDrawer } from "@/features/labs/components/LabOrderDetailDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { labPillTone } from "@/features/labs/constants/tones";
+import { humanizeStatus } from "@/features/labs/utils";
 
 const ORDER_STATUS_OPTIONS = ["All", "In Process", "Completed", "Canceled", "Failed"];
 const PAYMENT_OPTIONS = ["All", "Paid", "Pending", "Failed", "Refunded"];
@@ -34,12 +35,6 @@ const LAB_EVENT_OPTIONS = [
 ];
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-const humanize = (value?: string) => {
-  const trimmed = (value || "").trim();
-  if (!trimmed) return "-";
-  return trimmed.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
-};
-
 const rowFromOrder = (order: LabOrder) => ({
   ...order,
   id: order.id,
@@ -50,7 +45,7 @@ const rowFromOrder = (order: LabOrder) => ({
   client: order.client_name,
   product: order.product_name,
   amount: order.price,
-  orderStatus: humanize(order.status),
+  orderStatus: humanizeStatus(order.status),
   payment: order.payment_status,
   fulfillment: order.fulfillment_status || "Received",
   labEvent: order.lab_event_label || order.visit_status,

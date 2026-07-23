@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
-  SheetHeader,
   SheetTitle,
   SheetFooter,
 } from "@/components/ui/sheet";
@@ -27,10 +27,11 @@ import {
 } from "@/components/ui/select";
 import { updateAdminOrder, OrderUpdatePayload } from "@/api/dashboardApi";
 import { toast } from "@/components/ui/use-toast";
-import { Hexagon, User, Mail, Phone, FileText, Download } from "lucide-react";
+import { Hexagon, User, Mail, Phone, FileText, Download, X, Link2 } from "lucide-react";
 import { labsApi } from "@/api/labs";
 import { labOrderToneStyles } from "@/features/labs/constants/tones";
 import { extractLabResultRows } from "@/features/labs/utils/resultRows";
+import { getCollectionMethodLabel, humanizeStatus } from "@/features/labs/utils";
 
 interface OrderDetailDrawerProps {
   order: any | null;
@@ -72,6 +73,15 @@ function OrderPill({ status }: { status: string }) {
   );
 }
 
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 text-xs">
+      <span className="min-w-[108px] shrink-0 text-muted-foreground">{label}</span>
+      <span className="font-semibold text-foreground min-w-0">{children}</span>
+    </div>
+  );
+}
+
 export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }: OrderDetailDrawerProps) {
   const [newStatus, setNewStatus] = useState<string>("");
   const [trackingNumber, setTrackingNumber] = useState<string>("");
@@ -101,7 +111,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen && order) {
-      setNewStatus(order.status_display || order.status || "");
+      setNewStatus(order.is_lab ? (order.orderStatus || humanizeStatus(order.status)) : (order.status_display || order.status || ""));
       setTrackingNumber(order.tracking_number || "");
     }
     onOpenChange(isOpen);
@@ -195,21 +205,30 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
   ].includes(order.results_status);
   const hasStructuredResults = extractLabResultRows(labResults).length > 0;
 
+  const appointmentLink = order.is_lab ? labResults?.appointment_booking_link : null;
+
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpen}>
-        <SheetContent className="w-full sm:max-w-[500px] overflow-y-auto p-4 sm:p-6 flex flex-col justify-between">
-          <div className="space-y-5">
-            <SheetHeader className="pb-4 border-b">
-              <SheetTitle className="flex items-center gap-2 text-lg font-bold">
-                <Hexagon className="h-5 w-5 text-foreground" />
-                Order Details
-              </SheetTitle>
-              <div className="text-[12px] text-muted-foreground font-mono mt-1">
+        <SheetContent hideCloseButton className="w-full sm:max-w-[500px] overflow-y-auto p-0 flex flex-col">
+          <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b sticky top-0 bg-background z-10">
+            <SheetTitle className="flex items-center gap-2 text-[15px] font-semibold">
+              <Hexagon className="h-[18px] w-[18px] text-muted-foreground" />
+              Order Details
+            </SheetTitle>
+            <SheetClose className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </SheetClose>
+          </div>
+
+          <div className="flex-1 space-y-5 px-4 sm:px-6 pt-[13px] pb-4">
+            <div>
+              <div className="text-[12px] text-muted-foreground font-mono mb-2.5">
                 {labResults?.order?.display_id || order.display_id || order.id}
               </div>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <OrderPill status={order.status_display || order.status} />
+              <div className="flex flex-wrap gap-2">
+                <OrderPill status={order.orderStatus || humanizeStatus(order.status_display || order.status)} />
                 <OrderPill status={order.payment_status || order.payment} />
                 <span
                   className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border"
@@ -222,7 +241,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                   {order.is_lab ? "Lab" : "Rx"}
                 </span>
               </div>
-            </SheetHeader>
+            </div>
 
             <div className="space-y-2.5">
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Patient</div>
@@ -244,50 +263,62 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
             <div className="space-y-2.5 pt-4 border-t">
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Order Info</div>
-              <div className="grid grid-cols-2 gap-y-2 text-xs">
-                <div className="text-muted-foreground">Client</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{order.client_name || order.client}</div>
+              <div className="space-y-2">
+                <InfoRow label="Client">{order.client_name || order.client}</InfoRow>
+                <InfoRow label="Product">{orderProduct}</InfoRow>
+                <InfoRow label="Ordered for">—</InfoRow>
 
-                <div className="text-muted-foreground">Product</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{orderProduct}</div>
-
-                <div className="text-muted-foreground">{order.is_lab ? "Ordered panel" : "Ordered (final)"}</div>
-                <div className="text-right pl-2">
+                <InfoRow label={order.is_lab ? "Ordered (final)" : "Prescribed (final)"}>
                   <span
                     className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border truncate max-w-full"
                     style={{ backgroundColor: "#dcfce7", color: "#166534", borderColor: "#bbf7d0" }}
                   >
                     {orderProduct}
                   </span>
-                </div>
+                </InfoRow>
 
-                <div className="text-muted-foreground">{order.is_lab ? "Ordering provider" : "Doctor"}</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{order.doctor_name || "—"}</div>
+                <InfoRow label="Doctor">{order.doctor_name || "—"}</InfoRow>
 
-                <div className="text-muted-foreground">Lab</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{orderLabProvider}</div>
+                <InfoRow label={order.is_lab ? "Lab" : "Pharmacy"}>{orderLabProvider}</InfoRow>
 
-                <div className="text-muted-foreground">Amount</div>
-                <div className="font-semibold text-foreground text-right pl-2">
-                  ${orderAmount.toFixed(2)}
-                </div>
+                {order.is_lab && (
+                  <InfoRow label="Collection">
+                    {order.collection_method ? getCollectionMethodLabel(order.collection_method) : "—"}
+                  </InfoRow>
+                )}
 
-                {!order.is_lab && (
-                  <>
-                    <div className="text-muted-foreground">Amount source</div>
-                    <div className="text-right pl-2">
-                      <span
-                        className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
-                        style={{ backgroundColor: "#f1f5f9", color: "#475569", borderColor: "#e2e8f0" }}
+                <InfoRow label="Amount">${orderAmount.toFixed(2)}</InfoRow>
+
+                <InfoRow label="Amount source">
+                  <span
+                    className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
+                    style={{ backgroundColor: "#f1f5f9", color: "#475569", borderColor: "#e2e8f0" }}
+                  >
+                    {order.is_lab
+                      ? (order.orderStatus === "Completed" || order.status === "Completed" ? "Ordered (final)" : "Requested")
+                      : order.visit === "Declined" || order.visit_status === "Declined"
+                        ? "Declined"
+                        : (order.visit === "Prescribed" || order.visit_status === "Prescribed" || order.status === "Completed")
+                          ? "Prescribed (final)"
+                          : "Requested"}
+                  </span>
+                </InfoRow>
+
+                {order.is_lab && (
+                  <InfoRow label="Appointment link">
+                    {appointmentLink ? (
+                      <a
+                        href={appointmentLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
                       >
-                        {order.visit === "Declined" || order.visit_status === "Declined" 
-                          ? "Declined" 
-                          : (order.visit === "Prescribed" || order.visit_status === "Prescribed" || order.status === "Completed")
-                            ? "Prescribed (final)"
-                            : "Requested"}
-                      </span>
-                    </div>
-                  </>
+                        <Link2 className="h-3 w-3" /> Sent to patient
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </InfoRow>
                 )}
               </div>
             </div>
@@ -325,8 +356,8 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                   <>
                     {hasStructuredResults && <Button
                       type="button"
-                      variant="outline"
-                      className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                      variant="secondary"
+                      className="w-full justify-center text-xs h-9 font-semibold flex items-center gap-1.5"
                       onClick={() => setResultsOpen(true)}
                     >
                       <FileText className="h-4 w-4" />
@@ -334,8 +365,8 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                     </Button>}
                     {labResults?.artifacts?.result_pdf_available && <Button
                       type="button"
-                      variant="outline"
-                      className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                      variant="secondary"
+                      className="w-full justify-center text-xs h-9 font-semibold flex items-center gap-1.5"
                       onClick={async () => {
                         try {
                           const blob = await labsApi.downloadAdminLabResultPdf(order.id, order.client_id);
@@ -352,8 +383,8 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 )}
                 {labResults?.artifacts?.requisition_available && <Button
                   type="button"
-                  variant="outline"
-                  className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                  variant="secondary"
+                  className="w-full justify-center text-xs h-9 font-semibold flex items-center gap-1.5"
                   onClick={async () => {
                     try {
                       const blob = await labsApi.downloadAdminLabRequisitionPdf(order.id, order.client_id);
@@ -403,7 +434,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
             </div>
           </div>
 
-          <SheetFooter className="border-t pt-4 flex flex-col-reverse sm:flex-row gap-2 justify-end mt-4">
+          <SheetFooter className="border-t px-4 sm:px-6 py-4 flex flex-col-reverse sm:flex-row gap-2 justify-end">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
@@ -540,7 +571,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
               <DialogFooter className="border-t pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-[10px] sm:text-xs text-muted-foreground text-center sm:text-left">
-                  Electronic Signature: Mitchell Stotland MD (Quest Reviewing Physician)
+                  Reported by {orderLabProvider}
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto justify-end">
                   <Button variant="outline" onClick={() => setResultsOpen(false)} className="text-xs h-8">

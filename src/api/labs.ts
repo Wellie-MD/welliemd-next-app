@@ -179,6 +179,7 @@ const normalizeOrder = (raw: any): LabOrder => ({
   junction_billing_type: raw.junction_billing_type || "",
   junction_patient_state: raw.junction_patient_state || "",
   junction_policy_revision: typeof raw.junction_policy_revision === "number" ? raw.junction_policy_revision : null,
+  collection_method: raw.collection_method || "",
 });
 
 export const labsApi = {
