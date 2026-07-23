@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { clientLabsApi, type LabOrder } from "@/features/labs/api";
 import { humanizeLabStatus } from "@/features/labs/constants/status";
 import { labPillTone } from "@/features/labs/constants/tones";
 import { junctionMockEnabled } from "@/features/labs/junctionMockData";
+import { exportToCSV } from "@/utils/exportUtils";
 import { cn } from "@/lib/utils";
 
 const ORDER_STATUS_OPTIONS = ["All", "Completed", "In Process", "Canceled", "Failed"];
@@ -16,6 +18,21 @@ const LAB_EVENT_OPTIONS = [
   "Sample Collected", "At Lab", "Partial Results", "Results Ready", "Failed", "Junction Auth Failed",
 ];
 const FULFILLMENT_OPTIONS = ["All", "At Lab", "Results Ready"];
+
+const EXPORT_COLUMNS = [
+  { key: "id", label: "Order #" },
+  { key: "patient_name", label: "Patient" },
+  { key: "patient_email", label: "Email" },
+  { key: "patient_phone", label: "Phone" },
+  { key: "product_name", label: "Product" },
+  { key: "lab_provider", label: "Lab" },
+  { key: "status", label: "Order Status" },
+  { key: "payment_status", label: "Payment" },
+  { key: "fulfillment_status", label: "Fulfillment" },
+  { key: "lab_event_label", label: "Lab Event" },
+  { key: "price", label: "Amount" },
+  { key: "created_at", label: "Date" },
+];
 
 const rowFromOrder = (order: LabOrder) => ({
   id: order.display_id || order.id,
@@ -57,6 +74,7 @@ export default function LabOrders() {
   const [paymentStatus, setPaymentStatus] = useState("All");
   const [fulfillment, setFulfillment] = useState("All");
   const [labEvent, setLabEvent] = useState("All");
+  const [date, setDate] = useState<DateRange | undefined>();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -67,7 +85,7 @@ export default function LabOrders() {
   }, [search]);
 
   // Everything except `page` itself that should reset pagination back to page 1 when it changes.
-  const queryKey = JSON.stringify([debouncedSearch, orderStatus, paymentStatus, fulfillment, labEvent, pageSize]);
+  const queryKey = JSON.stringify([debouncedSearch, orderStatus, paymentStatus, fulfillment, labEvent, date, pageSize]);
   const prevQueryKeyRef = useRef(queryKey);
 
   const loadOrders = useCallback(async (effectivePage: number, signal: { cancelled: boolean }) => {
@@ -79,6 +97,8 @@ export default function LabOrders() {
         payment_status: paymentStatus !== "All" ? paymentStatus : undefined,
         fulfillment_status: fulfillment !== "All" ? fulfillment : undefined,
         lab_event: labEvent !== "All" ? labEvent : undefined,
+        created_at__gte: date?.from ? date.from.toISOString().slice(0, 10) : undefined,
+        created_at__lte: date?.to ? date.to.toISOString().slice(0, 10) : undefined,
         page: effectivePage,
         page_size: pageSize,
       });
@@ -90,7 +110,7 @@ export default function LabOrders() {
     } finally {
       if (!signal.cancelled) setLoading(false);
     }
-  }, [debouncedSearch, orderStatus, paymentStatus, fulfillment, labEvent, pageSize]);
+  }, [debouncedSearch, orderStatus, paymentStatus, fulfillment, labEvent, date, pageSize]);
 
   useEffect(() => {
     const signal = { cancelled: false };
@@ -117,7 +137,12 @@ export default function LabOrders() {
     setPaymentStatus("All");
     setFulfillment("All");
     setLabEvent("All");
+    setDate(undefined);
     setPage(1);
+  };
+
+  const handleExport = () => {
+    exportToCSV(rows, EXPORT_COLUMNS, "lab_orders_export");
   };
 
   const columns = [
@@ -136,8 +161,8 @@ export default function LabOrders() {
     { key: "lab_provider", label: "Lab", minWidth: "100px" },
     { key: "status", label: "Order Status", minWidth: "140px", render: (_: unknown, row: any) => <StatusPill value={row.status} /> },
     { key: "payment_status", label: "Payment", minWidth: "120px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell", render: (_: unknown, row: any) => <StatusPill value={row.payment_status} /> },
-    { key: "lab_event_label", label: "Event", minWidth: "150px", render: (_: unknown, row: any) => <StatusPill value={row.lab_event_label} /> },
     { key: "fulfillment_status", label: "Fulfillment", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell", render: (_: unknown, row: any) => <StatusPill value={row.fulfillment_status} /> },
+    { key: "lab_event_label", label: "Lab Event", minWidth: "150px", render: (_: unknown, row: any) => <StatusPill value={row.lab_event_label} /> },
     { key: "price", label: "Amount", minWidth: "100px", render: (_: unknown, row: any) => <span className="font-bold">${row.price.toFixed(2)}</span> },
     { key: "created_at", label: "Date", minWidth: "110px", render: (_: unknown, row: any) => new Date(row.created_at).toLocaleDateString() },
     {
@@ -153,8 +178,8 @@ export default function LabOrders() {
   const filters = [
     { key: "orderStatus", label: "Order Status", type: "select" as const, value: orderStatus, options: ORDER_STATUS_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All order statuses" : v })), onChange: setOrderStatus },
     { key: "paymentStatus", label: "Payment", type: "select" as const, value: paymentStatus, options: PAYMENT_STATUS_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All payments" : v })), onChange: setPaymentStatus },
-    { key: "labEvent", label: "Lab Event", type: "select" as const, value: labEvent, options: LAB_EVENT_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All lab events" : v })), onChange: setLabEvent },
     { key: "fulfillment", label: "Fulfillment", type: "select" as const, value: fulfillment, options: FULFILLMENT_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All fulfillment" : v })), onChange: setFulfillment },
+    { key: "labEvent", label: "Lab Event", type: "select" as const, value: labEvent, options: LAB_EVENT_OPTIONS.map((v) => ({ value: v, label: v === "All" ? "All lab events" : v })), onChange: setLabEvent },
   ];
 
   return (
@@ -169,15 +194,18 @@ export default function LabOrders() {
       <DataTable
         data={rows}
         columns={columns}
-        fitToWidth
+        fitToWidth={false}
         searchPlaceholder="Search by order number, patient, email, or phone"
         emptyMessage="No lab orders found"
-        showDatePicker={false}
-        showExport={false}
+        showDatePicker
+        showExport
         showResetFilters
         filters={filters}
+        dateRange={date}
+        onDateRangeChange={setDate}
         onSearch={setSearch}
         onResetFilters={reset}
+        onExport={handleExport}
         onRefresh={() => loadOrders(page, { cancelled: false })}
         loading={loading}
         pagination={{

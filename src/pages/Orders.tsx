@@ -484,7 +484,7 @@ export default function Orders() {
           }
           return col
         })}
-        fitToWidth={true}
+        fitToWidth={false}
         searchPlaceholder="Search by order number, patient name, email, or phone"
         showDatePicker={true}
         showExport={true}

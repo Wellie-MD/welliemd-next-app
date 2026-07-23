@@ -420,6 +420,8 @@ export const clientLabsApi = {
     fulfillment_status?: string;
     lab_event?: string;
     lab_panel_id?: string;
+    created_at__gte?: string;
+    created_at__lte?: string;
     page?: number;
     page_size?: number;
   } = {}): Promise<LabOrdersPage> => {
@@ -436,6 +438,11 @@ export const clientLabsApi = {
           const haystack = [order.display_id, order.patient_name, order.patient_email, order.patient_phone, order.lab_panel_name]
             .join(" ").toLowerCase();
           if (!haystack.includes(term)) return false;
+        }
+        if (order.created_at) {
+          const createdAt = order.created_at.slice(0, 10);
+          if (params.created_at__gte && createdAt < params.created_at__gte) return false;
+          if (params.created_at__lte && createdAt > params.created_at__lte) return false;
         }
         return matches(order.ui_order_status, params.status)
           && matches(order.ui_payment_status, params.payment_status)
