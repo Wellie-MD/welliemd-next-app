@@ -8,6 +8,22 @@ import { OrderDetailDrawer as LabOrderDetailDrawer } from "@/features/labs/compo
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { labPillTone } from "@/features/labs/constants/tones";
 import { humanizeStatus } from "@/features/labs/utils";
+import { exportToCSV } from "@/utils/exportUtils";
+
+const EXPORT_COLUMNS = [
+  { key: "id", label: "Order #" },
+  { key: "patient", label: "Patient" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Phone" },
+  { key: "client", label: "Client" },
+  { key: "product", label: "Product" },
+  { key: "lab_provider", label: "Lab" },
+  { key: "orderStatus", label: "Order Status" },
+  { key: "payment", label: "Payment" },
+  { key: "fulfillment", label: "Fulfillment" },
+  { key: "labEvent", label: "Lab Event" },
+  { key: "amount", label: "Amount" },
+];
 
 const ORDER_STATUS_OPTIONS = ["All", "In Process", "Completed", "Canceled", "Failed"];
 const PAYMENT_OPTIONS = ["All", "Paid", "Pending", "Failed", "Refunded"];
@@ -127,6 +143,10 @@ export default function LabOrders() {
 
   const rows = orders.map(rowFromOrder);
 
+  const handleExport = () => {
+    exportToCSV(rows, EXPORT_COLUMNS, "lab_orders_export");
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -137,10 +157,10 @@ export default function LabOrders() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadOrders} className="gap-2">
-            <RefreshCw className="h-4 w-4" /> Refresh
+          <Button variant="outline" size="sm" onClick={loadOrders} disabled={loading} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </Button>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={loading || rows.length === 0} className="gap-2">
             <Download className="h-4 w-4" /> Export
           </Button>
         </div>
