@@ -95,6 +95,20 @@ export const useSaveCustomProgram = () => {
   });
 };
 
+export const usePublishCustomProgram = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => treatmentsApi.publishCustomProgram(id),
+    onSuccess: async (_data, id) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() }),
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customProgram(id) }),
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() }),
+      ]);
+    },
+  });
+};
+
 export const useDeleteCustomProgram = () => {
   const queryClient = useQueryClient();
   return useMutation({

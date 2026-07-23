@@ -14,6 +14,8 @@ interface CustomProgramFlowBuilderProps {
   customProgram: CustomProgram;
   onOpenDrawer?: () => void;
   onSave?: (updated: CustomProgram) => void;
+  onPublish: () => void;
+  isPublishing?: boolean;
   onUpdateFlow?: (updatedItems: CustomProgramFlowItem[]) => void;
   programs: Program[];
   sections: CommonSection[];
@@ -23,7 +25,7 @@ interface CustomProgramFlowBuilderProps {
   onSaveMatching: (rules: CustomProgram["programMatchingRules"]) => Promise<void>;
 }
 
-export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onUpdateFlow, programs, sections, consents, onEditCheckoutOverride, onDeleteCheckoutOverride, onSaveMatching }: CustomProgramFlowBuilderProps) {
+export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, onEditCheckoutOverride, onDeleteCheckoutOverride, onSaveMatching }: CustomProgramFlowBuilderProps) {
   const builder = useCustomProgramFlowBuilder({ customProgram, onSave, onUpdateFlow });
   const [matchingOpen, setMatchingOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
@@ -57,6 +59,8 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
         onOpenDrawer={onOpenDrawer}
         onOpenPreview={() => builder.setIsTestModalOpen(true)}
         onSave={builder.handleSave}
+        onPublish={onPublish}
+        isPublishing={isPublishing}
       />
 
       <PatientFlowTestModal

@@ -1,4 +1,4 @@
-import { Check, Eye, LayoutGrid, List as ListIcon, Plus, Save, X } from "lucide-react";
+import { Check, Eye, LayoutGrid, List as ListIcon, Plus, Rocket, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { FlowBuilderViewMode } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
@@ -18,6 +18,8 @@ interface FlowBuilderHeaderProps {
   onOpenDrawer?: () => void;
   onOpenPreview: () => void;
   onSave: () => void;
+  onPublish: () => void;
+  isPublishing?: boolean;
 }
 
 export function FlowBuilderHeader({
@@ -34,6 +36,8 @@ export function FlowBuilderHeader({
   onOpenDrawer,
   onOpenPreview,
   onSave,
+  onPublish,
+  isPublishing = false,
 }: FlowBuilderHeaderProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shrink-0">
@@ -93,6 +97,14 @@ export function FlowBuilderHeader({
           <Button onClick={onSave} data-testid="save-custom-program-flow">
             <Save className="mr-2 h-4 w-4" />
             Save Plan
+          </Button>
+          <Button
+            onClick={onPublish}
+            disabled={isPublishing}
+            data-testid="publish-custom-program-flow"
+          >
+            <Rocket className="mr-2 h-4 w-4" />
+            {isPublishing ? "Publishing…" : "Publish New Version"}
           </Button>
         </div>
       </div>

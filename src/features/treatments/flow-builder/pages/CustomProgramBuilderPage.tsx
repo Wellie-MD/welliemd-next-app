@@ -9,6 +9,7 @@ import {
   useConsents,
   useCustomProgram,
   usePrograms,
+  usePublishCustomProgram,
   useSections,
   useSaveCustomProgram,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
@@ -25,6 +26,7 @@ export default function CustomProgramBuilderPage() {
   const { data: consents = [] } = useConsents();
 
   const saveCustomProgramMutation = useSaveCustomProgram();
+  const publishCustomProgramMutation = usePublishCustomProgram();
   const { mutate: saveCustomProgram } = saveCustomProgramMutation;
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -182,6 +184,25 @@ export default function CustomProgramBuilderPage() {
     });
   };
 
+  const handlePublish = async () => {
+    try {
+      const saved = await saveCustomProgramMutation.mutateAsync(
+        synchronizeCustomProgramStructure(customProgram, customProgram.flowItems)
+      );
+      await publishCustomProgramMutation.mutateAsync(saved.id);
+      toast({
+        title: "New Version Published",
+        description: "Preview and future assignments now use the latest immutable release.",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to Publish",
+        description: "Resolve the reported configuration dependencies and try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="h-full max-h-screen flex flex-col p-6 space-y-4">
       <PrototypeNotice>
@@ -194,6 +215,8 @@ export default function CustomProgramBuilderPage() {
           onOpenDrawer={() => setIsDrawerOpen(true)}
           onUpdateFlow={handleUpdateFlow}
           onSave={handleSavePlan}
+          onPublish={handlePublish}
+          isPublishing={saveCustomProgramMutation.isPending || publishCustomProgramMutation.isPending}
           programs={programs}
           sections={sections}
           consents={consents}

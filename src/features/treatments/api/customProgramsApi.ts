@@ -24,6 +24,10 @@ export const customProgramsApi = {
       : await axiosInstance.post<CustomProgramRecord>("treatments/custom-programs/", payload);
     return customProgramFromRecord(data);
   },
+  publish: async (id: string): Promise<void> => {
+    if (!isPersistedUuid(id)) return;
+    await axiosInstance.post(`treatments/custom-programs/${id}/publish/`);
+  },
   delete: async (id: string): Promise<void> => {
     if (!isPersistedUuid(id)) return;
     await axiosInstance.delete(`treatments/custom-programs/${id}/`);
