@@ -11,13 +11,41 @@ import { junctionMockEnabled } from "@/features/labs/junctionMockData";
 import { exportToCSV } from "@/utils/exportUtils";
 import { cn } from "@/lib/utils";
 
-const ORDER_STATUS_OPTIONS = ["All", "Completed", "In Process", "Canceled", "Failed"];
-const PAYMENT_STATUS_OPTIONS = ["All", "Paid", "Pending", "Failed"];
+const ORDER_STATUS_OPTIONS = ["All", "In Process", "Completed", "Canceled", "Failed"];
+const PAYMENT_STATUS_OPTIONS = ["All", "Paid", "Pending", "Failed", "Refunded"];
 const LAB_EVENT_OPTIONS = [
-  "All", "Requisition Created", "Appointment Pending", "Appointment Scheduled",
-  "Sample Collected", "At Lab", "Partial Results", "Results Ready", "Failed", "Junction Auth Failed",
+  "All",
+  "Ordered",
+  "Requisition Created",
+  "Requisition Bypassed",
+  "Kit Registration Required",
+  "Kit Registered",
+  "Appointment Pending",
+  "Appointment Scheduled",
+  "Appointment Cancelled",
+  "Kit Shipped",
+  "Kit Delivered",
+  "Shipping Problem",
+  "Sample Collected",
+  "At Lab",
+  "In Process",
+  "Lab Processing Blocked",
+  "Partial Results",
+  "Results Ready",
+  "Canceled",
+  "Failed",
+  "Redraw Required"
 ];
-const FULFILLMENT_OPTIONS = ["All", "At Lab", "Results Ready"];
+const FULFILLMENT_OPTIONS = [
+  "All",
+  "Received",
+  "Collecting Sample",
+  "With Lab",
+  "Completed",
+  "Canceled",
+  "Failed",
+  "In Process"
+];
 
 const EXPORT_COLUMNS = [
   { key: "id", label: "Order #" },

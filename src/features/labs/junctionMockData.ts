@@ -4,14 +4,14 @@ export const junctionMockEnabled =
   String(import.meta.env.VITE_JUNCTION_MOCK || import.meta.env.VITE_ENABLE_JUNCTION_MOCK || "").toLowerCase() === "true";
 
 export const mockLabOrders: LabOrder[] = [
-  mockOrder("4f8d8f5d-5b5a-42ec-a40c-1a30bc21a111", "LAB-10042", "Amelia Torres", "Comprehensive Metabolic Panel", "Quest Diagnostics", "testkit", "In Process", "Paid", "At Lab", "Partial Results", "partial_results", 129, true),
-  mockOrder("30bb5b72-b060-4023-b625-193673cdf222", "LAB-10043", "Marcus Lee", "Lipid Panel", "Labcorp", "walk_in_test", "Completed", "Paid", "Results Ready", "Results Ready", "results_ready", 89, true),
-  mockOrder("90f52d4b-76e6-4c0a-ad8d-3093c3aa3333", "LAB-10044", "Nora Patel", "Thyroid Panel", "Quest Diagnostics", "walk_in_test", "In Process", "Paid", "Appointment Scheduled", "Appointment Scheduled", "appointment_scheduled", 75),
-  mockOrder("a2177c5e-bb73-45f5-8540-d91173be4444", "LAB-10045", "Caleb Morgan", "CBC with Differential", "BioReference", "at_home_phlebotomy", "In Process", "Paid", "Appointment Pending", "Appointment Pending", "appointment_pending", 59),
-  mockOrder("d8d30237-2473-4fdb-8b6b-143490cc5555", "LAB-10046", "Sofia Nguyen", "Vitamin D Panel", "Quest Diagnostics", "testkit", "In Process", "Paid", "Kit Shipped", "Kit Shipped", "kit_shipped", 68),
-  mockOrder("28ef06d1-439d-493f-a80e-4220f3536666", "LAB-10047", "Ethan Brooks", "Hormone Panel", "Labcorp", "walk_in_test", "In Process", "Paid", "Requisition Created", "Requisition Created", "requisition_created", 149),
-  mockOrder("f90a68df-04f6-4077-8080-f7a9a7217777", "LAB-10048", "Maya Iqbal", "Comprehensive Test Panel", "BioReference", "walk_in_test", "Failed", "Pending", "Failed", "Junction Auth Failed", "junction_auth_failed", 20),
-  mockOrder("6b7a9759-8861-460d-a491-72d166ae8888", "LAB-10049", "Olivia Chen", "Metabolic + Lipids", "Quest Diagnostics", "at_home_phlebotomy", "Completed", "Paid", "Results Ready", "Critical Result", "critical", 155, true),
+  mockOrder("4f8d8f5d-5b5a-42ec-a40c-1a30bc21a111", "LAB-10042", "Amelia Torres", "Comprehensive Metabolic Panel", "Quest Diagnostics", "testkit", "in_process", "paid", "with_lab", "Partial Results", "partial_results", 129, true),
+  mockOrder("30bb5b72-b060-4023-b625-193673cdf222", "LAB-10043", "Marcus Lee", "Lipid Panel", "Labcorp", "walk_in_test", "completed", "paid", "completed", "Results Ready", "results_ready", 89, true),
+  mockOrder("90f52d4b-76e6-4c0a-ad8d-3093c3aa3333", "LAB-10044", "Nora Patel", "Thyroid Panel", "Quest Diagnostics", "walk_in_test", "in_process", "paid", "collecting_sample", "Appointment Scheduled", "appointment_scheduled", 75),
+  mockOrder("a2177c5e-bb73-45f5-8540-d91173be4444", "LAB-10045", "Caleb Morgan", "CBC with Differential", "BioReference", "at_home_phlebotomy", "in_process", "paid", "collecting_sample", "Appointment Pending", "appointment_pending", 59),
+  mockOrder("d8d30237-2473-4fdb-8b6b-143490cc5555", "LAB-10046", "Sofia Nguyen", "Vitamin D Panel", "Quest Diagnostics", "testkit", "in_process", "paid", "collecting_sample", "Kit Shipped", "kit_shipped", 68),
+  mockOrder("28ef06d1-439d-493f-a80e-4220f3536666", "LAB-10047", "Ethan Brooks", "Hormone Panel", "Labcorp", "walk_in_test", "in_process", "paid", "received", "Requisition Created", "requisition_created", 149),
+  mockOrder("f90a68df-04f6-4077-8080-f7a9a7217777", "LAB-10048", "Maya Iqbal", "Comprehensive Test Panel", "BioReference", "walk_in_test", "failed", "pending", "failed", "Junction Auth Failed", "junction_auth_failed", 20),
+  mockOrder("6b7a9759-8861-460d-a491-72d166ae8888", "LAB-10049", "Olivia Chen", "Metabolic + Lipids", "Quest Diagnostics", "at_home_phlebotomy", "completed", "paid", "completed", "Critical Result", "critical", 155, true),
 ];
 
 function mockOrder(
