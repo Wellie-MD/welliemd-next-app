@@ -16,7 +16,6 @@ const CARD: React.CSSProperties = {
   border: '1px solid var(--km-b)',
   borderRadius: 14,
   marginBottom: 10,
-  overflow: 'hidden',
 };
 
 export default function TelemetryDashboard({
