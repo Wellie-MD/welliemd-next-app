@@ -276,6 +276,60 @@ export function SharedQuestionsList({
     setIsQuestionOpen(true);
   };
 
+  const attachSection = (section: { id: string; name: string; fieldCount: number }) => {
+    const sectionQuestion: ProgramQuestion = {
+      id: createMockId("q-section"),
+      order: Math.max(0, ...questions.map((question) => question.order || 0)) + 1,
+      text: section.name,
+      kind: "section",
+      section: section.name,
+      required: true,
+      elementConfig: {
+        sourceId: section.id,
+        sourceSectionId: section.id,
+        sourceSectionName: section.name,
+        fieldCount: section.fieldCount,
+        description: `${section.fieldCount} fields · Reusable from library`,
+      },
+    };
+
+    if (entityType !== "program") {
+      saveElement(sectionQuestion, "Common Section Attached");
+      return;
+    }
+
+    const existingSection = questions.some((question) =>
+      question.kind === "section" &&
+      String(question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || "") === section.id
+    );
+    if (existingSection) {
+      toast({ title: "Section already attached", description: "This section is already part of the program." });
+      return;
+    }
+
+    const checkoutQuestions = questions.filter((question) => question.kind === "checkout");
+    const screeningQuestions = questions.filter((question) =>
+      question.kind !== "checkout" && question.elementConfig?.system !== true
+    );
+    const nextQuestions = [...screeningQuestions, sectionQuestion];
+
+    treatmentsApi.saveProgramQuestions(entityId, nextQuestions).then((savedQuestions) => {
+      setQuestions([...savedQuestions, ...checkoutQuestions]);
+      queryClient.setQueryData(treatmentQueryKeys.programQuestions(entityId), savedQuestions);
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(entityId) });
+      toast({
+        title: "Common Section Attached",
+        description: `${section.fieldCount} fields · Reusable from library`,
+      });
+    }).catch((error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to attach the section.",
+        variant: "destructive",
+      });
+    });
+  };
+
   // Deleting confirmation
   const handleDeleteClick = (id: string) => {
     setQuestionToDeleteId(id);
@@ -620,17 +674,7 @@ export function SharedQuestionsList({
           open={isSectionOpen}
           onOpenChange={setIsSectionOpen}
           excludeSectionId={entityType === "section" ? entityId : undefined}
-          onSelect={(section) => {
-            saveElement({
-              id: createMockId("q-section"),
-              order: questions.length + 1,
-              text: section.name,
-              kind: entityType === "section" ? "section" : "multiple_choice",
-              section: section.name,
-              required: true,
-              elementConfig: { sourceId: section.id },
-            }, "Common Section Attached");
-          }}
+          onSelect={attachSection}
         />
         <ConsentSelectorModal
           open={isConsentOpen}
@@ -744,18 +788,7 @@ export function SharedQuestionsList({
         open={isSectionOpen}
         onOpenChange={setIsSectionOpen}
         excludeSectionId={entityType === "section" ? entityId : undefined}
-        onSelect={(section) => {
-          const sectionQuestion: ProgramQuestion = {
-            id: createMockId("q-section"),
-            order: questions.length + 1,
-            text: section.name,
-            kind: entityType === "section" ? "section" : "multiple_choice",
-            section: section.name,
-            required: true,
-            elementConfig: { sourceId: section.id },
-          };
-          saveElement(sectionQuestion, "Common Section Attached");
-        }}
+          onSelect={attachSection}
       />
 
       <ConsentSelectorModal

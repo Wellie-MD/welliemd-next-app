@@ -153,8 +153,11 @@ export type ProgramQuestionRecord = Partial<ProgramQuestion> & {
   is_required?: boolean;
   answer_choices?: string[];
   conditional_logic?: unknown;
+  validation_rules?: Record<string, unknown>;
+  validation?: Record<string, unknown>;
   visibilityRules?: unknown;
   visibility_rules?: unknown;
   visibilityRuleGroup?: unknown;
   include_in_qa_section?: boolean;
+  element_config?: Record<string, unknown>;
 };

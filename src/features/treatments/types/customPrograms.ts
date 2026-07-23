@@ -7,6 +7,7 @@ export type FlowItemKind =
   | "authentication"
   | "program"
   | "section"
+  | "section_field"
   | "consent"
   | "routing_question"
   | "checkout";

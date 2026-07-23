@@ -75,7 +75,10 @@ export function normalizeProgramFlowData(questions: ProgramQuestion[]): Normaliz
   // materialized in the flat authoring list for parity with the patient flow,
   // but must never be duplicated as ordinary graph questions.
   const graphQuestions = questions.filter(
-    (question) => question.kind !== "personal_details" && question.kind !== "checkout"
+    (question) =>
+      question.kind !== "personal_details" &&
+      question.kind !== "checkout" &&
+      question.elementConfig?.system !== true
   );
   const sortedQuestions = [...graphQuestions].sort((a, b) => {
     const orderDiff = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);

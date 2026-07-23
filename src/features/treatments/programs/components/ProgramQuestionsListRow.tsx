@@ -68,7 +68,7 @@ export function ProgramQuestionsListRow({
     <div
       ref={setNodeRef}
       style={style}
-      onClick={() => !isReorderActive && onEdit(question)}
+      onClick={() => !isReorderActive && !isSection && onEdit(question)}
       className={`group grid min-h-[46px] grid-cols-[44px_minmax(0,1fr)_100px_120px_72px] items-center gap-4 border-b border-slate-100 px-7 py-2 transition-colors ${isReorderActive ? "cursor-default" : "cursor-pointer"} ${
         isDragging ? "bg-slate-100/50 shadow-md" : "bg-white hover:bg-slate-50/80"
       }`}
@@ -133,15 +133,17 @@ export function ProgramQuestionsListRow({
           <span className="pr-1 text-[9px] italic text-slate-300">System</span>
         ) : (
           <>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(event) => { event.stopPropagation(); onEdit(question); }}
-              className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-              title="Edit Element"
-            >
-              <Pencil className="h-3 w-3" />
-            </Button>
+            {!isSection && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(event) => { event.stopPropagation(); onEdit(question); }}
+                className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
+                title="Edit Element"
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"

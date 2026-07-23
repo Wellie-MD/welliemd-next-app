@@ -30,15 +30,6 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
   const { mutate: saveSection, isPending } = useSaveSection();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
 
-  const visitTypeOptions = useMemo(() => {
-    const keys = new Set<string>();
-    treatmentTypes.forEach((type) => {
-      if (type.intakeVisitType) keys.add(type.intakeVisitType);
-      if (type.followupVisitType) keys.add(type.followupVisitType);
-    });
-    return Array.from(keys).sort((a, b) => a.localeCompare(b));
-  }, [treatmentTypes]);
-
   const [name, setName] = useState("");
   const [scope, setScope] = useState<TreatmentLibraryScope | "">("");
   const [visitTypeKeys, setVisitTypeKeys] = useState<string[]>([]);
@@ -56,9 +47,13 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
   // attached to this section (in case it references one outside the list).
   const visitTypeOptions = useMemo(() => {
     const keys = new Set(baseVisitTypes);
+    treatmentTypes.forEach((type) => {
+      if (type.intakeVisitType) keys.add(type.intakeVisitType);
+      if (type.followupVisitType) keys.add(type.followupVisitType);
+    });
     (section?.visitTypeKeys ?? []).forEach((key) => keys.add(key));
-    return Array.from(keys);
-  }, [section]);
+    return Array.from(keys).sort((a, b) => a.localeCompare(b));
+  }, [section, treatmentTypes]);
 
   const isTreatment = scope === "treatment";
   const isShared = scope === "shared";

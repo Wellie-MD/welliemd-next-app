@@ -10,7 +10,7 @@ export type AdminCustomProgramStageTone = "question" | "program" | "consent";
 
 export interface AdminCustomProgramStageItem {
   id: string;
-  kind: "routing_question" | "section" | "program" | "consent";
+  kind: "routing_question" | "section" | "section_field" | "program" | "consent";
   title: string;
   subtitle: string;
   persistedItem?: CustomProgramFlowItem;
@@ -58,7 +58,7 @@ const syntheticCheckout = (): CustomProgramFlowItem => ({
 export const getCustomProgramStageNumber = (
   item: Pick<CustomProgramFlowItem, "kind">
 ): 1 | 2 | 3 | null => {
-  if (item.kind === "routing_question" || item.kind === "section") return 1;
+  if (item.kind === "routing_question" || item.kind === "section" || item.kind === "section_field") return 1;
   if (item.kind === "program") return 2;
   if (item.kind === "consent") return 3;
   return null;
@@ -76,7 +76,7 @@ export function canonicalizeCustomProgramFlowItems(
   const lockedCheckout = flowItems.find((item) => item.kind === "checkout" && item.locked);
 
   const stageOne = flowItems.filter(
-    (item) => item.kind === "routing_question" || item.kind === "section"
+    (item) => item.kind === "routing_question" || item.kind === "section" || item.kind === "section_field"
   );
   const stageTwo = flowItems.filter((item) => item.kind === "program");
   const stageThree = flowItems.filter((item) => item.kind === "consent");
@@ -106,13 +106,27 @@ const uniqueSourceIds = (
     )
   );
 
+const uniqueSectionIds = (flowItems: CustomProgramFlowItem[]) =>
+  Array.from(
+    new Set(
+      flowItems
+        .filter((item) => item.kind === "section" || item.kind === "section_field")
+        .map((item) => item.sourceId)
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+
 export function synchronizeCustomProgramStructure(
   customProgram: CustomProgram,
   flowItems: CustomProgramFlowItem[]
 ): CustomProgram {
   const canonicalItems = canonicalizeCustomProgramFlowItems(flowItems);
   const includedProgramIds = uniqueSourceIds(canonicalItems, "program");
-  const sectionIds = uniqueSourceIds(canonicalItems, "section");
+  // A section field references its parent section through sourceId and its
+  // concrete reusable field through mappedField. Keep the parent section in
+  // the relation mirror even when an admin adds only selected fields.
+  const sectionIds = uniqueSectionIds(canonicalItems);
   const consentIds = uniqueSourceIds(canonicalItems, "consent");
   const includedPrograms = new Set(includedProgramIds);
 

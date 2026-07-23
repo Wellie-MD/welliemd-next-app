@@ -11,7 +11,7 @@ import {
   useUpdateProgramSlug,
   useSaveProgramQuestions,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
-
+import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 import { ProgramDetailHeader } from "@/features/treatments/programs/components/ProgramDetailHeader";
 import { ProgramConfigurationAccess } from "@/features/treatments/programs/components/ProgramConfigurationAccess";
@@ -28,7 +28,6 @@ import { AddConsentModal } from "@/features/treatments/programs/components/AddCo
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
-import type { CommonSection, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { DeleteConfirmDialog } from "@/features/treatments/common/components";
 import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
@@ -220,19 +219,48 @@ export default function ProgramDetailPage() {
     });
   };
 
+  const handleSaveAuthConfig = (config: ProgramAuthConfig) => {
+    saveProgramMutation.mutate({
+      ...foundProgram,
+      authConfig: config,
+    });
+    toast({ title: "Authentication Settings Saved" });
+  };
+
   const handleAttachSection = (section: CommonSection) => {
+    if (allQuestions.some((question) =>
+      question.kind === "section" &&
+      String(question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || "") === section.id
+    )) {
+      toast({
+        title: "Section already attached",
+        description: "This section is already part of the program.",
+      });
+      return;
+    }
+
     const nextOrder = Math.max(0, ...allQuestions.map((question) => question.order || 0)) + 1;
     const sectionQuestion: ProgramQuestion = {
       id: createMockId("q-section"),
       order: nextOrder,
-      text: `${section.name} Section`,
-      kind: "multiple_choice",
+      text: section.name,
+      kind: "section",
       section: section.name,
       required: true,
+      elementConfig: {
+        sourceId: section.id,
+        sourceSectionId: section.id,
+        sourceSectionName: section.name,
+        fieldCount: section.fieldCount,
+        description: `${section.fieldCount} fields · Reusable from library`,
+      },
     };
 
     saveProgramQuestionsMutation.mutate([...allQuestions, sectionQuestion]);
-    toast({ title: "Common Section Attached" });
+    toast({
+      title: "Common Section Attached",
+      description: `${section.fieldCount} fields · Reusable from library`,
+    });
   };
 
   const handleAddConsentById = (id: string) => {

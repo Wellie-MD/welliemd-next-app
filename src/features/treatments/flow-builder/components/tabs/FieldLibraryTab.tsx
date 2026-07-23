@@ -1,40 +1,40 @@
+import { useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus, Check } from "lucide-react";
 import type { CommonSection, CustomProgramBuilderAddItem } from "@/features/treatments/types";
+import { treatmentConfigurationApi as treatmentsApi } from "@/features/treatments/api/configurationApi";
+import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 
 interface FieldLibraryTabProps {
   sections: CommonSection[];
   onAddItem: (item: CustomProgramBuilderAddItem) => void;
-  flowItems?: Array<{ kind: string; title: string }>;
+  flowItems?: Array<{ kind: string; title: string; sourceId?: string; mappedField?: string }>;
 }
 
 export function FieldLibraryTab({ sections, onAddItem, flowItems = [] }: FieldLibraryTabProps) {
-  const isSectionAdded = (sectionName: string) => {
-    return flowItems.some((fi) => fi.kind === "section" && fi.title === sectionName);
+  const fieldQueries = useQueries({
+    queries: sections.map((section) => ({
+      queryKey: treatmentQueryKeys.sectionFields(section.id),
+      queryFn: () => treatmentsApi.listSectionFields(section.id),
+      staleTime: 60_000,
+    })),
+  });
+
+  const isSectionAdded = (sectionId: string) => {
+    return flowItems.some((fi) => fi.kind === "section" && fi.sourceId === sectionId);
   };
 
-  const isFieldAdded = (fieldName: string) => {
-    return flowItems.some((fi) => fi.title === fieldName);
-  };
-
-  const getSectionFields = (sectionName: string) => {
-    if (sectionName === "Medical Baseline") {
-      return [
-        { label: "Please identify all your current medical conditions", type: "multi" },
-        { label: "Please list all your current medications including dosages", type: "textarea" },
-        { label: "Please list all of your known allergies", type: "multi" },
-        { label: "Past surgeries", type: "textarea" },
-        { label: "Family medical history", type: "textarea" },
-      ];
-    }
-    return []; // Body Stats has no individual fields in the mock
+  const isFieldAdded = (sectionId: string, fieldId: string) => {
+    return flowItems.some(
+      (fi) => fi.kind === "section_field" && fi.sourceId === sectionId && fi.mappedField === fieldId,
+    );
   };
 
   return (
     <div className="space-y-6 mt-4">
-      {sections.map((section) => {
-        const fields = getSectionFields(section.name);
-        const added = isSectionAdded(section.name);
+      {sections.map((section, sectionIndex) => {
+        const fields = fieldQueries[sectionIndex]?.data || [];
+        const added = isSectionAdded(section.id);
 
         return (
           <div key={section.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -66,18 +66,22 @@ export function FieldLibraryTab({ sections, onAddItem, flowItems = [] }: FieldLi
               )}
             </div>
 
-            {fields.length > 0 ? (
+            {fieldQueries[sectionIndex]?.isLoading ? (
+              <div className="mt-4 text-xs text-slate-400 italic text-center py-2">
+                Loading section fields…
+              </div>
+            ) : fields.length > 0 ? (
               <div className="mt-3 pl-3 border-l border-slate-200 space-y-3">
-                {fields.map((field, index) => {
-                  const fieldAdded = isFieldAdded(field.label);
+                {fields.map((field) => {
+                  const fieldAdded = isFieldAdded(section.id, field.id);
                   return (
-                    <div key={index} className="flex justify-between items-start gap-4">
+                    <div key={field.id} className="flex justify-between items-start gap-4">
                       <div>
                         <div className="text-xs font-semibold text-slate-700 leading-tight">
                           {field.label}
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                          {field.type}
+                          {field.kind}
                         </div>
                       </div>
                       {fieldAdded ? (
@@ -91,9 +95,16 @@ export function FieldLibraryTab({ sections, onAddItem, flowItems = [] }: FieldLi
                           className="shrink-0 h-7 w-7 text-blue-600 border-blue-200 hover:bg-blue-50"
                           onClick={() =>
                             onAddItem({
-                              kind: "section",
+                              kind: "section_field",
                               title: field.label,
-                              subtitle: `Section field (${field.type})`,
+                              subtitle: `Section field (${field.kind})`,
+                              sourceId: section.id,
+                              questionKind: field.kind,
+                              required: field.required,
+                              mappedField: field.id,
+                              answerOptions: Array.isArray(field.configuration?.choices)
+                                ? field.configuration.choices as string[]
+                                : [],
                             })
                           }
                         >

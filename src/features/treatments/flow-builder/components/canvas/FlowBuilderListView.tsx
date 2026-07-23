@@ -65,6 +65,12 @@ const rowMeta = {
     iconClass: "bg-violet-50 text-violet-600",
     badgeClass: "border-violet-200 bg-violet-50 text-violet-600",
   },
+  section_field: {
+    label: "SECTION FIELD",
+    icon: Layout,
+    iconClass: "bg-sky-50 text-sky-600",
+    badgeClass: "border-sky-200 bg-sky-50 text-sky-600",
+  },
   program: {
     label: "PROGRAM",
     icon: CheckCircle2,
@@ -94,6 +100,11 @@ function getItemSubtitle(item: AdminCustomProgramStageItem) {
     return item.section
       ? `${item.section.fieldCount} field${item.section.fieldCount === 1 ? "" : "s"}, asked as one block`
       : item.subtitle || "Reusable section";
+  }
+  if (item.kind === "section_field") {
+    return item.section
+      ? `${item.section.name} · selected reusable field`
+      : item.subtitle || "Reusable section field";
   }
   if (item.kind === "program") {
     if (!item.program) return item.subtitle || "Program record unavailable";

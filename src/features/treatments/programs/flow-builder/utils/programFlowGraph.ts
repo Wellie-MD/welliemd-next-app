@@ -160,7 +160,11 @@ export function buildStaticProgramFlowGraph(
       const child = item.node;
       if (visited.has(child.id) || placedNodeIds.has(child.id)) return;
 
-      const childType: LayoutType = child.kind === "consent" ? "consent" : "question";
+      const childType: LayoutType = child.kind === "consent"
+        ? "consent"
+        : child.kind === "section"
+          ? "section"
+          : "question";
       const childHeight = nodeHeight(child);
       const isAnswerTriggered = Boolean(parentQuestion && triggerValue);
       const shouldAnchorToAnswerRow = parentIsSpine || child.kind === "consent";
@@ -212,7 +216,11 @@ export function buildStaticProgramFlowGraph(
 
   const spineQuestionIds: string[] = [];
   spineQuestions.forEach((question) => {
-    const type: LayoutType = question.kind === "consent" ? "consent" : "question";
+    const type: LayoutType = question.kind === "consent"
+      ? "consent"
+      : question.kind === "section"
+        ? "section"
+        : "question";
     const height = nodeHeight(question);
     place(question.id, SPINE_X, y, type, height);
     placedNodeIds.add(question.id);
@@ -415,7 +423,11 @@ export function buildStaticProgramFlowGraph(
       }
     });
 
-    pushNode(question.id, question.kind === "consent" ? "consent" : "question", {
+    pushNode(question.id, question.kind === "consent"
+      ? "consent"
+      : question.kind === "section"
+        ? "section"
+        : "question", {
       question,
       label: question.text,
       isConditional: hasVisibilityRules(question),
