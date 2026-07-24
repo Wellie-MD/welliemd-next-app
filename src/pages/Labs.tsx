@@ -404,8 +404,8 @@ export default function Labs() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex space-y-3 flex-col">
+      <div className="">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">Labs</h1>
             <span className="inline-flex items-center gap-1 border bg-sky-50 px-2.5 py-0.5 rounded-full border-sky-100/60 text-[10.5px] font-semibold text-sky-800 shadow-sm">
@@ -423,7 +423,7 @@ export default function Labs() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <Button
             variant="outline"
             onClick={() => navigate("/dashboard/products/labs/settings")}

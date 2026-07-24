@@ -25,8 +25,8 @@ interface CustomProgramsHeaderActionsProps extends Pick<CustomProgramsToolbarPro
 
 export function CustomProgramsHeaderActions({ viewMode, onViewModeChange, onCreate, onAssign, onViewHistory, assignDisabled }: CustomProgramsHeaderActionsProps) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+    <div className="flex  flex-wrap items-center gap-3">
+      <div className="flex  items-center rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
         <button
           onClick={() => onViewModeChange("card")}
           className={cn("flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors", viewMode === "card" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-900")}
