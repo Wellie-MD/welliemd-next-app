@@ -11,7 +11,7 @@ import { PatientFlowInlineSimulator } from "@/features/treatments/flow-builder/c
 export interface QuestionEditorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (question: ProgramQuestion) => void;
+  onSave: (question: ProgramQuestion) => Promise<void>;
   initialQuestionId?: string | null;
   questions: ProgramQuestion[];
   programId?: string;

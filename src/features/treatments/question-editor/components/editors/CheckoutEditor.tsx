@@ -4,14 +4,15 @@ import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
 import type { ProgramQuestion, ProgramCheckoutQuestion, ProgramCheckoutProduct } from "@/features/treatments/types";
-import { useMemo } from "react";
+import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
+import { useMemo, useState } from "react";
 
 interface CheckoutEditorProps {
   activeQuestion?: ProgramQuestion;
   questions: ProgramQuestion[];
   programName?: string;
   sidebar: React.ReactNode;
-  onSave: (question: ProgramQuestion) => void;
+  onSave: (question: ProgramQuestion) => Promise<void>;
   onClose: () => void;
   onTestFlow?: () => void;
 }
@@ -46,23 +47,29 @@ export function CheckoutEditor({
     };
   }, [activeQuestion]);
 
+  const [justSaved, setJustSaved] = useState(false);
+
   const form = useCheckoutQuestionForm({
     open: true,
     initialQuestion: initialCheckoutQuestion,
-    onSave: (data) => {
+    onSave: async (data) => {
       const updatedQuestion: ProgramQuestion = {
         id: activeQuestion?.id || `q-new-${Date.now()}`,
         order: activeQuestion?.order || questions.length + 1,
         text: data.text,
         kind: "checkout",
         section: activeQuestion?.section || "Checkout",
-        required: true,
+        required: isCheckoutQuestionRequired(data.products),
         visibilityRuleGroup: data.visibilityRules,
         checkoutProducts: data.products,
         checkoutProductIds: data.products.map((product) => product.productId || product.id),
       };
-      onSave(updatedQuestion);
-      onClose();
+      await onSave(updatedQuestion);
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 1200);
+      // No onClose() — stay open so the admin can keep iterating; a failed
+      // save throws before reaching here and useCheckoutQuestionForm surfaces
+      // formError inline without closing.
     },
     onOpenChange: () => {},
   });
@@ -85,6 +92,8 @@ export function CheckoutEditor({
         title={`Checkout · Step ${questionOrder}`}
         subtitle={programName}
         isEditMode={isEditMode}
+        isSaving={form.isSaving}
+        justSaved={justSaved}
         onClose={onClose}
         onSave={form.handleSaveModal}
         onTestFlow={onTestFlow}

@@ -124,11 +124,23 @@ export const useSaveProgram = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (program: Program) => treatmentsApi.saveProgram(program),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() }),
-        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() }),
-      ]);
+    onSuccess: (updatedProgram) => {
+      queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
+        (current || []).map((program) => {
+          if (program.id !== updatedProgram.id) {
+            return program;
+          }
+
+          return {
+            ...updatedProgram,
+            screeningQuestions: updatedProgram.screeningQuestions ?? program.screeningQuestions,
+            checkoutQuestions: updatedProgram.checkoutQuestions ?? program.checkoutQuestions,
+          };
+        })
+      );
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
+      queryClient.refetchQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
   });
 };
@@ -235,6 +247,7 @@ export const useSaveProgramQuestion = (programId: string) => {
     mutationFn: (question: ProgramQuestion) => treatmentsApi.saveProgramQuestion(programId, question),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
     },
   });
 };
@@ -245,6 +258,7 @@ export const useDeleteProgramQuestion = (programId: string) => {
     mutationFn: (questionId: string) => treatmentsApi.deleteProgramQuestion(programId, questionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
     },
   });
 };
@@ -255,6 +269,7 @@ export const useReorderProgramQuestions = (programId: string) => {
     mutationFn: (questionIds: string[]) => treatmentsApi.reorderProgramQuestions(programId, questionIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
     },
   });
 };
@@ -265,8 +280,18 @@ export const useSaveProgramQuestions = (programId: string) => {
     mutationFn: (questions: ProgramQuestion[]) => treatmentsApi.saveProgramQuestions(programId, questions),
     onSuccess: (questions) => {
       queryClient.setQueryData(treatmentQueryKeys.programQuestions(programId), questions);
+      queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
+        (current || []).map((program) =>
+          program.id === programId
+            ? {
+                ...program,
+                screeningQuestions: questions,
+                questionCount: questions.length,
+              }
+            : program
+        )
+      );
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
-      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
   });

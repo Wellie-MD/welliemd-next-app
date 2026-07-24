@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Play } from "lucide-react";
+import { Check, ChevronLeft, Loader2, Play } from "lucide-react";
 
 interface QuestionEditorHeaderProps {
   title: string;
   subtitle: string;
   isEditMode: boolean;
   hideSave?: boolean;
+  isSaving?: boolean;
+  justSaved?: boolean;
   /** Called when the user clicks "Test Patient Flow". If omitted the button is disabled. */
   onTestFlow?: () => void;
   onClose: () => void;
@@ -17,6 +19,8 @@ export function QuestionEditorHeader({
   subtitle,
   isEditMode,
   hideSave = false,
+  isSaving = false,
+  justSaved = false,
   onTestFlow,
   onClose,
   onSave,
@@ -54,8 +58,22 @@ export function QuestionEditorHeader({
           Test Patient Flow
         </Button>
         {!hideSave && (
-          <Button onClick={onSave} data-testid="question-editor-save">
-            {isEditMode ? "Save Changes" : "Add Question"}
+          <Button onClick={onSave} disabled={isSaving} data-testid="question-editor-save">
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                Saving…
+              </>
+            ) : justSaved ? (
+              <>
+                <Check className="mr-2 h-3.5 w-3.5" />
+                Saved
+              </>
+            ) : isEditMode ? (
+              "Save Changes"
+            ) : (
+              "Add Question"
+            )}
           </Button>
         )}
       </div>

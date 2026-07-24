@@ -11,6 +11,7 @@ import {
   PROGRAM_AUTHORING_COPY,
   programAuthenticationId,
 } from "@/features/treatments/programs/programAuthoringConstants";
+import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
 
 interface ProgramQuestionsListProps {
   program: Program;
@@ -47,7 +48,7 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
         text: checkout.text,
         kind: "checkout",
         section: PROGRAM_AUTHORING_COPY.checkoutSection,
-        required: true,
+        required: isCheckoutQuestionRequired(checkout.products),
         checkoutProductIds: checkout.products
           .map((product) => product.productId)
           .filter((productId): productId is string => Boolean(productId)),

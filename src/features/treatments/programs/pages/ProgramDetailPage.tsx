@@ -163,9 +163,9 @@ export default function ProgramDetailPage() {
   const handlePublish = () => {
     const nextStatus = foundProgram.status === "published" ? "draft" : "published";
     saveProgramMutation.mutate({
-      ...foundProgram,
+      id: foundProgram.id,
       status: nextStatus,
-    });
+    } as any);
     toast({
       title: nextStatus === "published" ? "Program Published" : "Program Reverted to Draft",
     });
@@ -185,15 +185,24 @@ export default function ProgramDetailPage() {
     setCheckoutDeleteId(id);
   };
 
-  const confirmDeleteCheckout = () => {
+  const confirmDeleteCheckout = async () => {
     if (!checkoutDeleteId) return;
     const updatedCheckout = (foundProgram.checkoutQuestions || []).filter((cq) => cq.id !== checkoutDeleteId);
-    saveProgramMutation.mutate({
-      ...foundProgram,
-      checkoutQuestions: updatedCheckout,
-      checkoutQuestionCount: updatedCheckout.length,
-    });
-    setCheckoutDeleteId(null);
+    try {
+      await saveProgramMutation.mutateAsync({
+        id: foundProgram.id,
+        checkoutQuestions: updatedCheckout,
+        checkoutQuestionCount: updatedCheckout.length,
+      } as any);
+      setCheckoutDeleteId(null);
+      toast({ title: "Checkout question deleted" });
+    } catch (error) {
+      toast({
+        title: "Error deleting checkout question",
+        description: getApiErrorMessage(error, "The checkout question could not be deleted."),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOpenAddScreening = () => {
@@ -212,18 +221,27 @@ export default function ProgramDetailPage() {
       required: true,
     };
 
-    saveProgramQuestionsMutation.mutate([...allQuestions, serviceAreaQuestion]);
-    toast({
-      title: "Service Area Check Added",
-      description: "State routing question added to this program.",
-    });
+    saveProgramQuestionsMutation.mutateAsync([...allQuestions, serviceAreaQuestion])
+      .then(() => {
+        toast({
+          title: "Service Area Check Added",
+          description: "State routing question added to this program.",
+        });
+      })
+      .catch((error) => {
+        toast({
+          title: "Error adding service area check",
+          description: getApiErrorMessage(error, "The state routing question could not be saved."),
+          variant: "destructive",
+        });
+      });
   };
 
   const handleSaveAuthConfig = (config: ProgramAuthConfig) => {
     saveProgramMutation.mutate({
-      ...foundProgram,
+      id: foundProgram.id,
       authConfig: config,
-    });
+    } as any);
     toast({ title: "Authentication Settings Saved" });
   };
 
@@ -256,40 +274,49 @@ export default function ProgramDetailPage() {
       },
     };
 
-    saveProgramQuestionsMutation.mutate([...allQuestions, sectionQuestion]);
-    toast({
-      title: "Common Section Attached",
-      description: `${section.fieldCount} fields · Reusable from library`,
-    });
+    saveProgramQuestionsMutation.mutateAsync([...allQuestions, sectionQuestion])
+      .then(() => {
+        toast({
+          title: "Common Section Attached",
+          description: `${section.fieldCount} fields · Reusable from library`,
+        });
+      })
+      .catch((error) => {
+        toast({
+          title: "Error attaching section",
+          description: getApiErrorMessage(error, "The section could not be attached."),
+          variant: "destructive",
+        });
+      });
   };
 
   const handleAddConsentById = (id: string) => {
     if ((foundProgram.consentIds || []).includes(id)) return;
     const updatedConsents = [...(foundProgram.consentIds || []), id];
     saveProgramMutation.mutate({
-      ...foundProgram,
+      id: foundProgram.id,
       consentIds: updatedConsents,
-    });
+    } as any);
   };
 
   const setSexRequirement = (val: "any" | "male" | "female") => {
-    saveProgramMutation.mutate({ ...foundProgram, sexRequirement: val });
+    saveProgramMutation.mutate({ id: foundProgram.id, sexRequirement: val } as any);
   };
 
   const setMinAge = (val: number | null) => {
-    saveProgramMutation.mutate({ ...foundProgram, minAge: val });
+    saveProgramMutation.mutate({ id: foundProgram.id, minAge: val } as any);
   };
 
   const setMaxAge = (val: number | null) => {
-    saveProgramMutation.mutate({ ...foundProgram, maxAge: val });
+    saveProgramMutation.mutate({ id: foundProgram.id, maxAge: val } as any);
   };
 
   const setMinBmi = (val: number | null) => {
-    saveProgramMutation.mutate({ ...foundProgram, minBmi: val });
+    saveProgramMutation.mutate({ id: foundProgram.id, minBmi: val } as any);
   };
 
   const setMaxBmi = (val: number | null) => {
-    saveProgramMutation.mutate({ ...foundProgram, maxBmi: val });
+    saveProgramMutation.mutate({ id: foundProgram.id, maxBmi: val } as any);
   };
 
   return (
@@ -400,7 +427,12 @@ export default function ProgramDetailPage() {
           }}
           onAddCheckoutQuestion={handleOpenAddCheckout}
           onEditCheckoutQuestion={handleOpenEditCheckout}
-          onSaveProgram={(updatedProgram) => saveProgramMutation.mutate(updatedProgram)}
+          onSaveProgram={(updatedProgram) =>
+            saveProgramMutation.mutate({
+              id: updatedProgram.id,
+              consentIds: updatedProgram.consentIds,
+            } as any)
+          }
         />
       )}
 
@@ -431,10 +463,10 @@ export default function ProgramDetailPage() {
             });
           }
           await saveProgramMutation.mutateAsync({
-            ...foundProgram,
+            id: foundProgram.id,
             checkoutQuestions: updatedCheckout,
             checkoutQuestionCount: updatedCheckout.length,
-          });
+          } as any);
           toast({
             title: editingCheckoutId ? "Checkout question updated" : "Checkout question added",
           });
@@ -454,9 +486,21 @@ export default function ProgramDetailPage() {
                 ? updatedQuestion
                 : sq
             );
-            saveProgramQuestionsMutation.mutate(updatedQuestions);
+            saveProgramQuestionsMutation.mutateAsync(updatedQuestions).catch((error) => {
+              toast({
+                title: "Error saving question",
+                description: getApiErrorMessage(error, "The question could not be saved."),
+                variant: "destructive",
+              });
+            });
           } else {
-            saveProgramQuestionsMutation.mutate([...allQuestions, updatedQuestion]);
+            saveProgramQuestionsMutation.mutateAsync([...allQuestions, updatedQuestion]).catch((error) => {
+              toast({
+                title: "Error saving question",
+                description: getApiErrorMessage(error, "The question could not be saved."),
+                variant: "destructive",
+              });
+            });
           }
         }}
       />
@@ -510,9 +554,9 @@ export default function ProgramDetailPage() {
         mode="edit"
         onSave={(programData) => {
           saveProgramMutation.mutate({
-            ...foundProgram,
+            id: foundProgram.id,
             ...programData,
-          });
+          } as any);
         }}
       />
 
@@ -524,6 +568,7 @@ export default function ProgramDetailPage() {
         title="Delete checkout question?"
         description="This removes the configured Category / Regimen / Dose checkout mapping from this program."
         onConfirm={confirmDeleteCheckout}
+        loading={saveProgramMutation.isPending}
       />
     </div>
   );
