@@ -356,15 +356,16 @@ interface HealthTabsProps {
   timeRange?: number;
 }
 
+import { CustomInsightsModal } from './CustomInsightsModal';
+
 export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }: HealthTabsProps) {
   const [activeTab, setActiveTab] = useState('sleep');
+  const [insightsOpen, setInsightsOpen] = useState(false);
 
   const dynamicMetrics = {
     sleep: [] as MetricItem[],
     activity: [] as MetricItem[],
-    heart: [] as MetricItem[],
     workouts: [] as MetricItem[],
-    glucose: [] as MetricItem[],
   };
 
   if (deviceMetrics) {
@@ -393,7 +394,6 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
 
     if (deviceMetrics.restingHr && deviceMetrics.restingHr !== '0') {
       dynamicMetrics.activity.push({ l: 'Resting HR', v: deviceMetrics.restingHr, u: 'bpm' });
-      dynamicMetrics.heart.push({ l: 'Resting HR', v: deviceMetrics.restingHr, u: 'bpm' });
     }
 
     const workouts = deviceMetrics.recentWorkouts || [];
@@ -415,13 +415,7 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
       if (topSport) dynamicMetrics.workouts.push({ l: 'Most frequent', v: `${topSport[0]} (${topSport[1]})` });
     }
 
-    if (deviceMetrics.avgGlucose != null) {
-      dynamicMetrics.glucose.push({ l: 'Average glucose', v: deviceMetrics.avgGlucose, u: 'mg/dL' });
-    }
-    if (deviceMetrics.latestGlucose != null) {
-      dynamicMetrics.glucose.push({ l: 'Latest reading', v: deviceMetrics.latestGlucose, u: 'mg/dL' });
-    }
-  }
+
 
 
   const sleepTrend: TrendData | undefined =
@@ -448,17 +442,7 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
         }
       : undefined;
 
-  const glucoseTrend: TrendData | undefined =
-    deviceMetrics?.glucoseSeries && deviceMetrics.glucoseSeries.length > 1
-      ? {
-          label: 'Glucose',
-          unit: 'mg/dL',
-          dec: 0,
-          lowerBetter: false,
-          series: deviceMetrics.glucoseSeries,
-          step: 'day',
-        }
-      : undefined;
+
 
   const workoutsTrend: TrendData | undefined =
     deviceMetrics?.workoutsSeries && deviceMetrics.workoutsSeries.length > 1 && deviceMetrics.workoutsSeries.some(s => s.val > 0)
@@ -508,14 +492,40 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
             {sec.title}
           </button>
         ))}
+        {deviceMetrics?.customQueries && deviceMetrics.customQueries.length > 0 && (
+          <button
+            onClick={() => setInsightsOpen(true)}
+            style={{
+              flex: '0 0 auto',
+              fontFamily: 'inherit',
+              fontSize: 12.5,
+              fontWeight: 600,
+              padding: '7px 14px',
+              borderRadius: 999,
+              border: '1px solid var(--km-b)',
+              background: 'var(--km-s1)',
+              color: 'var(--km-tm)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              marginLeft: 'auto',
+            }}
+          >
+            Custom Insights ✦
+          </button>
+        )}
       </div>
+
+      <CustomInsightsModal
+        open={insightsOpen}
+        onOpenChange={setInsightsOpen}
+        customQueries={deviceMetrics?.customQueries}
+      />
 
       {HEALTH_SECTIONS.map((sec) => {
         const isVisible = activeTab === sec.id;
         const overrideTrend =
           sec.id === 'sleep' ? sleepTrend :
           sec.id === 'activity' ? activityTrend :
-          sec.id === 'glucose' ? glucoseTrend :
           sec.id === 'workouts' ? workoutsTrend :
           undefined;
 
@@ -533,4 +543,5 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
       })}
     </div>
   );
+}
 }

@@ -68,8 +68,6 @@ export const CATS: CategoryDef[] = [
 export const HEALTH_SECTIONS: HealthSection[] = [
   { id: 'sleep', title: 'Sleep', subtitle: 'last night' },
   { id: 'activity', title: 'Activity', subtitle: '7-day avg' },
-  { id: 'heart', title: 'Heart', subtitle: '7-day avg' },
-  { id: 'glucose', title: 'Glucose', subtitle: 'last 24h · CGM' },
   { id: 'workouts', title: 'Workouts', subtitle: 'this week' },
 ];
 
@@ -114,6 +112,5 @@ export const WEIGHT_DEFAULT: WeightData = {
  * Shared data categories (privacy section)
  */
 export const SHARED_CATEGORIES = [
-  'Sleep', 'Activity', 'Heart rate',
-  'Glucose', 'Workouts',
+  'Sleep', 'Activity', 'Workouts',
 ];

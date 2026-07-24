@@ -161,6 +161,7 @@ export default function DevicesPage() {
           ...(data.glucoseSeries && { glucoseSeries: data.glucoseSeries }),
           ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
           ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
+          ...(data.customQueries && { customQueries: data.customQueries }),
         }));
       }
     } catch (e) {
