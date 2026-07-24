@@ -209,7 +209,17 @@ const App = () => {
                     <Route path="/pharmacies" element={<ProtectedRoute><Pharmacies /></ProtectedRoute>} />
                     <Route path="/products/archive" element={<ProtectedRoute><ArchiveProducts /></ProtectedRoute>} />
                     <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
-                    <Route path="/users-permissions" element={<ProtectedRoute><UsersPermissions /></ProtectedRoute>} />
+                    {/* <Route path="/users-permissions" element={<ProtectedRoute><UsersPermissions /></ProtectedRoute>} /> */}
+                    <Route path="/users-permissions"
+                      element={
+                        <ProtectedRoute>
+                          {canAccessCrossTenantUsers ? (
+                            <CrossTenantAccessUsers />
+                          ) : (
+                            <Navigate to="/dashboard" replace />
+                          )}
+                        </ProtectedRoute>
+                      }/>
                   </Routes>
                   </Suspense>
                   </ChunkErrorBoundary>

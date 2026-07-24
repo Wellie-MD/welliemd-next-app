@@ -98,8 +98,7 @@ const menuSections = [
       // ✅ NEW: Pharmacies top-level item
       { title: "Pharmacies", url: "/dashboard/pharmacies", icon: MapPin },
 
-      { title: "Sense insights", url: "/dashboard/tools/sense", icon: Activity },
-
+      
       {
         title: "Products",
         icon: Package,
@@ -112,8 +111,9 @@ const menuSections = [
           { title: "Configuration", url: "/dashboard/products/config" }
         ]
       },
-
+      
       { title: "Archive", url: "/dashboard/archive", icon: Archive },
+      { title: "Sense", url: "/dashboard/tools/sense", icon: Activity },
     ]
   },
   {
