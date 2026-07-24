@@ -41,7 +41,7 @@ export function FlowBuilderHeader({
 }: FlowBuilderHeaderProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shrink-0">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row md:items-start md:justify-between">
         <div className="flex-1">
           <h1 className="text-xl font-bold text-slate-900">{name}</h1>
           <div className="mt-2 flex items-center gap-3 text-sm">
@@ -84,7 +84,7 @@ export function FlowBuilderHeader({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 md:justify-end">
+        <div className="flex flex-wrap items-center gap-3 justify-start lg:justify-end">
           <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
           <Button variant="secondary" onClick={onOpenDrawer} data-testid="open-add-to-flow-drawer">
             <Plus className="mr-2 h-4 w-4" />
