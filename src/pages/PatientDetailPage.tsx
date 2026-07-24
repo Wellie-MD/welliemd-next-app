@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CustomInsightsModal } from "@/components/patients/CustomInsightsModal";
 import { PatientFollowUpStatus } from "@/components/followups/PatientFollowUpStatus";
 import { PermissionGate } from "@/components/auth/PermissionGate";
 import { Permissions } from "@/constants/permissions";
@@ -86,9 +87,13 @@ type WearableDeviceData = {
   };
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
-  glucoseSeries?: { date: string; val: number }[];
-  avgGlucose?: number | null;
-  latestGlucose?: number | null;
+  workoutsSeries?: { date: string; val: number }[];
+  customQueries?: {
+    id: string;
+    name: string;
+    metrics: string[];
+    series: any[];
+  }[];
 };
 
 type MetricItem = { l: string; v: string | number; u?: string };
@@ -96,10 +101,8 @@ type MetricItem = { l: string; v: string | number; u?: string };
 function buildWearableMetrics(data: WearableDeviceData | null, timeRange: number) {
   const sleep: MetricItem[] = [];
   const activity: MetricItem[] = [];
-  const heart: MetricItem[] = [];
   const workouts: MetricItem[] = [];
-  const glucose: MetricItem[] = [];
-  if (!data) return { sleep, activity, heart, workouts, glucose };
+  if (!data) return { sleep, activity, workouts };
 
   if (data.sleep && data.sleep !== "--" && data.sleep !== "0") sleep.push({ l: "Time asleep", v: data.sleep });
   if (data.sleepScore != null && data.sleepScore > 0) sleep.push({ l: "Sleep score", v: data.sleepScore, u: "/100" });
@@ -117,7 +120,6 @@ function buildWearableMetrics(data: WearableDeviceData | null, timeRange: number
   if (data.activeDays && data.activeDays !== "--" && data.activeDays !== "0") activity.push({ l: "Active days", v: data.activeDays, u: `of ${timeRange}` });
   if (data.restingHr && data.restingHr !== "--" && data.restingHr !== "0") {
     activity.push({ l: "Resting HR", v: data.restingHr, u: "bpm" });
-    heart.push({ l: "Resting HR", v: data.restingHr, u: "bpm" });
   }
 
   const recentWorkouts = data.recentWorkouts || [];
@@ -139,10 +141,7 @@ function buildWearableMetrics(data: WearableDeviceData | null, timeRange: number
     if (topSport) workouts.push({ l: "Most frequent", v: `${topSport[0]} (${topSport[1]})` });
   }
 
-  if (data.avgGlucose != null) glucose.push({ l: "Average glucose", v: data.avgGlucose, u: "mg/dL" });
-  if (data.latestGlucose != null) glucose.push({ l: "Latest reading", v: data.latestGlucose, u: "mg/dL" });
-
-  return { sleep, activity, heart, workouts, glucose };
+  return { sleep, activity, workouts };
 }
 
 const buildInitialForm = (patient: Patient) => ({
@@ -240,7 +239,8 @@ export default function PatientDetailPage() {
   const [wearablesLoading, setWearablesLoading] = useState(false);
   const [wearableConsent, setWearableConsent] = useState<{ granted: boolean; date: string | null } | null>(null);
   const [providerLogos, setProviderLogos] = useState<Record<string, string>>({});
-  const [healthTab, setHealthTab] = useState<"sleep" | "activity" | "heart" | "workouts" | "glucose">("sleep");
+  const [healthTab, setHealthTab] = useState<"sleep" | "activity" | "workouts">("sleep");
+  const [customInsightsOpen, setCustomInsightsOpen] = useState(false);
   const [timeRange, setTimeRange] = useState(30);
   const [vitalsData, setVitalsData] = useState<any[]>([]);
   const [formState, setFormState] = useState({
@@ -895,12 +895,10 @@ export default function PatientDetailPage() {
                             workouts: workoutsMetrics,
                             glucose: glucoseMetrics,
                           } = buildWearableMetrics(wearableData, timeRange);
-                          const healthTabs: { id: "sleep" | "activity" | "heart" | "workouts" | "glucose"; label: string; metrics: MetricItem[] }[] = [
+                          const healthTabs: { id: "sleep" | "activity" | "workouts"; label: string; metrics: MetricItem[] }[] = [
                             { id: "sleep", label: "Sleep", metrics: sleepMetrics },
                             { id: "activity", label: "Activity", metrics: activityMetrics },
-                            { id: "heart", label: "Heart", metrics: heartMetrics },
                             { id: "workouts", label: "Workouts", metrics: workoutsMetrics },
-                            { id: "glucose", label: "Glucose", metrics: glucoseMetrics },
                           ];
                           const activeMetrics = healthTabs.find((t) => t.id === healthTab)?.metrics ?? [];
                           const activeTrend =
@@ -908,8 +906,6 @@ export default function PatientDetailPage() {
                               ? { series: wearableData.sleepSeries, unit: "hrs", dec: 1 }
                               : healthTab === "activity" && wearableData.stepsSeries && wearableData.stepsSeries.length > 1
                               ? { series: wearableData.stepsSeries, unit: "", dec: 0 }
-                              : healthTab === "glucose" && wearableData.glucoseSeries && wearableData.glucoseSeries.length > 1
-                              ? { series: wearableData.glucoseSeries, unit: "mg/dL", dec: 0 }
                               : healthTab === "workouts" && wearableData.workoutsSeries && wearableData.workoutsSeries.length > 1 && wearableData.workoutsSeries.some(s => s.val > 0)
                               ? { series: wearableData.workoutsSeries, unit: "min", dec: 0 }
                               : null;
@@ -1070,7 +1066,20 @@ export default function PatientDetailPage() {
                                         {t.label}
                                       </button>
                                     ))}
+                                    {wearableData?.customQueries && wearableData.customQueries.length > 0 && (
+                                      <button
+                                        onClick={() => setCustomInsightsOpen(true)}
+                                        className="flex-none rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[12px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors ml-auto"
+                                      >
+                                        Custom Insights ✦
+                                      </button>
+                                    )}
                                   </div>
+                                  <CustomInsightsModal 
+                                    open={customInsightsOpen}
+                                    onOpenChange={setCustomInsightsOpen}
+                                    customQueries={wearableData?.customQueries}
+                                  />
                                 </CardHeader>
                                 <CardContent className="pt-4 space-y-4">
                                   {activeTrend && <StaffTrendChart series={activeTrend.series} unit={activeTrend.unit} dec={activeTrend.dec} color="#0ea5e9" />}
