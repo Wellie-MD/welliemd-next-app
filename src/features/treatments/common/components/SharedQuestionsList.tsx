@@ -273,6 +273,10 @@ export function SharedQuestionsList({
   // middle/right panels internally based on the active question's kind.
   const handleEditClick = (q: ProgramQuestion) => {
     setActiveEditingQuestion(q);
+    if (q.kind === "checkout" && entityType === "program") {
+      setIsCheckoutOpen(true);
+      return;
+    }
     setIsQuestionOpen(true);
   };
 
@@ -386,6 +390,10 @@ export function SharedQuestionsList({
         });
         toast({ title: isEditing ? "Question Updated" : "Question Added" });
       },
+      onError: (error) => {
+        const message = error instanceof Error ? error.message : "Unable to save this question.";
+        toast({ title: "Save failed", description: message, variant: "destructive" });
+      },
     });
     setActiveEditingQuestion(null);
   };
@@ -422,6 +430,10 @@ export function SharedQuestionsList({
           ? previous.map((question) => question.id === element.id ? element : question)
           : [...previous, element]);
         toast({ title: successTitle });
+      },
+      onError: (error) => {
+        const message = error instanceof Error ? error.message : "Unable to save this element.";
+        toast({ title: "Save failed", description: message, variant: "destructive" });
       },
     });
   };
@@ -619,7 +631,12 @@ export function SharedQuestionsList({
           }}
           onSaveProgram={(updatedProgram) => {
             if (program) {
-              saveProgramMutation.mutate(updatedProgram);
+              saveProgramMutation.mutate(updatedProgram, {
+                onError: (error) => {
+                  const message = error instanceof Error ? error.message : "Unable to save the program.";
+                  toast({ title: "Save failed", description: message, variant: "destructive" });
+                },
+              });
             } else {
               setSectionFlowOverrides((current) => ({
                 ...current,
