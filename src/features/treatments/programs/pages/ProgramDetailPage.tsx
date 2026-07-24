@@ -160,15 +160,23 @@ export default function ProgramDetailPage() {
     toast({ title: "URL Copied", description: "Slug URL copied to clipboard." });
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     const nextStatus = foundProgram.status === "published" ? "draft" : "published";
-    saveProgramMutation.mutate({
-      id: foundProgram.id,
-      status: nextStatus,
-    } as any);
-    toast({
-      title: nextStatus === "published" ? "Program Published" : "Program Reverted to Draft",
-    });
+    try {
+      await saveProgramMutation.mutateAsync({
+        id: foundProgram.id,
+        status: nextStatus,
+      } as any);
+      toast({
+        title: nextStatus === "published" ? "Program Published" : "Program Reverted to Draft",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to publish Program",
+        description: getApiErrorMessage(error, "The Program could not be published."),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOpenAddCheckout = () => {
