@@ -33,53 +33,7 @@ import {
 } from "@/api/junctionIntegration"
 import { SenseCustomQueryModal } from "@/components/sense/SenseCustomQueryModal"
 
-// Mirrors apps/integrations/junction_sense_constants.py's
-// SENSE_DOMAIN_QUERY_DEFINITIONS — the fixed standard queries WellieMD
-// provisions per tenant. Display copy only; the actual query bodies live
-// server-side and aren't admin-editable.
-const SENSE_QUERY_CATALOG: {
-  domain: string
-  name: string
-  inputs: string
-  output: string
-  schedule: string
-}[] = [
-  {
-    domain: "sleep",
-    name: "Sleep summary",
-    inputs: "Efficiency, sleep score, chronotype, duration",
-    output: "Sleep macros (blended)",
-    schedule: "Continuous · nightly",
-  },
-  {
-    domain: "activity",
-    name: "Daily activity",
-    inputs: "Steps, resting heart rate",
-    output: "Step count, resting heart rate",
-    schedule: "Continuous · daily",
-  },
-  {
-    domain: "body",
-    name: "Weight trend",
-    inputs: "Body weight",
-    output: "Latest + mean weight",
-    schedule: "Continuous · daily",
-  },
-  {
-    domain: "glucose",
-    name: "Glucose daily",
-    inputs: "CGM time-series",
-    output: "Mean glucose, min/max, latest reading",
-    schedule: "Continuous · daily",
-  },
-  {
-    domain: "workouts",
-    name: "Workout summary",
-    inputs: "Calories, moving time",
-    output: "Weekly workout rollup",
-    schedule: "Continuous · weekly",
-  },
-]
+
 
 function statusFor(row: JunctionSenseQueryStatus | undefined) {
   if (!row) return { label: "Not provisioned", tone: "bg-slate-100 text-slate-600 border-slate-200" }
@@ -158,13 +112,7 @@ export default function SenseInsights() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, environment])
 
-  const queryByDomain = useMemo(() => {
-    const map = new Map<string, JunctionSenseQueryStatus>()
-    queries.forEach((q) => map.set(q.domain, q))
-    return map
-  }, [queries])
 
-  const customQueries = useMemo(() => queries.filter((q) => q.is_custom), [queries])
 
   const provisioned = queries.length > 0
   const allSynced = provisioned && queries.every((q) => q.sync_status === "synced")
@@ -388,44 +336,18 @@ export default function SenseInsights() {
                     </tr>
                   </thead>
                   <tbody>
-                    {SENSE_QUERY_CATALOG.map((q) => {
-                      const row = queryByDomain.get(q.domain)
-                      const s = statusFor(row)
-                      return (
-                        <tr key={q.domain} className="border-t">
-                          <td className="px-5 py-3 text-sm font-medium">{q.name}</td>
-                          <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{q.inputs}</td>
-                          <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{q.output}</td>
-                          <td className="px-3 py-3 text-xs text-muted-foreground">{q.schedule}</td>
-                          <td className="px-3 py-3">
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
-                                s.tone
-                              )}
-                            >
-                              {s.label}
-                            </span>
-                            {row?.last_error && (
-                              <div className="mt-1 max-w-xs truncate text-[10.5px] text-red-600" title={row.last_error}>
-                                {row.last_error}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-3 py-3" />
-                        </tr>
-                      )
-                    })}
-                    {customQueries.map((row) => {
+                    {queries.map((row) => {
                       const s = statusFor(row)
                       const preview = JSON.stringify(row.query_definition ?? {})
                       return (
-                        <tr key={row.id} className="border-t bg-sky-50/30">
+                        <tr key={row.id} className={cn("border-t", row.is_custom && "bg-sky-50/30")}>
                           <td className="px-5 py-3 text-sm font-medium">
-                            {row.display_name}
-                            <span className="ml-2 rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700">
-                              Custom
-                            </span>
+                            {row.display_name || row.domain}
+                            {row.is_custom && (
+                              <span className="ml-2 rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700">
+                                Custom
+                              </span>
+                            )}
                           </td>
                           <td
                             className="max-w-xs truncate px-3 py-3 font-mono text-xs text-muted-foreground"
@@ -437,7 +359,13 @@ export default function SenseInsights() {
                             {row.custom_output || "—"}
                           </td>
                           <td className="px-3 py-3 text-xs text-muted-foreground">
-                            {row.min_gap_seconds ? `Continuous · ${row.min_gap_seconds}s gap` : "Continuous · custom"}
+                            {row.min_gap_seconds === 86400 
+                               ? "Continuous · daily"
+                               : row.min_gap_seconds === 604800
+                               ? "Continuous · weekly"
+                               : row.min_gap_seconds
+                               ? `Continuous · ${row.min_gap_seconds}s gap`
+                               : "Continuous"}
                           </td>
                           <td className="px-3 py-3">
                             <span
@@ -455,24 +383,26 @@ export default function SenseInsights() {
                             )}
                           </td>
                           <td className="px-3 py-3">
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => openEditQueryModal(row)}
-                                className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted"
-                                aria-label={`Edit ${row.display_name}`}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeleteTarget(row)}
-                                className="flex h-7 w-7 items-center justify-center rounded-md border text-red-600 transition-colors hover:bg-red-50"
-                                aria-label={`Delete ${row.display_name}`}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
+                            {row.is_custom && (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditQueryModal(row)}
+                                  className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted"
+                                  aria-label={`Edit ${row.display_name}`}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteTarget(row)}
+                                  className="flex h-7 w-7 items-center justify-center rounded-md border text-red-500 transition-colors hover:bg-red-50"
+                                  aria-label={`Delete ${row.display_name}`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )
