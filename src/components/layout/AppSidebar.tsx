@@ -70,6 +70,12 @@ const menuSections = [
         ],
       },
       {
+        title: "Payments",
+        url: "/dashboard/orders/payments",
+        icon: ScrollText,
+        permission: Permissions.ORDER_LIST, // All roles
+      },
+      {
         title: "Messages",
         url: "/dashboard/messages",
         icon: MessageSquare,
