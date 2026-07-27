@@ -31,16 +31,17 @@ const areOrdersQueryParamsEqual = (
 };
 
 export const useAdminOrders = (initialParams: OrdersQueryParams = {}) => {
+  const defaultQueryParams: OrdersQueryParams = { page: 1, page_size: 10, ...initialParams };
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [pagination, setPagination] = useState({
     page: 1,
-    page_size: 50,
+    page_size: 10,
     total_count: 0,
     total_pages: 0,
   });
-  const [queryParams, setQueryParams] = useState<OrdersQueryParams>(initialParams);
+  const [queryParams, setQueryParams] = useState<OrdersQueryParams>(defaultQueryParams);
   
   const initialLoadDone = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
