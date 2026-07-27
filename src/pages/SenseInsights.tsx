@@ -162,8 +162,6 @@ export default function SenseInsights() {
     name: string
     slug: string
     query: Record<string, unknown>
-    custom_inputs?: string
-    custom_output?: string
     min_gap_seconds?: number
   }) => {
     if (!clientId) return
@@ -171,8 +169,6 @@ export default function SenseInsights() {
       await junctionIntegrationApi.updateSenseQuery(clientId, environment, editingCustomQuery.id, {
         name: values.name,
         query: values.query,
-        custom_inputs: values.custom_inputs,
-        custom_output: values.custom_output,
         min_gap_seconds: values.min_gap_seconds,
       })
       toast.success("Sense query updated.")
@@ -328,6 +324,7 @@ export default function SenseInsights() {
                   <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-5 py-3 text-left">Query</th>
+                      <th className="px-3 py-3 text-left">Slug</th>
                       <th className="px-3 py-3 text-left">Inputs</th>
                       <th className="px-3 py-3 text-left">Output</th>
                       <th className="px-3 py-3 text-left">Schedule</th>
@@ -348,6 +345,9 @@ export default function SenseInsights() {
                                 Custom
                               </span>
                             )}
+                          </td>
+                          <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
+                            {row.slug || row.domain}
                           </td>
                           <td
                             className="max-w-xs truncate px-3 py-3 font-mono text-xs text-muted-foreground"
