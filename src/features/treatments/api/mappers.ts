@@ -154,9 +154,11 @@ export const treatmentTypeFromRecord = (record: TreatmentTypeRecord): TreatmentT
 });
 
 export const treatmentTypeToRecord = (type: TreatmentType) => ({
-  key: slugify(type.key || type.intakeVisitType || type.name),
+  // New Treatment Types use the display name as their stable identity. The
+  // intake/follow-up values are provider route identifiers and may be shared.
+  key: slugify(isPersistedUuid(type.id) ? type.key || type.name : type.name),
   name: type.name.trim(),
-  slug: slugify(type.key || type.intakeVisitType || type.name),
+  slug: slugify(isPersistedUuid(type.id) ? type.key || type.name : type.name),
   description: type.description || "",
   intake_visit_type: type.intakeVisitType.trim(),
   followup_visit_type: type.followupVisitType?.trim() || "",

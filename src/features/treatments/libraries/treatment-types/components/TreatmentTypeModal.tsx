@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useTreatmentTypes, useSaveTreatmentType } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
 import type { TreatmentType } from "@/features/treatments/types";
+import { slugify } from "@/features/treatments/api/mappers";
 
 interface TreatmentTypeModalProps {
   open: boolean;
@@ -50,10 +51,13 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
     }
 
     const existing = treatmentTypeKey ? treatmentTypes.find((t) => t.key === treatmentTypeKey) : undefined;
+    const identitySlug = slugify(name.trim());
     const payload: TreatmentType = {
-      id: existing?.id || `tt-${intake.trim()}`,
+      id: existing?.id || `tt-${identitySlug}`,
       name: name.trim(),
-      key: existing?.key || intake.trim(),
+      // Treatment identity comes from the display name. Visit identifiers are
+      // provider routing values and are intentionally shareable.
+      key: existing?.key || identitySlug,
       intakeVisitType: intake.trim(),
       followupVisitType: followup.trim() || undefined,
       description: existing?.description || "",
