@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Loader2, AlertCircle, Filter, Search, Eye } from "lucide-react";
+import { FileText, Loader2, AlertCircle, Filter, Search, Eye, GitBranch } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -45,6 +46,28 @@ function formatMoney(value: string | number | undefined) {
   return `$${Number.isFinite(parsed) ? parsed.toFixed(2) : "0.00"}`;
 }
 
+function moneyNumber(value: string | number | undefined | null) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function invoiceAmount(inv: Pick<B2BInvoice, "total_amount">) {
+  return moneyNumber(inv.total_amount);
+}
+
+function invoiceSupplementalTotal(inv: B2BInvoice) {
+  return (inv.supplemental_invoices || []).reduce(
+    (sum, child) => sum + moneyNumber(child.total_amount),
+    0
+  );
+}
+
+function invoiceCombinedTotal(inv: B2BInvoice) {
+  const adjusted = Number(inv.adjustment_summary?.adjusted_total);
+  if (Number.isFinite(adjusted)) return adjusted;
+  return invoiceAmount(inv) + invoiceSupplementalTotal(inv);
+}
+
 function formatDate(dateString?: string) {
   if (!dateString) return "N/A";
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -67,6 +90,7 @@ function statusVariant(status: string) {
       return "destructive";
     case "pending":
     case "due":
+    case "refund_pending":
       return "secondary";
     default:
       return "outline";
@@ -142,9 +166,21 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
     enabled: !!clientId,
   });
 
-  const invoices = data?.results || [];
+  const invoices = useMemo(() => data?.results || [], [data?.results]);
   const totalCount = data?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
+
+  const displayedInvoices = useMemo(() => {
+    const invoiceIds = new Set(invoices.map((inv) => inv.id));
+    return invoices.filter((inv) => {
+      // Collapse a supplemental row into its parent when the parent is present
+      // on this page; otherwise show it standalone so nothing silently disappears.
+      if (inv.is_supplemental_split_capture && inv.supplemental_parent_invoice_id) {
+        return !invoiceIds.has(inv.supplemental_parent_invoice_id);
+      }
+      return true;
+    });
+  }, [invoices]);
 
   const formatBreakdown = (inv: any) => {
     const items = inv.line_items ?? [];
@@ -305,14 +341,21 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invoices.map((invoice) => {
+                {displayedInvoices.map((invoice) => {
                   const effectiveStatus =
-                    (invoice as any).is_overdue && invoice.status !== "paid"
-                      ? "overdue"
-                      : invoice.status;
+                    invoice.invoice_type === "credit_note" && invoice.status === "pending"
+                      ? "refund_pending"
+                      : (invoice as any).is_overdue && invoice.status !== "paid"
+                        ? "overdue"
+                        : invoice.status;
+                  const hasNestedSupplementals = (invoice.supplemental_invoices || []).length > 0;
+                  const supplementalTotal = invoiceSupplementalTotal(invoice);
 
                   return (
-                    <TableRow key={invoice.id}>
+                    <TableRow
+                      key={invoice.id}
+                      className={hasNestedSupplementals ? "bg-amber-50/40 dark:bg-amber-900/10" : undefined}
+                    >
                       <TableCell className="font-mono text-xs">
                         {invoice.invoice_number}
                       </TableCell>
@@ -322,14 +365,20 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatMoney(invoice.total_amount)}
+                        {formatMoney(invoiceCombinedTotal(invoice))}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatBreakdown(invoice)}
+                        <div>{formatBreakdown(invoice)}</div>
+                        {hasNestedSupplementals && (
+                          <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            <GitBranch className="h-3 w-3" />
+                            Split Capture · +${supplementalTotal.toFixed(2)} supplemental
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(effectiveStatus)}>
-                          {effectiveStatus}
+                          {effectiveStatus.replace("_", " ")}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -390,7 +439,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
         </>
       )}
 
-      {selected && (
+      {selected && createPortal(
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-background rounded-xl border shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="p-4 border-b flex items-center justify-between">
@@ -402,6 +451,69 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 Close
               </Button>
             </div>
+
+            {(selected.supplemental_invoices || []).length > 0 && (
+              <div className="mx-4 mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-900/20">
+                <div className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
+                  <GitBranch className="h-3.5 w-3.5" />
+                  Split Capture · {(selected.supplemental_invoices || []).length} supplemental invoice
+                  {(selected.supplemental_invoices || []).length > 1 ? "s" : ""}
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="rounded-md border border-amber-200 bg-white px-2 py-1.5 dark:border-amber-700 dark:bg-slate-900">
+                    <div className="text-[11px] text-amber-700 dark:text-amber-300">Base invoice</div>
+                    <div className="font-semibold text-amber-900 dark:text-amber-200">
+                      {selected.invoice_number}: {formatMoney(invoiceAmount(selected))}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-amber-200 bg-white px-2 py-1.5 dark:border-amber-700 dark:bg-slate-900">
+                    <div className="text-[11px] text-amber-700 dark:text-amber-300">Supplemental total</div>
+                    <div className="font-semibold text-amber-900 dark:text-amber-200">
+                      {formatMoney(invoiceSupplementalTotal(selected))}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-amber-200 bg-white px-2 py-1.5 dark:border-amber-700 dark:bg-slate-900">
+                    <div className="text-[11px] text-amber-700 dark:text-amber-300">Combined settlement</div>
+                    <div className="font-semibold text-amber-900 dark:text-amber-200">
+                      {formatMoney(invoiceCombinedTotal(selected))}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 overflow-x-auto rounded-md border border-amber-200 bg-white dark:border-amber-700 dark:bg-slate-900">
+                  <table className="w-full text-xs">
+                    <thead className="bg-amber-100/70 dark:bg-amber-900/30">
+                      <tr>
+                        <th className="px-2 py-1 text-left">Invoice #</th>
+                        <th className="px-2 py-1 text-left">Status</th>
+                        <th className="px-2 py-1 text-left">Issued</th>
+                        <th className="px-2 py-1 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selected.supplemental_invoices || []).map((child) => (
+                        <tr key={child.id} className="border-t border-amber-100 dark:border-amber-800/60">
+                          <td className="px-2 py-1 font-medium">{child.invoice_number}</td>
+                          <td className="px-2 py-1">{child.status}</td>
+                          <td className="px-2 py-1">{formatDate(child.issued_at || child.created_at)}</td>
+                          <td className="px-2 py-1 text-right">{formatMoney(child.total_amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {selected.invoice_type === "credit_note" && (
+              <div className="mx-4 mt-4 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm dark:border-orange-800 dark:bg-orange-900/20">
+                <div className="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-300">
+                  Refund reason
+                </div>
+                <div className="mt-1 font-medium text-orange-900 dark:text-orange-200">
+                  {(selected.refund_required_reason || "Rx Revision Over Reimbursed").replace(/_/g, " ")}
+                </div>
+              </div>
+            )}
 
             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
               <div className="rounded-md border p-3">
@@ -425,6 +537,30 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                   <div className="text-muted-foreground text-xs">Renewal Access Period</div>
                   <div className="font-semibold">{getAccessPeriodFromInvoice(selected)}</div>
                 </div>
+              )}
+              {selected.invoice_type === "reimbursement" && selected.adjustment_summary && (
+                <>
+                  {Number(selected.adjustment_summary.supplemental_charges || 0) > 0 && (
+                    <div className="rounded-md border p-3">
+                      <div className="text-muted-foreground text-xs">Supplemental Charges</div>
+                      <div className="font-semibold text-red-600">
+                        +{formatMoney(selected.adjustment_summary.supplemental_charges)}
+                      </div>
+                    </div>
+                  )}
+                  {Number(selected.adjustment_summary.credit_notes || 0) > 0 && (
+                    <div className="rounded-md border p-3">
+                      <div className="text-muted-foreground text-xs">Credit Notes</div>
+                      <div className="font-semibold text-emerald-600">
+                        −{formatMoney(selected.adjustment_summary.credit_notes)}
+                      </div>
+                    </div>
+                  )}
+                  <div className="rounded-md border p-3">
+                    <div className="text-muted-foreground text-xs">Adjusted Total</div>
+                    <div className="font-semibold">{formatMoney(selected.adjustment_summary.adjusted_total)}</div>
+                  </div>
+                </>
               )}
               {selected.invoice_type === "reimbursement" && (
                 <>
@@ -470,6 +606,41 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
               </div>
             )}
 
+            {!selected.treatment_prescription && (selected.revision_adjustments || []).length > 0 && (
+              <div className="px-4 pb-4">
+                <h4 className="font-semibold mb-2">Revision History</h4>
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/30">
+                      <tr>
+                        <th className="text-left px-3 py-2">Revision</th>
+                        <th className="text-left px-3 py-2">Product</th>
+                        <th className="text-left px-3 py-2">Kind</th>
+                        <th className="text-left px-3 py-2">Status</th>
+                        <th className="text-right px-3 py-2">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selected.revision_adjustments || []).map((adjustment) => {
+                        const isCredit = adjustment.kind === "credit_note";
+                        return (
+                          <tr key={adjustment.id} className="border-t">
+                            <td className="px-3 py-2">{adjustment.revision_number ?? "-"}</td>
+                            <td className="px-3 py-2">{adjustment.product_name || "-"}</td>
+                            <td className="px-3 py-2">{adjustment.kind.replace(/_/g, " ")}</td>
+                            <td className="px-3 py-2">{adjustment.status}</td>
+                            <td className={`px-3 py-2 text-right font-medium ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+                              {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <div className="px-4 pb-4">
               <h4 className="font-semibold mb-2">Line Items</h4>
               {(selected.line_items || []).length === 0 ? (
@@ -508,7 +679,8 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );

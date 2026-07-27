@@ -347,6 +347,27 @@ export interface OrderUpdateResponse {
  * deduplicated server-side.  The backend returns 202 when the update is
  * queued for async processing, or 200 when replaying a cached result.
  */
+/**
+ * Fetch full order detail from the control plane.
+ * Returns the same shape as AdminOrder but may include richer fields
+ * such as line_items, requested_medicines, linked_supplies, etc.
+ */
+export async function fetchAdminOrderDetail(orderId: string, clientId: string): Promise<AdminOrder> {
+  try {
+    const { data } = await axiosInstance.get<AdminOrder>(
+      `/admin/dashboard/orders/${orderId}/`,
+      { params: { client_id: clientId } }
+    );
+    return data;
+  } catch (error: any) {
+    console.error('Failed to fetch order detail:', error);
+    throw new Error(
+      error.response?.data?.error ||
+      'Failed to load order details. Please try again.'
+    );
+  }
+}
+
 export async function updateAdminOrder(
   orderId: string,
   payload: OrderUpdatePayload
