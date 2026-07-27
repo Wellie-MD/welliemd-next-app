@@ -78,55 +78,29 @@ const App = () => {
   );
 
   useEffect(() => {
+    const authStore = useAuthStore.getState();
+
     const initializeAuth = async () => {
-      const authStore = useAuthStore.getState();
       authStore.clearExpiredSession();
 
       const authStart = performance.now();
       try {
-        await authService.hydrateAuth();
+        await authService.hydrateAuth(authStore.user?.id);
       } catch (error) {
         console.error('Failed to initialize auth:', error);
       } finally {
         const authDuration = performance.now() - authStart;
-        const existing = (window as any).__perfMetrics || {};
-        (window as any).__perfMetrics = { ...existing, auth_hydration_ms: authDuration };
+        const perfWindow = window as Window & {
+          __perfMetrics?: Record<string, unknown>;
+        };
+        const existing = perfWindow.__perfMetrics || {};
+        perfWindow.__perfMetrics = { ...existing, auth_hydration_ms: authDuration };
         setIsInitialized(true);
         reportPerfMetrics();
       }
     };
 
-    initializeAuth();
-  }, []);
-
-  useEffect(() => {
-    const AUTH_SYNC_EVENT_KEY = "admin-auth-sync-event";
-
-    const handleStorage = async (event: StorageEvent) => {
-      if (event.key !== AUTH_SYNC_EVENT_KEY || !event.newValue) {
-        return;
-      }
-
-      try {
-        const payload = JSON.parse(event.newValue) as { type?: "login" | "logout" };
-        const authStore = useAuthStore.getState();
-
-        if (payload.type === "logout") {
-          authStore.logout();
-          return;
-        }
-
-        if (payload.type === "login") {
-          authStore.clearExpiredSession();
-          await authService.hydrateAuth();
-        }
-      } catch (error) {
-        console.warn("Failed to process auth sync event:", error);
-      }
-    };
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    void initializeAuth();
   }, []);
 
   if (!isInitialized) {

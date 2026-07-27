@@ -280,7 +280,7 @@ export default function Billing() {
     const requested = invoice.requested_breakdown;
     const treatmentPrescription = invoice.treatment_prescription;
     const adjustments = invoice.revision_adjustments || [];
-    const prescriptionEvents = invoice.prescription_events || [];
+    const rawPrescriptionEvents = invoice.prescription_events || [];
     const summary = invoice.adjustment_summary;
     const netAdjustment = Number(summary?.net_adjustment || 0);
     const requestedProductName = requested?.product_name || "";
@@ -335,6 +335,88 @@ export default function Billing() {
     );
     type RevisionAdjustment = NonNullable<B2BInvoice["revision_adjustments"]>[number];
     const normalizeProductName = (value?: string) => (value || "").trim().toLowerCase();
+    const revisionSortNumber = (adjustment: RevisionAdjustment) => {
+      const revisionNumber = Number(adjustment.revision_number);
+      return Number.isFinite(revisionNumber) ? revisionNumber : Number.MAX_SAFE_INTEGER;
+    };
+    const isConcreteAdjustment = (adjustment: RevisionAdjustment) => {
+      const productName = normalizeProductName(adjustment.product_name);
+      return (
+        ["supplemental_charge", "credit_note"].includes(adjustment.kind) &&
+        Boolean(productName) &&
+        productName !== "revised prescription" &&
+        productName !== "original prescription" &&
+        moneyNumber(adjustment.product_total) > 0
+      );
+    };
+    const sortedConcreteAdjustments = adjustments
+      .filter(isConcreteAdjustment)
+      .sort((left, right) => {
+        const revisionDelta = revisionSortNumber(left) - revisionSortNumber(right);
+        if (revisionDelta !== 0) return revisionDelta;
+        return String(left.created_at || "").localeCompare(String(right.created_at || ""));
+      });
+    const hasAdjustmentInitial = sortedConcreteAdjustments.some(
+      (adjustment) => revisionSortNumber(adjustment) === 0
+    );
+    const basePrescriptionEvent: B2BInvoicePrescriptionEvent | null =
+      sortedConcreteAdjustments.length > 0 &&
+      !hasAdjustmentInitial &&
+      Boolean(requested?.product_name) &&
+      moneyNumber(requested?.product_total) > 0
+        ? {
+            name: requested?.product_name,
+            event_kind: "initial_prescription",
+            revision_number: null,
+            occurred_at: invoice.created_at || null,
+            webhook_event_id: "",
+            medication_amount: requested?.medication_amount,
+            shipping_amount: requested?.shipping_amount,
+            product_total: requested?.product_total,
+            patient_total: requested?.product_total,
+            items: [
+              {
+                name: requested?.product_name,
+                medication_amount: requested?.medication_amount,
+                shipping_amount: requested?.shipping_amount,
+                product_total: requested?.product_total,
+                patient_amount: requested?.product_total,
+              },
+            ],
+          }
+        : null;
+    const adjustmentBackedEvents = [
+      ...(basePrescriptionEvent ? [basePrescriptionEvent] : []),
+      ...sortedConcreteAdjustments.map((adjustment): B2BInvoicePrescriptionEvent => ({
+        name: adjustment.product_name,
+        event_kind: revisionSortNumber(adjustment) === 0 ? "initial_prescription" : "revision",
+        revision_number: revisionSortNumber(adjustment) === 0 ? null : revisionSortNumber(adjustment),
+        occurred_at: adjustment.created_at || null,
+        webhook_event_id: "",
+        medication_amount: adjustment.medication_amount,
+        shipping_amount: adjustment.shipping_amount,
+        product_total: adjustment.product_total,
+        patient_total: adjustment.product_total,
+        items: [
+          {
+            name: adjustment.product_name,
+            medication_amount: adjustment.medication_amount,
+            shipping_amount: adjustment.shipping_amount,
+            product_total: adjustment.product_total,
+            patient_amount: adjustment.product_total,
+          },
+        ],
+      })),
+    ];
+    const rawHasPositiveEvent = rawPrescriptionEvents.some((event) => moneyNumber(event.product_total) > 0);
+    const prescriptionEvents = adjustmentBackedEvents.length > 0
+      ? adjustmentBackedEvents
+      : rawPrescriptionEvents.filter((event) => {
+          const name = normalizeProductName(event.name);
+          if (!name || name === "revised prescription" || name === "original prescription") return false;
+          if (rawHasPositiveEvent && moneyNumber(event.product_total) <= 0) return false;
+          return true;
+        });
     const adjustmentForRevision = (revisionNumber: number) =>
       adjustments.find((adjustment) => Number(adjustment.revision_number ?? -1) === revisionNumber);
     const adjustmentForPrescriptionEvent = (
@@ -494,11 +576,18 @@ export default function Billing() {
           fallback.adjustment
         );
       }
-      const shippingTotal = productRows.reduce((sum, item) => sum + moneyNumber(item.shipping_amount), 0);
+      const medicationTotal = productRows.reduce((sum, item) => {
+        const amount = Number(item.medication_amount || 0);
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
+      const shippingTotal = productRows.reduce((sum, item) => {
+        const amount = Number(item.shipping_amount || 0);
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
       const explicitTotal = Number(fallback.total);
       const computedTotal = Number.isFinite(explicitTotal)
         ? explicitTotal
-        : productRows.reduce((sum, item) => sum + moneyNumber(item.medication_amount || item.product_total), 0) + shippingTotal;
+        : medicationTotal + shippingTotal;
       const adjustment = fallback.adjustment;
       const isCredit = adjustment?.kind === "credit_note";
       const isNoCharge = adjustment?.kind === "no_charge_revision";
@@ -559,7 +648,7 @@ export default function Billing() {
 
     return createPortal(
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
-        <div className="w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-2xl">
+        <div className="w-full max-w-[880px] overflow-hidden rounded-xl border bg-white shadow-2xl">
           <header className="border-b px-5 py-5">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -639,14 +728,14 @@ export default function Billing() {
 
           <div className="grid md:grid-cols-[320px_1fr]">
             <aside className="border-b md:border-b-0 md:border-r">
-              <section className="border-b p-5">
+              <section className="border-b px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
                 {infoRow("Client", (invoice as any).client_name || "-")}
                 {infoRow("Client order #", <span className="font-mono">{getClientOrderNumber(invoice)}</span>)}
                 {infoRow("Type", "Reimbursement")}
                 {infoRow("Issued", invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString() : "-")}
               </section>
-              <section className="border-b p-5">
+              <section className="border-b px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Amounts</h4>
                 {infoRow("Invoice total", money(baseInvoiceTotal))}
                 {Number(summary?.supplemental_charges || 0) > 0 &&
@@ -657,7 +746,7 @@ export default function Billing() {
                   infoRow("Authorization hold released", <span className="text-emerald-600">−{money(holdReleasedAmount)}</span>)}
                 {infoRow("Adjusted total", <strong>{money(adjustedInvoiceTotal)}</strong>)}
               </section>
-              <section className="p-5">
+              <section className="px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Payment diagnostics</h4>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-xs font-medium text-sky-600">Show auth &amp; capture details</summary>
@@ -683,7 +772,7 @@ export default function Billing() {
                 </div>
               )}
               {Number(requested?.consultation_amount || 0) > 0 && (
-                <section className="border-b p-5">
+                <section className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Consultation</h4>
                   <table className="mt-2 w-full table-fixed text-xs">
                     {sharedColgroup}
@@ -700,7 +789,7 @@ export default function Billing() {
                 </section>
               )}
               {!treatmentPrescription && (
-                <section className="border-b p-5">
+                <section className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Requested · {requestedLabel}
                   </h4>
@@ -722,7 +811,7 @@ export default function Billing() {
                 const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
                 const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
                 return (
-                  <section key={event.webhook_event_id || `${sectionLabel}-${index}`} className="border-b p-5">
+                  <section key={event.webhook_event_id || `${sectionLabel}-${index}`} className="border-b px-5 py-4">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       {sectionLabel} · {event.name || "Prescribed product"}
                     </h4>
@@ -739,10 +828,10 @@ export default function Billing() {
                 );
               })}
               {!treatmentPrescription && prescriptionEvents.length === 0 && showImplicitBaseRevision && (
-                <section className="border-b p-5">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Initial prescription · {requested?.product_name || "Prescribed product"}
-                </h4>
+                <section className="border-b px-5 py-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Initial prescription · {requested?.product_name || "Prescribed product"}
+                  </h4>
                   <div className="mt-2">
                     {renderCostTable(
                       requested?.medication_amount,
@@ -767,7 +856,7 @@ export default function Billing() {
                 const sectionLabel = isInitialFallback ? "Initial prescription" : `Revision ${displayRevisionNumber}`;
                 const productName = adjustment.product_name || "Revised prescription";
                 return (
-                  <section key={adjustment.id} className="border-b p-5">
+                  <section key={adjustment.id} className="border-b px-5 py-4">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       {sectionLabel} · {productName}
                     </h4>
@@ -779,7 +868,7 @@ export default function Billing() {
                         false,
                         productName,
                         "Total",
-                        isNoCharge ? undefined : adjustment
+                        isInitialFallback ? undefined : adjustment
                       )}
                     </div>
                   </section>
