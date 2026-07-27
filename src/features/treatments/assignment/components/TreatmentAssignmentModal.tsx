@@ -43,11 +43,12 @@ type Phase = "select" | "preflight" | "progress";
 
 const errorMessage = (error: unknown) => {
   const value = error as {
-    response?: { data?: { detail?: string; code?: string } };
+    response?: { data?: { detail?: string; error?: string; code?: string } };
     message?: string;
   };
   return (
     value.response?.data?.detail ||
+    value.response?.data?.error ||
     value.response?.data?.code ||
     value.message ||
     "The assignment service is unavailable."

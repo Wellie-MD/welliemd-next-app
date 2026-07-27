@@ -10,6 +10,7 @@ import {
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
 import type { ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { createMockId } from "@/features/treatments/common/data/factories";
+import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
 import { useQueryClient } from "@tanstack/react-query";
 import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
 import {
@@ -24,6 +25,22 @@ import {
   treatmentQueryKeys,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
+
+type ApiErrorLike = {
+  response?: { data?: { detail?: string; error?: string; message?: string } };
+  message?: string;
+};
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  const apiError = error as ApiErrorLike;
+  return (
+    apiError.response?.data?.detail ||
+    apiError.response?.data?.error ||
+    apiError.response?.data?.message ||
+    apiError.message ||
+    fallback
+  );
+};
 
 // Sub-modals & components
 import { AuthSetupModal } from "@/features/treatments/programs/components/AuthSetupModal";
@@ -206,10 +223,10 @@ export function SharedQuestionsList({
         .filter((question) => question.kind === "checkout")
         .map(listItemToCheckoutQuestion);
       treatmentsApi.saveProgram({
-        ...program,
+        id: program.id,
         checkoutQuestions,
         checkoutQuestionCount: checkoutQuestions.length,
-      }).then(() => {
+      } as never).then(() => {
         queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
         toast({ title: "Checkout Order Saved" });
       }).catch(() => {
@@ -321,6 +338,11 @@ export function SharedQuestionsList({
       setQuestions([...savedQuestions, ...checkoutQuestions]);
       queryClient.setQueryData(treatmentQueryKeys.programQuestions(entityId), savedQuestions);
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(entityId) });
+      // The `program` prop (screeningQuestions/questionCount) lives in a
+      // separate cache — without this it stays stale until something else
+      // happens to refetch it, and any full-`program` save downstream can
+      // silently resurrect the pre-section state.
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
       toast({
         title: "Common Section Attached",
         description: `${section.fieldCount} fields · Reusable from library`,
@@ -341,20 +363,75 @@ export function SharedQuestionsList({
   };
 
   const confirmDelete = () => {
-    if (questionToDeleteId) {
-      const deleteMutation = entityType === "section" ? deleteSectionFieldMutation : deleteQuestionMutation;
-      deleteMutation.mutate(questionToDeleteId, {
-        onSuccess: () => {
-          setQuestions((prev) => prev.filter((q) => q.id !== questionToDeleteId));
-          toast({ title: "Element Removed", description: "The element has been removed successfully." });
-        },
-      });
+    if (!questionToDeleteId) {
+      setIsDeleteDialogOpen(false);
+      return;
     }
+
+    const questionToDelete = questions.find((q) => q.id === questionToDeleteId);
+
+    // Checkout questions aren't stored in the screening-question list the
+    // generic delete mutation targets — they live on Program.checkoutQuestions.
+    // Route their removal through the same save path handleAddCheckoutSave
+    // uses, or the delete silently no-ops and the item reappears on reload.
+    if (questionToDelete?.kind === "checkout" && entityType === "program" && program) {
+      const updatedCheckout = questions
+        .filter((question) => question.kind === "checkout" && question.id !== questionToDeleteId)
+        .map(listItemToCheckoutQuestion);
+
+      treatmentsApi.saveProgram({
+        id: program.id,
+        checkoutQuestions: updatedCheckout,
+        checkoutQuestionCount: updatedCheckout.length,
+      } as never).then((savedProgram) => {
+        setQuestions((prev) => prev.filter((q) => q.id !== questionToDeleteId));
+        queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
+          current?.map((item) => item.id === savedProgram.id ? savedProgram : item)
+        );
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+        toast({ title: "Element Removed", description: "The element has been removed successfully." });
+      }).catch((error) => {
+        toast({
+          title: "Error",
+          description: getApiErrorMessage(error, "Failed to remove the checkout question."),
+          variant: "destructive",
+        });
+      });
+      setIsDeleteDialogOpen(false);
+      return;
+    }
+
+    const deleteMutation = entityType === "section" ? deleteSectionFieldMutation : deleteQuestionMutation;
+    deleteMutation.mutate(questionToDeleteId, {
+      onSuccess: () => {
+        setQuestions((prev) => prev.filter((q) => q.id !== questionToDeleteId));
+        toast({ title: "Element Removed", description: "The element has been removed successfully." });
+      },
+    });
     setIsDeleteDialogOpen(false);
   };
 
   // Add handlers
-  const handleAddQuestionSave = (updatedQuestion: ProgramQuestion) => {
+  // Returns a Promise so the editor modal can drive an accurate
+  // saving/saved button state and knows whether to show a success flash
+  // (only on a real, awaited success) instead of firing-and-forgetting.
+  const handleAddQuestionSave = async (updatedQuestion: ProgramQuestion): Promise<void> => {
+    // Checkout questions aren't stored in the screening-question list — same
+    // reason the delete path had to special-case them (see confirmDelete).
+    // Route through the checkout-specific save path or the edit silently
+    // writes to the wrong field and reverts on reload.
+    if (updatedQuestion.kind === "checkout" && entityType === "program" && program) {
+      await handleAddCheckoutSave(
+        {
+          text: updatedQuestion.text,
+          products: updatedQuestion.checkoutProducts || [],
+          visibilityRules: updatedQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
+        },
+        { keepEditorOpen: true }
+      );
+      return;
+    }
+
     const isEditing = questions.some((q) => q.id === updatedQuestion.id);
 
     const mutation = entityType === "section"
@@ -380,22 +457,23 @@ export function SharedQuestionsList({
         }
       : updatedQuestion;
 
-    mutation.mutate(payload as never, {
-      onSuccess: () => {
-        setQuestions((prev) => {
-          if (isEditing) {
-            return prev.map((q) => (q.id === updatedQuestion.id ? updatedQuestion : q));
-          }
-          return [...prev, updatedQuestion];
-        });
-        toast({ title: isEditing ? "Question Updated" : "Question Added" });
-      },
-      onError: (error) => {
-        const message = error instanceof Error ? error.message : "Unable to save this question.";
-        toast({ title: "Save failed", description: message, variant: "destructive" });
-      },
-    });
-    setActiveEditingQuestion(null);
+    try {
+      await mutation.mutateAsync(payload as never);
+      setQuestions((prev) => {
+        if (isEditing) {
+          return prev.map((q) => (q.id === updatedQuestion.id ? updatedQuestion : q));
+        }
+        return [...prev, updatedQuestion];
+      });
+      toast({ title: isEditing ? "Question Updated" : "Question Added" });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: getApiErrorMessage(error, "The question could not be saved."),
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   const saveElement = (element: ProgramQuestion, successTitle: string) => {
@@ -466,7 +544,7 @@ export function SharedQuestionsList({
     text: checkout.text,
     kind: "checkout",
     section: "Checkout",
-    required: true,
+    required: isCheckoutQuestionRequired(checkout.products),
     checkoutProductIds: checkout.products
       .map((product) => product.productId)
       .filter((productId): productId is string => Boolean(productId)),
@@ -481,7 +559,10 @@ export function SharedQuestionsList({
     },
   });
 
-  const handleAddCheckoutSave = async (data: Omit<ProgramCheckoutQuestion, "id">) => {
+  const handleAddCheckoutSave = async (
+    data: Omit<ProgramCheckoutQuestion, "id">,
+    options?: { keepEditorOpen?: boolean }
+  ) => {
     const isEditing = !!activeEditingQuestion;
     const checkoutId = isEditing ? activeEditingQuestion!.id : createMockId("cq");
     const checkoutQuestion: ProgramCheckoutQuestion = {
@@ -503,10 +584,10 @@ export function SharedQuestionsList({
         : [...currentCheckout, checkoutQuestion];
 
       const savedProgram = await treatmentsApi.saveProgram({
-        ...program,
+        id: program.id,
         checkoutQuestions: updatedCheckout,
         checkoutQuestionCount: updatedCheckout.length,
-      });
+      } as never);
 
       queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
         current?.map((item) => item.id === savedProgram.id ? savedProgram : item)
@@ -523,7 +604,7 @@ export function SharedQuestionsList({
           : [...previous, listItem]
       );
       toast({ title: isEditing ? "Checkout Options Saved" : "Checkout Options Added" });
-      setActiveEditingQuestion(null);
+      if (!options?.keepEditorOpen) setActiveEditingQuestion(null);
       return;
     }
 
@@ -555,7 +636,7 @@ export function SharedQuestionsList({
         onError: (error) => reject(error),
       });
     });
-    setActiveEditingQuestion(null);
+    if (!options?.keepEditorOpen) setActiveEditingQuestion(null);
   };
 
   // The Flow view always renders through ProgramFlowBuilder — the same
@@ -623,7 +704,7 @@ export function SharedQuestionsList({
               text: checkoutQuestion.text,
               kind: "checkout",
               section: "Checkout",
-              required: true,
+              required: isCheckoutQuestionRequired(checkoutQuestion.products),
               checkoutProducts: checkoutQuestion.products,
               visibilityRuleGroup: checkoutQuestion.visibilityRules,
             });

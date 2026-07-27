@@ -14,8 +14,9 @@ interface DeleteConfirmDialogProps {
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
   confirmLabel?: string;
+  loading?: boolean;
 }
 
 export function DeleteConfirmDialog({
@@ -25,7 +26,12 @@ export function DeleteConfirmDialog({
   description,
   onConfirm,
   confirmLabel = "Delete",
+  loading = false,
 }: DeleteConfirmDialogProps) {
+  const handleConfirm = async () => {
+    await onConfirm();
+  };
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -34,12 +40,13 @@ export function DeleteConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={handleConfirm}
+            disabled={loading}
             className="bg-red-600 text-white hover:bg-red-700"
           >
-            {confirmLabel}
+            {loading ? "Deleting..." : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

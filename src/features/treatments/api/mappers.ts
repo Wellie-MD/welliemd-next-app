@@ -111,7 +111,7 @@ export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): Pr
   text: String(record.text ?? record.question_text ?? ""),
   kind: (record.kind ?? record.question_type ?? "text") as ProgramQuestion["kind"],
   section: record.section || "General Intake",
-  required: Boolean(record.required ?? record.is_required ?? true),
+  required: Boolean(record.required ?? record.is_required ?? false),
   choices: record.choices ?? record.answer_choices ?? [],
   dqChoices: record.dqChoices ?? [],
   consentText: record.consentText,
@@ -328,37 +328,87 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
   sourceAssignmentChecksum: record.source_assignment_checksum,
 });
 
-export const programToRecord = (program: Program, treatmentTypes: TreatmentType[]) => {
-  const treatmentType = treatmentTypes.find((item) => item.key === program.treatmentTypeKey);
-  if (!treatmentType) throw new Error(`Treatment type ${program.treatmentTypeKey} was not found`);
-  return {
-    treatment_type: treatmentType.id,
-    source_questionnaire_template: program.sourceQuestionnaireTemplateId || null,
-    name: program.name.trim(),
-    slug: slugify(program.slug || program.name),
-    description: program.description || "",
-    stage: program.stage,
-    question_count: program.questionCount || 0,
-    checkout_question_count: program.checkoutQuestionCount || 0,
-    status: program.status,
-    auth_config: program.authConfig,
-    screening_questions: (program.screeningQuestions || []).map(questionToRecord),
-    checkout_questions: program.checkoutQuestions || [],
-    consent_ids: program.consentIds || [],
-    sex_requirement: program.sexRequirement || "any",
-    min_age: program.minAge ?? null,
-    max_age: program.maxAge ?? null,
-    min_bmi: program.minBmi ?? null,
-    max_bmi: program.maxBmi ?? null,
-    service_states_all: program.serviceStatesAll ?? true,
-    service_states: program.serviceStatesAll === false ? (program.serviceStates || []) : [],
-    lab_requirements: (program.labRequirements || []).map((requirement, index) => ({
+// ponytail: partial mapping to avoid stale frontend query cache overwrites during PATCH requests
+export const programToRecord = (program: Partial<Program>, treatmentTypes: TreatmentType[]) => {
+  const payload: Record<string, any> = {};
+
+  if (program.treatmentTypeKey !== undefined) {
+    const treatmentType = treatmentTypes.find((item) => item.key === program.treatmentTypeKey);
+    if (treatmentType) {
+      payload.treatment_type = treatmentType.id;
+    }
+  }
+
+  if (program.sourceQuestionnaireTemplateId !== undefined) {
+    payload.source_questionnaire_template = program.sourceQuestionnaireTemplateId || null;
+  }
+  if (program.name !== undefined) {
+    payload.name = program.name.trim();
+    if (program.slug === undefined) {
+      payload.slug = slugify(program.slug || program.name);
+    }
+  }
+  if (program.slug !== undefined) {
+    payload.slug = slugify(program.slug);
+  }
+  if (program.description !== undefined) {
+    payload.description = program.description || "";
+  }
+  if (program.stage !== undefined) {
+    payload.stage = program.stage;
+    payload.phase = program.stage === "follow_up" ? "follow_up" : "onboarding";
+  }
+  if (program.questionCount !== undefined) {
+    payload.question_count = program.questionCount || 0;
+  }
+  if (program.checkoutQuestionCount !== undefined) {
+    payload.checkout_question_count = program.checkoutQuestionCount || 0;
+  }
+  if (program.status !== undefined) {
+    payload.status = program.status;
+  }
+  if (program.authConfig !== undefined) {
+    payload.auth_config = program.authConfig;
+  }
+  if (program.screeningQuestions !== undefined) {
+    payload.screening_questions = (program.screeningQuestions || []).map(questionToRecord);
+  }
+  if (program.checkoutQuestions !== undefined) {
+    payload.checkout_questions = program.checkoutQuestions || [];
+  }
+  if (program.consentIds !== undefined) {
+    payload.consent_ids = program.consentIds || [];
+  }
+  if (program.sexRequirement !== undefined) {
+    payload.sex_requirement = program.sexRequirement || "any";
+  }
+  if (program.minAge !== undefined) {
+    payload.min_age = program.minAge ?? null;
+  }
+  if (program.maxAge !== undefined) {
+    payload.max_age = program.maxAge ?? null;
+  }
+  if (program.minBmi !== undefined) {
+    payload.min_bmi = program.minBmi ?? null;
+  }
+  if (program.maxBmi !== undefined) {
+    payload.max_bmi = program.maxBmi ?? null;
+  }
+  if (program.serviceStatesAll !== undefined) {
+    payload.service_states_all = program.serviceStatesAll ?? true;
+  }
+  if (program.serviceStates !== undefined) {
+    payload.service_states = program.serviceStatesAll === false ? (program.serviceStates || []) : [];
+  }
+  if (program.labRequirements !== undefined) {
+    payload.lab_requirements = (program.labRequirements || []).map((requirement, index) => ({
       panel_id: requirement.panelId,
       display_order: requirement.displayOrder || index + 1,
       is_required: requirement.isRequired,
       is_active: requirement.isActive,
       instructions: requirement.instructions || "",
-    })),
-    phase: program.stage === "follow_up" ? "follow_up" : "onboarding",
-  };
+    }));
+  }
+
+  return payload;
 };
