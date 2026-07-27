@@ -30,15 +30,21 @@ export type QuestionKind =
 
 export type VisibilityRuleOperator =
   | "equals"
+  | "eq"
   | "not_equals"
+  | "neq"
   | "in"
   | "not_in"
   | "contains"
   | "not_contains"
   | "gt"
+  | "greater_than"
   | "gte"
+  | "greater_than_or_equal"
   | "lt"
+  | "less_than"
   | "lte"
+  | "less_than_or_equal"
   | "between";
 
 export interface VisibilityRule {
