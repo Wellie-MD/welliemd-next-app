@@ -291,6 +291,7 @@ const billingService = {
       const params = { page, page_size: pageSize, ...(paramsOverride || {}) } as any;
       if (type === "reimbursement") params.invoice_type = "reimbursement";
       if (type === "saas") params.invoice_type = "saas_fee";
+      if (type === "all") params.invoice_type = "all";
       const path = "/billing/invoices/";
       const { data } = await api.get<unknown>(path, { params });
       // API returns paginated shape: { count, next, previous, results: [...] }

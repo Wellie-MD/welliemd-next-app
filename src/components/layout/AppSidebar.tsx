@@ -5,7 +5,6 @@ import {
   Users,
   Stethoscope,
   ShoppingBag,
-  ScrollText,
   MessageSquare,
   Package,
   TrendingUp,
@@ -72,7 +71,7 @@ const menuSections = [
       {
         title: "Payments",
         url: "/dashboard/orders/payments",
-        icon: ScrollText,
+        icon: CreditCard,
         permission: Permissions.ORDER_LIST, // All roles
       },
       {
@@ -238,28 +237,28 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
   };
 
   function SidebarLogo() {
-  const { state } = useSidebar()
-  const { logos } = useBranding()
+    const { state } = useSidebar()
+    const { logos } = useBranding()
 
-  if (state === "collapsed") return null
+    if (state === "collapsed") return null
 
-  const logoUrl = logos?.transparent || logos?.square || DEFAULT_CLIENT_LOGO_PATH
+    const logoUrl = logos?.transparent || logos?.square || DEFAULT_CLIENT_LOGO_PATH
 
-  return (
-    <div className="brand-logo-shell">
-      <img
-        src={logoUrl}
-        alt="WellieMD"
-        className="h-7 w-auto max-w-[180px] object-contain"
-        onError={(e) => {
-          if (!e.currentTarget.src.endsWith(DEFAULT_CLIENT_LOGO_PATH)) {
-            e.currentTarget.src = DEFAULT_CLIENT_LOGO_PATH
-          }
-        }}
-      />
-    </div>
-  )
-}
+    return (
+      <div className="brand-logo-shell">
+        <img
+          src={logoUrl}
+          alt="WellieMD"
+          className="h-7 w-auto max-w-[180px] object-contain"
+          onError={(e) => {
+            if (!e.currentTarget.src.endsWith(DEFAULT_CLIENT_LOGO_PATH)) {
+              e.currentTarget.src = DEFAULT_CLIENT_LOGO_PATH
+            }
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <Sidebar
@@ -314,26 +313,23 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                       <SidebarMenuButton
                                         className={`
                                           group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                          ${
-                                            collapsed
-                                              ? "p-2 justify-center w-10 h-10 mx-auto"
-                                              : "px-3 py-2.5 justify-between"
+                                          ${collapsed
+                                            ? "p-2 justify-center w-10 h-10 mx-auto"
+                                            : "px-3 py-2.5 justify-between"
                                           }
-                                          ${
-                                            isActive
-                                              ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
-                                              : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                          ${isActive
+                                            ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                            : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                           }
                                         `}
                                       >
                                         <div className="flex items-center min-w-0">
                                           <item.icon
-                                          className={`h-5 w-5 flex-shrink-0 ${
-                                            isActive
-                                              ? "text-primary dark:text-slate-100"
-                                              : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
-                                          }`}
-                                        />
+                                            className={`h-5 w-5 flex-shrink-0 ${isActive
+                                                ? "text-primary dark:text-slate-100"
+                                                : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
+                                              }`}
+                                          />
                                           {!collapsed && (
                                             <span className="ml-3 font-medium truncate">
                                               {item.title}
@@ -344,15 +340,13 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                           <ChevronDown
                                             className={`
                                               h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
-                                              ${
-                                                isOpen
-                                                  ? "rotate-0"
-                                                  : "-rotate-90"
+                                              ${isOpen
+                                                ? "rotate-0"
+                                                : "-rotate-90"
                                               }
-                                              ${
-                                                isActive
-                                                  ? "text-primary"
-                                                  : "text-gray-400 dark:text-slate-200 group-"
+                                              ${isActive
+                                                ? "text-primary"
+                                                : "text-gray-400 dark:text-slate-200 group-"
                                               }
                                             `}
                                           />
@@ -372,10 +366,9 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                                 to={child.url}
                                                 className={`
                                                   flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                                ${
-                                                  currentPath === child.url
-                                                      ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
-                                                      : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                                ${currentPath === child.url
+                                                    ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                                    : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                                   }
                                                 `}
                                               >
@@ -398,29 +391,25 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                       end
                                       className={`
                                         group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                        ${
-                                          collapsed
-                                            ? "p-2 justify-center w-10 h-10 mx-auto relative"
-                                            : "px-3 py-2.5"
+                                        ${collapsed
+                                          ? "p-2 justify-center w-10 h-10 mx-auto relative"
+                                          : "px-3 py-2.5"
                                         }
-                                        ${
-                                          currentPath === item.url
-                                            ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-800 dark:text-slate-100"
-                                            : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-300 dark:hover:bg-slate-800"
+                                        ${currentPath === item.url
+                                          ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-800 dark:text-slate-100"
+                                          : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-300 dark:hover:bg-slate-800"
                                         }
                                       `}
                                     >
                                       <div
-                                        className={`relative ${
-                                          collapsed ? "" : "mr-3"
-                                        }`}
+                                        className={`relative ${collapsed ? "" : "mr-3"
+                                          }`}
                                       >
                                         <item.icon
-                                          className={`h-5 w-5 flex-shrink-0 ${
-                                            currentPath === item.url
+                                          className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
                                               ? "text-primary dark:text-slate-100"
                                               : "text-[hsl(var(--text-secondary))] dark:text-slate-400 group-"
-                                          }`}
+                                            }`}
                                         />
                                       </div>
 
@@ -445,26 +434,23 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                   <SidebarMenuButton
                                     className={`
                                       group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                      ${
-                                        collapsed
-                                          ? "p-2 justify-center w-10 h-10 mx-auto"
-                                          : "px-3 py-2.5 justify-between"
+                                      ${collapsed
+                                        ? "p-2 justify-center w-10 h-10 mx-auto"
+                                        : "px-3 py-2.5 justify-between"
                                       }
-                                    ${
-                                      isActive
+                                    ${isActive
                                         ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
                                         : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
-                                    }
+                                      }
                                   `}
-                                >
+                                  >
                                     <div className="flex items-center min-w-0">
                                       <item.icon
-                                      className={`h-5 w-5 flex-shrink-0 ${
-                                        isActive
-                                          ? "text-primary dark:text-slate-100"
-                                          : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
-                                      }`}
-                                    />
+                                        className={`h-5 w-5 flex-shrink-0 ${isActive
+                                            ? "text-primary dark:text-slate-100"
+                                            : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
+                                          }`}
+                                      />
                                       {!collapsed && (
                                         <span className="ml-3 font-medium truncate">
                                           {item.title}
@@ -476,10 +462,9 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                         className={`
                                           h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
                                           ${isOpen ? "rotate-0" : "-rotate-90"}
-                                          ${
-                                            isActive
-                                              ? "text-primary"
-                                              : "text-gray-400 dark:text-slate-200 group-"
+                                          ${isActive
+                                            ? "text-primary"
+                                            : "text-gray-400 dark:text-slate-200 group-"
                                           }
                                         `}
                                       />
@@ -499,10 +484,9 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                             to={child.url}
                                             className={`
                                               flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                              ${
-                                                currentPath === child.url
-                                                  ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
-                                                  : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                              ${currentPath === child.url
+                                                ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                                : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                               }
                                             `}
                                           >
@@ -525,30 +509,26 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                   end
                                   className={`
                                     group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                    ${
-                                      collapsed
-                                        ? "p-2 justify-center w-10 h-10 mx-auto relative"
-                                        : "px-3 py-2.5"
+                                    ${collapsed
+                                      ? "p-2 justify-center w-10 h-10 mx-auto relative"
+                                      : "px-3 py-2.5"
                                     }
-                                    ${
-                                      currentPath === item.url
-                                        ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
-                                        : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                    ${currentPath === item.url
+                                      ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                      : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                     }
                                   `}
                                 >
                                   {/* icon wrapper lets us overlay a dot when collapsed */}
                                   <div
-                                    className={`relative ${
-                                      collapsed ? "" : "mr-3"
-                                    }`}
+                                    className={`relative ${collapsed ? "" : "mr-3"
+                                      }`}
                                   >
-                                      <item.icon
-                                      className={`h-5 w-5 flex-shrink-0 ${
-                                        currentPath === item.url
+                                    <item.icon
+                                      className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
                                           ? "text-primary dark:text-slate-100"
                                           : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
-                                      }`}
+                                        }`}
                                     />
                                     {/* tiny dot when collapsed */}
                                     {item.title === "Messages" &&

@@ -1381,9 +1381,9 @@ export default function InvoicesPage() {
         ))}
       </div>
 
-      <Card className="p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="relative">
+      <Card className="p-4 space-y-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative sm:col-span-2 lg:col-span-2">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
@@ -1395,59 +1395,69 @@ export default function InvoicesPage() {
               }}
             />
           </div>
-          <Select
-            value={status || "all"}
-            onValueChange={(value) => {
-              setStatus(value === "all" ? "" : (value as InvoiceStatus));
-              setPage(1);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="authorized">Authorized</SelectItem>
-              <SelectItem value="authorization_failed">Authorization Failed</SelectItem>
-              <SelectItem value="due">Due</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-              <SelectItem value="canceled">Canceled</SelectItem>
-              <SelectItem value="refunded">Refunded</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={ordering}
-            onValueChange={(value) => {
-              setOrdering(value as InvoiceOrdering);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="-issued_at">Newest first</SelectItem>
-              <SelectItem value="issued_at">Oldest first</SelectItem>
-              <SelectItem value="-total_amount">Amount high to low</SelectItem>
-              <SelectItem value="total_amount">Amount low to high</SelectItem>
-              <SelectItem value="status">Status A to Z</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-2">
+          <div className="sm:col-span-1 lg:col-span-1">
+            <Select
+              value={status || "all"}
+              onValueChange={(value) => {
+                setStatus(value === "all" ? "" : (value as InvoiceStatus));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="authorized">Authorized</SelectItem>
+                <SelectItem value="authorization_failed">Authorization Failed</SelectItem>
+                <SelectItem value="due">Due</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="canceled">Canceled</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-1 lg:col-span-1">
+            <Select
+              value={ordering}
+              onValueChange={(value) => {
+                setOrdering(value as InvoiceOrdering);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="-issued_at">Newest first</SelectItem>
+                <SelectItem value="issued_at">Oldest first</SelectItem>
+                <SelectItem value="-total_amount">Amount high to low</SelectItem>
+                <SelectItem value="total_amount">Amount low to high</SelectItem>
+                <SelectItem value="status">Status A to Z</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-1 lg:col-span-1">
+            <label className="text-xs font-medium text-muted-foreground">From Date</label>
             <Input
               type="date"
+              className="w-full"
               value={fromDate}
               onChange={(e) => {
                 setFromDate(e.target.value);
                 setPage(1);
               }}
             />
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-1 lg:col-span-1">
+            <label className="text-xs font-medium text-muted-foreground">To Date</label>
             <Input
               type="date"
+              className="w-full"
               value={toDate}
               onChange={(e) => {
                 setToDate(e.target.value);
@@ -1455,11 +1465,27 @@ export default function InvoicesPage() {
               }}
             />
           </div>
-        </div>
-        <div className="mt-4 flex justify-end border-t pt-4">
-          <Button type="button" onClick={() => void applyFilters()}>
-            Search
-          </Button>
+          <div className="flex items-end justify-start gap-2 sm:col-span-2 lg:col-span-2 pt-1 sm:pt-0">
+            <Button type="button" onClick={() => void applyFilters()}>
+              Search
+            </Button>
+            {(search || status || fromDate || toDate || ordering !== "-issued_at") && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setSearch("");
+                  setStatus("");
+                  setFromDate("");
+                  setToDate("");
+                  setOrdering("-issued_at");
+                  setPage(1);
+                }}
+              >
+                Reset
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 
