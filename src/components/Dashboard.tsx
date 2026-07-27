@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { FollowUpList } from "@/features/followups";
 import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
@@ -241,8 +242,15 @@ export default function Dashboard() {
       ]);
       const priorityList = patientProfile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
       setWeight((prev) => buildWeightData(history, prev, priorityList));
-    } catch (error) {
-      console.error("Failed to log weight", error);
+    } catch (error: any) {
+      if (error?.error) {
+        const errorMsg = typeof error.error === 'string' 
+          ? error.error 
+          : error.error.message || "Failed to log weight.";
+        toast.error(errorMsg);
+      } else {
+        toast.error(error?.message || "Failed to log weight.");
+      }
     }
   };
 

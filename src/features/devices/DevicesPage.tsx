@@ -481,7 +481,16 @@ export default function DevicesPage() {
             return next;
           });
         })
-        .catch(() => {})
+        .catch((error: any) => {
+          if (error?.error) {
+            const errorMsg = typeof error.error === 'string' 
+              ? error.error 
+              : error.error.message || "Failed to disconnect device.";
+            toast.error(errorMsg);
+          } else {
+            toast.error(error?.message || "Failed to disconnect device.");
+          }
+        })
         .finally(() => {
           setLoading(false);
         });
@@ -530,10 +539,23 @@ export default function DevicesPage() {
   const handleSaveGoal = useCallback(() => {
     const v = Number(goalInput);
     if (v >= 10 && v <= 80) {
-      saveHealthGoal(v).then((response) => {
-        setWeight((prev) => ({ ...prev, targetBmi: response.goal ? Number(response.goal.target_bmi) : null }));
-        setGoalModalOpen(false);
-      });
+      saveHealthGoal(v)
+        .then((response) => {
+          setWeight((prev) => ({ ...prev, targetBmi: response.goal ? Number(response.goal.target_bmi) : null }));
+          setGoalModalOpen(false);
+        })
+        .catch((error: any) => {
+          if (error?.error) {
+            const errorMsg = typeof error.error === 'string' 
+              ? error.error 
+              : error.error.message || "Failed to save health goal.";
+            toast.error(errorMsg);
+          } else {
+            toast.error(error?.message || "Failed to save health goal.");
+          }
+        });
+    } else {
+      toast.error("Please enter a valid target BMI between 10 and 80.");
     }
   }, [goalInput]);
 
@@ -546,7 +568,16 @@ export default function DevicesPage() {
       ]);
       const priorityList = profile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
       setWeight((prev) => buildWeightData(history, prev, priorityList));
-    } catch {}
+    } catch (error: any) {
+      if (error?.error) {
+        const errorMsg = typeof error.error === 'string' 
+          ? error.error 
+          : error.error.message || "Failed to log weight.";
+        toast.error(errorMsg);
+      } else {
+        toast.error(error?.message || "Failed to log weight.");
+      }
+    }
   }, []);
 
   const handleSavePriority = useCallback(async (priorityList: string[]) => {
@@ -568,8 +599,16 @@ export default function DevicesPage() {
       });
       const history = await getVitalsHistory();
       setWeight((prev) => buildWeightData(history, prev, priorityList));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save priority", error);
+      if (error?.error) {
+        const errorMsg = typeof error.error === 'string' 
+          ? error.error 
+          : error.error.message || "Failed to save data source priority.";
+        toast.error(errorMsg);
+      } else {
+        toast.error(error?.message || "Failed to save data source priority.");
+      }
     }
   }, [patientProfile, updatePatientProfile]);
 
@@ -619,7 +658,16 @@ export default function DevicesPage() {
         setWeight({ ...WEIGHT_DEFAULT });
         setDeleteDataOpen(false);
       })
-      .catch(() => {})
+      .catch((error: any) => {
+        if (error?.error) {
+          const errorMsg = typeof error.error === 'string' 
+            ? error.error 
+            : error.error.message || "Failed to delete health data.";
+          toast.error(errorMsg);
+        } else {
+          toast.error(error?.message || "Failed to delete health data.");
+        }
+      })
       .finally(() => {
         setLoading(false);
       });
