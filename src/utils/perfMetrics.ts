@@ -1,6 +1,7 @@
 import axiosInstance from '../api/axiosInstance';
 
-const PERF_REPORT_URL = `${axiosInstance.defaults.baseURL}/admin/dashboard/perf-metrics/`;
+const API_BASE_URL = String(axiosInstance.defaults.baseURL || '').replace(/\/+$/, '');
+const PERF_REPORT_URL = `${API_BASE_URL}/admin/dashboard/perf-metrics/`;
 
 export function reportPerfMetrics(): void {
   if (document.visibilityState === 'hidden') {

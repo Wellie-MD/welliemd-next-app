@@ -247,10 +247,10 @@ export default function Orders() {
   // Use ref to track previous filter values to prevent unnecessary updates
   const prevFiltersRef = useRef({
     searchTerm: "",
-    activeOrderStatusFilter: "",
-    activePaymentStatusFilter: "",
-    categoryId: "",
-    pharmacyId: "",
+    activeOrderStatusFilter: "all",
+    activePaymentStatusFilter: "all",
+    categoryId: "all",
+    pharmacyId: "all",
     clientId: "",
     date: undefined as DateRange | undefined
   });
