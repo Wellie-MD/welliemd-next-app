@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { DateRange } from "react-day-picker"
 import { format } from "date-fns"
 import { fetchTransactions, PaymentTransaction, TransactionListResponse } from "@/api/paymentTransactionsApi"
-import { exportToCSV } from "@/utils/exportUtils"
+import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
 
 type DisplayPaymentRow = PaymentTransaction & {
   split_children?: PaymentTransaction[];
@@ -67,6 +67,45 @@ function transformTransactionForDisplay(transaction: DisplayPaymentRow) {
   }
 }
 
+function groupTransactions(transactions: PaymentTransaction[]): DisplayPaymentRow[] {
+  const supplementalByParent = new Map<string, PaymentTransaction[]>()
+  transactions.forEach((tx) => {
+    if (tx.settlement_role !== "supplemental_delta" || !tx.settlement_parent_transaction) return
+    const bucket = supplementalByParent.get(tx.settlement_parent_transaction) || []
+    bucket.push(tx)
+    supplementalByParent.set(tx.settlement_parent_transaction, bucket)
+  })
+
+  const rows: DisplayPaymentRow[] = []
+  transactions.forEach((tx) => {
+    if (tx.settlement_role === "supplemental_delta") return
+    const backendChildren = Array.isArray((tx as DisplayPaymentRow).split_children)
+      ? (tx as DisplayPaymentRow).split_children || []
+      : []
+    const pageChildren = supplementalByParent.get(tx.id) || []
+    const seenChildIds = new Set<string>()
+    const children = [...backendChildren, ...pageChildren].filter((child) => {
+      const key = child.id || child.processor_transaction_id || `${child.processor}-${child.amount}`
+      if (seenChildIds.has(key)) return false
+      seenChildIds.add(key)
+      return true
+    })
+    const supplementalTotal = children.reduce((sum, child) => sum + parseFloat(child.amount || "0"), 0)
+    const backendTotal = parseFloat((tx as DisplayPaymentRow).split_total_amount || "")
+    const total = Number.isFinite(backendTotal)
+      ? backendTotal
+      : parseFloat(tx.amount || "0") + supplementalTotal
+    rows.push({
+      ...tx,
+      split_children: children,
+      split_supplemental_amount: supplementalTotal.toFixed(2),
+      split_total_amount: total.toFixed(2),
+    })
+  })
+
+  return rows
+}
+
 // Column configuration for the data table
 const paymentColumns = [
   { key: "created_at", label: "Created At" },
@@ -121,7 +160,26 @@ export default function Payments() {
   // Data state
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const getTransactionParams = useCallback((page: number, pageSize: number) => ({
+    page,
+    page_size: pageSize,
+    status: activeStatusFilter !== 'All' ? activeStatusFilter : undefined,
+    processor: activeProcessorFilter !== 'All'
+      ? (activeProcessorFilter === 'NMI' ? 'nmi'
+        : activeProcessorFilter === 'Authorize.Net' ? 'authorizenet'
+        : activeProcessorFilter === 'Stripe' ? 'stripe'
+        : undefined)
+      : undefined,
+    refund_status: activeRefundStatusFilter !== 'All'
+      ? activeRefundStatusFilter.toLowerCase()
+      : undefined,
+    date_from: date?.from ? format(date.from, 'yyyy-MM-dd') : undefined,
+    date_to: date?.to ? format(date.to, 'yyyy-MM-dd') : undefined,
+    search: searchTerm || undefined,
+  }), [activeStatusFilter, activeProcessorFilter, activeRefundStatusFilter, date, searchTerm])
 
   // Fetch transactions from API
   const loadTransactions = useCallback(async () => {
@@ -129,23 +187,7 @@ export default function Payments() {
     setError(null)
     
     try {
-      const params = {
-        page: currentPage,
-        page_size: pageSize,
-        status: activeStatusFilter !== 'All' ? activeStatusFilter : undefined,
-        processor: activeProcessorFilter !== 'All' 
-          ? (activeProcessorFilter === 'NMI' ? 'nmi' 
-            : activeProcessorFilter === 'Authorize.Net' ? 'authorizenet' 
-            : activeProcessorFilter === 'Stripe' ? 'stripe' 
-            : undefined)
-          : undefined,
-        refund_status: activeRefundStatusFilter !== 'All'
-          ? activeRefundStatusFilter.toLowerCase()
-          : undefined,
-        date_from: date?.from ? format(date.from, 'yyyy-MM-dd') : undefined,
-        date_to: date?.to ? format(date.to, 'yyyy-MM-dd') : undefined,
-        search: searchTerm || undefined,
-      }
+      const params = getTransactionParams(currentPage, pageSize)
       
       const response = await fetchTransactions(params)
       setTransactions(response.results)
@@ -158,7 +200,7 @@ export default function Payments() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, pageSize, activeStatusFilter, activeProcessorFilter, activeRefundStatusFilter, date, searchTerm])
+  }, [currentPage, pageSize, getTransactionParams])
 
   // Load transactions on mount and when filters change
   useEffect(() => {
@@ -171,43 +213,7 @@ export default function Payments() {
   }, [activeStatusFilter, activeProcessorFilter, activeRefundStatusFilter, date, searchTerm])
 
   // Explicit API-driven grouping for split settlements.
-  const groupedTransactions: DisplayPaymentRow[] = (() => {
-    const supplementalByParent = new Map<string, PaymentTransaction[]>()
-    transactions.forEach((tx) => {
-      if (tx.settlement_role !== "supplemental_delta" || !tx.settlement_parent_transaction) return
-      const bucket = supplementalByParent.get(tx.settlement_parent_transaction) || []
-      bucket.push(tx)
-      supplementalByParent.set(tx.settlement_parent_transaction, bucket)
-    })
-
-    const rows: DisplayPaymentRow[] = []
-    transactions.forEach((tx) => {
-      if (tx.settlement_role === "supplemental_delta") return
-      const backendChildren = Array.isArray((tx as DisplayPaymentRow).split_children)
-        ? (tx as DisplayPaymentRow).split_children || []
-        : []
-      const pageChildren = supplementalByParent.get(tx.id) || []
-      const seenChildIds = new Set<string>()
-      const children = [...backendChildren, ...pageChildren].filter((child) => {
-        const key = child.id || child.processor_transaction_id || `${child.processor}-${child.amount}`
-        if (seenChildIds.has(key)) return false
-        seenChildIds.add(key)
-        return true
-      })
-      const supplementalTotal = children.reduce((sum, child) => sum + parseFloat(child.amount || "0"), 0)
-      const backendTotal = parseFloat((tx as DisplayPaymentRow).split_total_amount || "")
-      const total = Number.isFinite(backendTotal)
-        ? backendTotal
-        : parseFloat(tx.amount || "0") + supplementalTotal
-      rows.push({
-        ...tx,
-        split_children: children,
-        split_supplemental_amount: supplementalTotal.toFixed(2),
-        split_total_amount: total.toFixed(2),
-      })
-    })
-    return rows
-  })()
+  const groupedTransactions = groupTransactions(transactions)
 
   // Transform transactions for display
   const displayData = groupedTransactions.map(transformTransactionForDisplay)
@@ -253,9 +259,22 @@ export default function Payments() {
     loadTransactions()
   }, [loadTransactions])
 
-  const handleExport = useCallback(() => {
-    exportToCSV(displayData, paymentColumns, 'payments_export')
-  }, [displayData])
+  const handleExport = useCallback(async () => {
+    setExporting(true)
+    setError(null)
+    try {
+      const allTransactions = await fetchAllPaginatedResults((page, exportPageSize) =>
+        fetchTransactions(getTransactionParams(page, exportPageSize))
+      )
+      const exportRows = groupTransactions(allTransactions).map(transformTransactionForDisplay)
+      exportToCSV(exportRows, paymentColumns, 'payments_export')
+    } catch (err) {
+      console.error('Failed to export transactions:', err)
+      setError('Failed to export transactions. Please try again.')
+    } finally {
+      setExporting(false)
+    }
+  }, [getTransactionParams])
 
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term)
@@ -310,6 +329,7 @@ export default function Payments() {
         onSearch={handleSearch}
         onResetFilters={handleResetFilters}
         onExport={handleExport}
+        exportLoading={exporting}
         onRefresh={handleRefresh}
         loading={loading}
         getRowClassName={(row: any) =>

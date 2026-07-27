@@ -13,7 +13,7 @@ import {
 import { Eye, RotateCcw } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { ordersApi, Order, FilterOption } from "@/api/ordersApi"
-import { exportToCSV } from "@/utils/exportUtils"
+import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
 
 const ORDER_STATUS_OPTIONS = [
   { label: "All", value: "all" },
@@ -37,28 +37,6 @@ const ORDER_STATUS_OPTIONS = [
   { label: "Delivery Failed", value: "delivery_failed" },
   { label: "Canceled", value: "canceled" },
 ] as const
-
-const ORDER_STATUS_TO_API: Record<string, string> = {
-  Created: "created",
-  "Payment Pending": "payment_pending",
-  Processing: "processing",
-  "Visit Failed": "visit_failed",
-  "Visit Pending": "visit_pending",
-  "Consult Scheduled": "consult_scheduled",
-  "Consult Rescheduled": "consult_rescheduled",
-  "Consult Canceled": "consult_canceled",
-  "No Show": "no_show",
-  Referred: "referred",
-  Prescribed: "prescribed",
-  "Billing Pending": "billing_pending",
-  "Rx Sent": "rx_sent",
-  Shipped: "shipped",
-  "In Transit": "in_transit",
-  "Out for Delivery": "out_for_delivery",
-  Delivered: "delivered",
-  "Delivery Failed": "delivery_failed",
-  Canceled: "canceled",
-}
 
 const PAYMENT_STATUS_OPTIONS = [
   { label: "All", value: "all" },
@@ -183,6 +161,44 @@ const formatStatusLabel = (value?: string | null) => {
     .join(" ")
 }
 
+const transformOrderForDisplay = (order: Order) => {
+  const settlementOrder = order as Order & {
+    payment_settlement_amount?: string | number | null
+    payment_settlement_state?: string | null
+    payment_settlement_basis?: string | null
+    chargeable_amount_source?: string | null
+    patient_name?: string | null
+    patient_email?: string | null
+    patient_phone?: string | null
+  }
+  const hasSettlementAmount =
+    settlementOrder.payment_settlement_amount != null &&
+    settlementOrder.payment_settlement_amount !== ""
+  const shouldUsePrescribedAmount =
+    hasSettlementAmount &&
+    (
+      String(settlementOrder.payment_settlement_state || "").toLowerCase() === "captured" ||
+      String(settlementOrder.payment_settlement_basis || "").toLowerCase() === "prescribed" ||
+      String(settlementOrder.chargeable_amount_source || "").toLowerCase() === "prescribed_medicine"
+    )
+  const orderTotal = shouldUsePrescribedAmount
+    ? settlementOrder.payment_settlement_amount
+    : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount || "0.00")
+
+  return {
+    ...order,
+    order_number: order.order_id || order.display_id || "-",
+    patient_name: order.patient?.full_name || settlementOrder.patient_name || order.name || order.email || "-",
+    patient_email: settlementOrder.patient_email || order.email || "-",
+    patient_phone: settlementOrder.patient_phone || order.phone || "-",
+    product_name: order.product_name || "-",
+    pharmacy_name_only: stripPharmacyAddress(order.pharmacy_name || order.pharmacy_display),
+    orderDate: order.orderDate || order.created_at,
+    orderStatus: order.orderStatus || order.status || "created",
+    orderTotal,
+  }
+}
+
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
@@ -201,6 +217,7 @@ export default function Orders() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Order Details Sheet state
@@ -226,36 +243,7 @@ export default function Orders() {
     return () => { mounted = false }
   }, [])
 
-  const displayOrders = useMemo(() => orders.map(o => {
-    const paymentSettlementAmount = (o as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount
-    const settlementState = String((o as Order & { payment_settlement_state?: string | null }).payment_settlement_state || "").toLowerCase()
-    const settlementBasis = String((o as Order & { payment_settlement_basis?: string | null }).payment_settlement_basis || "").toLowerCase()
-    const amountSource = String((o as Order & { chargeable_amount_source?: string | null }).chargeable_amount_source || "").toLowerCase()
-    const hasSettlementAmount = paymentSettlementAmount != null && paymentSettlementAmount !== ""
-    const shouldUsePrescribedAmount =
-      hasSettlementAmount &&
-      (
-        settlementState === "captured" ||
-        settlementBasis === "prescribed" ||
-        amountSource === "prescribed_medicine"
-      )
-    const rawTotal = shouldUsePrescribedAmount
-      ? paymentSettlementAmount
-      : (o.pricing?.grand_total || o.grand_total || o.payable_amount || o.orderTotal || o.amount || '0.00')
-
-    return {
-      ...o,
-      order_number: o.order_id || o.display_id || "-",
-      patient_name: o.patient?.full_name || (o as Order & { patient_name?: string | null }).patient_name || o.name || o.email || '-',
-      patient_email: (o as Order & { patient_email?: string | null }).patient_email || o.email || '-',
-      patient_phone: (o as Order & { patient_phone?: string | null }).patient_phone || o.phone || '-',
-      product_name: o.product_name || '-',
-      pharmacy_name_only: stripPharmacyAddress(o.pharmacy_name || o.pharmacy_display),
-      orderDate: o.orderDate || o.created_at,
-      orderStatus: o.orderStatus || o.status || 'created',
-      orderTotal: rawTotal,
-    }
-  }), [orders])
+  const displayOrders = useMemo(() => orders.map(transformOrderForDisplay), [orders])
 
   const filteredOrders = useMemo(() => displayOrders, [displayOrders])
 
@@ -280,24 +268,33 @@ export default function Orders() {
     setDataTableKey((k) => k + 1)
   }, [])
 
+  const getOrderParams = useCallback((page: number, requestedPageSize: number) => {
+    const params: Record<string, string | number> = {
+      page,
+      page_size: requestedPageSize,
+    }
+    if (debouncedSearchTerm) params.search = debouncedSearchTerm
+    if (activeOrderStatusFilter !== "all") params.status = activeOrderStatusFilter
+    if (activePaymentStatusFilter !== "all") params.payment_status = activePaymentStatusFilter
+    if (categoryId !== "all") params["product__category__id"] = categoryId
+    if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
+    if (date?.from) params["created_at__gte"] = date.from.toISOString().slice(0, 10)
+    if (date?.to) params["created_at__lte"] = date.to.toISOString().slice(0, 10)
+    return params
+  }, [
+    debouncedSearchTerm,
+    activeOrderStatusFilter,
+    activePaymentStatusFilter,
+    categoryId,
+    pharmacyId,
+    date,
+  ])
+
   const loadOrders = useCallback(async () => {
     setIsLoadingOrders(true)
     setError(null)
     try {
-      const params: Record<string, string | number> = {
-        page: currentPage,
-        page_size: pageSize,
-      }
-      if (debouncedSearchTerm) params.search = debouncedSearchTerm
-      if (activeOrderStatusFilter !== "all") params.status = activeOrderStatusFilter
-      // Backend maps captured/approved → "paid" (same as admin dashboard), not raw NMI status
-      if (activePaymentStatusFilter !== "all") params.payment_status = activePaymentStatusFilter
-      if (categoryId !== "all") params["product__category__id"] = categoryId
-      if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
-      if (date?.from) params["created_at__gte"] = date.from.toISOString().slice(0, 10)
-      if (date?.to) params["created_at__lte"] = date.to.toISOString().slice(0, 10)
-
-      const data = await ordersApi.fetchOrders(params)
+      const data = await ordersApi.fetchOrders(getOrderParams(currentPage, pageSize))
       setOrders(data.results)
       setTotalCount(data.count ?? data.results.length)
     } catch (err) {
@@ -309,12 +306,7 @@ export default function Orders() {
   }, [
     currentPage,
     pageSize,
-    debouncedSearchTerm,
-    activeOrderStatusFilter,
-    activePaymentStatusFilter,
-    categoryId,
-    pharmacyId,
-    date,
+    getOrderParams,
   ])
 
   useEffect(() => {
@@ -329,9 +321,20 @@ export default function Orders() {
     loadOrders()
   }, [loadOrders])
 
-  const handleExport = useCallback(() => {
-    exportToCSV(filteredOrders, orderColumns, 'orders_export')
-  }, [filteredOrders])
+  const handleExport = useCallback(async () => {
+    setIsExporting(true)
+    setError(null)
+    try {
+      const allOrders = await fetchAllPaginatedResults((page, exportPageSize) =>
+        ordersApi.fetchOrders(getOrderParams(page, exportPageSize))
+      )
+      exportToCSV(allOrders.map(transformOrderForDisplay), orderColumns, "orders_export")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export orders")
+    } finally {
+      setIsExporting(false)
+    }
+  }, [getOrderParams])
 
   return (
     <div className="p-6 space-y-6">
@@ -573,6 +576,7 @@ export default function Orders() {
         onSearch={setSearchTerm}
         onResetFilters={handleResetFilters}
         onExport={handleExport}
+        exportLoading={isExporting}
         onRefresh={handleRefresh}
         pagination={{
           currentPage,

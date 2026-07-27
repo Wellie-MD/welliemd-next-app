@@ -86,7 +86,8 @@ interface DataTableProps {
   onDateRangeChange?: (range: DateRange | undefined) => void;
   onSearch?: (searchTerm: string) => void;
   onFilter?: (filters: unknown) => void;
-  onExport?: () => void;
+  onExport?: () => void | Promise<void>;
+  exportLoading?: boolean;
   onResetFilters?: () => void;
   onRefresh?: () => void;
   getRowClassName?: (row: unknown) => string;
@@ -111,6 +112,7 @@ export function DataTable({
   onSearch,
   onFilter,
   onExport,
+  exportLoading = false,
   onResetFilters,
   onRefresh,
   getRowClassName,
@@ -321,9 +323,14 @@ export function DataTable({
                   variant="outline"
                   onClick={handleExport}
                   className="gap-2"
+                  disabled={exportLoading}
                 >
-                  <Download className="h-4 w-4" />
-                  Export
+                  {exportLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {exportLoading ? "Exporting..." : "Export"}
                 </Button>
               )}
 
