@@ -124,6 +124,26 @@ All colors MUST be HSL.
     line-height: 1.5;
   }
 
+  /* Prototype Pill Badge Styles */
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-all;
+  }
+  .pill-green {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300;
+  }
+  .pill-amber {
+    @apply border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300;
+  }
+  .pill-blue {
+    @apply border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300;
+  }
+  .pill-red {
+    @apply border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300;
+  }
+  .pill-neutral {
+    @apply border-border bg-muted text-muted-foreground;
+  }
+
   /* Custom thin, minimal scrollbars for all scrollable elements */
   ::-webkit-scrollbar {
     width: 6px;
@@ -190,25 +210,4 @@ All colors MUST be HSL.
   .custom-scroll::-webkit-scrollbar-thumb:hover {
       background: #94a3b8;
   }
-
-  .stripe-card-element {
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    background-color: white;
-    min-height: 44px;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-  }
-
-  .stripe-card-element:focus-within {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 1px #3b82f6;
-  }
-
-  .dark .stripe-card-element {
-    background-color: #374151;
-    border-color: #4b5563;
-  }
-
-
 }
