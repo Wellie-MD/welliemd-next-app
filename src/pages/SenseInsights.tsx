@@ -202,17 +202,8 @@ export default function SenseInsights() {
           <Activity className="h-5 w-5 text-sky-500" />
           <h1 className="text-2xl font-bold text-foreground">
             Sense insights
-            <Badge variant="outline" className="ml-2 border-amber-200 bg-amber-50 text-amber-700 uppercase text-[10px] tracking-wide">
-              Closed beta
-            </Badge>
           </h1>
         </div>
-        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          Define the readiness scores and aggregated metrics WellieMD computes from a client's
-          connected wearables, using Junction Sense continuous queries with admin-configured
-          per-metric device priority. These power the readiness and trend views in the client and
-          patient portals.
-        </p>
       </header>
 
       <Card className="rounded-2xl">
