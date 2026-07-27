@@ -239,7 +239,18 @@ export default function ProgramsPage() {
 
   const handleToggleStatus = async (program: Program, status: ProgramStatus) => {
     if (program.status === status) return;
-    await updateProgramStatusMutation.mutateAsync({ programId: program.id, status });
+    try {
+      await updateProgramStatusMutation.mutateAsync({ programId: program.id, status });
+      toast({
+        title: status === "published" ? "Program Published" : "Program Reverted to Draft",
+      });
+    } catch (error) {
+      toast({
+        title: status === "published" ? "Unable to publish Program" : "Unable to update Program status",
+        description: getApiErrorMessage(error, "The Program could not be updated."),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditProgram = (program: Program) => {

@@ -13,7 +13,7 @@ interface StandardEditorProps {
   questions: ProgramQuestion[];
   programName?: string;
   sidebar: React.ReactNode;
-  onSave: (question: ProgramQuestion) => void;
+  onSave: (question: ProgramQuestion) => Promise<void>;
   onClose: () => void;
   onTestFlow?: () => void;
 }
@@ -41,6 +41,8 @@ export function StandardEditor({
   const [lockClientChanges, setLockClientChanges] = useState(true);
   const [prefillFromPrevious, setPrefillFromPrevious] = useState(false);
   const [consentText, setConsentText] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   useEffect(() => {
     if (activeQuestion) {
@@ -121,9 +123,13 @@ export function StandardEditor({
     }
   };
 
-  const handleSaveClick = () => {
+  const handleSaveClick = async () => {
     const isChoiceType = questionType === "single_choice" || questionType === "multiple_choice";
     const updatedQuestion: ProgramQuestion = {
+      // Preserve fields this editor doesn't surface (e.g. a Section's
+      // elementConfig.sourceSectionId/fieldCount) — without this spread,
+      // saving here silently dropped them and corrupted the row's identity.
+      ...activeQuestion,
       id: activeQuestion?.id || `q-new-${Date.now()}`,
       order: activeQuestion?.order || questions.length + 1,
       text: questionText.trim() || "(untitled question)",
@@ -139,8 +145,18 @@ export function StandardEditor({
       consentText: questionType === "consent" ? consentText : undefined,
       visibilityRuleGroup: visibilityRuleGroup,
     };
-    onSave(updatedQuestion);
-    onClose();
+    setIsSaving(true);
+    try {
+      await onSave(updatedQuestion);
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 1200);
+      // Stay open — the caller has already toasted on failure, and on
+      // success the admin can keep iterating without reopening the modal.
+    } catch {
+      // Error toast already surfaced by the caller; keep the editor open.
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const questionOrder = activeQuestion ? activeQuestion.order : questions.length + 1;
@@ -152,6 +168,8 @@ export function StandardEditor({
         title={programName}
         subtitle={`Question ${questionOrder} of ${questions.length || 1} ${isEditMode ? "- Edit" : "- Draft"}`}
         isEditMode={isEditMode}
+        isSaving={isSaving}
+        justSaved={justSaved}
         onClose={onClose}
         onSave={handleSaveClick}
         onTestFlow={onTestFlow}
