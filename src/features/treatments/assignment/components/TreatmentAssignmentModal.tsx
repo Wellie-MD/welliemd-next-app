@@ -1,20 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
-  Check,
   ChevronLeft,
-  Clock3,
   Loader2,
   RefreshCw,
-  ShieldAlert,
-  StopCircle,
   Users,
   X,
 } from "lucide-react";
 
 import {
-  AssignmentOperation,
-  AssignmentPreflight,
   AssignmentSourceKind,
   treatmentAssignmentApi,
 } from "@/api/treatmentAssignmentApi";
@@ -22,11 +15,9 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useClients } from "@/hooks/useClients";
 import {
   ASSIGNMENT_POLL_INTERVAL_MS,
-  ASSIGNMENT_STEP_LABELS,
-  DEPENDENCY_LABELS,
+  ASSIGNMENT_MAX_POLL_ATTEMPTS,
   OPERATION_STATUS,
   PREFLIGHT_STATUS,
-  RETRYABLE_OPERATION_STATUSES,
   TERMINAL_OPERATION_STATUSES,
 } from "@/features/treatments/assignment/constants";
 import {
@@ -35,17 +26,10 @@ import {
   AssignmentPrimaryButton,
   AssignmentSelection,
 } from "@/features/treatments/assignment/components/AssignmentModalPrimitives";
-
-interface PairState {
-  key: string;
-  sourceId: string;
-  sourceName: string;
-  clientId: string;
-  clientName: string;
-  preflight?: AssignmentPreflight;
-  operation?: AssignmentOperation;
-  error?: string;
-}
+import {
+  AssignmentPairCard,
+  AssignmentPairState,
+} from "@/features/treatments/assignment/components/AssignmentPairCard";
 
 interface TreatmentAssignmentModalProps {
   open: boolean;
@@ -70,6 +54,19 @@ const errorMessage = (error: unknown) => {
   );
 };
 
+const errorDetails = (error: unknown) => {
+  const value = error as {
+    response?: {
+      data?: { detail?: string; code?: string; action?: string };
+    };
+  };
+  return {
+    error: errorMessage(error),
+    errorCode: value.response?.data?.code,
+    errorAction: value.response?.data?.action,
+  };
+};
+
 export function TreatmentAssignmentModal({
   open,
   onOpenChange,
@@ -83,8 +80,9 @@ export function TreatmentAssignmentModal({
   const [clientIds, setClientIds] = useState<Set<string>>(new Set());
   const [itemSearch, setItemSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
-  const [pairs, setPairs] = useState<PairState[]>([]);
+  const [pairs, setPairs] = useState<AssignmentPairState[]>([]);
   const [working, setWorking] = useState(false);
+  const [pollAttempts, setPollAttempts] = useState<Record<string, number>>({});
 
   const filteredItems = useMemo(() => {
     const query = itemSearch.trim().toLowerCase();
@@ -112,6 +110,7 @@ export function TreatmentAssignmentModal({
     setClientSearch("");
     setPairs([]);
     setWorking(false);
+    setPollAttempts({});
   };
 
   const changeOpen = (next: boolean) => {
@@ -153,9 +152,15 @@ export function TreatmentAssignmentModal({
               pair.sourceId,
               pair.clientId
             );
-            return { ...pair, preflight };
+            return {
+              ...pair,
+              preflight,
+              error: undefined,
+              errorCode: undefined,
+              errorAction: undefined,
+            };
           } catch (error) {
-            return { ...pair, error: errorMessage(error) };
+            return { ...pair, ...errorDetails(error) };
           }
         })
       )
@@ -176,7 +181,7 @@ export function TreatmentAssignmentModal({
             error: undefined,
           };
         } catch (error) {
-          return { ...pair, error: errorMessage(error) };
+          return { ...pair, ...errorDetails(error) };
         }
       })
     );
@@ -189,7 +194,8 @@ export function TreatmentAssignmentModal({
     const active = pairs.filter(
       (pair) =>
         pair.operation &&
-        !TERMINAL_OPERATION_STATUSES.has(pair.operation.status)
+        !TERMINAL_OPERATION_STATUSES.has(pair.operation.status) &&
+        (pollAttempts[pair.key] || 0) < ASSIGNMENT_MAX_POLL_ATTEMPTS
     );
     if (!active.length) return;
     const timer = window.setTimeout(async () => {
@@ -214,12 +220,57 @@ export function TreatmentAssignmentModal({
           }
         })
       );
-      setPairs(refreshed);
+      setPairs(
+        refreshed.map((pair) => {
+          const nextAttempt = (pollAttempts[pair.key] || 0) + 1;
+          return pair.operation &&
+            !TERMINAL_OPERATION_STATUSES.has(pair.operation.status) &&
+            nextAttempt >= ASSIGNMENT_MAX_POLL_ATTEMPTS
+            ? {
+                ...pair,
+                error:
+                  "Automatic status refresh timed out. The operation is still preserved; refresh it manually from Assignment History.",
+              }
+            : pair;
+        })
+      );
+      setPollAttempts((current) => {
+        const next = { ...current };
+        active.forEach((pair) => {
+          next[pair.key] = (next[pair.key] || 0) + 1;
+        });
+        return next;
+      });
     }, ASSIGNMENT_POLL_INTERVAL_MS);
     return () => window.clearTimeout(timer);
-  }, [open, pairs, phase]);
+  }, [open, pairs, phase, pollAttempts]);
 
-  const retry = async (pair: PairState) => {
+  const recheckPair = async (pair: AssignmentPairState) => {
+    try {
+      const preflight = await treatmentAssignmentApi.preflight(
+        sourceKind,
+        pair.sourceId,
+        pair.clientId
+      );
+      setPairs((current) =>
+        current.map((value) =>
+          value.key === pair.key
+            ? {
+                ...value,
+                preflight,
+                error: undefined,
+                errorCode: undefined,
+                errorAction: undefined,
+              }
+            : value
+        )
+      );
+    } catch (error) {
+      updatePairError(pair.key, errorMessage(error));
+    }
+  };
+
+  const retry = async (pair: AssignmentPairState) => {
     if (!pair.operation) return;
     try {
       const operation = await treatmentAssignmentApi.retryOperation(
@@ -235,7 +286,7 @@ export function TreatmentAssignmentModal({
     }
   };
 
-  const cancel = async (pair: PairState) => {
+  const cancel = async (pair: AssignmentPairState) => {
     if (!pair.operation) return;
     try {
       const operation = await treatmentAssignmentApi.cancelOperation(
@@ -319,12 +370,12 @@ export function TreatmentAssignmentModal({
               <AssignmentEmptyState icon={<Loader2 className="h-6 w-6 animate-spin" />} text="Analyzing dependencies…" />
             ) : (
               pairs.map((pair) => (
-                <PairCard
+                <AssignmentPairCard
                   key={pair.key}
                   pair={pair}
-                  phase={phase}
                   onRetry={() => retry(pair)}
                   onCancel={() => cancel(pair)}
+                  onRecheck={() => recheckPair(pair)}
                 />
               ))
             )}
@@ -379,111 +430,5 @@ export function TreatmentAssignmentModal({
         </footer>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function PairCard(props: {
-  pair: PairState;
-  phase: Phase;
-  onRetry: () => void;
-  onCancel: () => void;
-}) {
-  const { pair } = props;
-  const preflight = pair.preflight;
-  const operation = pair.operation;
-  const issues = [
-    ...(preflight?.blockers || []),
-    ...(preflight?.external_pending || []),
-  ];
-  return (
-    <article className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">{pair.sourceName}</h3>
-          <p className="text-xs text-slate-500">{pair.clientName}</p>
-        </div>
-        <StatusBadge
-          status={operation?.status || preflight?.status || (pair.error ? "error" : "loading")}
-        />
-      </div>
-      {pair.error && (
-        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
-          {pair.error}
-        </p>
-      )}
-      {preflight && !operation && (
-        <>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {Object.entries(preflight.counts).map(([kind, count]) => (
-              <span key={kind} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs">
-                {count} {DEPENDENCY_LABELS[kind] || kind}
-              </span>
-            ))}
-            {preflight.update_available && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-                Update available · {preflight.impact.severity} impact
-              </span>
-            )}
-          </div>
-          {issues.map((issue) => (
-            <p key={`${issue.kind}:${issue.source_id}`} className="mt-2 flex gap-2 text-xs text-amber-800">
-              <ShieldAlert className="h-4 w-4 shrink-0" />
-              <span><strong>{issue.name}:</strong> {issue.message || issue.code}</span>
-            </p>
-          ))}
-          {preflight.impact.severity === "high" && (
-            <p className="mt-2 text-xs text-slate-600">
-              Treatment Type changed. Existing session and order snapshots remain immutable;
-              this confirmation creates an explicit tenant update.
-            </p>
-          )}
-        </>
-      )}
-      {operation && (
-        <>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {operation.steps.map((step) => (
-              <div key={step.key} className="rounded-lg border px-3 py-2">
-                <p className="text-xs font-medium text-slate-700">
-                  {ASSIGNMENT_STEP_LABELS[step.key] || step.key}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-500">{step.status}</p>
-                {step.error_detail && (
-                  <p className="mt-1 text-[11px] text-red-600">{step.error_detail}</p>
-                )}
-              </div>
-            ))}
-          </div>
-          {operation.last_error_detail && (
-            <p className="mt-2 text-xs text-red-700">{operation.last_error_detail}</p>
-          )}
-          <div className="mt-3 flex gap-2">
-            {RETRYABLE_OPERATION_STATUSES.has(operation.status) && (
-              <button type="button" onClick={props.onRetry} className="flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium">
-                <RefreshCw className="h-3.5 w-3.5" /> Retry failed steps
-              </button>
-            )}
-            {!TERMINAL_OPERATION_STATUSES.has(operation.status) && (
-              <button type="button" onClick={props.onCancel} className="flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium text-red-700">
-                <StopCircle className="h-3.5 w-3.5" /> Cancel
-              </button>
-            )}
-          </div>
-        </>
-      )}
-    </article>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const complete = status === OPERATION_STATUS.completed;
-  const active = status === OPERATION_STATUS.pending || status === OPERATION_STATUS.running;
-  return (
-    <span className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-      complete ? "bg-emerald-100 text-emerald-800" : active ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800"
-    }`}>
-      {complete ? <Check className="h-3.5 w-3.5" /> : active ? <Clock3 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-      {status.replaceAll("_", " ")}
-    </span>
   );
 }
