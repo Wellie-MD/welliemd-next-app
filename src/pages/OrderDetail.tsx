@@ -81,7 +81,6 @@ const statusColors: Record<string, string> = {
   prescribed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   billing_pending: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
   rx_sent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
-  in_fulfillment: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   shipped: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
   in_transit: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   out_for_delivery: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
@@ -104,7 +103,6 @@ const statusLabels: Record<string, string> = {
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
-  in_fulfillment: "In Fulfillment",
   shipped: "Shipped",
   in_transit: "In Transit",
   out_for_delivery: "Out for Delivery",
@@ -901,7 +899,7 @@ export default function OrderDetail() {
       ) {
         icon = "medical_services"
         iconBg = "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-4 border-white dark:border-slate-800"
-      } else if (status === "in_fulfillment" || eventType.includes("in_fulfillment")) {
+      } else if (eventType.includes("in_fulfillment")) {
         icon = "local_shipping"
         iconBg = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800"
       } else if (status === "shipped") {
@@ -1361,15 +1359,15 @@ export default function OrderDetail() {
   const displayProductName = pendingProductChange?.productName
     || (isPrescribed ? prescribedMedicineDisplayName : (order.product_name || "—"))
   const requestedPillClass =
-    "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+    "inline-flex items-center max-w-full break-words rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
   const prescribedPillClass =
-    "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+    "inline-flex items-center max-w-full break-words rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
   const amountSourcePillClass =
     chargeableAmountSource === "prescribed_medicine"
-      ? "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+      ? "inline-flex items-center whitespace-nowrap rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
       : chargeableAmountSource === "requested_medicine_fallback"
-        ? "inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-300"
-        : "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+        ? "inline-flex items-center whitespace-nowrap rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-300"
+        : "inline-flex items-center whitespace-nowrap rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
   const amountSourceLabel =
     chargeableAmountSource === "prescribed_medicine"
       ? "Prescribed (Doctor Final)"
@@ -1938,8 +1936,9 @@ export default function OrderDetail() {
                             <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
                               Amount Source:
                             </span>
-                            <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
-                              {amountSourceLabel} + shipping
+                            <span className="mt-1 flex flex-wrap items-center justify-end gap-1 max-w-[160px]">
+                              <span className={`text-[11px] ${amountSourcePillClass}`}>{amountSourceLabel}</span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400">+ shipping</span>
                             </span>
                           </div>
                         </td>
@@ -2020,8 +2019,9 @@ export default function OrderDetail() {
                             <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
                               Amount Source:
                             </span>
-                            <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
-                              {amountSourceLabel} + shipping
+                            <span className="mt-1 flex flex-wrap items-center justify-end gap-1 max-w-[160px]">
+                              <span className={`text-[11px] ${amountSourcePillClass}`}>{amountSourceLabel}</span>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400">+ shipping</span>
                             </span>
                           </div>
                         </td>
@@ -2123,16 +2123,16 @@ export default function OrderDetail() {
           {/* Medical + Pharmacy Tabs */}
           <div className="bg-card rounded-xl shadow-sm border p-4 sm:p-6">
             <Tabs defaultValue="medical" className="w-full">
-              <div className="px-4 pt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-                <TabsList className="h-10 grid grid-cols-3 w-full sm:w-auto p-1">
-                  <TabsTrigger value="product" className="h-8 text-xs sm:text-sm leading-none">Product</TabsTrigger>
-                  <TabsTrigger value="medical" className="h-8 text-xs sm:text-sm leading-none">Medical</TabsTrigger>
-                  <TabsTrigger value="pharmacy" className="h-8 text-xs sm:text-sm leading-none">Pharmacy</TabsTrigger>
+              <div className="px-4 pt-0 flex flex-wrap items-center justify-between gap-2 mb-5">
+                <TabsList className="h-9 grid grid-cols-3 gap-1 p-1 flex-1 min-w-[200px]">
+                  <TabsTrigger value="product" className="h-8 px-1 text-xs leading-none truncate">Product</TabsTrigger>
+                  <TabsTrigger value="medical" className="h-8 px-1 text-xs leading-none truncate">Medical</TabsTrigger>
+                  <TabsTrigger value="pharmacy" className="h-8 px-1 text-xs leading-none truncate">Pharmacy</TabsTrigger>
                 </TabsList>
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs h-8 px-3"
+                  className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs h-8 px-3 shrink-0"
                   onClick={handleTrackThread}
                   disabled={!orderThreadMasterId}
                 >
@@ -2427,7 +2427,7 @@ export default function OrderDetail() {
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Gateway</span>
 
-                <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor || "—"}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor ? orderProcessorGatewayLabel : "—"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Trans ID</span>

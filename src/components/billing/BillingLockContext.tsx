@@ -63,15 +63,15 @@ export function BillingLockProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    // Event-driven cache: seeded on mount, updated by WS push (payment/lock
+    // events), healed by refetch on focus and on every WS (re)connect.
     useEffect(() => {
         refresh();
-        const interval = setInterval(refresh, 5 * 60 * 1000); // 5 minutes fallback polling
         const onFocus = () => {
             void refresh();
         };
         window.addEventListener("focus", onFocus);
         return () => {
-            clearInterval(interval);
             window.removeEventListener("focus", onFocus);
         };
     }, [refresh]);
@@ -89,6 +89,12 @@ export function BillingLockProvider({ children }: { children: ReactNode }) {
                 const wsUrl = `${getWsUrl()}?token=${accessToken}`;
                 console.log("Connecting to WebSocket:", wsUrl);
                 socket = new WebSocket(wsUrl);
+
+                socket.onopen = () => {
+                    // Re-sync on every (re)connect: heals any push missed
+                    // while disconnected, replacing interval polling.
+                    void refresh();
+                };
 
                 socket.onmessage = (event) => {
                     try {
