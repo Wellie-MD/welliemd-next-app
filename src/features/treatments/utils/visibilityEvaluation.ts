@@ -1,4 +1,5 @@
 import type { VisibilityRule, VisibilityRuleGroup } from "@/features/treatments/types";
+import { DERIVED_BMI_ID } from "@/components/questionnaires/VisibilityRuleBuilder";
 
 /**
  * Patient answers keyed by questionId.
@@ -7,6 +8,34 @@ import type { VisibilityRule, VisibilityRuleGroup } from "@/features/treatments/
  * numeric comparisons support string values that can be coerced to numbers.
  */
 export type PatientAnswers = Record<string, string | string[] | number | undefined>;
+
+/**
+ * Calculate BMI from height/weight answers in the answers map.
+ * Looks for any answer that is a JSON object with {feet, inches, weight}.
+ */
+const calculateBmiFromAnswers = (answers: PatientAnswers): number | undefined => {
+  for (const val of Object.values(answers)) {
+    if (val === undefined || val === null || val === "") continue;
+    try {
+      const parsed = typeof val === "string" ? JSON.parse(val) : val;
+      if (
+        parsed && typeof parsed === "object" &&
+        "feet" in parsed && "weight" in parsed
+      ) {
+        const feet = Number(parsed.feet);
+        const inches = Number(parsed.inches || 0);
+        const weightLbs = Number(parsed.weight);
+        if (feet > 0 && weightLbs > 0) {
+          const totalInches = feet * 12 + inches;
+          return Math.round(((weightLbs / (totalInches * totalInches)) * 703) * 10) / 10;
+        }
+      }
+    } catch {
+      /* not JSON, skip */
+    }
+  }
+  return undefined;
+};
 
 const isEmptyAnswer = (answer: string | string[] | number | undefined): boolean => {
   if (answer === undefined || answer === null) return true;
@@ -45,7 +74,13 @@ const resolveResponseValue = (
  * with additional operator aliases for backward compatibility.
  */
 const evaluateRule = (rule: VisibilityRule, answers: PatientAnswers): boolean => {
-  const answer = resolveResponseValue(rule.questionId, answers);
+  const directAnswer = resolveResponseValue(rule.questionId, answers);
+  const answer =
+    directAnswer !== undefined
+      ? directAnswer
+      : rule.question_type === "bmi" || rule.questionId === DERIVED_BMI_ID
+        ? calculateBmiFromAnswers(answers)
+        : directAnswer;
 
   switch (rule.operator) {
     case "equals":
@@ -113,7 +148,7 @@ const evaluateRule = (rule: VisibilityRule, answers: PatientAnswers): boolean =>
       const min = Number(parts[0]);
       const max = Number(parts[1]);
       if (isNaN(a) || isNaN(min) || isNaN(max)) return false;
-      return a >= min && a <= max;
+      return a >= Math.min(min, max) && a <= Math.max(min, max);
     }
     case "is_empty": {
       if (answer === undefined || answer === null) return true;
@@ -188,7 +223,15 @@ const evaluateNode = (
   const questionId = n.questionId || n.question_id;
   if (!questionId) return true;
 
-  const answer = resolveResponseValue(String(questionId), answers);
+  const questionType = String(n.question_type || "");
+  const directAnswer = resolveResponseValue(String(questionId), answers);
+  const isBmi = questionType === "bmi" || questionId === DERIVED_BMI_ID;
+  const answer =
+    directAnswer !== undefined
+      ? directAnswer
+      : isBmi
+        ? calculateBmiFromAnswers(answers)
+        : directAnswer;
   const operator = String(n.operator || n.comparison || "equals");
   const value = String(n.value ?? "");
 
@@ -208,7 +251,7 @@ const evaluateNode = (
   if (answer === undefined || answer === null) return false;
 
   return evaluateRule(
-    { questionId: String(questionId), operator: operator as VisibilityRule["operator"], value },
+    { questionId: String(questionId), question_type: questionType, operator: operator as VisibilityRule["operator"], value },
     answers
   );
 };
