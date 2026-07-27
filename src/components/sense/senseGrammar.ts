@@ -202,3 +202,72 @@ export function buildSenseQueryDsl(
     group_by: groupBy,
   }
 }
+
+export interface ParsedGuidedState {
+  index: SenseIndex
+  whereText: string
+  metrics: SenseMetricRow[]
+  timeUnit: string
+}
+
+/** 
+ * Attempt to reverse-parse an existing DSL query back into the strict UI state.
+ * Returns null if the query shape diverges from what the guided builder supports.
+ */
+export function parseSenseQueryDsl(query: any): ParsedGuidedState | null {
+  try {
+    if (!query || typeof query !== "object" || Array.isArray(query)) return null
+
+    // 1. Extract Index and TimeUnit from group_by
+    if (!Array.isArray(query.group_by)) return null
+    let indexName: string | null = null
+    let timeUnit = "day"
+    let foundTrunc = false
+
+    for (const gb of query.group_by) {
+      if (gb && typeof gb === "object" && gb.date_trunc && gb.arg?.index) {
+        indexName = gb.arg.index
+        timeUnit = gb.date_trunc.unit || "day"
+        foundTrunc = true
+      }
+    }
+
+    if (!foundTrunc || !indexName) return null
+    if (!SENSE_INDICES.some((opt) => opt.value === indexName)) return null
+    
+    const index = indexName as SenseIndex
+
+    // 2. Extract Where
+    const whereText = typeof query.where === "string" ? query.where : ""
+
+    // 3. Extract Metrics from select
+    if (!Array.isArray(query.select)) return null
+    const metrics: SenseMetricRow[] = []
+
+    for (const sel of query.select) {
+      if (!sel || typeof sel !== "object") return null
+      if (sel.group_key === "*") continue
+
+      const func = sel.func
+      if (!func || typeof func !== "string") return null
+
+      const arg = sel.arg
+      if (!arg || typeof arg !== "object") return null
+
+      if (arg.value_macro && arg.version === "automatic") {
+        metrics.push({ kind: "macro", name: arg.value_macro, func })
+      } else if (arg[index]) {
+        metrics.push({ kind: "field", name: arg[index], func })
+      } else {
+        // Query has fields from another index or a shape we don't recognize.
+        return null
+      }
+    }
+
+    if (metrics.length === 0) return null
+
+    return { index, whereText, metrics, timeUnit }
+  } catch (e) {
+    return null
+  }
+}
