@@ -290,14 +290,32 @@ export default function AddProductForm({
               >
                 <div className="space-y-4">
                   <ReadOnlyField label="Product Type" value={titleCase(product?.product_type)} />
+                  <ReadOnlyField
+                    label="Treatment Type (New)"
+                    value={
+                      product?.product_type === "supply"
+                        ? "Not applicable"
+                        : product?.treatment_type_name
+                          ? `${product.treatment_type_name}${product.treatment_type_is_active === false ? " (Inactive)" : ""}`
+                          : "Unassigned"
+                    }
+                  />
                   <ReadOnlyField label="Pharmacy" value={product?.pharmacy_name || "-"} />
                 </div>
                 <div className="space-y-4">
                   <ReadOnlyField label="Purchase Type" value={purchaseTypeLabel(product?.purchase_type)} />
+                  <ReadOnlyField
+                    label="Derived Intake Visit Type (New)"
+                    value={product?.derived_intake_visit_type || "Not configured"}
+                  />
                   <ReadOnlyField label="Drug Form" value={titleCase(product?.rx_drug_form)} />
                 </div>
                 <div className="space-y-4">
                   <ReadOnlyField label="RX / OTC" value={(product?.rx_or_otc || "-").toUpperCase()} />
+                  <ReadOnlyField
+                    label="Derived Follow-up Visit Type (New)"
+                    value={product?.derived_followup_visit_type || "Not configured"}
+                  />
                   <ReadOnlyField label="RX Quantity" value={product?.rx_quantity || "-"} />
                 </div>
               </div>

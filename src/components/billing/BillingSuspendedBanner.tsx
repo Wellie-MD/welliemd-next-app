@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import billingService, { BillingLockStatus } from "@/services/billingService";
+import { useState } from "react";
+import billingService from "@/services/billingService";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowRight, CreditCard } from "lucide-react";
+import { useBillingLock } from "./BillingLockContext";
 
 /**
  * BillingSuspendedBanner
@@ -16,40 +17,9 @@ import { AlertTriangle, ArrowRight, CreditCard } from "lucide-react";
  */
 export default function BillingSuspendedBanner() {
     const navigate = useNavigate();
-    const [lockStatus, setLockStatus] = useState<BillingLockStatus | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { lockStatus, isLoading: loading, refresh } = useBillingLock();
     const [paying, setPaying] = useState(false);
     const [payResult, setPayResult] = useState<{ success?: boolean; error?: string } | null>(null);
-
-    useEffect(() => {
-        let mounted = true;
-
-        const fetchLockStatus = async () => {
-            try {
-                const status = await billingService.getLockStatus();
-                if (mounted) {
-                    setLockStatus(status);
-                    setLoading(false);
-                }
-            } catch (err) {
-                console.warn("Failed to fetch lock status", err);
-                if (mounted) setLoading(false);
-            }
-        };
-
-        fetchLockStatus();
-        const pollId = window.setInterval(fetchLockStatus, 30000);
-        const onFocus = () => {
-            void fetchLockStatus();
-        };
-        window.addEventListener("focus", onFocus);
-
-        return () => {
-            mounted = false;
-            window.clearInterval(pollId);
-            window.removeEventListener("focus", onFocus);
-        };
-    }, []);
 
     const handlePayAll = async () => {
         setPaying(true);
@@ -60,9 +30,8 @@ export default function BillingSuspendedBanner() {
             setPayResult(result);
 
             if (result.success) {
-                // Refresh lock status
-                const newStatus = await billingService.getLockStatus();
-                setLockStatus(newStatus);
+                // Refresh lock status in the context
+                void refresh();
             }
         } catch (err: any) {
             setPayResult({ success: false, error: err?.message || "Payment failed" });

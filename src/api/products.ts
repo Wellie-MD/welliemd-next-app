@@ -82,6 +82,12 @@ export interface Product {
 
   // Treatment & Classification
   treatment: "weight_loss" | "ed" | "glp" | "individualized_glp" | "general";
+  treatment_type_id?: string | null;
+  treatment_type_key?: string | null;
+  treatment_type_name?: string | null;
+  treatment_type_is_active?: boolean | null;
+  derived_intake_visit_type?: string | null;
+  derived_followup_visit_type?: string | null;
   rx_or_otc: "rx" | "otc";
   followup_days_after: number;
 
@@ -102,6 +108,11 @@ export interface Product {
   admin_service_states?: string[];
   category?: string;
   category_name?: string;
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
+  junction_last_catalog_sync_at?: string;
 
   // Questionnaires
   onboarding_questionnaire?: string;
@@ -215,6 +226,7 @@ export interface UpdateProductPayload {
   rx_days_supply?: number;
   lifefile_product_id?: string;
   treatment?: string;
+  treatment_type?: string;
   rx_or_otc?: "rx" | "otc";
   followup_days_after?: number;
   requires_video_visit?: boolean;

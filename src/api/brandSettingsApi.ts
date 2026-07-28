@@ -33,6 +33,14 @@ export interface BrandSettings {
     seoTitle?: string;
     seoDescription?: string;
     seoImage?: string;
+    clientId?: string;
+    clientName?: string;
+}
+
+interface BrandSettingsEnvelope {
+    branding: BrandSettings;
+    client_id?: string;
+    client_name?: string;
 }
 
 export interface PublicBrandSettings {
@@ -49,8 +57,16 @@ export interface PublicBrandSettings {
  * Fetch existing brand settings (requires authentication)
  */
 export async function fetchBrandSettings(): Promise<BrandSettings> {
-    const response = await axiosInstance.get<BrandSettings>('/brand-settings/');
-    return response.data;
+    const response = await axiosInstance.get<BrandSettings | BrandSettingsEnvelope>('/brand-settings/');
+    const payload = response.data;
+    if ('branding' in payload) {
+        return {
+            ...payload.branding,
+            clientId: payload.client_id,
+            clientName: payload.client_name,
+        };
+    }
+    return payload;
 }
 
 /**

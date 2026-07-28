@@ -17,6 +17,7 @@ import { authService } from "@/services/authService"
 import { useNavigate } from "react-router-dom"
 import { useSidebar } from "../ui/sidebar"
 import { useBranding } from "@/contexts/BrandingContext"
+import { DEFAULT_CLIENT_LOGO_PATH } from "@/constants/branding"
 import { useTheme } from "next-themes"
 import { useClientMessages } from "@/contexts/MessagesContext"
 import api from "@/api/axiosInstance"
@@ -35,7 +36,7 @@ export function Header() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const { state } = useSidebar()
-  const { logos, isLoading } = useBranding()
+  const { logos } = useBranding()
   const { theme, setTheme } = useTheme()
   const { reload } = useClientMessages()
   const isDark = theme === "dark"
@@ -168,17 +169,19 @@ export function Header() {
 
 
   return (
-    <header className="h-16 bg-blue-100 dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between px-4">
+    <header className="h-[58px] bg-[hsl(var(--topband))] dark:bg-slate-900 border-b border-border dark:border-slate-700 flex items-center justify-between gap-[18px] px-[26px] max-[900px]:px-3.5">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          {state === "collapsed" && !isLoading && logos?.square && (
+          {state === "collapsed" && (
           <div className="brand-logo-shell">
             <img 
-              src={logos.square}
-              alt="Logo" 
-              className="h-8 w-auto max-w-[200px] object-contain"
+              src={logos?.transparent || logos?.square || DEFAULT_CLIENT_LOGO_PATH}
+              alt="WellieMD"
+              className="h-7 w-auto max-w-[180px] object-contain"
               onError={(e) => {
-                e.currentTarget.style.display = "none"
+                if (!e.currentTarget.src.endsWith(DEFAULT_CLIENT_LOGO_PATH)) {
+                  e.currentTarget.src = DEFAULT_CLIENT_LOGO_PATH
+                }
               }}
             />
           </div>
@@ -187,15 +190,15 @@ export function Header() {
         {/* <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" /> // button moved to sidebar */}
       </div>
 
-      <div className="flex-1 max-w-md mx-4">
+      <div className="flex-1 max-w-[540px] mx-auto">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-slate-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-tertiary))] dark:text-slate-400" />
           <Input
             placeholder="Search"
-            className="pl-10 bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-gray-800 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500"
+            className="h-[34px] rounded-[9px] border-border bg-white pl-10 text-[13px] text-foreground placeholder:text-[hsl(var(--text-tertiary))] focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400"
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <kbd className="px-2 py-1 text-xs bg-gray-200 dark:bg-slate-700 rounded text-gray-600 dark:text-slate-300">
+            <kbd className="rounded-[5px] border border-border bg-slate-100 px-1.5 py-0.5 text-[11px] text-[hsl(var(--text-secondary))] dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
               Ctrl K
             </kbd>
           </div>

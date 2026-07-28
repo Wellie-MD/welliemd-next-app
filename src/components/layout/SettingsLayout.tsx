@@ -1,24 +1,27 @@
-import { Outlet, Routes, Route } from "react-router-dom"
+import { Suspense, useState } from "react"
+import { Routes, Route } from "react-router-dom"
 import { SettingsSidebar } from "./SettingsSidebar"
-import StoreDetails from "@/pages/settings/StoreDetails"
-import Integrations from "@/pages/settings/Integrations"
-import FulfillmentInventory from "@/pages/settings/FulfillmentInventory"
-import UsersPermissions from "@/pages/settings/UsersPermissions"
-import Metafields from "@/pages/settings/Metafields"
-import Domains from "@/pages/settings/Domains"
-import Files from "@/pages/settings/Files"
-import Policies from "@/pages/settings/Policies"
-import Payments from "@/pages/settings/Payments"
-import WebhooksApis from "@/pages/settings/WebhooksApis"
-import PrescribingDoctors from "@/pages/settings/PrescribingDoctors"
-import Brand from "@/pages/settings/Brand"
-import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
-import SmtpSettings from "@/pages/settings/SmtpSettings"
-import SmtpDomainSettings from "@/pages/settings/SmtpDomainSettings"
-import NotificationTemplates from "@/pages/settings/NotificationTemplates"
-import BelugaSettings from "@/pages/settings/BelugaSettings"
-import PatientResources from "@/pages/settings/PatientResources"
-import { useState } from "react"
+import { Loader2 } from "lucide-react"
+import { lazyWithRetry } from "@/utils/lazyWithRetry"
+
+const StoreDetails = lazyWithRetry(() => import("@/pages/settings/StoreDetails"))
+const Integrations = lazyWithRetry(() => import("@/pages/settings/Integrations"))
+const FulfillmentInventory = lazyWithRetry(() => import("@/pages/settings/FulfillmentInventory"))
+const UsersPermissions = lazyWithRetry(() => import("@/pages/settings/UsersPermissions"))
+const Metafields = lazyWithRetry(() => import("@/pages/settings/Metafields"))
+const Domains = lazyWithRetry(() => import("@/pages/settings/Domains"))
+const Files = lazyWithRetry(() => import("@/pages/settings/Files"))
+const Policies = lazyWithRetry(() => import("@/pages/settings/Policies"))
+const Payments = lazyWithRetry(() => import("@/pages/settings/Payments"))
+const WebhooksApis = lazyWithRetry(() => import("@/pages/settings/WebhooksApis"))
+const PrescribingDoctors = lazyWithRetry(() => import("@/pages/settings/PrescribingDoctors"))
+const Brand = lazyWithRetry(() => import("@/pages/settings/Brand"))
+const AnalyticsSeo = lazyWithRetry(() => import("@/pages/settings/AnalyticsSeo"))
+const SmtpSettings = lazyWithRetry(() => import("@/pages/settings/SmtpSettings"))
+const SmtpDomainSettings = lazyWithRetry(() => import("@/pages/settings/SmtpDomainSettings"))
+const NotificationTemplates = lazyWithRetry(() => import("@/pages/settings/NotificationTemplates"))
+const BelugaSettings = lazyWithRetry(() => import("@/pages/settings/BelugaSettings"))
+const PatientResources = lazyWithRetry(() => import("@/pages/settings/PatientResources"))
 
 export function SettingsLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -42,6 +45,7 @@ export function SettingsLayout() {
       >
 
         <div className="p-6">
+          <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>}>
           <Routes>
             <Route path="store-details" element={<StoreDetails />} />
             <Route path="integrations" element={<Integrations />} />
@@ -64,6 +68,7 @@ export function SettingsLayout() {
             <Route path="patient-resources" element={<PatientResources />} />
             <Route path="" element={<StoreDetails />} />
           </Routes>
+          </Suspense>
         </div>
       </main>
       {/* </div> */}

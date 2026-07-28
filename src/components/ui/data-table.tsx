@@ -351,7 +351,7 @@ export function DataTable({
       {/* Table - Enhanced Design */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-          <Table className={fitToWidth ? "w-full table-fixed" : "min-w-max table-auto"}>
+          <Table className={fitToWidth ? "w-full table-auto" : "min-w-max table-auto"}>
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                 {columns.map((column) => (
@@ -395,7 +395,7 @@ export function DataTable({
                     {columns.map((column) => (
                       <TableCell
                         key={column.key}
-                        className={`py-4 px-3 align-top break-words ${fitToWidth ? "overflow-hidden" : ""} ${column.className || ""}`}
+                        className={`py-4 px-3 align-top break-words ${column.className || ""}`}
                       >
                         {column.render
                           ? column.render(row[column.key], row)

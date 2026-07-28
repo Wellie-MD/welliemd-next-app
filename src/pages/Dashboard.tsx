@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, TrendingDown, TrendingUp, Minus, Users, Package, Eye, Clock3, UserRound } from "lucide-react";
 import { differenceInCalendarDays, format, startOfMonth, startOfYear, subDays, subMonths, endOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { cn } from "@/lib/utils";
 import { fetchDashboardCharts, fetchDashboardMetrics } from "@/api/dashboardApi";
 import { fetchOrders } from "@/api/ordersApi";
@@ -330,25 +331,22 @@ export default function Dashboard() {
   const kpis = useMemo(() => {
     const list = metrics?.kpis || [];
     const get = (names: string[]) => list.find((item) => names.includes(item.title));
-    const revenue = get(["Revenue", "Captured Revenue"]); const expenses = get(["Expenses", "Total Expense"]); const net = get(["Net Profit", "Net Profit (margin)"]); const totalOrders = get(["Total Orders"]);
+    const revenue = get(["Revenue", "Captured Revenue"]); const expenses = get(["Expenses", "Total Expense"]); const net = get(["Net Profit", "Net Profit (margin)"]); const profitRatio = get(["Profit Ratio %", "Profit Ratio"]); const revenueGrowth = get(["Total Growth By Revenue %", "Total Growth"]); const profitGrowth = get(["Total Growth By Net Profit %"]); const totalOrders = get(["Total Orders"]);
     const totalRevenue = metrics?.total_revenue ?? numberFromDisplay(revenue?.value);
     const totalExpenses = metrics?.total_expenses ?? numberFromDisplay(expenses?.value);
     const totalProfit = metrics?.total_profit ?? numberFromDisplay(net?.value);
-    const previousRevenue = charts.previous.at(-1)?.net_revenue as number | undefined;
-    const previousCapturedOrders = charts.previous.at(-1)?.total_sales as number | undefined;
-    const expenseRatio = ratioPct(totalExpenses, totalRevenue);
     const netRatio = ratioPct(totalProfit, totalRevenue);
     const supportDelta = (metric: typeof revenue, fallback?: string) => metric?.change ? `${metric.change} vs prior period` : fallback;
     return [
-      { title: "Captured Revenue", value: revenue?.value || money(totalRevenue), change: revenue?.change, trend: revenue?.trend, support: supportDelta(revenue, deltaText(totalRevenue, previousRevenue)) },
-      { title: "Expenses", value: expenses?.value || money(totalExpenses), change: expenses?.change, trend: expenses?.trend, support: expenseRatio == null ? "no revenue in period" : `${expenseRatio}% of revenue` },
-      { title: "Net Profit (margin)", value: net?.value || money(totalProfit), change: net?.change, trend: net?.trend, support: netRatio == null ? "no revenue in period" : `${netRatio}% of revenue` },
+      { title: "Revenue", value: revenue?.value || money(totalRevenue), change: revenue?.change, trend: revenue?.trend, support: supportDelta(revenue) },
+      { title: "Expenses", value: expenses?.value || money(totalExpenses), change: expenses?.change, trend: expenses?.trend, support: supportDelta(expenses) },
+      { title: "Net Profit", value: net?.value || money(totalProfit), change: net?.change, trend: net?.trend, support: supportDelta(net) },
+      { title: "Profit Ratio %", value: profitRatio?.value || pct(netRatio), change: profitRatio?.change, trend: profitRatio?.trend, support: supportDelta(profitRatio) },
+      { title: "Growth · Revenue", value: revenueGrowth?.value || "—", change: revenueGrowth?.change, trend: revenueGrowth?.trend, support: supportDelta(revenueGrowth) },
+      { title: "Growth · Net Profit", value: profitGrowth?.value || "—", change: profitGrowth?.change, trend: profitGrowth?.trend, support: supportDelta(profitGrowth) },
       { title: "Total Orders", value: totalOrders?.value || count(metrics?.total_orders), change: totalOrders?.change, trend: totalOrders?.trend, support: supportDelta(totalOrders) },
-      { title: "Captured Orders", value: count(metrics?.captured_orders ?? metrics?.total_sales), change: undefined, trend: "neutral" as const, support: deltaText(metrics?.captured_orders ?? metrics?.total_sales, previousCapturedOrders) },
-      { title: "Avg Order Value", value: money(metrics?.average_order_value), change: undefined, trend: "neutral" as const, support: "captured $ / captured orders" },
-      { title: "Conversion Rate", value: pct(metrics?.conversion_rate), change: undefined, trend: "neutral" as const, support: "captured / total orders" },
     ];
-  }, [charts.previous, metrics]);
+  }, [metrics]);
   const applyPreset = (preset: typeof ranges[number]) => {
     const nextRange = preset.get();
     setActiveRange(preset.value);
@@ -381,6 +379,7 @@ export default function Dashboard() {
   const summary = metrics?.patient_summary;
   return <div className="min-h-full bg-[#f7f8fa] px-4 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-7 sm:py-6">
     <div className="mx-auto max-w-[1500px]">
+      <IntercomInlineBanner />
       <header className="mb-[18px] flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-start">
         <div className="min-w-0"><h1 className="text-[22px] font-bold tracking-tight">Dashboard</h1><p className="mt-1 max-w-[620px] text-[13px] text-slate-400">{rangeLabel}</p></div>
         <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_34px] items-center gap-1.5 sm:grid-cols-[repeat(6,max-content)_34px] 2xl:justify-end">

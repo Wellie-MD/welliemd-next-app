@@ -1,9 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { Header } from "@/components/layout/Header";
-import { SettingsLayout } from "./components/layout/SettingsLayout";
-import DashboardFrame from "./components/layout/DashboardFrame";
+import { Suspense, useEffect, useState } from "react";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { authService } from "./services/authService";
 import { useAuthStore } from "./store/useAuthStore";
@@ -12,15 +8,25 @@ import { Toaster } from "@/components/ui/toaster";
 import { useSocialTags } from "@/hooks/useSocialTags";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
 
 // pages
-import NotFound from "./pages/NotFound";
-import SignIn from "./pages/auth/SignIn";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import ResetPassword from "./pages/auth/ResetPassword";
-import AcceptInvitation from "./pages/AcceptInvitation";
-import RegisterInvitation from "./pages/auth/RegisterInvitation";
-import Forbidden from "./pages/Forbidden";
+const DashboardFrame = lazyWithRetry(() => import("./components/layout/DashboardFrame"));
+const SettingsFrame = lazyWithRetry(() => import("./components/layout/SettingsFrame"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
+const SignIn = lazyWithRetry(() => import("./pages/auth/SignIn"));
+const ForgotPassword = lazyWithRetry(() => import("./pages/auth/ForgotPassword"));
+const ResetPassword = lazyWithRetry(() => import("./pages/auth/ResetPassword"));
+const AcceptInvitation = lazyWithRetry(() => import("./pages/AcceptInvitation"));
+const RegisterInvitation = lazyWithRetry(() => import("./pages/auth/RegisterInvitation"));
+const Forbidden = lazyWithRetry(() => import("./pages/Forbidden"));
+const SuperAdminAccessLaunch = lazyWithRetry(() => import("./pages/SuperAdminAccessLaunch"));
+
+const RouteLoadingFallback = () => (
+  <div className="flex min-h-screen items-center justify-center bg-background">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -29,6 +35,11 @@ const App = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      if (window.location.pathname.replace(/\/+$/, "") === "/superadmin-access/launch") {
+        setIsInitialized(true);
+        return;
+      }
+
       try {
         await authService.hydrateAuth();
       } catch (error) {
@@ -51,6 +62,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <Toaster />
+      <Suspense fallback={<RouteLoadingFallback />}>
       <Routes>
         <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
 
@@ -60,6 +72,7 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        <Route path="/superadmin-access/launch" element={<SuperAdminAccessLaunch />} />
 
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
@@ -84,16 +97,7 @@ const App = () => {
             <ProtectedRoute>
               <BrandingProvider>
                 <MessagesProvider pollIntervalMs={30000}>
-                  <SidebarProvider>
-                    <div className="min-h-screen flex w-full">
-                      <div className="flex-1 flex flex-col">
-                        <Header />
-                        <div className="flex flex-1">
-                          <SettingsLayout />
-                        </div>
-                      </div>
-                    </div>
-                  </SidebarProvider>
+                  <SettingsFrame />
                 </MessagesProvider>
               </BrandingProvider>
             </ProtectedRoute>
@@ -102,6 +106,7 @@ const App = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 };

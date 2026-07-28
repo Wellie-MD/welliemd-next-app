@@ -22,7 +22,11 @@ import {
   CreditCard,
   Truck,
   Building2,
-  ClipboardList
+  ClipboardList,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  RotateCw,
 } from "lucide-react"
 import { format } from "date-fns"
 import {
@@ -54,6 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { TreatmentOrderAggregate } from "@/features/treatments/orders/components/TreatmentOrderAggregate"
 
 interface OrderDetailsSheetProps {
   open: boolean
@@ -66,14 +71,19 @@ interface OrderDetailsSheetProps {
 const statusColors: Record<string, string> = {
   created: "bg-gray-100 text-gray-800",
   processing: "bg-blue-100 text-blue-800",
+  payment_authorized: "bg-blue-100 text-blue-800",
+  payment_captured: "bg-blue-100 text-blue-800",
   visit_failed: "bg-red-100 text-red-800",
   payment_pending: "bg-amber-100 text-amber-800",
+  payment_failed: "bg-red-100 text-red-800",
   visit_pending: "bg-yellow-100 text-yellow-800",
   consult_scheduled: "bg-sky-100 text-sky-800",
   consult_rescheduled: "bg-indigo-100 text-indigo-800",
   consult_canceled: "bg-red-100 text-red-800",
   no_show: "bg-rose-100 text-rose-800",
   referred: "bg-purple-100 text-purple-800",
+  declined: "bg-red-100 text-red-800",
+  partial: "bg-amber-100 text-amber-800",
   prescribed: "bg-green-100 text-green-800",
   billing_pending: "bg-orange-100 text-orange-800",
   rx_sent: "bg-indigo-100 text-indigo-800",
@@ -82,21 +92,29 @@ const statusColors: Record<string, string> = {
   out_for_delivery: "bg-amber-100 text-amber-800",
   delivered: "bg-teal-100 text-teal-800",
   delivery_failed: "bg-red-100 text-red-800",
+  completed: "bg-green-100 text-green-800",
+  refunded: "bg-purple-100 text-purple-800",
   canceled: "bg-red-100 text-red-800",
+  cancelled: "bg-red-100 text-red-800",
 }
 
 // Status labels
 const statusLabels: Record<string, string> = {
   created: "Created",
   processing: "Processing",
+  payment_authorized: "Payment Authorized",
+  payment_captured: "Payment Captured",
   visit_failed: "Visit Failed",
   payment_pending: "Payment Pending",
+  payment_failed: "Payment Failed",
   visit_pending: "Visit Pending",
   consult_scheduled: "Consult Scheduled",
   consult_rescheduled: "Consult Rescheduled",
   consult_canceled: "Consult Canceled",
   no_show: "No Show",
   referred: "Referred",
+  declined: "Declined",
+  partial: "Partially Complete",
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
@@ -105,7 +123,39 @@ const statusLabels: Record<string, string> = {
   out_for_delivery: "Out for Delivery",
   delivered: "Delivered",
   delivery_failed: "Delivery Failed",
+  completed: "Completed",
+  refunded: "Refunded",
   canceled: "Canceled",
+  cancelled: "Cancelled",
+}
+
+function AnswerSnapshot({ label, values }: { label: string; values?: Record<string, unknown> | null }) {
+  const entries = Object.entries(values || {})
+  if (!entries.length) return null
+  return (
+    <div className="rounded-md border bg-background/60 p-2">
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="space-y-1 text-xs">
+        {entries.map(([key, value]) => (
+          <div key={key} className="flex justify-between gap-3">
+            <span className="text-muted-foreground">{key}</span>
+            <span className="max-w-[65%] text-right font-medium break-words">{typeof value === "string" ? value : JSON.stringify(value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const getStatusIcon = (status: string) => {
+  const s = (status || "").toLowerCase()
+  if (s.includes("shipped") || s.includes("delivered") || s.includes("fulfillment")) return <Truck className="h-3.5 w-3.5" />
+  if (s.includes("prescribed") || s.includes("rx_sent") || s.includes("referred")) return <ClipboardList className="h-3.5 w-3.5" />
+  if (s.includes("scheduled") || s.includes("rescheduled")) return <Calendar className="h-3.5 w-3.5" />
+  if (s.includes("failed") || s.includes("cancel") || s.includes("no_show")) return <XCircle className="h-3.5 w-3.5" />
+  if (s.includes("pending") || s.includes("billing")) return <AlertCircle className="h-3.5 w-3.5" />
+  if (s.includes("captured") || s.includes("completed") || s.includes("refunded")) return <CheckCircle2 className="h-3.5 w-3.5" />
+  return <RotateCw className="h-3.5 w-3.5" />
 }
 
 export function OrderDetailsSheet({
@@ -158,25 +208,41 @@ export function OrderDetailsSheet({
     const amount = order?.totalRefunded ? parseFloat(order.totalRefunded) : 0
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.totalRefunded])
-  const orderTotal = useMemo(() => {
-    const amount = parseFloat(
-      order?.pricing?.grand_total ||
-      order?.grand_total ||
-      order?.payable_amount ||
-      order?.orderTotal ||
+  const phase2LineItems = order?.line_items || []
+  const isPhase2Order = Boolean(order?.treatment_case_summary || order?.combined_submission_summary?.id)
+  const phase2Total = Number.parseFloat(
+    String(
+      order?.combined_payment_summary?.allocation?.allocated_amount ||
+      order?.treatment_case_summary?.treatment_total ||
       order?.amount ||
       "0"
     )
+  )
+  const orderTotal = useMemo(() => {
+    const amount = parseFloat(
+      String(isPhase2Order && Number.isFinite(phase2Total)
+        ? phase2Total
+        : order?.pricing?.grand_total ||
+          order?.grand_total ||
+          order?.payable_amount ||
+          order?.orderTotal ||
+          order?.amount ||
+          "0")
+    )
     return Number.isNaN(amount) ? 0 : amount
-  }, [order?.pricing?.grand_total, order?.grand_total, order?.payable_amount, order?.orderTotal, order?.amount])
+  }, [isPhase2Order, phase2Total, order?.pricing?.grand_total, order?.grand_total, order?.payable_amount, order?.orderTotal, order?.amount])
   const requestedMedicineName =
-    order?.requested_medicines?.[0]?.name ||
-    order?.product_name ||
-    "—"
+    isPhase2Order
+      ? phase2LineItems.map((item) => item.product_name || "Product").filter(Boolean).join(", ") || "—"
+      : order?.requested_medicines?.[0]?.name ||
+        order?.product_name ||
+        "—"
   const rawPrescribedMedicineName =
-    order?.prescribed_medicines?.[0]?.name ||
-    order?.prescription_medications?.[0]?.name ||
-    null
+    isPhase2Order
+      ? phase2LineItems.filter((item) => item.prescription_status === "prescribed").map((item) => item.product_name || "Product").filter(Boolean).join(", ") || null
+      : order?.prescribed_medicines?.[0]?.name ||
+        order?.prescription_medications?.[0]?.name ||
+        null
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
   const prescribedMedicineName =
     prescribedNameNormalized === "same med" ||
@@ -313,7 +379,8 @@ export function OrderDetailsSheet({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className={statusColors[status] || "bg-gray-100 text-gray-800"}>
+                <Badge className={`inline-flex items-center gap-1.5 ${statusColors[status] || "bg-gray-100 text-gray-800"}`}>
+                  {getStatusIcon(status)}
                   {statusLabels[status] || status}
                 </Badge>
               </div>
@@ -360,6 +427,92 @@ export function OrderDetailsSheet({
                 </div>
               </section>
 
+              {order.treatment_aggregate && (
+                <TreatmentOrderAggregate
+                  aggregate={order.treatment_aggregate}
+                  currentOrderId={order.id}
+                  compact
+                />
+              )}
+
+              {!order.treatment_aggregate && order.line_items && order.line_items.length > 0 && (
+                <section>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Treatment Products
+                  </h3>
+                  <div className="space-y-2">
+                    {order.line_items.map((item) => (
+                      <div key={item.id} className="rounded-lg border bg-muted/30 p-3">
+                        <div className="flex justify-between gap-3">
+                          <span className="font-medium">{item.product_name || "Product"}</span>
+                          <span>${item.line_total || "0.00"}</span>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Qty {item.quantity || 1} · Prescription {item.prescription_status || "pending"} · Fulfilment {item.fulfilment_status || "pending"} · Refund {item.refund_status || "none"}
+                          {item.duration_days ? ` · ${item.duration_days} day supply` : ""}
+                        </div>
+                        {item.provider_product_id && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Provider product: <span className="font-mono">{item.provider_product_id}</span>
+                          </div>
+                        )}
+                        {item.reimbursement_amount_snapshot && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Reimbursement: ${String((item.reimbursement_amount_snapshot as { total_reimbursement_amount?: string }).total_reimbursement_amount || "0.00")}
+                          </div>
+                        )}
+                        {item.tracking_number && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {item.shipment_provider ? `${item.shipment_provider}: ` : "Tracking: "}
+                            <span className="font-mono">{item.tracking_number}</span>
+                            {item.tracking_url && (
+                              <a href={item.tracking_url} target="_blank" rel="noopener noreferrer" className="ml-2 font-semibold text-primary">
+                                Track package →
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {order.treatment_case_summary && (
+                <section>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Phase II clinical routing</h3>
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-xs">
+                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Treatment</span><span className="font-semibold">{order.treatment_case_summary.treatment_type_key || "—"}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Beluga review</span><span className="font-semibold">{order.treatment_case_summary.beluga_dispatch_status || order.beluga_dispatch_status || "pending"}</span></div>
+                    {order.treatment_case_summary.beluga_dispatch_reason && (
+                      <div className="rounded-md border bg-background/60 p-2 text-xs"><span className="font-semibold">Beluga dispatch detail:</span> {order.treatment_case_summary.beluga_dispatch_reason}</div>
+                    )}
+                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Reimbursement total</span><span className="font-semibold">${order.treatment_case_summary.reimbursement_total || "0.00"}</span></div>
+                    <AnswerSnapshot label="Common answers" values={order.treatment_case_summary.common_answers} />
+                    <AnswerSnapshot label="Treatment-scoped answers" values={order.treatment_case_summary.scoped_answers} />
+                    {order.treatment_case_summary.consents && order.treatment_case_summary.consents.length > 0 && (
+                      <div className="rounded-md border bg-background/60 p-2"><div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scoped consents</div><div className="text-xs">{order.treatment_case_summary.consents.map((consent) => typeof consent === "string" ? consent : JSON.stringify(consent)).join(" · ")}</div></div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {order.combined_submission_summary?.orders && order.combined_submission_summary.orders.length > 1 && (
+                <section>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Combined checkout</h3>
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
+                    <div>Payment: {order.combined_payment_summary?.status || "pending"} · ${order.combined_payment_summary?.authorized_amount || "0.00"}</div>
+                    {order.combined_submission_summary.orders.map((sibling) => (
+                      <div key={sibling.treatment_case_id} className="flex justify-between gap-3">
+                        <span>{sibling.treatment_type_key || "Treatment"}</span>
+                        <span>{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"} · Beluga {sibling.beluga_dispatch_status || "pending"}{sibling.beluga_dispatch_attempt_count ? ` · ${sibling.beluga_dispatch_attempt_count} attempt${sibling.beluga_dispatch_attempt_count === 1 ? "" : "s"}` : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               <Separator />
 
               {/* Order Information */}
@@ -389,29 +542,35 @@ export function OrderDetailsSheet({
                     label="Order Total" 
                     value={`$${netCollected.toFixed(2)}`}
                   />
-                  <InfoItem
-                    icon={<Package className="h-4 w-4" />}
-                    label="Requested (Original)"
-                    value={requestedMedicineName}
-                    tone="requested"
-                  />
-                  <InfoItem
-                    icon={<Package className="h-4 w-4" />}
-                    label="Prescribed (Doctor Final)"
-                    value={prescribedMedicineDisplayName}
-                    tone="prescribed"
-                  />
+                  {!order.treatment_aggregate && (
+                    <>
+                      <InfoItem
+                        icon={<Package className="h-4 w-4" />}
+                        label="Requested (Original)"
+                        value={requestedMedicineName}
+                        tone="requested"
+                      />
+                      <InfoItem
+                        icon={<Package className="h-4 w-4" />}
+                        label="Prescribed (Doctor Final)"
+                        value={prescribedMedicineDisplayName}
+                        tone="prescribed"
+                      />
+                    </>
+                  )}
                   <InfoItem
                     icon={<ClipboardList className="h-4 w-4" />}
                     label="Doctor"
                     value={order.doctor_name || "—"}
                   />
-                  <InfoItem
-                    icon={<CreditCard className="h-4 w-4" />}
-                    label="Amount Source"
-                    value={chargeableSourceLabel}
-                    tone="source"
-                  />
+                  {!order.treatment_aggregate && (
+                    <InfoItem
+                      icon={<CreditCard className="h-4 w-4" />}
+                      label="Amount Source"
+                      value={chargeableSourceLabel}
+                      tone="source"
+                    />
+                  )}
                   <InfoItem
                     icon={<CreditCard className="h-4 w-4" />}
                     label="Subtotal (Before Discount)"

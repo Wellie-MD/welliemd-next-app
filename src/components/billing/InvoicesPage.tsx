@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import billingService, { Invoice, InvoiceListResponse, InvoicePrescriptionEvent, InvoicePrescriptionItem } from "@/services/billingService";
 import { Link } from "react-router-dom";
-import { Loader2, Search, Eye, GitBranch } from "lucide-react";
+import { Loader2, Search, Eye, GitBranch, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TreatmentPrescriptionInvoiceSets } from "@/features/treatments/orders/components/TreatmentPrescriptionInvoiceSets";
 
 type DisplayInvoice = Invoice & {
   supplementalInvoices?: Invoice[];
@@ -52,7 +63,7 @@ function invoiceCombinedTotal(inv: DisplayInvoice) {
   return invoiceAmount(inv) + invoiceSupplementalTotal(inv);
 }
 
-function isReimbursementInvoice(inv: Invoice | null): inv is Invoice {
+function isReimbursementInvoice(inv: DisplayInvoice | null): inv is DisplayInvoice {
   return Boolean(inv && inv.invoice_type === "reimbursement");
 }
 
@@ -101,18 +112,6 @@ function getAccessPeriodFromInvoice(inv: any): string | null {
 
 function getClientOrderNumber(inv: any): string {
   return inv?.client_order_number || inv?.source_tenant_order_display_id || inv?.invoice_number || "-";
-}
-
-function normalizeLineItemDescription(description: string | undefined, orderId: string): string {
-  const desc = String(description ?? "").trim();
-  if (!desc || !orderId || orderId === "-") return desc || "-";
-
-  // Replace any existing "for Order <something>" suffix with the real order id.
-  // This fixes older invoices whose descriptions were stored with display IDs.
-  if (/\bfor Order\b/i.test(desc)) {
-    return desc.replace(/\bfor Order\b.*$/i, `for Order ${orderId}`);
-  }
-  return desc;
 }
 
 function lineItemTypeLabel(li: any): string {
@@ -223,156 +222,238 @@ const sharedThead = (
   </thead>
 );
 
-const renderCostTable = (
-  medication?: string,
-  shipping?: string,
-  total?: string,
-  showHeaders: boolean = false,
-  medicationLabel: string = "Medication",
-  totalLabel: string = "Total",
-  adjustment?: Invoice["revision_adjustments"] extends Array<infer T> ? T : never
-) => {
-  const rows = [
-    [medicationLabel || "Medication", medication],
-    ["Shipping", shipping],
-  ].filter(([_, amt]) => amt && amt !== "0.00" && amt !== "0");
-  const isCredit = adjustment?.kind === "credit_note";
-  const isNoCharge = adjustment?.kind === "no_charge_revision";
-
+function SplitCaptureSummary({ invoice }: { invoice: DisplayInvoice }) {
+  const supplementalInvoices = invoice.supplementalInvoices || [];
+  if (supplementalInvoices.length === 0) return null;
+  const supplementalTotal = invoiceSupplementalTotal(invoice);
   return (
-    <table className="mt-2 w-full table-fixed text-xs">
-      {sharedColgroup}
-      {showHeaders && sharedThead}
-      <tbody>
-        {rows.map(([label, amount]) => (
-          <tr key={label}>
-            <td className="py-1.5">{label}</td>
-            <td className="py-1.5 text-center text-slate-400">1</td>
-            <td className="py-1.5 text-right text-slate-500">{formatMoney(amount)}</td>
-            <td className="py-1.5 text-right font-semibold">{formatMoney(amount)}</td>
-          </tr>
-        ))}
-        <tr className="border-t border-slate-200 dark:border-slate-700">
-          <td className="pt-2 font-bold" colSpan={3}>{totalLabel}</td>
-          <td className="pt-2 text-right font-bold">{formatMoney(total)}</td>
-        </tr>
-        {adjustment && !isNoCharge && (
-          <tr>
-            <td className={`py-1.5 font-semibold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
-              <span className="inline-flex items-center gap-2">
-                {isCredit ? "Credit note" : "Supplemental charge"}
-                <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
-              </span>
-            </td>
-            <td />
-            <td />
-            <td className={`py-1.5 text-right font-bold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
-              {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  );
-};
-
-const renderProductCostTable = (
-  items: InvoicePrescriptionItem[] | undefined,
-  fallback: {
-    medication?: string;
-    shipping?: string;
-    total?: string;
-    medicationLabel?: string;
-    totalLabel?: string;
-    adjustment?: Invoice["revision_adjustments"] extends Array<infer T> ? T : never;
-  },
-  showHeaders: boolean = false
-) => {
-  const productRows = (items || []).filter((item) => item?.name);
-  if (productRows.length === 0) {
-    return renderCostTable(
-      fallback.medication,
-      fallback.shipping,
-      fallback.total,
-      showHeaders,
-      fallback.medicationLabel,
-      fallback.totalLabel,
-      fallback.adjustment
-    );
-  }
-
-  const medicationTotal = productRows.reduce((sum, item) => {
-    const amount = Number(item.medication_amount || 0);
-    return sum + (Number.isFinite(amount) ? amount : 0);
-  }, 0);
-  const shippingTotal = productRows.reduce((sum, item) => {
-    const amount = Number(item.shipping_amount || 0);
-    return sum + (Number.isFinite(amount) ? amount : 0);
-  }, 0);
-  const explicitTotal = Number(fallback.total);
-  const computedTotal = Number.isFinite(explicitTotal)
-    ? explicitTotal
-    : medicationTotal + shippingTotal;
-  const adjustment = fallback.adjustment;
-  const isCredit = adjustment?.kind === "credit_note";
-  const isNoCharge = adjustment?.kind === "no_charge_revision";
-
-  return (
-    <table className="mt-2 w-full table-fixed text-xs">
-      {sharedColgroup}
-      {showHeaders && sharedThead}
-      <tbody>
-        {productRows.map((item, index) => {
-          const amount = item.medication_amount || item.product_total || "0.00";
-          return (
-            <tr key={`${item.name}-${item.med_id || item.rx_id || index}`}>
-              <td className="py-1.5">{item.name}</td>
-              <td className="py-1.5 text-center text-slate-400">1</td>
-              <td className="py-1.5 text-right text-slate-500">{formatMoney(amount)}</td>
-              <td className="py-1.5 text-right font-semibold">{formatMoney(amount)}</td>
+    <div className="border-b border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-800 dark:bg-amber-900/20">
+      <div className="flex items-center gap-2 text-xs font-semibold text-amber-900 dark:text-amber-200">
+        <GitBranch className="h-3.5 w-3.5" />
+        Split Capture · {supplementalInvoices.length} supplemental invoice{supplementalInvoices.length > 1 ? "s" : ""}
+      </div>
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="rounded-lg border border-amber-200 bg-white px-3 py-2 dark:border-amber-700 dark:bg-slate-900">
+          <div className="text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300">Base invoice</div>
+          <div className="font-semibold text-amber-900 dark:text-amber-200">{invoice.invoice_number}: {formatMoney(invoiceAmount(invoice))}</div>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-white px-3 py-2 dark:border-amber-700 dark:bg-slate-900">
+          <div className="text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300">Supplemental total</div>
+          <div className="font-semibold text-amber-900 dark:text-amber-200">{formatMoney(supplementalTotal)}</div>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-white px-3 py-2 dark:border-amber-700 dark:bg-slate-900">
+          <div className="text-[10px] uppercase tracking-wide text-amber-700 dark:text-amber-300">Combined settlement</div>
+          <div className="font-semibold text-amber-900 dark:text-amber-200">{formatMoney(invoiceCombinedTotal(invoice))}</div>
+        </div>
+      </div>
+      <div className="mt-2 overflow-x-auto rounded-lg border border-amber-200 bg-white dark:border-amber-700 dark:bg-slate-900">
+        <table className="w-full text-xs">
+          <thead className="bg-amber-100/70 dark:bg-amber-900/30">
+            <tr>
+              <th className="px-3 py-1.5 text-left font-medium">Invoice #</th>
+              <th className="px-3 py-1.5 text-left font-medium">Status</th>
+              <th className="px-3 py-1.5 text-left font-medium">Issued</th>
+              <th className="px-3 py-1.5 text-right font-medium">Amount</th>
             </tr>
-          );
-        })}
-        {shippingTotal > 0 && (
-          <tr>
-            <td className="py-1.5">Shipping</td>
-            <td className="py-1.5 text-center text-slate-400">1</td>
-            <td className="py-1.5 text-right text-slate-500">{formatMoney(shippingTotal)}</td>
-            <td className="py-1.5 text-right font-semibold">{formatMoney(shippingTotal)}</td>
-          </tr>
-        )}
-        <tr className="border-t border-slate-200 dark:border-slate-700">
-          <td className="pt-2 font-bold" colSpan={3}>{fallback.totalLabel || "Total"}</td>
-          <td className="pt-2 text-right font-bold">{formatMoney(computedTotal)}</td>
-        </tr>
-        {adjustment && !isNoCharge && (
-          <tr>
-            <td className={`py-1.5 font-semibold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
-              <span className="inline-flex items-center gap-2">
-                {isCredit ? "Credit note" : "Supplemental charge"}
-                <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
-              </span>
-            </td>
-            <td />
-            <td />
-            <td className={`py-1.5 text-right font-bold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
-              {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
+          </thead>
+          <tbody>
+            {supplementalInvoices.map((child) => (
+              <tr key={child.id} className="border-t border-amber-100 dark:border-amber-800/60">
+                <td className="px-3 py-1.5 font-medium">{child.invoice_number}</td>
+                <td className="px-3 py-1.5">{formatLabel(child.status)}</td>
+                <td className="px-3 py-1.5">{formatDate(child.issued_at || child.created_at)}</td>
+                <td className="px-3 py-1.5 text-right">{formatMoney(invoiceAmount(child))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
-};
+}
 
 function RevisionInvoiceModal({
   invoice,
   onClose,
 }: {
-  invoice: Invoice;
+  invoice: DisplayInvoice;
   onClose: () => void;
 }) {
+  const orderId = getClientOrderNumber(invoice);
+
+  const reimbColgroup = (
+    <colgroup>
+      <col />
+      <col className="w-24" />
+      <col />
+      <col className="w-10" />
+      <col className="w-20" />
+      <col className="w-20" />
+    </colgroup>
+  );
+  const reimbThead = (
+    <thead className="text-muted-foreground">
+      <tr>
+        <th className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider">Type</th>
+        <th className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider">Client Order #</th>
+        <th className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider">Description</th>
+        <th className="pb-2 text-center text-[10px] font-medium uppercase tracking-wider">Qty</th>
+        <th className="pb-2 text-right text-[10px] font-medium uppercase tracking-wider">Unit</th>
+        <th className="pb-2 text-right text-[10px] font-medium uppercase tracking-wider">Total</th>
+      </tr>
+    </thead>
+  );
+
+  const renderCostTable = (
+    medication?: string,
+    shipping?: string,
+    total?: string,
+    showHeaders: boolean = false,
+    medicationLabel: string = "Medication",
+    totalLabel: string = "Total",
+    adjustment?: Invoice["revision_adjustments"] extends Array<infer T> ? T : never
+  ) => {
+    const rows = [
+      [medicationLabel || "Medication", medication, `${medicationLabel || "Medication"} cost for Order ${orderId}`],
+      ["Shipping", shipping, `Shipping cost for Order ${orderId}`],
+    ].filter(([, amt]) => amt && amt !== "0.00" && amt !== "0");
+    const isCredit = adjustment?.kind === "credit_note";
+    const isNoCharge = adjustment?.kind === "no_charge_revision";
+
+    return (
+      <table className="mt-2 w-full table-fixed text-xs">
+        {reimbColgroup}
+        {showHeaders && reimbThead}
+        <tbody>
+          {rows.map(([label, amount, description]) => (
+            <tr key={label}>
+              <td className="py-1.5">{label}</td>
+              <td className="py-1.5 font-mono text-[11px] text-slate-500">{orderId}</td>
+              <td className="py-1.5 text-slate-500">{description}</td>
+              <td className="py-1.5 text-center text-slate-400">1</td>
+              <td className="py-1.5 text-right text-slate-500">{formatMoney(amount)}</td>
+              <td className="py-1.5 text-right font-semibold">{formatMoney(amount)}</td>
+            </tr>
+          ))}
+          <tr className="border-t border-slate-200 dark:border-slate-700">
+            <td className="pt-2 font-bold" colSpan={5}>{totalLabel}</td>
+            <td className="pt-2 text-right font-bold">{formatMoney(total)}</td>
+          </tr>
+          {adjustment && !isNoCharge && (
+            <tr>
+              <td className={`py-1.5 font-semibold ${isCredit ? "text-emerald-600" : "text-red-600"}`} colSpan={3}>
+                <span className="inline-flex items-center gap-2">
+                  {isCredit ? "Credit note" : "Supplemental charge"}
+                  <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
+                </span>
+              </td>
+              <td />
+              <td />
+              <td className={`py-1.5 text-right font-bold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+                {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    );
+  };
+
+  const renderProductCostTable = (
+    items: InvoicePrescriptionItem[] | undefined,
+    fallback: {
+      medication?: string;
+      shipping?: string;
+      total?: string;
+      medicationLabel?: string;
+      totalLabel?: string;
+      adjustment?: Invoice["revision_adjustments"] extends Array<infer T> ? T : never;
+    },
+    showHeaders: boolean = false
+  ) => {
+    const productRows = (items || []).filter((item) => item?.name);
+    if (productRows.length === 0) {
+      return renderCostTable(
+        fallback.medication,
+        fallback.shipping,
+        fallback.total,
+        showHeaders,
+        fallback.medicationLabel,
+        fallback.totalLabel,
+        fallback.adjustment
+      );
+    }
+
+    const medicationTotal = productRows.reduce((sum, item) => {
+      const amount = Number(item.medication_amount || 0);
+      return sum + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+    const shippingTotal = productRows.reduce((sum, item) => {
+      const amount = Number(item.shipping_amount || 0);
+      return sum + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+    const explicitTotal = Number(fallback.total);
+    const computedTotal = Number.isFinite(explicitTotal)
+      ? explicitTotal
+      : medicationTotal + shippingTotal;
+    const adjustment = fallback.adjustment;
+    const isCredit = adjustment?.kind === "credit_note";
+    const isNoCharge = adjustment?.kind === "no_charge_revision";
+
+    return (
+      <table className="mt-2 w-full table-fixed text-xs">
+        {reimbColgroup}
+        {showHeaders && reimbThead}
+        <tbody>
+          {productRows.map((item, index) => {
+            const amount = item.medication_amount || item.product_total || "0.00";
+            return (
+              <tr key={`${item.name}-${item.med_id || item.rx_id || index}`}>
+                <td className="py-1.5">{item.name}</td>
+                <td className="py-1.5 font-mono text-[11px] text-slate-500">{orderId}</td>
+                <td className="py-1.5 text-slate-500">{item.name} cost for Order {orderId}</td>
+                <td className="py-1.5 text-center text-slate-400">1</td>
+                <td className="py-1.5 text-right text-slate-500">{formatMoney(amount)}</td>
+                <td className="py-1.5 text-right font-semibold">{formatMoney(amount)}</td>
+              </tr>
+            );
+          })}
+          {shippingTotal > 0 && (
+            <tr>
+              <td className="py-1.5">Shipping</td>
+              <td className="py-1.5 font-mono text-[11px] text-slate-500">{orderId}</td>
+              <td className="py-1.5 text-slate-500">Shipping cost for Order {orderId}</td>
+              <td className="py-1.5 text-center text-slate-400">1</td>
+              <td className="py-1.5 text-right text-slate-500">{formatMoney(shippingTotal)}</td>
+              <td className="py-1.5 text-right font-semibold">{formatMoney(shippingTotal)}</td>
+            </tr>
+          )}
+          <tr className="border-t border-slate-200 dark:border-slate-700">
+            <td className="pt-2 font-bold" colSpan={5}>{fallback.totalLabel || "Total"}</td>
+            <td className="pt-2 text-right font-bold">{formatMoney(computedTotal)}</td>
+          </tr>
+          {adjustment && !isNoCharge && (
+            <tr>
+              <td className={`py-1.5 font-semibold ${isCredit ? "text-emerald-600" : "text-red-600"}`} colSpan={3}>
+                <span className="inline-flex items-center gap-2">
+                  {isCredit ? "Credit note" : "Supplemental charge"}
+                  <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
+                </span>
+              </td>
+              <td />
+              <td />
+              <td className={`py-1.5 text-right font-bold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+                {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    );
+  };
+
   const requested = invoice.requested_breakdown;
+  const treatmentPrescription = invoice.treatment_prescription;
   const adjustments = invoice.revision_adjustments || [];
   const prescriptionEvents = invoice.prescription_events || [];
   const summary = invoice.adjustment_summary;
@@ -505,7 +586,7 @@ function RevisionInvoiceModal({
     )
   );
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
       <div className="w-full max-w-[880px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
         <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
@@ -536,6 +617,8 @@ function RevisionInvoiceModal({
             </button>
           </div>
         </header>
+
+        <SplitCaptureSummary invoice={invoice} />
 
         <div className="grid md:grid-cols-[320px_1fr]">
           <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
@@ -584,15 +667,22 @@ function RevisionInvoiceModal({
           </aside>
 
           <main>
+            {treatmentPrescription && (
+              <TreatmentPrescriptionInvoiceSets contract={treatmentPrescription} />
+            )}
             {Number(requested?.consultation_amount || 0) > 0 && (
               <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Consultation</h4>
                 <table className="mt-2 w-full text-xs">
-                  {sharedColgroup}
-                  {sharedThead}
+                  {reimbColgroup}
+                  {reimbThead}
                   <tbody>
                     <tr>
                       <td className="py-1.5">{requested?.consult_mode === "sync" ? "Sync Consult" : "Async Consult"}</td>
+                      <td className="py-1.5 font-mono text-[11px] text-slate-500">{orderId}</td>
+                      <td className="py-1.5 text-slate-500">
+                        {requested?.consult_mode === "sync" ? "Sync" : "Async"} Consult fee for Order {orderId}
+                      </td>
                       <td className="py-1.5 text-center text-slate-400">1</td>
                       <td className="py-1.5 text-right text-slate-500">{formatMoney(requested?.consultation_amount)}</td>
                       <td className="py-1.5 text-right font-semibold">{formatMoney(requested?.consultation_amount)}</td>
@@ -601,7 +691,7 @@ function RevisionInvoiceModal({
                 </table>
               </section>
             )}
-            <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+            {!treatmentPrescription && <section className="border-b border-slate-200 p-5 dark:border-slate-800">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Requested · {requestedLabel}
               </h4>
@@ -616,8 +706,8 @@ function RevisionInvoiceModal({
                 requestedLabel,
                 "Authorized total"
               )}
-            </section>
-            {prescriptionEvents.map((event, index) => {
+            </section>}
+            {!treatmentPrescription && prescriptionEvents.map((event, index) => {
               const revisionNumber = index;
               const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
               const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
@@ -638,7 +728,7 @@ function RevisionInvoiceModal({
                 </section>
               );
             })}
-            {prescriptionEvents.length === 0 && showImplicitBaseRevision && (
+            {!treatmentPrescription && prescriptionEvents.length === 0 && showImplicitBaseRevision && (
               <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Initial prescription · {requested?.product_name || "Prescribed product"}
@@ -654,7 +744,7 @@ function RevisionInvoiceModal({
                 </div>
               </section>
             )}
-            {fallbackAdjustments.map((adjustment, index) => {
+            {!treatmentPrescription && fallbackAdjustments.map((adjustment, index) => {
               const isCredit = adjustment.kind === "credit_note";
               const isNoCharge = adjustment.kind === "no_charge_revision";
               const explicitRevisionNumber = Number(adjustment.revision_number);
@@ -695,13 +785,14 @@ function RevisionInvoiceModal({
           </main>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
 function CreditNoteModal({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
   const isRefunded = invoice.status === "refunded";
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
       <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
         <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
@@ -801,12 +892,13 @@ function CreditNoteModal({ invoice, onClose }: { invoice: Invoice; onClose: () =
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
 function SaasInvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
       <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
         <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
@@ -923,7 +1015,108 @@ function SaasInvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () 
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body
+  );
+}
+
+function GenericInvoiceModal({ invoice, onClose }: { invoice: DisplayInvoice; onClose: () => void }) {
+  const total = invoiceCombinedTotal(invoice);
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+        <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                {formatLabel(invoice.invoice_type)} invoice
+              </div>
+              <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-2xl font-bold text-slate-950 dark:text-white">{formatMoney(total)}</span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusBadgeClassStatic(invoice.status)}`}>
+                  {formatLabel(invoice.status)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Issued {formatDate(invoice.issued_at || invoice.created_at)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
+            >
+              Close
+            </button>
+          </div>
+        </header>
+
+        <SplitCaptureSummary invoice={invoice} />
+
+        <div className="grid md:grid-cols-[320px_1fr]">
+          <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
+            <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Summary</h4>
+              <InvoiceInfoRow label="Type" value={formatLabel(invoice.invoice_type)} />
+              <InvoiceInfoRow label="Issued" value={formatDate(invoice.issued_at || invoice.created_at)} />
+              <InvoiceInfoRow label="Due" value={invoice.due_date ? formatDate(invoice.due_date) : "N/A"} />
+              {(invoice.billing_period_start || invoice.billing_period_end) && (
+                <InvoiceInfoRow
+                  label="Billing period"
+                  value={`${formatDate(invoice.billing_period_start)} to ${formatDate(invoice.billing_period_end)}`}
+                />
+              )}
+            </section>
+            <section className="px-5 py-4">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amounts</h4>
+              <InvoiceMoneyRow label="Invoice total" value={total} strong />
+            </section>
+          </aside>
+
+          <main>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Line items</h4>
+              {(invoice.line_items ?? []).length === 0 ? (
+                <div className="mt-2 rounded-lg border border-slate-200 p-3 text-xs text-slate-400 dark:border-slate-800">
+                  No line items available for this invoice.
+                </div>
+              ) : (
+                <table className="mt-2 w-full text-xs">
+                  {sharedColgroup}
+                  {sharedThead}
+                  <tbody>
+                    {(invoice.line_items ?? []).map((li) => (
+                      <tr key={li.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-800/50">
+                        <td className="py-2.5 text-slate-900 dark:text-slate-100">
+                          {lineItemTypeLabel(li)}
+                        </td>
+                        <td className="py-2.5 text-center text-slate-400">{li.quantity ?? 1}</td>
+                        <td className="py-2.5 text-right text-slate-500">{formatMoney(li.unit_price)}</td>
+                        <td className="py-2.5 text-right font-semibold text-slate-900 dark:text-slate-100">
+                          {formatMoney((li as any).total_amount ?? li.subtotal)}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="pt-3 font-bold text-slate-900 dark:text-slate-100" colSpan={3}>Total</td>
+                      <td className="pt-3 text-right font-bold text-slate-900 dark:text-slate-100">{formatMoney(total)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+            </section>
+          </main>
+        </div>
+
+        <footer className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+          <button className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" onClick={onClose}>
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -941,7 +1134,7 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [selected, setSelected] = useState<Invoice | null>(null);
+  const [selected, setSelected] = useState<DisplayInvoice | null>(null);
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -1151,44 +1344,49 @@ export default function InvoicesPage() {
     }
   };
 
+  const tabs: { key: InvoiceTab; label: string }[] = [
+    { key: "all", label: "All Invoices" },
+    { key: "reimbursement", label: "Reimbursement Billings" },
+    { key: "saas", label: "Monthly SaaS Fee Invoices" },
+  ];
+
   return (
-    <div className="p-4">
-      <div className="flex items-center gap-3 mb-4">
-        <button
-          className={`px-3 py-1 rounded ${activeTab === "all" ? "bg-slate-100 dark:bg-slate-800" : ""}`}
-          onClick={() => {
-            setActiveTab("all");
-            setPage(1);
-          }}
-        >
-          All Invoices
-        </button>
-        <button
-          className={`px-3 py-1 rounded ${activeTab === "reimbursement" ? "bg-slate-100 dark:bg-slate-800" : ""}`}
-          onClick={() => {
-            setActiveTab("reimbursement");
-            setPage(1);
-          }}
-        >
-          Reimbursement Billings
-        </button>
-        <button
-          className={`px-3 py-1 rounded ${activeTab === "saas" ? "bg-slate-100 dark:bg-slate-800" : ""}`}
-          onClick={() => {
-            setActiveTab("saas");
-            setPage(1);
-          }}
-        >
-          Monthly SaaS Fee Invoices
-        </button>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Invoices</h1>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+          <span>Billing</span>
+          <span>›</span>
+          <span>Invoices</span>
+        </div>
       </div>
 
-      <div className="bg-content-light dark:bg-content-dark p-4 rounded-lg shadow-md mb-6 border border-border-light dark:border-border-dark">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
-            <input
-              className="w-full pl-10 pr-4 py-2 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark"
+      <div className="flex flex-wrap gap-1.5">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+            onClick={() => {
+              setActiveTab(tab.key);
+              setPage(1);
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <Card className="p-4 space-y-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative sm:col-span-2 lg:col-span-2">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
               placeholder={activeTab === "reimbursement" ? "Search order # or invoice #" : "Search invoice # or order #"}
               value={search}
               onChange={(e) => {
@@ -1197,85 +1395,110 @@ export default function InvoicesPage() {
               }}
             />
           </div>
-          <select
-            className="w-full py-2 px-4 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark"
-            value={status}
-            onChange={(e) => {
-              setStatus(e.target.value as InvoiceStatus);
-              setPage(1);
-            }}
-          >
-            <option value="">All Statuses</option>
-            <option value="draft">Draft</option>
-            <option value="pending">Pending</option>
-            <option value="authorized">Authorized</option>
-            <option value="authorization_failed">Authorization Failed</option>
-            <option value="due">Due</option>
-            <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
-            <option value="failed">Failed</option>
-            <option value="canceled">Canceled</option>
-            <option value="refunded">Refunded</option>
-          </select>
-          <select
-            className="w-full py-2 px-4 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark"
-            value={ordering}
-            onChange={(e) => {
-              setOrdering(e.target.value as InvoiceOrdering);
-              setPage(1);
-            }}
-          >
-            <option value="-issued_at">Newest first</option>
-            <option value="issued_at">Oldest first</option>
-            <option value="-total_amount">Amount high to low</option>
-            <option value="total_amount">Amount low to high</option>
-            <option value="status">Status A to Z</option>
-          </select>
-          <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-2">
-            <div className="relative">
-              <input
-                className="form-input w-full py-2 px-4 pr-8 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
-                placeholder="mm/dd/yyyy"
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value);
+          <div className="sm:col-span-1 lg:col-span-1">
+            <Select
+              value={status || "all"}
+              onValueChange={(value) => {
+                setStatus(value === "all" ? "" : (value as InvoiceStatus));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="authorized">Authorized</SelectItem>
+                <SelectItem value="authorization_failed">Authorization Failed</SelectItem>
+                <SelectItem value="due">Due</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="canceled">Canceled</SelectItem>
+                <SelectItem value="refunded">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-1 lg:col-span-1">
+            <Select
+              value={ordering}
+              onValueChange={(value) => {
+                setOrdering(value as InvoiceOrdering);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="-issued_at">Newest first</SelectItem>
+                <SelectItem value="issued_at">Oldest first</SelectItem>
+                <SelectItem value="-total_amount">Amount high to low</SelectItem>
+                <SelectItem value="total_amount">Amount low to high</SelectItem>
+                <SelectItem value="status">Status A to Z</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-1 lg:col-span-1">
+            <label className="text-xs font-medium text-muted-foreground">From Date</label>
+            <Input
+              type="date"
+              className="w-full"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-1 lg:col-span-1">
+            <label className="text-xs font-medium text-muted-foreground">To Date</label>
+            <Input
+              type="date"
+              className="w-full"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <div className="flex items-end justify-start gap-2 sm:col-span-2 lg:col-span-2 pt-1 sm:pt-0">
+            <Button type="button" onClick={() => void applyFilters()}>
+              Search
+            </Button>
+            {(search || status || fromDate || toDate || ordering !== "-issued_at") && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setSearch("");
+                  setStatus("");
+                  setFromDate("");
+                  setToDate("");
+                  setOrdering("-issued_at");
                   setPage(1);
                 }}
-              />
-            </div>
-            <div className="relative">
-              <input
-                className="form-input w-full py-2 px-4 pr-8 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
-                placeholder="mm/dd/yyyy"
-                type="date"
-                value={toDate}
-                onChange={(e) => {
-                  setToDate(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
+              >
+                Reset
+              </Button>
+            )}
           </div>
         </div>
-        <div className="flex justify-end mt-4 pt-4 border-t border-border-light dark:border-border-dark">
-          <Button
-            type="button"
-            onClick={() => void applyFilters()}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            Search
-          </Button>
-        </div>
-      </div>
+      </Card>
 
-      <div className="bg-content-light dark:bg-content-dark p-6 rounded-lg shadow-md border border-border-light dark:border-border-dark">
+      <Card className="p-6">
         {loading ? (
-          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Loading invoices...</div>
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading invoices…
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-text-secondary-light dark:text-text-secondary-dark uppercase bg-background-light dark:bg-background-dark border-b border-border-light dark:border-border-dark">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b bg-muted/50 text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-6 py-3 font-semibold tracking-wider">Date</th>
                   {activeTab === "reimbursement" ? (
@@ -1293,8 +1516,8 @@ export default function InvoicesPage() {
               </thead>
               <tbody>
                 {invoices.length === 0 && (
-                  <tr className="border-b border-border-light dark:border-border-dark">
-                    <td className="px-6 py-4" colSpan={8}>
+                  <tr className="border-b">
+                    <td className="px-6 py-4 text-center text-muted-foreground" colSpan={8}>
                       No invoices found
                     </td>
                   </tr>
@@ -1318,7 +1541,7 @@ export default function InvoicesPage() {
                   return (
                     <tr
                       key={inv.id}
-                      className={`border-b border-border-light dark:border-border-dark hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors duration-150 cursor-pointer ${
+                      className={`cursor-pointer border-b transition-colors last:border-b-0 hover:bg-muted/40 ${
                         hasNestedSupplementals ? "bg-amber-50/40 dark:bg-amber-900/10" : ""
                       }`}
                       onClick={() => setSelected(inv)}
@@ -1327,23 +1550,23 @@ export default function InvoicesPage() {
                       {activeTab === "reimbursement" ? (
                         <td className="px-6 py-4">
                           <Link to="/dashboard/orders" className="block">
-                            <div className="font-medium text-text-primary-light dark:text-text-primary-dark hover:text-primary transition-colors">
+                            <div className="font-medium text-foreground hover:text-primary transition-colors">
                               {getClientOrderNumber(inv)}
                             </div>
-                            <div className="text-text-secondary-light dark:text-text-secondary-dark text-xs">
+                            <div className="text-xs text-muted-foreground">
                               {inv.source_tenant_email ?? ""}
                             </div>
                           </Link>
                         </td>
                       ) : (
                         <td className="px-6 py-4">
-                          <div className="font-medium text-text-primary-light dark:text-text-primary-dark">
+                          <div className="font-medium text-foreground">
                             {inv.invoice_number || "-"}
                           </div>
                         </td>
                       )}
                       <td className="px-6 py-4">
-                        <div className="font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                        <div className="font-mono text-xs text-muted-foreground">
                           {inv.source_tenant_order_display_id || inv.source_order_id || "-"}
                         </div>
                       </td>
@@ -1358,7 +1581,7 @@ export default function InvoicesPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
+                      <td className="px-6 py-4 text-muted-foreground">
                         <div>{formatBreakdown(inv)}</div>
                         {hasNestedSupplementals && (
                           <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
@@ -1391,8 +1614,10 @@ export default function InvoicesPage() {
                             )}
                           </Button>
                         ) : (
-                          <button
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs hover:bg-muted/50"
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelected(inv);
@@ -1400,7 +1625,7 @@ export default function InvoicesPage() {
                           >
                             <Eye className="h-3.5 w-3.5" />
                             View
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>
@@ -1410,26 +1635,32 @@ export default function InvoicesPage() {
             </table>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="flex items-center justify-between mt-4 text-sm">
-        <button
-          className="px-3 py-1 rounded border disabled:opacity-50"
+      <div className="flex items-center justify-between text-sm">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           disabled={!hasPrev}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
         >
+          <ChevronLeft className="h-3.5 w-3.5" />
           Previous
-        </button>
-        <span className="text-text-secondary-light dark:text-text-secondary-dark">
+        </Button>
+        <span className="text-muted-foreground">
           Page {page} · {invoices.length} of {total}
         </span>
-        <button
-          className="px-3 py-1 rounded border disabled:opacity-50"
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           disabled={!hasNext}
           onClick={() => setPage((p) => p + 1)}
         >
           Next
-        </button>
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
       {selected && isReimbursementInvoice(selected) && (
@@ -1443,193 +1674,7 @@ export default function InvoicesPage() {
       )}
 
       {selected && !isReimbursementInvoice(selected) && selected.invoice_type !== "credit_note" && selected.invoice_type !== "saas_fee" && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
-              <button onClick={() => setSelected(null)} className="text-sm px-2 py-1 border rounded">
-                Close
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
-              <div className="rounded border p-3">
-                <strong>Status:</strong> {formatLabel(selected.status)}
-              </div>
-              {selected.invoice_type === "credit_note" && (
-                <div className="rounded border p-3">
-                  <strong>Refund Status:</strong>{" "}
-                  {selected.status === "refunded" ? "Refunded" : "Refund Pending"}
-                </div>
-              )}
-              <div className="rounded border p-3">
-                <strong>Type:</strong> {formatLabel(selected.invoice_type)}
-              </div>
-              {selected.invoice_type === "reimbursement" && (
-                <div className="rounded border p-3">
-                  <strong>Client Order #:</strong> {getClientOrderNumber(selected)}
-                </div>
-              )}
-              <div className="rounded border p-3">
-                <strong>Total:</strong> {formatMoney(invoiceCombinedTotal(selected as DisplayInvoice))}
-              </div>
-              <div className="rounded border p-3">
-                <strong>Issued:</strong> {formatDate((selected as any).issued_at || selected.created_at)}
-              </div>
-              <div className="rounded border p-3">
-                <strong>Due:</strong> {formatDate((selected as any).due_date)}
-              </div>
-              <div className="rounded border p-3">
-                <strong>{selected.invoice_type === "saas_fee" ? "Usage Billing Period" : "Billing Period"}:</strong>{" "}
-                {formatDate((selected as any).billing_period_start)} to{" "}
-                {formatDate((selected as any).billing_period_end)}
-              </div>
-              {selected.invoice_type === "saas_fee" && getAccessPeriodFromInvoice(selected) && (
-                <div className="rounded border p-3">
-                  <strong>Renewal Access Period:</strong> {getAccessPeriodFromInvoice(selected)}
-                </div>
-              )}
-              {selected.invoice_type === "reimbursement" && (
-                <>
-                  <div className="rounded border p-3">
-                    <strong>Intended Auth Amount:</strong> {(selected as any).intended_authorization_amount || "-"}
-                  </div>
-                  <div className="rounded border p-3">
-                    <strong>Auth Retry Count:</strong> {(selected as any).authorization_retry_count ?? "-"}
-                  </div>
-                  <div className="rounded border p-3">
-                    <strong>Next Auth Retry:</strong>{" "}
-                    {(selected as any).authorization_next_retry_at
-                      ? new Date((selected as any).authorization_next_retry_at).toLocaleString()
-                      : "-"}
-                  </div>
-                  <div className="rounded border p-3">
-                    <strong>Retry Exhausted At:</strong>{" "}
-                    {(selected as any).authorization_retry_exhausted_at
-                      ? new Date((selected as any).authorization_retry_exhausted_at).toLocaleString()
-                      : "-"}
-                  </div>
-                  <div className="rounded border p-3">
-                    <strong>Auth Error Code:</strong> {(selected as any).authorization_last_error_code || "-"}
-                  </div>
-                  <div className="rounded border p-3">
-                    <strong>Auth Error Message:</strong> {(selected as any).authorization_last_error_message || "-"}
-                  </div>
-                </>
-              )}
-            </div>
-            {((selected as DisplayInvoice).supplementalInvoices || []).length > 0 && (
-              <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-900/20">
-                <div className="font-medium text-amber-900 dark:text-amber-200">Split Capture Details</div>
-                <div className="mt-1 text-amber-800 dark:text-amber-300">
-                  Supplemental reimbursements are consolidated into this invoice row for readability.
-                </div>
-                {(() => {
-                  const supplemental = ((selected as DisplayInvoice).supplementalInvoices || []);
-                  const supplementalTotal = invoiceSupplementalTotal(selected as DisplayInvoice);
-                  const baseAmount = invoiceAmount(selected);
-                  const combined = baseAmount + supplementalTotal;
-                  return (
-                    <>
-                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div className="rounded border border-amber-200 bg-white px-2 py-1 dark:border-amber-700 dark:bg-slate-900">
-                          <div className="text-[11px] text-amber-700 dark:text-amber-300">Base Invoice</div>
-                          <div className="font-semibold text-amber-900 dark:text-amber-200">
-                            {selected.invoice_number}: {formatMoney(baseAmount)}
-                          </div>
-                        </div>
-                        <div className="rounded border border-amber-200 bg-white px-2 py-1 dark:border-amber-700 dark:bg-slate-900">
-                          <div className="text-[11px] text-amber-700 dark:text-amber-300">Supplemental Total</div>
-                          <div className="font-semibold text-amber-900 dark:text-amber-200">
-                            {formatMoney(supplementalTotal)}
-                          </div>
-                        </div>
-                        <div className="rounded border border-amber-200 bg-white px-2 py-1 dark:border-amber-700 dark:bg-slate-900">
-                          <div className="text-[11px] text-amber-700 dark:text-amber-300">Combined Settlement</div>
-                          <div className="font-semibold text-amber-900 dark:text-amber-200">
-                            {formatMoney(combined)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-2 rounded border border-amber-200 bg-white overflow-x-auto dark:border-amber-700 dark:bg-slate-900">
-                        <table className="w-full text-xs">
-                          <thead className="bg-amber-100/70 dark:bg-amber-900/30">
-                            <tr>
-                              <th className="px-2 py-1 text-left">Invoice #</th>
-                              <th className="px-2 py-1 text-left">Status</th>
-                              <th className="px-2 py-1 text-left">Issued</th>
-                              <th className="px-2 py-1 text-right">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {supplemental.map((child) => {
-                              const issued = child.issued_at || child.created_at;
-                              return (
-                                <tr key={child.id} className="border-t border-amber-100 dark:border-amber-800/60">
-                                  <td className="px-2 py-1 font-medium">{child.invoice_number}</td>
-                                  <td className="px-2 py-1">{formatLabel(child.status)}</td>
-                                  <td className="px-2 py-1">{issued ? new Date(issued).toLocaleString() : "-"}</td>
-                                  <td className="px-2 py-1 text-right">{formatMoney(child.total_amount ?? child.amount)}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-
-            <div className="mt-2">
-              <h4 className="font-medium mb-2">Line Items</h4>
-              {(selected.line_items ?? []).length === 0 ? (
-                <div className="rounded border p-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  No line items available for this invoice.
-                </div>
-              ) : (
-                <div className="rounded border overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30">
-                      <tr>
-                        <th className="text-left px-3 py-2">Type</th>
-                        <th className="text-left px-3 py-2">Client Order #</th>
-                        <th className="text-left px-3 py-2">Description</th>
-                        <th className="text-right px-3 py-2">Qty</th>
-                        <th className="text-right px-3 py-2">Unit</th>
-                        <th className="text-right px-3 py-2">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selected.line_items ?? []).map((li) => (
-                        <tr key={li.id} className="border-t">
-                          <td className="px-3 py-2">{lineItemTypeLabel(li)}</td>
-                          <td className="px-3 py-2 font-mono text-xs">
-                            {(li as any).client_order_number ||
-                              (li as any).order_display_id ||
-                              (selected.invoice_type === "reimbursement" ? getClientOrderNumber(selected) : "-")}
-                          </td>
-                          <td className="px-3 py-2">
-                            {normalizeLineItemDescription(
-                              li.description,
-                              selected.invoice_type === "reimbursement" ? getClientOrderNumber(selected) : "-"
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
-                          <td className="px-3 py-2 text-right">{formatMoney(li.unit_price)}</td>
-                          <td className="px-3 py-2 text-right font-medium">
-                            {formatMoney((li as any).total_amount ?? li.subtotal)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <GenericInvoiceModal invoice={selected} onClose={() => setSelected(null)} />
       )}
     </div>
   );
