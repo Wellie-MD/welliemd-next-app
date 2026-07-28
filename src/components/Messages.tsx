@@ -25,7 +25,9 @@ import {
 } from "@/features/messages/services/message.service";
 import { VisitService } from "@/features/visits/services/visit.service";
 import { useAuth } from "@/features/auth";
+import { useAuthStore } from "@/features/auth/store/auth.store";
 import { env } from "@/config/env";
+import { toast } from "sonner";
 
 import { isToday, isYesterday, format, formatISO } from "date-fns";
 
@@ -189,6 +191,8 @@ function DocumentBubble({
 export default function Messages() {
   const MAX_COMPOSER_HEIGHT_PX = 140;
   const { user } = useAuth();
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
+  const isReadOnlyBrokeredSession = user?.superadmin_access?.access_mode === "read_only";
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -313,6 +317,7 @@ export default function Messages() {
 
   // Auto-mark inbound messages as read when a conversation is selected
   useEffect(() => {
+    if (isImpersonated) return;
     if (!selectedId) return;
     const chat = conversations.find(c => c.id === selectedId);
     if (!chat) return;
@@ -373,6 +378,12 @@ export default function Messages() {
   }, [searchParams, conversations, selectedId, setSearchParams, isMobile]);
 
   const handleSend = async () => {
+    if (isImpersonated) return;
+    if (isReadOnlyBrokeredSession) {
+      toast.error("Messaging is disabled for your role.");
+      return;
+    }
+
     if (sendInFlightRef.current || uploading) return;
     const selected = conversations.find(c => c.id === selectedId);
     if (!selected) return;
@@ -467,6 +478,16 @@ export default function Messages() {
       setAttachedFiles([]);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 40);
       void loadConversations();
+    } catch (error: any) {
+      const errorMessage =
+        typeof error?.error === "string"
+          ? error.error
+          : error?.error?.message || "Failed to send message";
+      toast.error(
+        errorMessage === "Super Admin read-only mode blocks write actions."
+          ? "Messaging is disabled for your role."
+          : errorMessage
+      );
     } finally {
       setUploading(false);
       sendInFlightRef.current = false;
@@ -651,7 +672,7 @@ export default function Messages() {
             </div>
 
             {/* Input Options (File Attachment Previews) */}
-            {attachedFiles.length > 0 && (
+            {attachedFiles.length > 0 && !isImpersonated && (
               <div style={{ padding: "8px 14px", background: "var(--km-s2)", borderTop: "1px solid var(--km-b)", display: "flex", gap: 8, overflowX: "auto" }}>
                 {attachedFiles.map((file, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--km-s1)", border: "1px solid var(--km-b)", padding: "4px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600 }}>
@@ -664,6 +685,11 @@ export default function Messages() {
             )}
 
             {/* Input Bar */}
+            {isImpersonated ? (
+              <div className="km-cibar" style={{ justifyContent: 'center', background: 'var(--km-s1)', borderTop: '1px solid var(--km-b)' }}>
+                <span style={{ fontSize: 12, color: 'var(--km-tm)', fontStyle: 'italic' }}>Read-only — composing messages is disabled during impersonation</span>
+              </div>
+            ) : (
             <div className="km-cibar">
               {showRouting && (
                 <div style={{ position: "absolute", bottom: 54, left: 14, background: "var(--km-s1)", border: "1px solid var(--km-b)", borderRadius: "var(--km-rs)", boxShadow: "0 4px 20px rgba(0,0,0,.3)", overflow: "hidden", minWidth: 140, zIndex: 10 }}>
@@ -705,10 +731,11 @@ export default function Messages() {
 
               <textarea
                 ref={composeInputRef}
-                className="km-cinp"
-                placeholder="Type a message..."
+                className="km-cinp" 
+                placeholder={isReadOnlyBrokeredSession ? "Messaging is disabled for your role." : "Type a message..."} 
                 rows={1}
                 value={composeText}
+                disabled={isReadOnlyBrokeredSession}
                 onChange={(e) => setComposeText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -717,10 +744,17 @@ export default function Messages() {
                   }
                 }}
               />
-
-              <div
-                className="km-cattch"
-                onClick={() => fileInputRef.current?.click()}
+              
+              <div 
+                className="km-cattch" 
+                onClick={() => {
+                  if (isReadOnlyBrokeredSession) {
+                    toast.error("Messaging is disabled for your role.");
+                    return;
+                  }
+                  fileInputRef.current?.click();
+                }}
+                style={{ opacity: isReadOnlyBrokeredSession ? 0.5 : 1, cursor: isReadOnlyBrokeredSession ? "not-allowed" : "pointer" }}
               >
                 <Paperclip strokeWidth={2.5} />
               </div>
@@ -728,6 +762,7 @@ export default function Messages() {
                 type="file"
                 multiple
                 className="hidden"
+                disabled={isReadOnlyBrokeredSession}
                 style={{ display: 'none' }}
                 ref={fileInputRef}
                 onChange={(e) => {
@@ -740,8 +775,8 @@ export default function Messages() {
               <button
                 className="km-csend"
                 onClick={handleSend}
-                disabled={uploading}
-                style={{ opacity: uploading ? 0.6 : 1 }}
+                disabled={uploading || isReadOnlyBrokeredSession}
+                style={{ opacity: uploading || isReadOnlyBrokeredSession ? 0.6 : 1 }}
               >
                 {uploading ? (
                   <span style={{ fontSize: 13 }}>Sending...</span>
@@ -752,7 +787,7 @@ export default function Messages() {
                 )}
               </button>
             </div>
-
+            )}
           </>
         )}
       </div>

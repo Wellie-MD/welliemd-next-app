@@ -1,63 +1,66 @@
-/**
- * Explore Treatments Page — kinmeds3 design system
- * 
- * Standalone page showing all available treatments a patient can start.
- * Matches kinmeds3 reference `pg-explore` exactly.
- */
+import { ClipboardCheck, FileText, SearchCheck, ShieldCheck } from 'lucide-react';
 
-import { AvailableTreatmentsList } from "@/features/treatments";
-import { Shield } from "lucide-react";
+import { AvailableTreatmentsList } from '@/features/treatments';
+import { EXPLORE_PAGE_CONTENT as content } from '@/features/treatments/config/pageContent';
+import '@/features/treatments/exploreTreatments.css';
+
+const stepIcons = [SearchCheck, FileText, ClipboardCheck] as const;
 
 export default function ExploreTreatments() {
   return (
-    <div>
-      {/* Header */}
-      <div className="km-fade" style={{ marginBottom: 18 }}>
-        <p className="km-page-title">Explore Treatments</p>
-        <p className="km-page-sub">Browse available options and get started</p>
-      </div>
+    <section id="pg-explore" className="explore-page" aria-labelledby="explore-page-title">
+      <header className="explore-page__header km-fade">
+        <div>
+          <h1 id="explore-page-title" className="explore-page__title">
+            {content.title}
+          </h1>
+          <p className="explore-page__subtitle">{content.subtitle}</p>
+        </div>
+        <div className="explore-page__trust-note">
+          <ShieldCheck aria-hidden="true" size={16} />
+          <span>Availability based on your profile</span>
+        </div>
+      </header>
 
-      {/* How it works banner */}
-      <div
-        className="km-card km-fade"
-        style={{
-          marginBottom: 16,
-          background: "linear-gradient(135deg, rgba(79,142,247,0.08), rgba(167,139,250,0.06))",
-          borderColor: "rgba(79,142,247,0.15)",
-          borderRadius: "var(--km-r)",
-        }}
-      >
-        <div style={{ padding: 14, display: "flex", alignItems: "center", gap: 11 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: "var(--km-acp)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Shield size={18} style={{ color: "var(--km-ac)" }} />
+      <section className="explore-guide km-fade" aria-labelledby="explore-guide-title">
+        <div className="explore-guide__copy">
+          <div className="explore-guide__icon" aria-hidden="true">
+            <ShieldCheck size={20} />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--km-t)", marginBottom: 2 }}>
-              How it works
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--km-tm)", lineHeight: 1.5 }}>
-              Select a treatment, complete a short intake questionnaire, and a licensed provider
-              will review your case. Visit type may vary based on your state.
-            </div>
+            <h2 id="explore-guide-title">{content.howItWorks.title}</h2>
+            <p>{content.howItWorks.description}</p>
           </div>
         </div>
-      </div>
 
-      {/* Treatments list */}
+        <ol className="explore-guide__steps" aria-label="Treatment request steps">
+          {content.howItWorks.steps.map((step, index) => {
+            const StepIcon = stepIcons[index] ?? ClipboardCheck;
+            return (
+              <li
+                key={step}
+                className={index === 0 ? 'is-current' : undefined}
+                aria-current={index === 0 ? 'step' : undefined}
+              >
+                <span className="explore-guide__step-number" aria-hidden="true">
+                  <StepIcon size={14} />
+                </span>
+                <span>{step}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+
       <div className="km-fade">
-        <AvailableTreatmentsList />
+        <AvailableTreatmentsList
+          browseLabel={content.browseLabel}
+          searchLabel={content.searchLabel}
+          searchPlaceholder={content.searchPlaceholder}
+          emptyStateTitle={content.emptyState.title}
+          emptyStateDescription={content.emptyState.description}
+        />
       </div>
-    </div>
+    </section>
   );
 }

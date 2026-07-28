@@ -22,11 +22,24 @@ export const UserSchema = z.object({
   first_name: z.string(),
   last_name: z.string(),
   phone: z.string().nullable(),
-  auth_user: z.number(),
+  auth_user: z.number().nullable(),
+  is_impersonated: z.boolean().optional(),
+  superadmin_access: z.object({
+    session_id: z.string().optional(),
+    platform_user_id: z.string().optional(),
+    platform_email: z.string().optional(),
+    tenant_id: z.string().optional(),
+    portal_type: z.string().optional(),
+    access_mode: z.string().optional(),
+    target_context: z.record(z.unknown()).optional(),
+    expires_at: z.string().nullable().optional(),
+  }).optional(),
   // Extended fields for client-side use
   role: z.nativeEnum(UserRole).optional(),
   status: z.nativeEnum(UserStatus).optional(),
-  avatar: z.string().url().optional(),
+  // Backend field is avatar_url (apps.users.serializers.UserSerializer) and defaults to "" when
+  // unset for every patient today - not a strict url() so parsing doesn't throw on the common case.
+  avatar_url: z.string().optional(),
   dateOfBirth: z.string().datetime().optional(),
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional(),
@@ -143,6 +156,7 @@ export const AuthStateSchema = z.object({
   permissions: z.array(z.string()),
   features: z.record(z.boolean()),
   isAuthenticated: z.boolean(),
+  isImpersonated: z.boolean(),
   isLoading: z.boolean(),
   error: z.string().nullable(),
 });

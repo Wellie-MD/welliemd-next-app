@@ -1,20 +1,37 @@
 /**
  * Available Treatments API service for patient portal.
- * 
- * Provides methods to:
- * - List treatments available for the patient to start
- * - Start a new treatment questionnaire
+ *
+ * Explore Treatments lists eligibility-filtered Custom Programs and launches their
+ * immutable published releases.
  */
+import { API_ENDPOINTS } from '@/config/constants';
 import { apiClient } from '@/shared/api/client';
 
 export interface AvailableTreatment {
+    kind?: 'custom_program' | 'program';
     id: string;
     name: string;
     description: string;
-    treatment_type: string;
+    slug: string;
+    category: string;
+    categories: string[];
+    program_count: number;
+    sex_requirement: 'male' | 'female' | null;
+    min_age: number | null;
+    max_age: number | null;
+    min_bmi: number | null;
+    max_bmi: number | null;
     can_start: boolean;
     blocked_until: string | null;
     days_remaining: number | null;
+    launch: {
+        custom_program_id?: string;
+        template_id?: string;
+        release_token?: string;
+        release_version?: number;
+        path: string;
+        questionnaire_url?: string;
+    } | null;
 }
 
 export interface AvailableTreatmentsResponse {
@@ -35,49 +52,68 @@ export interface StartTreatmentResponse {
 }
 
 /**
- * Get list of available treatments for the authenticated patient.
+ * Get list of treatments (eligibility-filtered Custom Programs) available for the
+ * authenticated patient.
  */
 export async function getAvailableTreatments(): Promise<AvailableTreatment[]> {
-    try {
-        const response = await apiClient.get<AvailableTreatmentsResponse>(
-            '/questionnaires/available-treatments/'
-        );
+    const response = await apiClient.get<AvailableTreatmentsResponse>(
+        API_ENDPOINTS.TREATMENTS.AVAILABLE
+    );
 
-        if (response.data.success && response.data.treatments) {
-            return response.data.treatments;
-        }
-
-        return [];
-    } catch (error) {
-        console.error('Error fetching available treatments:', error);
-        return [];
+    if (response.data.success) {
+        return response.data.treatments;
     }
+
+    throw new Error(response.data.error ?? 'Available treatments could not be loaded.');
 }
 
 /**
- * Start a new treatment questionnaire.
- * Returns the URL to redirect the patient to.
+ * Start a new treatment.
+ *
+ * Build a release-bound questionnaire URL from backend-issued launch metadata.
  */
-export async function startNewTreatment(templateId: string): Promise<StartTreatmentResponse> {
-    try {
-        const response = await apiClient.post<StartTreatmentResponse>(
-            '/questionnaires/start-new-treatment/',
-            { template_id: templateId }
-        );
-
-        return response.data;
-    } catch (error: any) {
-        console.error('Error starting new treatment:', error);
-
-        // Handle blocked error from backend
-        if (error.response?.data) {
-            return error.response.data;
-        }
-
-        return {
+export function startNewTreatment(treatment: AvailableTreatment): Promise<StartTreatmentResponse> {
+    if (!treatment.can_start || !treatment.launch) {
+        return Promise.resolve({
             success: false,
-            error: error.message || 'Failed to start treatment',
-        };
+            message: 'This treatment has no published release.',
+        });
+    }
+    if (treatment.launch.template_id) {
+        return apiClient.post<StartTreatmentResponse>(
+            '/questionnaires/start-new-treatment/',
+            { template_id: treatment.launch.template_id },
+        ).then(response => response.data).catch((error: any) => ({
+            success: false,
+            message: error?.response?.data?.message || error?.response?.data?.error || 'Unable to start this treatment intake.',
+        }));
+    }
+
+    const serverUrl = treatment.launch.questionnaire_url?.trim();
+    const configuredBase = import.meta.env.VITE_QUESTIONNAIRE_BASE_URL?.trim().replace(/\/$/, '');
+
+    if (!serverUrl && !configuredBase) {
+        return Promise.resolve({
+            success: false,
+            message: 'Treatment intake is not configured. Please contact your care team.',
+        });
+    }
+
+    try {
+        const url = serverUrl
+            ? new URL(serverUrl)
+            : new URL(treatment.launch.path, `${configuredBase}/`);
+        if (treatment.launch.custom_program_id && treatment.launch.release_token && treatment.launch.release_version != null) {
+            url.searchParams.set('custom_program_id', treatment.launch.custom_program_id);
+            url.searchParams.set('release_token', treatment.launch.release_token);
+            url.searchParams.set('release_version', String(treatment.launch.release_version));
+        }
+        return Promise.resolve({ success: true, questionnaire_url: url.toString() });
+    } catch {
+        return Promise.resolve({
+            success: false,
+            message: 'Treatment intake is not configured. Please contact your care team.',
+        });
     }
 }
 

@@ -4,6 +4,7 @@ import { immer } from 'zustand/middleware/immer';
 
 import { authService } from '../services/auth.service';
 import { debugLog } from '@/config/env';
+import { clearActiveSuperAdminSession, setActiveSuperAdminSession } from '@/shared/api/superadmin-session';
 import {
   User,
   AuthTokens,
@@ -18,6 +19,22 @@ import {
   ROLE_PERMISSIONS,
 } from '../types/auth.types';
 
+function getImpersonationStatusFromJwt(): boolean {
+  const token = authService.getAccessToken();
+  if (!token) return false;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    let payload = parts[1];
+    const padding = 4 - payload.length % 4;
+    if (padding !== 4) payload += '='.repeat(padding);
+    const decoded = JSON.parse(atob(payload));
+    return Boolean(decoded.is_impersonated);
+  } catch {
+    return false;
+  }
+}
+
 // Auth store state interface
 interface AuthState {
   // State
@@ -25,12 +42,17 @@ interface AuthState {
   tokens: AuthTokens | null;
   permissions: Permission[];
   features: Record<string, boolean>;
+  superAdminApiBaseUrl: string | null;
+  superAdminTargetContext: Record<string, unknown> | null;
   isAuthenticated: boolean;
+  isImpersonated: boolean;
   isLoading: boolean;
   error: string | null;
   
   // Actions
   login: (credentials: LoginRequest) => Promise<void>;
+  impersonateLogin: (token: string) => Promise<void>;
+  endImpersonation: () => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -41,6 +63,7 @@ interface AuthState {
   verifyEmail: (token: string) => Promise<void>;
   resendVerification: () => Promise<void>;
   initializeAuth: () => Promise<void>;
+  setSuperAdminSession: (apiBaseUrl: string) => void;
   clearError: () => void;
   
   // Selectors (computed values)
@@ -53,6 +76,23 @@ interface AuthState {
 let isInitializing = false;
 let isRefreshing = false;
 
+const scrubLegacySuperAdminSessionToken = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem('auth-store');
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed?.state && 'superAdminSessionToken' in parsed.state) {
+      delete parsed.state.superAdminSessionToken;
+      window.localStorage.setItem('auth-store', JSON.stringify(parsed));
+    }
+  } catch {
+    // Best-effort cleanup only; broken storage should not block auth boot.
+  }
+};
+
+scrubLegacySuperAdminSessionToken();
+
 // Create auth store with middleware
 export const useAuthStore = create<AuthState>()(
   devtools(
@@ -64,13 +104,17 @@ export const useAuthStore = create<AuthState>()(
           tokens: null,
           permissions: [],
           features: {},
+          superAdminApiBaseUrl: null,
+          superAdminTargetContext: null,
           isAuthenticated: false,
+          isImpersonated: false,
           isLoading: false,
           error: null,
 
           // Actions
           login: async (credentials: LoginRequest) => {
             debugLog('AuthStore.login:', { email: credentials.email });
+            clearActiveSuperAdminSession();
             
             set((state) => {
               state.isLoading = true;
@@ -92,7 +136,10 @@ export const useAuthStore = create<AuthState>()(
                 // Set permissions based on user role (if available)
                 state.permissions = response.user.role ? ROLE_PERMISSIONS[response.user.role] : [];
                 state.features = {};
+                state.superAdminApiBaseUrl = null;
+                state.superAdminTargetContext = null;
                 state.isAuthenticated = true;
+                state.isImpersonated = Boolean(response.user?.is_impersonated);
                 state.isLoading = false;
                 state.error = null;
               });
@@ -121,6 +168,7 @@ export const useAuthStore = create<AuthState>()(
                 state.isLoading = false;
                 state.error = errorMessage;
                 state.isAuthenticated = false;
+                state.isImpersonated = false;
               });
 
               debugLog('Login failed:', error);
@@ -128,8 +176,87 @@ export const useAuthStore = create<AuthState>()(
             }
           },
 
+          impersonateLogin: async (token: string) => {
+            debugLog('AuthStore.impersonateLogin');
+
+            set((state) => {
+              state.isLoading = true;
+              state.error = null;
+            });
+
+            try {
+              const response = await authService.impersonateLogin(token);
+
+              set((state) => {
+                state.user = response.user;
+                state.tokens = {
+                  accessToken: response.access,
+                  refreshToken: response.refresh,
+                  expiresIn: 3600,
+                  tokenType: 'Bearer' as const,
+                };
+                state.permissions = response.user.role ? ROLE_PERMISSIONS[response.user.role] : [];
+                state.features = {};
+                state.isAuthenticated = true;
+                state.isImpersonated = true;
+                state.isLoading = false;
+                state.error = null;
+              });
+            } catch (error: any) {
+              let errorMessage = 'Impersonation login failed';
+
+              if (typeof error?.error === 'string') {
+                errorMessage = error.error;
+              } else if (typeof error?.error?.message === 'string') {
+                errorMessage = error.error.message;
+              } else if (error?.response?.data?.error) {
+                errorMessage = typeof error.response.data.error === 'string'
+                  ? error.response.data.error
+                  : error.response.data.error.message || errorMessage;
+              } else if (error?.message) {
+                errorMessage = error.message;
+              }
+
+              set((state) => {
+                state.isLoading = false;
+                state.error = errorMessage;
+                state.isAuthenticated = false;
+                state.isImpersonated = false;
+              });
+
+              debugLog('Impersonation login failed:', error);
+              throw error;
+            }
+          },
+
+          endImpersonation: async () => {
+            debugLog('AuthStore.endImpersonation');
+
+            set((state) => {
+              state.isLoading = true;
+            });
+
+            try {
+              await authService.endImpersonation();
+            } catch (error) {
+              debugLog('Error during end impersonation:', error);
+            } finally {
+              set((state) => {
+                state.user = null;
+                state.tokens = null;
+                state.permissions = [];
+                state.features = {};
+                state.isAuthenticated = false;
+                state.isImpersonated = false;
+                state.isLoading = false;
+                state.error = null;
+              });
+            }
+          },
+
           register: async (userData: RegisterRequest) => {
             debugLog('AuthStore.register:', { email: userData.email });
+            clearActiveSuperAdminSession();
             
             set((state) => {
               state.isLoading = true;
@@ -151,7 +278,10 @@ export const useAuthStore = create<AuthState>()(
                 // Set permissions based on user role (if available)
                 state.permissions = response.user.role ? ROLE_PERMISSIONS[response.user.role] : [];
                 state.features = {};
+                state.superAdminApiBaseUrl = null;
+                state.superAdminTargetContext = null;
                 state.isAuthenticated = true;
+                state.isImpersonated = Boolean(response.user?.is_impersonated);
                 state.isLoading = false;
                 state.error = null;
               });
@@ -164,6 +294,7 @@ export const useAuthStore = create<AuthState>()(
                 state.isLoading = false;
                 state.error = errorMessage;
                 state.isAuthenticated = false;
+                state.isImpersonated = false;
               });
 
               debugLog('Registration failed:', error);
@@ -173,6 +304,7 @@ export const useAuthStore = create<AuthState>()(
 
           logout: async () => {
             debugLog('AuthStore.logout');
+            clearActiveSuperAdminSession();
             
             set((state) => {
               state.isLoading = true;
@@ -188,7 +320,10 @@ export const useAuthStore = create<AuthState>()(
                 state.tokens = null;
                 state.permissions = [];
                 state.features = {};
+                state.superAdminApiBaseUrl = null;
+                state.superAdminTargetContext = null;
                 state.isAuthenticated = false;
+                state.isImpersonated = false;
                 state.isLoading = false;
                 state.error = null;
               });
@@ -205,10 +340,14 @@ export const useAuthStore = create<AuthState>()(
 
             try {
               const user = await authService.getCurrentUser();
+              const jwtImpersonated = getImpersonationStatusFromJwt();
+              const nextImpersonated = user.is_impersonated ?? jwtImpersonated ?? get().isImpersonated;
               
               set((state) => {
                 state.user = user;
                 state.permissions = user.role ? ROLE_PERMISSIONS[user.role] : [];
+                state.isImpersonated = nextImpersonated;
+                state.superAdminTargetContext = user.superadmin_access?.target_context || null;
                 state.isLoading = false;
                 state.error = null;
               });
@@ -438,6 +577,42 @@ export const useAuthStore = create<AuthState>()(
             });
           
             try {
+              if (get().superAdminApiBaseUrl) {
+                setActiveSuperAdminSession({
+                  apiBaseUrl: get().superAdminApiBaseUrl!,
+                });
+                try {
+                  const user = await authService.getCurrentUser();
+                  set((state) => {
+                    state.user = user;
+                    state.tokens = null;
+                    state.permissions = user.role ? ROLE_PERMISSIONS[user.role] : [];
+                    state.features = {};
+                    state.superAdminTargetContext = user.superadmin_access?.target_context || null;
+                    state.isAuthenticated = true;
+                    state.isLoading = false;
+                    state.error = null;
+                  });
+                  debugLog('Super Admin access session restored:', { userId: user.id });
+                  return;
+                } catch (error) {
+                  debugLog('Super Admin access session restore failed:', error);
+                  clearActiveSuperAdminSession();
+                  set((state) => {
+                    state.user = null;
+                    state.tokens = null;
+                    state.permissions = [];
+                    state.features = {};
+                    state.superAdminApiBaseUrl = null;
+                    state.superAdminTargetContext = null;
+                    state.isAuthenticated = false;
+                    state.isLoading = false;
+                    state.error = null;
+                  });
+                  return;
+                }
+              }
+
               // On page refresh, access token in memory is lost, but refresh token cookie persists
               // Always try to refresh first using the cookie, then verify if we have a token
               const hasAccessToken = authService.isAuthenticated();
@@ -488,13 +663,17 @@ export const useAuthStore = create<AuthState>()(
                     }
                   }
 
+                  clearActiveSuperAdminSession();
                   authService.clearAuthData();
                   set((state) => {
                     state.user = null;
                     state.tokens = null;
                     state.permissions = [];
                     state.features = {};
+                    state.superAdminApiBaseUrl = null;
+                    state.superAdminTargetContext = null;
                     state.isAuthenticated = false;
+                    state.isImpersonated = false;
                     state.isLoading = false;
                     state.error = null;
                   });
@@ -506,6 +685,8 @@ export const useAuthStore = create<AuthState>()(
           
               // Get current user profile
               const user = await authService.getCurrentUser();
+              const jwtImpersonated = getImpersonationStatusFromJwt();
+              const nextImpersonated = user.is_impersonated ?? jwtImpersonated ?? get().isImpersonated;
               
               set((state) => {
                 state.user = user;
@@ -518,6 +699,7 @@ export const useAuthStore = create<AuthState>()(
                 state.permissions = user.role ? ROLE_PERMISSIONS[user.role] : [];
                 state.features = {};
                 state.isAuthenticated = true;
+                state.isImpersonated = nextImpersonated;
                 state.isLoading = false;
                 state.error = null;
               });
@@ -539,13 +721,17 @@ export const useAuthStore = create<AuthState>()(
                   // Best-effort only.
                 }
               }
+              clearActiveSuperAdminSession();
               authService.clearAuthData();
               set((state) => {
                 state.user = null;
                 state.tokens = null;
                 state.permissions = [];
                 state.features = {};
+                state.superAdminApiBaseUrl = null;
+                state.superAdminTargetContext = null;
                 state.isAuthenticated = false;
+                state.isImpersonated = false;
                 state.isLoading = false;
                 state.error = null;
               });
@@ -553,6 +739,18 @@ export const useAuthStore = create<AuthState>()(
             } finally {
               isInitializing = false;
             }
+          },
+
+          setSuperAdminSession: (apiBaseUrl: string) => {
+            setActiveSuperAdminSession({ apiBaseUrl });
+            set((state) => {
+              state.superAdminApiBaseUrl = apiBaseUrl;
+              state.superAdminTargetContext = null;
+              state.tokens = null;
+              state.isAuthenticated = true;
+              state.isLoading = false;
+              state.error = null;
+            });
           },
 
           clearError: () => {
@@ -614,7 +812,10 @@ export const useAuthStore = create<AuthState>()(
           tokens: state.tokens,
           permissions: state.permissions,
           features: state.features,
+          superAdminApiBaseUrl: state.superAdminApiBaseUrl,
+          superAdminTargetContext: state.superAdminTargetContext,
           isAuthenticated: state.isAuthenticated,
+          isImpersonated: state.isImpersonated,
         }),
         // Sync persisted token to tokenManager when store is rehydrated
         onRehydrateStorage: () => (state) => {

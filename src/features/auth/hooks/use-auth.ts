@@ -25,10 +25,13 @@ export const useAuth = () => {
   const permissions = useAuthStore((state) => state.permissions);
   const features = useAuthStore((state) => state.features);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
   const isLoading = useAuthStore((state) => state.isLoading);
   const error = useAuthStore((state) => state.error);
   
   const loginAction = useAuthStore((state) => state.login);
+  const impersonateLoginAction = useAuthStore((state) => state.impersonateLogin);
+  const endImpersonationAction = useAuthStore((state) => state.endImpersonation);
   const registerAction = useAuthStore((state) => state.register);
   const logoutAction = useAuthStore((state) => state.logout);
   const refreshProfile = useAuthStore((state) => state.refreshProfile);
@@ -96,6 +99,11 @@ export const useAuth = () => {
     }
   }, [logoutAction, navigate]);
 
+  const endImpersonation = useCallback(async () => {
+    await endImpersonationAction();
+    window.close();
+  }, [endImpersonationAction]);
+
   const canAccessRoute = useCallback((requiredPermissions?: Permission[]) => {
     if (!isAuthenticated) {
       return false;
@@ -135,6 +143,7 @@ export const useAuth = () => {
     permissions,
     features,
     isAuthenticated,
+    isImpersonated,
     isLoading,
     error,
 
@@ -142,6 +151,7 @@ export const useAuth = () => {
     login,
     register,
     logout,
+    endImpersonation,
     refreshProfile,
     updateProfile,
     changePassword,

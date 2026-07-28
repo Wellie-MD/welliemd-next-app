@@ -6,14 +6,115 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { FollowUpList } from "@/features/followups";
 import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
-import { useAuth } from "@/features/auth";
+import { useViewerIdentity } from "@/features/auth/hooks/use-viewer-identity";
+import NeedsAttentionCard from "@/components/NeedsAttentionCard";
 import { VisitService } from "@/features/visits/services/visit.service";
 import { getActiveTreatmentVisits } from "@/features/visits/utils/activeTreatments";
 import { getOrders } from "@/shared/api/ordersApi";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { getPatientFollowUps } from "@/features/followups/api";
+import { getConnections, getDeviceData, formatConnection, getVitalsHistory, logWeight, getHealthGoal } from "@/features/devices/api";
+import { WeightTrendCard, ReadinessCard } from "@/features/devices/components/TelemetryDashboard";
+import LogWeightModal from "@/features/devices/components/LogWeightModal";
+import { WEIGHT_DEFAULT, DEVICE_METRICS_DEFAULT } from "@/features/devices/constants";
+import type { WeightData, DeviceMetrics, VitalsEntry } from "@/features/devices/types";
+import { profileService } from "@/features/profile/services/profile.service";
+
+/**
+ * Build the dashboard's WeightData from the persisted vitals history
+ * (questionnaire baseline + manual entries + wearable-synced entries).
+ */
+function buildWeightData(entries: VitalsEntry[], prev: WeightData, priorityList: string[]): WeightData {
+  const byDate = new Map<string, VitalsEntry>();
+  
+  for (const entry of entries) {
+    if (entry.weight_lbs == null) continue;
+    
+    // Group by YYYY-MM-DD
+    const dateKey = entry.measured_at.split('T')[0]!;
+    const existing = byDate.get(dateKey);
+    
+    if (!existing) {
+      byDate.set(dateKey, entry);
+    } else {
+      const existingRank = priorityList.indexOf(existing.source);
+      const newRank = priorityList.indexOf(entry.source);
+      
+      const eRank = existingRank === -1 ? 999 : existingRank;
+      const nRank = newRank === -1 ? 999 : newRank;
+      
+      if (nRank < eRank) {
+        byDate.set(dateKey, entry);
+      } else if (nRank === eRank && new Date(entry.measured_at).getTime() > new Date(existing.measured_at).getTime()) {
+        byDate.set(dateKey, entry);
+      }
+    }
+  }
+
+  const sorted = Array.from(byDate.values())
+    .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
+
+  if (sorted.length === 0) {
+    return prev;
+  }
+
+  const points = sorted.map((e) => ({
+    date: e.measured_at,
+    weight: Number(e.weight_lbs),
+    bmi: e.bmi != null ? Number(e.bmi) : null,
+    height: e.height_inches != null ? Number(e.height_inches) : null,
+  }));
+  const series = points.map((p) => p.weight);
+  const checkins = points.map((p) => ({
+    label: new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    w: p.weight,
+  }));
+
+  const latestHeight = [...sorted].reverse().find((e) => e.height_inches != null)?.height_inches;
+  const latest = sorted[sorted.length - 1]!;
+
+  return {
+    ...prev,
+    series,
+    checkins,
+    points,
+    start: prev.start || series[0]!,
+    heightIn: latestHeight ?? prev.heightIn,
+    latestBmi: latest.bmi != null ? Number(latest.bmi) : null,
+    latestBmiCategory: latest.bmi_category ?? null,
+  };
+}
+
+function WeightAndReadinessSkeleton() {
+  const cardStyle = {
+    background: "var(--km-s1)",
+    border: "1px solid var(--km-b)",
+    borderRadius: 14,
+    marginBottom: 10,
+    overflow: "hidden",
+  } as const;
+
+  return (
+    <>
+      <div style={{ ...cardStyle, padding: "16px 18px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <div className="km-skel" style={{ width: 32, height: 32, borderRadius: 9 }} />
+          <div className="km-skel" style={{ width: 120, height: 14 }} />
+        </div>
+        <div className="km-skel" style={{ width: 90, height: 26, marginBottom: 16 }} />
+        <div className="km-skel" style={{ width: "100%", height: 130, borderRadius: 10 }} />
+      </div>
+      <div style={{ ...cardStyle, padding: "14px 18px" }}>
+        <div className="km-skel" style={{ width: 140, height: 14, marginBottom: 14 }} />
+        <div className="km-skel" style={{ width: 90, height: 32 }} />
+      </div>
+    </>
+  );
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -25,10 +126,8 @@ function getGreeting(): string {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const firstName = user?.first_name || "";
-  const lastName = user?.last_name || "";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const viewerIdentity = useViewerIdentity();
+  const fullName = viewerIdentity.fullName;
   
   // Sanitize display name - avoid showing system IDs, UUIDs, or email addresses
   const isValidName = fullName.length > 1 && 
@@ -43,6 +142,11 @@ export default function Dashboard() {
   });
   const [pendingFollowUps, setPendingFollowUps] = useState<number | null>(null);
   const { unreadCount } = useNotifications();
+  const [weight, setWeight] = useState<WeightData>({ ...WEIGHT_DEFAULT });
+  const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics>({ ...DEVICE_METRICS_DEFAULT });
+  const [weightSyncSource, setWeightSyncSource] = useState<string | null>(null);
+  const [logWeightOpen, setLogWeightOpen] = useState(false);
+  const [wearablesLoading, setWearablesLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -69,6 +173,53 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
+  // Fetch weight/BMI history (baseline + manual + wearable, persisted) and
+  // today's readiness from connected wearables.
+  useEffect(() => {
+    const fetchWearables = async () => {
+      try {
+        const [connections, vitalsHistory, patientProfile, healthGoal] = await Promise.all([
+          getConnections(),
+          getVitalsHistory(),
+          profileService.getPatientProfile(),
+          getHealthGoal().catch(() => null),
+        ]);
+        
+        const priorityList = patientProfile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
+
+        const [firstConnected] = connections.filter((c) => c.status === "connected");
+        if (firstConnected) {
+          setWeightSyncSource(formatConnection(firstConnected).name);
+
+          const data = await getDeviceData();
+          if (data) {
+            setDeviceMetrics((prev) => ({
+              ...prev,
+              ...(data.readiness && { readiness: data.readiness }),
+              ...(data.recovery && { recovery: data.recovery }),
+              ...(data.sleepScore && { sleepScore: data.sleepScore }),
+              ...(data.restingHr && { restingHr: data.restingHr }),
+            }));
+          }
+        }
+
+        setWeight((prev) => {
+          const next = buildWeightData(vitalsHistory, prev, priorityList);
+          return {
+            ...next,
+            targetBmi: healthGoal?.goal ? Number(healthGoal.goal.target_bmi) : next.targetBmi,
+          };
+        });
+      } catch (error) {
+        console.error("Failed to fetch wearables summary", error);
+      } finally {
+        setWearablesLoading(false);
+      }
+    };
+
+    fetchWearables();
+  }, []);
+
   // Fetch pending follow-up count
   useEffect(() => {
     const fetchFollowUps = async () => {
@@ -83,8 +234,32 @@ export default function Dashboard() {
     fetchFollowUps();
   }, []);
 
+  const handleSaveLogWeight = async (v: number) => {
+    try {
+      await logWeight(v);
+      const [history, patientProfile] = await Promise.all([
+        getVitalsHistory(),
+        profileService.getPatientProfile(),
+      ]);
+      const priorityList = patientProfile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
+      setWeight((prev) => buildWeightData(history, prev, priorityList));
+    } catch (error: any) {
+      if (error?.error) {
+        const errorMsg = typeof error.error === 'string' 
+          ? error.error 
+          : error.error.message || "Failed to log weight.";
+        toast.error(errorMsg);
+      } else {
+        toast.error(error?.message || "Failed to log weight.");
+      }
+    }
+  };
+
   return (
     <div>
+      {/* ── Proactive announcement (top banner, Intercom-driven) ── */}
+      <IntercomInlineBanner className="-mt-2 mb-4" />
+
       {/* ── Greeting ── */}
       <div className="km-fade" style={{ paddingTop: 4, marginBottom: 20 }}>
         <div style={{ fontSize: 13, color: "var(--km-tm)", marginBottom: 2 }}>
@@ -139,8 +314,11 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── Needs your attention ── */}
+      <NeedsAttentionCard />
+
       {/* ── Follow-Up Questionnaires ── */}
-      <div className="km-dash-card km-fade">
+      <div id="follow-up-questionnaires" className="km-dash-card km-fade">
         <div className="km-dash-ch">
           <div className="km-dash-ctrow">
             <div className="km-dash-ci blue">
@@ -160,6 +338,34 @@ export default function Dashboard() {
           <FollowUpList />
         </div>
       </div>
+
+      {/* ── Weight progress & Today's readiness ── */}
+      <div className="km-fade">
+        {wearablesLoading ? (
+          <WeightAndReadinessSkeleton />
+        ) : (
+          <>
+            {weight.series.length > 0 && (
+              <WeightTrendCard
+                weight={weight}
+                onOpenGoalModal={() => navigate("/dashboard/devices")}
+                bottomAction={{
+                  label: "Log today's weight",
+                  onClick: () => setLogWeightOpen(true),
+                }}
+                {...(weightSyncSource ? { syncedFrom: weightSyncSource } : {})}
+              />
+            )}
+            <ReadinessCard deviceMetrics={deviceMetrics} />
+          </>
+        )}
+      </div>
+
+      <LogWeightModal
+        open={logWeightOpen}
+        onClose={() => setLogWeightOpen(false)}
+        onSave={handleSaveLogWeight}
+      />
 
       {/* ── Active Treatments ── */}
       <div className="km-dash-card km-fade">

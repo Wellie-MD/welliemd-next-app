@@ -2,6 +2,7 @@ import { ChevronDown, User, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { useDropdown } from '@/contexts/DropdownContext';
+import { useViewerIdentity } from '@/features/auth/hooks/use-viewer-identity';
 
 interface UserProfileDropdownProps {
   className?: string;
@@ -10,7 +11,8 @@ interface UserProfileDropdownProps {
 }
 
 export const UserProfileDropdown = ({ className, style, compact = false }: UserProfileDropdownProps) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonated } = useAuth();
+  const viewerIdentity = useViewerIdentity();
   const navigate = useNavigate();
   const { isOpen, toggleDropdown } = useDropdown();
 
@@ -23,6 +25,9 @@ export const UserProfileDropdown = ({ className, style, compact = false }: UserP
   };
 
   const getDisplayName = () => {
+    if (viewerIdentity.fullName) {
+      return viewerIdentity.fullName;
+    }
     if (user?.first_name && user?.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
@@ -30,6 +35,9 @@ export const UserProfileDropdown = ({ className, style, compact = false }: UserP
   };
 
   const getInitials = () => {
+    if (viewerIdentity.initials) {
+      return viewerIdentity.initials;
+    }
     if (user?.first_name && user?.last_name) {
       return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
     }
@@ -127,32 +135,36 @@ export const UserProfileDropdown = ({ className, style, compact = false }: UserP
             View Profile
           </button>
 
-          <div style={{ borderTop: '1px solid var(--km-b)', margin: '4px 0' }} />
+          {!isImpersonated && (
+            <>
+              <div style={{ borderTop: '1px solid var(--km-b)', margin: '4px 0' }} />
 
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 9,
-              width: '100%',
-              padding: '10px 10px',
-              borderRadius: 'var(--km-rs)',
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'var(--km-re)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
-              fontFamily: "'Outfit', sans-serif",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--km-rep)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-          >
-            <LogOut size={15} />
-            Sign Out
-          </button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 9,
+                  width: '100%',
+                  padding: '10px 10px',
+                  borderRadius: 'var(--km-rs)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: 'var(--km-re)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--km-rep)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <LogOut size={15} />
+                Sign Out
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

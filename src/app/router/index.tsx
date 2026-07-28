@@ -24,8 +24,11 @@ const PaymentMethodsPage = React.lazy(() => import('@/components/payments/Paymen
 const Blog = React.lazy(() => import('@/components/Blog'));
 const BlogPost = React.lazy(() => import('@/components/BlogPost'));
 const Labs = React.lazy(() => import('@/features/labs/LabsPage'));
+const Devices = React.lazy(() => import('@/features/devices/DevicesPage'));
 const ExploreTreatments = React.lazy(() => import('@/components/ExploreTreatments'));
 const Help = React.lazy(() => import('@/components/Help'));
+const SuperAdminAccessLaunch = React.lazy(() => import('@/components/SuperAdminAccessLaunch'));
+
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -45,6 +48,7 @@ export const AppRouter: React.FC = () => {
           <Route path="/auth/signin" element={<SignIn />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
+          <Route path="/superadmin-access/launch" element={<SuperAdminAccessLaunch />} />
           <Route
             path="/follow-up/:sessionId"
             element={
@@ -79,6 +83,7 @@ export const AppRouter: React.FC = () => {
             <Route path="blog" element={<Blog />} />
             <Route path="blog/:id" element={<BlogPost />} />
             <Route path="labs" element={<Labs />} />
+            <Route path="devices" element={<Devices />} />
             <Route path="explore" element={<ExploreTreatments />} />
             
             {/* Settings and Help pages */}

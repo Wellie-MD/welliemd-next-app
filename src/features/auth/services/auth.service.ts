@@ -35,6 +35,31 @@ export class AuthService {
 
   private constructor() {}
 
+
+
+  private getPersistedAccessToken(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      const raw = window.localStorage.getItem('auth-store');
+      if (!raw) {
+        return null;
+      }
+
+      const parsed = JSON.parse(raw);
+      const accessToken = parsed?.state?.tokens?.accessToken;
+      return typeof accessToken === 'string' && accessToken.trim() ? accessToken : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private getActiveAccessToken(): string | null {
+    return tokenManager.getAccessToken() || this.getPersistedAccessToken();
+  }
+
   /** Normalize email to lowercase for case-insensitive auth (RFC 5321). */
   private static normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
@@ -76,6 +101,53 @@ export class AuthService {
     tokenManager.setAccessToken(validatedData.access);
 
     return validatedData;
+  }
+
+  /**
+   * Login via impersonation token
+   */
+  async impersonateLogin(token: string): Promise<LoginResponse> {
+    debugLog('AuthService.impersonateLogin');
+
+    const config: RequestConfig = {
+      withCredentials: true,
+      skipAuth: true,
+    };
+
+    const response = await apiClient.post<LoginResponse>(
+      API_ENDPOINTS.AUTH.IMPERSONATE_LOGIN,
+      { token },
+      config
+    );
+
+    const validatedData = LoginResponseSchema.parse(response.data);
+    tokenManager.setAccessToken(validatedData.access);
+
+    return validatedData;
+  }
+
+  /**
+   * End impersonation session
+   */
+  async endImpersonation(): Promise<void> {
+    debugLog('AuthService.endImpersonation');
+
+    const config: RequestConfig = {
+      withCredentials: true,
+      skipAuth: false,
+    };
+
+    try {
+      await apiClient.post(
+        API_ENDPOINTS.AUTH.END_IMPERSONATION,
+        {},
+        config
+      );
+    } catch (error) {
+      debugLog('Error ending impersonation:', error);
+    } finally {
+      tokenManager.clearTokens();
+    }
   }
 
   /**
@@ -145,13 +217,14 @@ export class AuthService {
   async getCurrentUser(): Promise<User> {
     debugLog('AuthService.getCurrentUser');
 
+    const accessToken = this.getActiveAccessToken();
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+
     const response = await apiClient.get(
       API_ENDPOINTS.AUTH.ME,
       { 
         withCredentials: true, // Include cookies for auth
-        headers: {
-          'Authorization': `Bearer ${tokenManager.getAccessToken()}`
-        }
+        headers,
       }
     );
     return UserSchema.parse(response.data);
@@ -163,12 +236,14 @@ export class AuthService {
   async updateProfile(profileData: UpdateProfileRequest): Promise<User> {
     debugLog('AuthService.updateProfile:', profileData);
 
+    const accessToken = this.getActiveAccessToken();
+
     const response = await apiClient.patch<ApiSuccessResponse<User>>(
       '/auth/profile',
       profileData,
       {
         headers: {
-          'Authorization': `Bearer ${tokenManager.getAccessToken()}`
+          'Authorization': accessToken ? `Bearer ${accessToken}` : ''
         }
       }
     );
@@ -284,8 +359,10 @@ export class AuthService {
    * Check if user is authenticated (has valid tokens)
    */
   isAuthenticated(): boolean {
-    // We only need to check for access token since refresh token is in HTTP-only cookie
-    const accessToken = tokenManager.getAccessToken();
+    // We only need to check for access token since refresh token is in HTTP-only cookie.
+    // Fall back to the persisted Zustand snapshot during app reload before hydration
+    // restores the in-memory token manager.
+    const accessToken = this.getActiveAccessToken();
     return !!accessToken;
   }
 

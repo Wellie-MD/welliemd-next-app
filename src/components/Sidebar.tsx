@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Calendar,
   TestTubes,
+  Smartphone,
   Compass,
   Package,
   CreditCard,
@@ -17,6 +18,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/features/auth";
+import { useViewerIdentity } from "@/features/auth/hooks/use-viewer-identity";
 
 interface NavigationItem {
   icon: LucideIcon;
@@ -30,6 +32,7 @@ const navigationItems: NavigationItem[] = [
   { icon: Stethoscope, label: "Treatments", path: "/dashboard/treatments" },
   { icon: Calendar, label: "Visits", path: "/dashboard/appointments" },
   { icon: TestTubes, label: "Labs", path: "/dashboard/labs" },
+  { icon: Smartphone, label: "Devices", path: "/dashboard/devices" },
   { icon: Compass, label: "Explore Treatments", path: "/dashboard/explore" },
   { icon: Package, label: "Orders", path: "/dashboard/orders" },
   { icon: CreditCard, label: "Billing", path: "/dashboard/billing" },
@@ -46,21 +49,13 @@ interface SidebarProps {
 
 export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: SidebarProps) {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonated } = useAuth();
+  const bannerH = isImpersonated ? 44 : 0;
+  const viewerIdentity = useViewerIdentity();
 
   useEffect(() => {
     onMobileClose();
   }, [location.pathname, onMobileClose]);
-
-  const initials = user
-    ? `${(user.first_name || "P")[0]}${(user.last_name || "")[0]}`.toUpperCase()
-    : "PK";
-
-  const fullName = user
-    ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Patient"
-    : "Patient";
-
-  const patientId = user?.id ? `ID: ${user.id.substring(0, 8)}` : "Patient";
 
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
@@ -116,10 +111,10 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
           flexDirection: "column",
           flexShrink: 0,
           position: "fixed",
-          top: 60,
+          top: 60 + bannerH,
           left: 0,
           width: 240,
-          height: "calc((var(--app-vh, 1vh) * 100) - 60px)",
+          height: `calc((var(--app-vh, 1vh) * 100) - 60px - ${bannerH}px)`,
           background: "var(--km-s1)",
           borderRight: "1px solid var(--km-b)",
           overflowY: "auto",
@@ -162,39 +157,41 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
                 flexShrink: 0,
               }}
             >
-              {initials}
+              {viewerIdentity.initials}
             </div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--km-t)" }}>{fullName}</div>
-              <div style={{ fontSize: 11, color: "var(--km-tm)" }}>{patientId}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--km-t)" }}>{viewerIdentity.fullName}</div>
+              <div style={{ fontSize: 11, color: "var(--km-tm)" }}>{viewerIdentity.label}</div>
             </div>
           </div>
 
-          <button
-            onClick={() => logout()}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              padding: 10,
-              borderRadius: "var(--km-rs)",
-              cursor: "pointer",
-              color: "var(--km-re)",
-              fontSize: 13,
-              fontWeight: 500,
-              transition: "background 0.2s",
-              marginTop: 2,
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              fontFamily: "'Outfit', sans-serif",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-rep)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-          >
-            <LogOut size={15} />
-            Sign out
-          </button>
+          {!isImpersonated && (
+            <button
+              onClick={() => logout()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                padding: 10,
+                borderRadius: "var(--km-rs)",
+                cursor: "pointer",
+                color: "var(--km-re)",
+                fontSize: 13,
+                fontWeight: 500,
+                transition: "background 0.2s",
+                marginTop: 2,
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                fontFamily: "'Outfit', sans-serif",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-rep)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <LogOut size={15} />
+              Sign out
+            </button>
+          )}
         </div>
       </aside>
     );
@@ -221,10 +218,10 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
       <nav
         style={{
           position: "fixed",
-          top: 0,
+          top: bannerH,
           left: 0,
           width: 285,
-          height: "calc(var(--app-vh, 1vh) * 100)",
+          height: `calc((var(--app-vh, 1vh) * 100) - ${bannerH}px)`,
           background: "var(--km-s1)",
           borderRight: "1px solid var(--km-b)",
           zIndex: 300,
@@ -291,11 +288,11 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
               flexShrink: 0,
             }}
           >
-            {initials}
+            {viewerIdentity.initials}
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>{fullName}</div>
-            <div style={{ fontSize: 11, color: "var(--km-tm)", marginTop: 1 }}>{patientId}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>{viewerIdentity.fullName}</div>
+            <div style={{ fontSize: 11, color: "var(--km-tm)", marginTop: 1 }}>{viewerIdentity.label}</div>
           </div>
         </div>
 
@@ -308,30 +305,32 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
 
         {/* Footer */}
         <div style={{ padding: "12px 16px", borderTop: "1px solid var(--km-b)" }}>
-          <button
-            onClick={() => logout()}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              padding: 10,
-              borderRadius: "var(--km-rs)",
-              cursor: "pointer",
-              color: "var(--km-re)",
-              fontSize: 13,
-              fontWeight: 500,
-              transition: "background 0.2s",
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              fontFamily: "'Outfit', sans-serif",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-rep)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-          >
-            <LogOut size={15} />
-            Sign out
-          </button>
+          {!isImpersonated && (
+            <button
+              onClick={() => logout()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                padding: 10,
+                borderRadius: "var(--km-rs)",
+                cursor: "pointer",
+                color: "var(--km-re)",
+                fontSize: 13,
+                fontWeight: 500,
+                transition: "background 0.2s",
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                fontFamily: "'Outfit', sans-serif",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-rep)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <LogOut size={15} />
+              Sign out
+            </button>
+          )}
         </div>
       </nav>
     </>
