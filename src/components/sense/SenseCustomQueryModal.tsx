@@ -32,6 +32,7 @@ import {
   SENSE_TIME_UNITS,
   SENSE_VALUE_MACROS,
   buildSenseQueryDsl,
+  parseSenseQueryDsl,
   type SenseIndex,
   type SenseMetricRow,
 } from "./senseGrammar"
@@ -92,7 +93,7 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   editing: JunctionSenseQueryStatus | null
-  onSubmit: (values: { name: string; slug: string; query: Record<string, unknown>; custom_inputs?: string; custom_output?: string; min_gap_seconds?: number }) => Promise<void>
+  onSubmit: (values: { name: string; slug: string; query: Record<string, unknown>; min_gap_seconds?: number }) => Promise<void>
 }
 
 export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }: Props) {
@@ -102,8 +103,6 @@ export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }:
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const [customInputs, setCustomInputs] = useState("")
-  const [customOutput, setCustomOutput] = useState("")
   const [minGapSeconds, setMinGapSeconds] = useState<string>("")
 
   const [mode, setMode] = useState<"guided" | "advanced">("guided")
@@ -120,11 +119,24 @@ export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }:
       setName(editing.display_name)
       setSlug(editing.slug)
       setSlugTouched(true)
-      setQueryText(JSON.stringify(editing.query_definition ?? {}, null, 2))
-      setCustomInputs(editing.custom_inputs ?? "")
-      setCustomOutput(editing.custom_output ?? "")
+      const qDef = editing.query_definition ?? {}
+      setQueryText(JSON.stringify(qDef, null, 2))
       setMinGapSeconds(editing.min_gap_seconds?.toString() ?? "")
-      setMode("advanced")
+      
+      const parsed = parseSenseQueryDsl(qDef)
+      if (parsed) {
+        setGuidedIndex(parsed.index)
+        setGuidedWhere(parsed.whereText)
+        setGuidedMetrics(parsed.metrics)
+        setGuidedTimeUnit(parsed.timeUnit)
+        setMode("guided")
+      } else {
+        setGuidedIndex(DEFAULT_INDEX)
+        setGuidedWhere("")
+        setGuidedMetrics([defaultMetricRow(DEFAULT_INDEX)])
+        setGuidedTimeUnit("day")
+        setMode("advanced")
+      }
     } else {
       setName("")
       setSlug("")
@@ -134,8 +146,6 @@ export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }:
       setGuidedMetrics([defaultMetricRow(DEFAULT_INDEX)])
       setGuidedTimeUnit("day")
       setQueryText(EXAMPLE_QUERY)
-      setCustomInputs("")
-      setCustomOutput("")
       setMinGapSeconds("")
       setMode("guided")
     }
@@ -218,8 +228,6 @@ export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }:
     setSubmitting(true)
     try {
       const payload: any = { name: name.trim(), slug: slug.trim(), query }
-      if (customInputs.trim()) payload.custom_inputs = customInputs.trim()
-      if (customOutput.trim()) payload.custom_output = customOutput.trim()
       if (minGapSeconds.trim()) {
         const gap = parseInt(minGapSeconds, 10)
         if (!isNaN(gap)) payload.min_gap_seconds = gap
@@ -241,7 +249,7 @@ export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }:
           <DialogTitle>{editing ? "Edit Sense query" : "Add Sense query"}</DialogTitle>
           <DialogDescription>
             {editing
-              ? "Custom queries are edited as raw JSON — we can't reliably map an existing query back into guided fields."
+              ? "If your custom query shape is supported by the builder, it will open in Guided mode. Otherwise, it will safely default to Advanced JSON mode."
               : "Build a query from dropdowns, or switch to Advanced to write the DSL JSON directly. We don't have Junction's complete grammar, so anything Junction itself rejects will show up as an error after you submit."}
           </DialogDescription>
         </DialogHeader>
@@ -276,28 +284,7 @@ export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }:
             <p className="-mt-2 text-xs text-muted-foreground">Slug can't be changed after creation.</p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="sense-query-custom-inputs">Display inputs (optional)</Label>
-              <Input
-                id="sense-query-custom-inputs"
-                value={customInputs}
-                onChange={(e) => setCustomInputs(e.target.value)}
-                placeholder="e.g. Heart rate, steps"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="sense-query-custom-output">Display output (optional)</Label>
-              <Input
-                id="sense-query-custom-output"
-                value={customOutput}
-                onChange={(e) => setCustomOutput(e.target.value)}
-                placeholder="e.g. Daily trend"
-                className="text-sm"
-              />
-            </div>
-          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="sense-query-min-gap">Min Gap (seconds) / Schedule</Label>
             <Input
@@ -313,18 +300,6 @@ export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }:
             </p>
           </div>
 
-          {editing ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="sense-query-json">Query (JSON)</Label>
-              <Textarea
-                id="sense-query-json"
-                value={queryText}
-                onChange={(e) => setQueryText(e.target.value)}
-                className="min-h-[220px] font-mono text-xs"
-                spellCheck={false}
-              />
-            </div>
-          ) : (
             <Tabs value={mode} onValueChange={handleModeChange}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="guided">Guided</TabsTrigger>
@@ -459,8 +434,6 @@ export function SenseCustomQueryModal({ open, onOpenChange, editing, onSubmit }:
                 />
               </TabsContent>
             </Tabs>
-          )}
-
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}

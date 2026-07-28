@@ -47,15 +47,14 @@ export const SENSE_INDICES: SenseOption[] = [
 
 const RAW_INDEX_FIELDS: Record<SenseIndex, string[]> = {
   sleep: [
-    "id", "session_start", "session_end", "state", "type", "duration_second",
+    "id", "session_start", "session_end", "duration_second",
     "stage_asleep_second", "stage_awake_second", "stage_light_second",
     "stage_rem_second", "stage_deep_second", "stage_unknown_second",
     "latency_second", "heart_rate_minimum", "heart_rate_mean",
     "heart_rate_maximum", "heart_rate_dip", "heart_rate_resting",
     "efficiency", "hrv_mean_rmssd", "hrv_mean_sdnn", "skin_temperature",
     "skin_temperature_delta", "respiratory_rate", "score",
-    "recovery_readiness_score", "source_type", "source_provider",
-    "source_app_id", "source_device_id", "time_zone",
+    "recovery_readiness_score",
   ],
   derived_readiness: [
     "date", "chronotype", "sleep_score", "recovery_score", "recovery_zone",
@@ -67,11 +66,10 @@ const RAW_INDEX_FIELDS: Record<SenseIndex, string[]> = {
     "intensity_low_second", "intensity_medium_second",
     "intensity_high_second", "heart_rate_mean", "heart_rate_minimum",
     "heart_rate_maximum", "heart_rate_resting", "heart_rate_mean_walking",
-    "wheelchair_use", "wheelchair_push", "source_type", "source_provider",
-    "source_app_id", "source_device_id", "time_zone", "time_zone_offset",
+    "wheelchair_use", "wheelchair_push",
   ],
   workout: [
-    "session_start", "session_end", "title", "sport_name", "sport_slug",
+    "session_start", "session_end",
     "duration_active_second", "heart_rate_mean", "heart_rate_minimum",
     "heart_rate_maximum", "heart_rate_zone_1", "heart_rate_zone_2",
     "heart_rate_zone_3", "heart_rate_zone_4", "heart_rate_zone_5",
@@ -79,15 +77,13 @@ const RAW_INDEX_FIELDS: Record<SenseIndex, string[]> = {
     "elevation_gain_meter", "elevation_maximum_meter",
     "elevation_minimum_meter", "speed_mean", "speed_maximum", "power_source",
     "power_mean", "power_maximum", "power_weighted_mean", "steps",
-    "map_polyline", "map_summary_polyline", "source_type", "source_provider",
-    "source_app_id", "source_device_id", "external_id", "time_zone",
+    "map_polyline", "map_summary_polyline",
   ],
   body: [
     "measured_at", "weight_kilogram", "fat_mass_percentage",
     "water_percentage", "muscle_mass_percentage", "visceral_fat_index",
     "bone_mass_percentage", "body_mass_index", "lean_body_mass_kilogram",
-    "waist_circumference_centimeter", "source_type", "source_provider",
-    "source_app_id", "source_device_id", "time_zone",
+    "waist_circumference_centimeter",
   ],
   meal: [
     "calories", "carbohydrate_gram", "protein_gram", "alcohol_gram",
@@ -104,19 +100,16 @@ const RAW_INDEX_FIELDS: Record<SenseIndex, string[]> = {
     "vitamin_k_microgram", "folic_acid_microgram", "chromium_microgram",
     "copper_milligram", "iodine_microgram", "manganese_milligram",
     "molybdenum_microgram", "selenium_microgram", "date", "name",
-    "source_type", "source_provider", "source_app_id", "source_device_id",
   ],
   menstrual_cycle: [
     "period_start", "period_end", "cycle_end", "is_predicted",
     "menstrual_flow", "cervical_mucus", "intermenstrual_bleeding",
     "contraceptive", "detected_deviations", "ovulation_test",
     "home_pregnancy_test", "home_progesterone_test", "sexual_activity",
-    "basal_body_temperature", "source_type", "source_provider",
-    "source_app_id", "source_device_id",
+    "basal_body_temperature",
   ],
   profile: [
     "height_centimeter", "birth_date", "wheelchair_use", "gender", "sex",
-    "source_type", "source_provider", "source_app_id", "source_device_id",
     "created_at", "updated_at",
   ],
   timeseries: [
@@ -196,13 +189,85 @@ export function buildSenseQueryDsl(
     }
   })
 
+  const groupBy: Record<string, unknown>[] = [
+    { date_trunc: { value: 1, unit: timeUnit }, arg: { index } },
+  ]
+  if (index !== "derived_readiness") {
+    groupBy.push({ source: "source_provider" }, { source: "source_type" })
+  }
+
   return {
     where: whereText.trim() ? whereText.trim() : null,
     select,
-    group_by: [
-      { date_trunc: { value: 1, unit: timeUnit }, arg: { index } },
-      { source: "source_provider" },
-      { source: "source_type" },
-    ],
+    group_by: groupBy,
+  }
+}
+
+export interface ParsedGuidedState {
+  index: SenseIndex
+  whereText: string
+  metrics: SenseMetricRow[]
+  timeUnit: string
+}
+
+/** 
+ * Attempt to reverse-parse an existing DSL query back into the strict UI state.
+ * Returns null if the query shape diverges from what the guided builder supports.
+ */
+export function parseSenseQueryDsl(query: any): ParsedGuidedState | null {
+  try {
+    if (!query || typeof query !== "object" || Array.isArray(query)) return null
+
+    // 1. Extract Index and TimeUnit from group_by
+    if (!Array.isArray(query.group_by)) return null
+    let indexName: string | null = null
+    let timeUnit = "day"
+    let foundTrunc = false
+
+    for (const gb of query.group_by) {
+      if (gb && typeof gb === "object" && gb.date_trunc && gb.arg?.index) {
+        indexName = gb.arg.index
+        timeUnit = gb.date_trunc.unit || "day"
+        foundTrunc = true
+      }
+    }
+
+    if (!foundTrunc || !indexName) return null
+    if (!SENSE_INDICES.some((opt) => opt.value === indexName)) return null
+    
+    const index = indexName as SenseIndex
+
+    // 2. Extract Where
+    const whereText = typeof query.where === "string" ? query.where : ""
+
+    // 3. Extract Metrics from select
+    if (!Array.isArray(query.select)) return null
+    const metrics: SenseMetricRow[] = []
+
+    for (const sel of query.select) {
+      if (!sel || typeof sel !== "object") return null
+      if (sel.group_key === "*") continue
+
+      const func = sel.func
+      if (!func || typeof func !== "string") return null
+
+      const arg = sel.arg
+      if (!arg || typeof arg !== "object") return null
+
+      if (arg.value_macro && arg.version === "automatic") {
+        metrics.push({ kind: "macro", name: arg.value_macro, func })
+      } else if (arg[index]) {
+        metrics.push({ kind: "field", name: arg[index], func })
+      } else {
+        // Query has fields from another index or a shape we don't recognize.
+        return null
+      }
+    }
+
+    if (metrics.length === 0) return null
+
+    return { index, whereText, metrics, timeUnit }
+  } catch (e) {
+    return null
   }
 }

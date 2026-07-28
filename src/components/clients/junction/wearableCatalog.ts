@@ -1,7 +1,7 @@
 // Static wearable provider catalog mirrored from the client prototype.
 // UI-only: not yet wired to any Junction wearable Management API.
 
-export type WearAuth = "oauth" | "sdk" | "email"
+export type WearAuth = "oauth" | "sdk" | "email" | "password"
 
 export interface WearableProvider {
   id: string
@@ -18,4 +18,5 @@ export const AUTH_LABEL: Record<WearAuth, string> = {
   oauth: "OAuth",
   sdk: "SDK",
   email: "Email",
+  password: "Password",
 }
