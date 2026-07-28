@@ -35,6 +35,7 @@ interface QuestionnairePreviewDialogProps {
 interface PreviewMessage {
   type?: string;
   version?: number;
+  requestId?: number;
   height?: number;
   pathname?: string;
   message?: string;
@@ -62,10 +63,15 @@ export function QuestionnairePreviewDialog({
   const appliedIdentityRef = useRef<QuestionnairePreviewIdentity>(
     QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
   );
+  const appliedIdentityRequestRef = useRef<number | null>(null);
+  const identitySwitchTimerRef = useRef<number | null>(null);
+  const identityRequestSequenceRef = useRef(0);
   const [identity, setIdentity] = useState<QuestionnairePreviewIdentity>(
     QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
   );
   const [identitySwitching, setIdentitySwitching] = useState(false);
+  const [appliedIdentity, setAppliedIdentity] = useState<QuestionnairePreviewIdentity>(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
+  const [identityRequestId, setIdentityRequestId] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
@@ -100,12 +106,18 @@ export function QuestionnairePreviewDialog({
 
   useEffect(() => {
     if (!open) {
+      if (identitySwitchTimerRef.current !== null) window.clearTimeout(identitySwitchTimerRef.current);
+      appliedIdentityRequestRef.current = null;
       setCapability(null);
       return;
     }
     let active = true;
     setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
+    setAppliedIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
     appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
+    setIdentityRequestId(0);
+    identityRequestSequenceRef.current = 0;
+    appliedIdentityRequestRef.current = null;
     setIdentitySwitching(false);
     setReportedHeight(undefined);
     setReportedPath(undefined);
@@ -148,12 +160,15 @@ export function QuestionnairePreviewDialog({
         setStatus("ready");
       } else if (
         event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.identityReady &&
-        Object.values(QUESTIONNAIRE_PREVIEW_IDENTITY).includes(
-          event.data.identity as QuestionnairePreviewIdentity,
-        )
+        event.data.requestId === appliedIdentityRequestRef.current &&
+        event.data.identity === identity
       ) {
+        if (identitySwitchTimerRef.current !== null) window.clearTimeout(identitySwitchTimerRef.current);
+        appliedIdentityRequestRef.current = null;
         appliedIdentityRef.current = event.data.identity as QuestionnairePreviewIdentity;
+        setAppliedIdentity(event.data.identity as QuestionnairePreviewIdentity);
         setIdentitySwitching(false);
+        setStatus("ready");
         if (event.data.message) {
           setStatus("error");
           setErrorMessage(event.data.message);
@@ -175,11 +190,17 @@ export function QuestionnairePreviewDialog({
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onOpenChange, open, previewOrigin]);
+  }, [identity, onOpenChange, open, previewOrigin]);
 
   const refresh = () => {
     if (!previewOrigin) return;
     appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
+    setAppliedIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
+    setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
+    setIdentityRequestId(0);
+    identityRequestSequenceRef.current = 0;
+    appliedIdentityRequestRef.current = null;
+    if (identitySwitchTimerRef.current !== null) window.clearTimeout(identitySwitchTimerRef.current);
     setIdentitySwitching(false);
     setStatus("loading");
     setErrorMessage("");
@@ -194,23 +215,38 @@ export function QuestionnairePreviewDialog({
   };
 
   useEffect(() => {
-    if (
-      !previewOrigin ||
-      status !== "ready" ||
-      appliedIdentityRef.current === identity
-    ) {
+    if (!previewOrigin || status !== "ready" || appliedIdentityRef.current === identity || identityRequestId === 0 || appliedIdentityRequestRef.current !== identityRequestId) {
       return;
     }
-    setIdentitySwitching(true);
     iframeRef.current?.contentWindow?.postMessage(
       {
         type: QUESTIONNAIRE_PREVIEW_MESSAGE.identity,
         version: QUESTIONNAIRE_PREVIEW_DEFAULTS.protocolVersion,
         identity,
+        requestId: identityRequestId,
       },
       previewOrigin,
     );
-  }, [identity, previewOrigin, status]);
+    if (identitySwitchTimerRef.current !== null) window.clearTimeout(identitySwitchTimerRef.current);
+    identitySwitchTimerRef.current = window.setTimeout(() => {
+      if (appliedIdentityRequestRef.current !== identityRequestId) return;
+      appliedIdentityRequestRef.current = null;
+      setIdentitySwitching(false);
+      setStatus("ready");
+      setErrorMessage("The preview patient switch timed out. Try again or refresh the preview.");
+    }, QUESTIONNAIRE_PREVIEW_DEFAULTS.identitySwitchTimeoutMs);
+  }, [identity, identityRequestId, previewOrigin, status]);
+
+  const requestIdentity = (nextIdentity: QuestionnairePreviewIdentity) => {
+    if (!previewOrigin || identitySwitching || nextIdentity === appliedIdentity) return;
+    const requestId = ++identityRequestSequenceRef.current;
+    appliedIdentityRequestRef.current = requestId;
+    setErrorMessage("");
+    if (status !== "ready") setStatus("ready");
+    setIdentity(nextIdentity);
+    setIdentityRequestId(requestId);
+    setIdentitySwitching(true);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -249,9 +285,9 @@ export function QuestionnairePreviewDialog({
           <div className="flex max-w-full rounded-md border border-border bg-card p-0.5" role="group" aria-label="Preview patient type">
             <button
               type="button"
-              onClick={() => setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient)}
+              onClick={() => requestIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient)}
               disabled={identitySwitching}
-              aria-pressed={identity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient}
+              aria-pressed={appliedIdentity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient}
               className={`treatment-preview-identity flex h-7 items-center gap-1.5 whitespace-nowrap rounded px-2.5 text-[11px] font-medium transition ${
                 identity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient
                   ? "bg-foreground text-background"
@@ -263,9 +299,9 @@ export function QuestionnairePreviewDialog({
             </button>
             <button
               type="button"
-              onClick={() => setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient)}
+              onClick={() => requestIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient)}
               disabled={identitySwitching}
-              aria-pressed={identity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient}
+              aria-pressed={appliedIdentity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient}
               className={`treatment-preview-identity flex h-7 items-center gap-1.5 whitespace-nowrap rounded px-2.5 text-[11px] font-medium transition ${
                 identity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient
                   ? "bg-foreground text-background"

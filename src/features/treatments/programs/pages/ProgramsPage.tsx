@@ -347,7 +347,7 @@ export default function ProgramsPage() {
               <ProgramCard key={program.id} program={program}
                 treatmentName={treatmentNameByKey.get(program.treatmentTypeKey)}
                 screeningQuestionCount={program.questionCount || 0}
-                onSaveSlug={handleSaveSlug} onPreview={handleOpenPreview}
+                onEditSlug={(p) => setEditingProgram(p)} onPreview={handleOpenPreview} onCopyUrl={handleCopyProgramUrl}
                 onToggleStatus={handleProgramStatusChange} />
             ))}
           </div>
