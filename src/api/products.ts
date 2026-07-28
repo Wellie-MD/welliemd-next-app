@@ -55,6 +55,8 @@ export interface Product {
   dose_mapping?: number;
   dose_mapping_name?: string;
   dose_mapping_label?: string;
+  titration_category?: number;
+  titration_category_name?: string;
 
   // Deprecated fields (use dose_mapping instead)
   /** @deprecated Use dose_mapping instead */
@@ -68,6 +70,12 @@ export interface Product {
   rx_days_supply?: number;
   lifefile_product_id?: string;
   treatment: string;
+  treatment_type_id?: string | null;
+  treatment_type_key?: string | null;
+  treatment_type_name?: string | null;
+  treatment_type_is_active?: boolean | null;
+  derived_intake_visit_type?: string | null;
+  derived_followup_visit_type?: string | null;
   rx_or_otc?: "rx" | "otc";
   followup_days_after?: number;
   requires_video_visit?: boolean;
@@ -82,6 +90,15 @@ export interface Product {
   generic_group?: string;
   service_states?: string[];
   admin_service_states?: string[];
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?:
+    | "testkit"
+    | "walk_in_test"
+    | "at_home_phlebotomy"
+    | "on_site_collection";
+  junction_last_catalog_sync_at?: string;
   onboarding_questionnaire?: string;
   onboarding_questionnaire_name?: string;
   followup_questionnaire?: string;
@@ -98,6 +115,10 @@ export interface Product {
   allow_client_modifications?: boolean;
   sync_to_tenants?: boolean;
   is_modified_need_to_re_assigned?: boolean; // True if product was modified and needs re-assignment
+  // Visit Type Restrictions (Slice 4)
+  allowed_visit_types?: string[];
+  restrict_visit_types?: boolean;
+
   is_active: boolean;
   created_at: string;
   updated_at?: string;
@@ -114,8 +135,17 @@ export interface CreateProductPayload {
   purchase_type: "one_time" | "subscription";
   base_price: string | number;
   treatment: string;
+  treatment_type_id: string;
   rx_or_otc: "rx" | "otc";
   service_states?: string[];
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?:
+    | "testkit"
+    | "walk_in_test"
+    | "at_home_phlebotomy"
+    | "on_site_collection";
   [key: string]: any;
 }
 
@@ -128,6 +158,7 @@ export interface ProductListParams {
   is_active?: boolean;
   product_type?: "single" | "bundle" | "supply";
   treatment?: string;
+  treatment_type?: string;
   rx_or_otc?: "rx" | "otc";
   purchase_type?: "one_time" | "subscription";
   search?: string;
@@ -242,11 +273,25 @@ export const productApi = {
   /**
    * List all products (admin sees all products)
       */
-  listProducts: async (params?: any): Promise<any[]> => {
+  listProducts: async (params?: ProductListParams): Promise<Product[]> => {
     const { data } = await axiosInstance.get("products/", { params });
-    // Handle paginated response
     if (data && typeof data === "object" && "results" in data) {
-      return data.results || [];
+      const firstPage = data.results || [];
+      if (!data.next) return firstPage;
+      const totalCount = Number(data.count || firstPage.length);
+      const pageSize = firstPage.length || Number(params?.page_size) || 100;
+      const pageCount = Math.ceil(totalCount / pageSize);
+      const remainingPages = await Promise.all(
+        Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+          axiosInstance.get("products/", {
+            params: { ...params, page: index + 2, page_size: pageSize },
+          })
+        )
+      );
+      return [
+        ...firstPage,
+        ...remainingPages.flatMap((response) => response.data?.results || []),
+      ];
     }
     // Handle array response
     if (Array.isArray(data)) {

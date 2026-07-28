@@ -1,10 +1,12 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { clientApi } from "@/api/clientApi";
 import type { B2BInvoice, B2BInvoicePrescriptionEvent, B2BInvoicePrescriptionItem } from "@/types/b2bBilling";
-import { GitBranch, Search, X } from "lucide-react";
+import { GitBranch, Search, ChevronRight, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { TreatmentPrescriptionInvoiceSets } from "@/features/treatments/orders/components/TreatmentPrescriptionInvoiceSets";
 
 type DisplayInvoice = B2BInvoice & {
   supplementalInvoices?: B2BInvoice[];
@@ -18,7 +20,7 @@ export default function Billing() {
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [selected, setSelected] = useState<B2BInvoice | null>(null);
+  const [selected, setSelected] = useState<DisplayInvoice | null>(null);
   const [status, setStatus] = useState("");
   const [ordering, setOrdering] = useState("-issued_at");
   const [page, setPage] = useState(1);
@@ -274,8 +276,9 @@ export default function Billing() {
     return <span className={`rounded-full border px-2 py-0.5 text-[10px] ${classes}`}>{label}</span>;
   };
 
-  const renderRevisionInvoiceModal = (invoice: B2BInvoice) => {
+  const renderRevisionInvoiceModal = (invoice: DisplayInvoice) => {
     const requested = invoice.requested_breakdown;
+    const treatmentPrescription = invoice.treatment_prescription;
     const adjustments = invoice.revision_adjustments || [];
     const rawPrescriptionEvents = invoice.prescription_events || [];
     const summary = invoice.adjustment_summary;
@@ -637,7 +640,13 @@ export default function Billing() {
       );
     };
 
-    return (
+    const supplementalInvoices = invoice.supplementalInvoices || [];
+    const supplementalTotal = supplementalInvoices.reduce(
+      (sum, child) => sum + moneyNumber(child.total_amount),
+      0
+    );
+
+    return createPortal(
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
         <div className="w-full max-w-[880px] overflow-hidden rounded-xl border bg-white shadow-2xl">
           <header className="border-b px-5 py-5">
@@ -662,6 +671,60 @@ export default function Billing() {
               </button>
             </div>
           </header>
+
+          {supplementalInvoices.length > 0 && (
+            <div className="border-b bg-amber-50 px-5 py-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
+                <GitBranch className="h-3.5 w-3.5" />
+                Split Capture · {supplementalInvoices.length} supplemental invoice
+                {supplementalInvoices.length > 1 ? "s" : ""}
+              </div>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-amber-200 bg-white px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-amber-700">Base invoice</div>
+                  <div className="font-semibold text-amber-900">
+                    {invoice.invoice_number}: {money(invoice.total_amount)}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-white px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-amber-700">Supplemental total</div>
+                  <div className="font-semibold text-amber-900">{money(supplementalTotal)}</div>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-white px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-amber-700">Combined settlement</div>
+                  <div className="font-semibold text-amber-900">
+                    {money(moneyNumber(invoice.total_amount) + supplementalTotal)}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 overflow-x-auto rounded-lg border border-amber-200 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="bg-amber-100/70">
+                    <tr>
+                      <th className="px-3 py-1.5 text-left font-medium">Invoice #</th>
+                      <th className="px-3 py-1.5 text-left font-medium">Status</th>
+                      <th className="px-3 py-1.5 text-left font-medium">Issued</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supplementalInvoices.map((child) => (
+                      <tr key={child.id} className="border-t border-amber-100">
+                        <td className="px-3 py-1.5 font-medium">{child.invoice_number}</td>
+                        <td className="px-3 py-1.5">{formatLabel(child.status)}</td>
+                        <td className="px-3 py-1.5">
+                          {child.issued_at || child.created_at
+                            ? new Date(child.issued_at || child.created_at).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-1.5 text-right">{money(child.total_amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="grid md:grid-cols-[320px_1fr]">
             <aside className="border-b md:border-b-0 md:border-r">
@@ -703,6 +766,11 @@ export default function Billing() {
             </aside>
 
             <main>
+              {treatmentPrescription && (
+                <div className="border-b p-5">
+                  <TreatmentPrescriptionInvoiceSets contract={treatmentPrescription} />
+                </div>
+              )}
               {Number(requested?.consultation_amount || 0) > 0 && (
                 <section className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Consultation</h4>
@@ -720,23 +788,25 @@ export default function Billing() {
                   </table>
                 </section>
               )}
-              <section className="border-b px-5 py-4">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Requested · {requestedLabel}
-                </h4>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Amount authorized at checkout — captured after prescription
-                </p>
-                {renderCostTable(
-                  requestedMedicationAmount,
-                  requestedShippingAmount,
-                  requestedTotalAmount,
-                  Number(requested?.consultation_amount || 0) === 0,
-                  requestedLabel,
-                  "Authorized total"
-                )}
-              </section>
-              {prescriptionEvents.map((event, index) => {
+              {!treatmentPrescription && (
+                <section className="border-b px-5 py-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Requested · {requestedLabel}
+                  </h4>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Amount authorized at checkout — captured after prescription
+                  </p>
+                  {renderCostTable(
+                    requestedMedicationAmount,
+                    requestedShippingAmount,
+                    requestedTotalAmount,
+                    Number(requested?.consultation_amount || 0) === 0,
+                    requestedLabel,
+                    "Authorized total"
+                  )}
+                </section>
+              )}
+              {!treatmentPrescription && prescriptionEvents.map((event, index) => {
                 const revisionNumber = index;
                 const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
                 const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
@@ -757,7 +827,7 @@ export default function Billing() {
                   </section>
                 );
               })}
-              {prescriptionEvents.length === 0 && showImplicitBaseRevision && (
+              {!treatmentPrescription && prescriptionEvents.length === 0 && showImplicitBaseRevision && (
                 <section className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Initial prescription · {requested?.product_name || "Prescribed product"}
@@ -773,7 +843,8 @@ export default function Billing() {
                   </div>
                 </section>
               )}
-              {fallbackAdjustments.map((adjustment, index) => {
+              {!treatmentPrescription && fallbackAdjustments.map((adjustment, index) => {
+                const isNoCharge = adjustment.kind === "no_charge_revision";
                 const explicitRevisionNumber = Number(adjustment.revision_number);
                 const isInitialFallback = firstFallbackIsInitialPrescription && index === 0;
                 const normalizedRevisionNumber = firstFallbackIsInitialPrescription && Number.isFinite(explicitRevisionNumber) && explicitRevisionNumber > 0
@@ -838,13 +909,14 @@ export default function Billing() {
             )}
           </footer>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 
-  const renderCreditNoteModal = (invoice: B2BInvoice) => {
+  const renderCreditNoteModal = (invoice: DisplayInvoice) => {
     const isRefunded = invoice.status === "refunded";
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
         <div className="w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-2xl">
           <header className="border-b px-5 py-5">
@@ -943,12 +1015,13 @@ export default function Billing() {
             )}
           </footer>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 
-  const renderSaasInvoiceModal = (invoice: B2BInvoice) => {
-    return (
+  const renderSaasInvoiceModal = (invoice: DisplayInvoice) => {
+    return createPortal(
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
         <div className="w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-2xl">
           <header className="border-b px-5 py-5">
@@ -1058,12 +1131,14 @@ export default function Billing() {
             )}
           </footer>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 
   return (
     <div className="p-6 space-y-6">
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Invoices</h1>
       </div>
@@ -1092,7 +1167,7 @@ export default function Billing() {
       <Card className="shadow-sm">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-            <div className="relative">
+            <div className="relative sm:col-span-2 lg:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 className="w-full pl-9 pr-3 py-2 rounded-md border bg-background text-sm focus:ring-1 focus:ring-primary"
@@ -1163,7 +1238,10 @@ export default function Billing() {
       <Card className="shadow-sm">
         <CardContent className="p-6">
           {isLoading && (
-            <div className="text-sm text-muted-foreground">Loading invoices…</div>
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Loading invoices…
+            </div>
           )}
           {error && (
             <div className="text-sm text-red-500">Failed to load invoices.</div>
@@ -1293,7 +1371,7 @@ export default function Billing() {
       {selected && selected.invoice_type === "credit_note" && renderCreditNoteModal(selected)}
       {selected && selected.invoice_type === "saas_fee" && renderSaasInvoiceModal(selected)}
 
-      {refundTargets.length > 0 && (
+      {refundTargets.length > 0 && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4">
           <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
             <div className="p-5">
@@ -1325,7 +1403,8 @@ export default function Billing() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

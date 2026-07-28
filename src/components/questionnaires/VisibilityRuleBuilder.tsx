@@ -12,17 +12,25 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { normalizeChoiceDisplay } from "@/utils/choiceValue";
 
+export const DERIVED_BMI_ID = "__derived_bmi__";
+
 export type VisibilityConditionOperator =
   | "equals"
   | "not_equals"
   | "in"
   | "not_in"
   | "contains"
-  | "not_contains";
+  | "not_contains"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "between";
 
 export interface VisibilityCondition {
   type: "condition";
   question_id: string;
+  question_type?: string;
   operator: VisibilityConditionOperator;
   value: string | string[];
   field?: string;
@@ -47,6 +55,8 @@ interface VisibilityRuleBuilderProps {
   questions: QuestionOption[];
 }
 
+const NUMERIC_OPERATORS = new Set<VisibilityConditionOperator>(["gt", "gte", "lt", "lte", "between"]);
+
 const CONDITION_OPERATORS: Array<{
   value: VisibilityConditionOperator;
   label: string;
@@ -57,6 +67,11 @@ const CONDITION_OPERATORS: Array<{
   { value: "not_in", label: "Is not one of" },
   { value: "contains", label: "Contains" },
   { value: "not_contains", label: "Does not contain" },
+  { value: "gt", label: "Greater than" },
+  { value: "gte", label: "Greater or equal" },
+  { value: "lt", label: "Less than" },
+  { value: "lte", label: "Less or equal" },
+  { value: "between", label: "In between" },
 ];
 
 function defaultCondition(questionId = ""): VisibilityCondition {
@@ -156,7 +171,13 @@ function ConditionEditor({
   const selectedQuestion = questions.find((question) => question.id === node.question_id);
   const choiceOptions = getQuestionChoices(selectedQuestion);
   const isMultiValue = ["in", "not_in"].includes(node.operator);
+  const isBetween = node.operator === "between";
+  const isNumericOp = NUMERIC_OPERATORS.has(node.operator);
   const valueText = Array.isArray(node.value) ? node.value.join(", ") : node.value;
+
+  const betweenValues = Array.isArray(node.value) && node.value.length === 2
+    ? node.value
+    : ["", ""];
 
   const updateValue = (raw: string) => {
     const nextValue = isMultiValue
@@ -181,13 +202,15 @@ function ConditionEditor({
           <Label className="text-xs">Question</Label>
           <Select
             value={node.question_id}
-            onValueChange={(questionId) =>
+            onValueChange={(questionId) => {
+              const isBmi = questionId === DERIVED_BMI_ID;
               onChange(path, (current) => ({
                 ...current,
                 question_id: questionId,
+                question_type: isBmi ? "bmi" : undefined,
                 value: "",
-              }))
-            }
+              }));
+            }}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select question" />
@@ -232,6 +255,8 @@ function ConditionEditor({
                     : current.value
                     ? [String(current.value)]
                     : []
+                  : operator === "between"
+                  ? ["", ""]
                   : Array.isArray(current.value)
                   ? current.value[0] || ""
                   : current.value,
@@ -253,7 +278,40 @@ function ConditionEditor({
 
         <div className="space-y-2">
           <Label className="text-xs">Value</Label>
-          {choiceOptions.length > 0 && !isMultiValue ? (
+          {isBetween ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={betweenValues[0]}
+                onChange={(event) =>
+                  onChange(path, (current) => ({
+                    ...current,
+                    value: [event.target.value, betweenValues[1]],
+                  }))
+                }
+                placeholder="Min"
+              />
+              <span className="text-xs text-muted-foreground">to</span>
+              <Input
+                type="number"
+                value={betweenValues[1]}
+                onChange={(event) =>
+                  onChange(path, (current) => ({
+                    ...current,
+                    value: [betweenValues[0], event.target.value],
+                  }))
+                }
+                placeholder="Max"
+              />
+            </div>
+          ) : isNumericOp ? (
+            <Input
+              type="number"
+              value={valueText}
+              onChange={(event) => updateValue(event.target.value)}
+              placeholder="Numeric value"
+            />
+          ) : choiceOptions.length > 0 && !isMultiValue ? (
             <Select value={valueText} onValueChange={updateValue}>
               <SelectTrigger>
                 <SelectValue placeholder="Select answer" />

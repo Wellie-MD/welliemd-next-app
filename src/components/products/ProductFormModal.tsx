@@ -31,6 +31,8 @@ import { TitrationCategoryManager } from "./TitrationCategoryManager";
 import { pharmacyApi } from "@/api/pharmacyApi";
 import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings";
 import { templateApi } from "@/api/questionnaires";
+import { useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { ServiceStatesSelector } from "@/components/shared/ServiceStatesSelector";
 
 type TreatmentOption = {
   value: string;  // slug, e.g. "branded_weight_loss"
@@ -63,14 +65,6 @@ type LinkedSupplyRow = {
   is_included: boolean;
 };
 
-const US_STATES = [
-  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
-  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
-  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
-  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
-  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR"
-];
-
 export function ProductFormModal({
   open,
   onOpenChange,
@@ -78,6 +72,7 @@ export function ProductFormModal({
   onSuccess,
   defaultProductType = "single",
 }: ProductFormModalProps) {
+  const { data: treatmentTypes = [] } = useTreatmentTypes();
   const [loading, setLoading] = useState(false);
   const [pharmacies, setPharmacies] = useState<any[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
@@ -104,6 +99,7 @@ export function ProductFormModal({
     product_type: defaultProductType,
     purchase_type: "one_time",
     treatment: "weight_loss",
+    treatment_type_id: null as string | null,
     rx_or_otc: "rx",
     base_price: "0.00",
     cost_to_client: "0.00",
@@ -125,7 +121,31 @@ export function ProductFormModal({
     requires_video_visit: false,
     allow_client_modifications: true,
     sync_to_tenants: false,
+    allowed_visit_types: [] as string[],
+    restrict_visit_types: false,
   });
+
+  const visitTypeOptions = (() => {
+    const options = new Map<string, string>();
+    treatmentTypes.forEach((t) => {
+      if (t.intakeVisitType) {
+        options.set(t.intakeVisitType, `${t.name} Intake (${t.intakeVisitType})`);
+      }
+      if (t.followupVisitType) {
+        options.set(
+          t.followupVisitType,
+          `${t.name} Follow-up (${t.followupVisitType})`,
+        );
+      }
+    });
+    return Array.from(options.entries()).map(([value, label]) => ({
+      value,
+      label,
+    }));
+  })();
+  const selectedTreatmentType = treatmentTypes.find(
+    (type) => String(type.id) === String(formData.treatment_type_id),
+  );
 
   // Fetch pharmacies on mount
   useEffect(() => {
@@ -330,6 +350,9 @@ export function ProductFormModal({
         product_type: product.product_type || "single",
         purchase_type: product.purchase_type || "one_time",
         treatment: product.treatment || "weight_loss",
+        treatment_type_id: product.treatment_type_id
+          ? String(product.treatment_type_id)
+          : null,
         rx_or_otc: product.rx_or_otc || "rx",
         base_price: product.base_price?.toString() || "0.00",
         cost_to_client: product.cost_to_client?.toString() || "0.00",
@@ -351,6 +374,8 @@ export function ProductFormModal({
         requires_video_visit: product.requires_video_visit || false,
         allow_client_modifications: product.allow_client_modifications !== undefined ? product.allow_client_modifications : true,
         sync_to_tenants: product.sync_to_tenants || false,
+        allowed_visit_types: product.allowed_visit_types || [],
+        restrict_visit_types: product.restrict_visit_types || false,
       });
       const existingLinks = ((product as any).linked_supplies || []) as any[];
       setLinkedSupplies(
@@ -376,6 +401,7 @@ export function ProductFormModal({
         product_type: defaultProductType,
         purchase_type: "one_time",
         treatment: "weight_loss",
+        treatment_type_id: null,
         rx_or_otc: "rx",
         base_price: "0.00",
         cost_to_client: "0.00",
@@ -397,6 +423,8 @@ export function ProductFormModal({
         requires_video_visit: false,
         allow_client_modifications: true,
         sync_to_tenants: false,
+        allowed_visit_types: [],
+        restrict_visit_types: false,
       });
       setLinkedSupplies([]);
     }
@@ -433,6 +461,19 @@ export function ProductFormModal({
       toast({
         title: "Validation Error",
         description: "Beluga Internal Product Name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (
+      formData.restrict_visit_types &&
+      (!formData.allowed_visit_types || formData.allowed_visit_types.length === 0)
+    ) {
+      toast({
+        title: "Validation Error",
+        description:
+          "Please select at least one allowed visit type, or turn off restrictions.",
         variant: "destructive",
       });
       return;
@@ -591,6 +632,76 @@ export function ProductFormModal({
                 />
               </div>
 
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="product_treatment_type">
+                  Treatment Type{" "}
+                  <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-sky-700">
+                    New
+                  </span>
+                </Label>
+                <Select
+                  value={
+                    formData.product_type === "supply"
+                      ? "none"
+                      : formData.treatment_type_id || "none"
+                  }
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      treatment_type_id: value === "none" ? null : value,
+                    })
+                  }
+                  disabled={loading || formData.product_type === "supply"}
+                >
+                  <SelectTrigger id="product_treatment_type">
+                    <SelectValue
+                      placeholder={
+                        formData.product_type === "supply"
+                          ? "Supplies do not have a clinical Treatment Type"
+                          : "Select Treatment Type"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      {formData.product_type === "supply"
+                        ? "Not applicable"
+                        : "Select Treatment Type"}
+                    </SelectItem>
+                    {treatmentTypes.map((type) => (
+                      <SelectItem key={type.id} value={String(type.id)}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  New clinical relationship used by Programs and derived
+                  routing. It is separate from the legacy controls below and is
+                  optional while existing Products are migrated.
+                </p>
+                {formData.product_type !== "supply" && selectedTreatmentType && (
+                  <div className="grid gap-3 rounded-lg border border-sky-200 bg-sky-50 p-3 sm:grid-cols-2">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">
+                        Derived intake Visit Type
+                      </div>
+                      <code className="mt-1 block text-sm text-slate-800">
+                        {selectedTreatmentType.intakeVisitType || "Not configured"}
+                      </code>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">
+                        Derived follow-up Visit Type
+                      </div>
+                      <code className="mt-1 block text-sm text-slate-800">
+                        {selectedTreatmentType.followupVisitType || "Not configured"}
+                      </code>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="col-span-2">
                 <Label htmlFor="pharmacy">Pharmacy</Label>
                 <Select
@@ -611,63 +722,12 @@ export function ProductFormModal({
                 </Select>
               </div>
 
-              <div className="col-span-2 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <Label>Service States</Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Leave empty to inherit pharmacy coverage. Set product-specific states only when a formulation has different licensing rules.
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFormData((prev) => ({ ...prev, service_states: [...US_STATES] }))}
-                    >
-                      Select all states
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setFormData((prev) => ({ ...prev, service_states: [] }))}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {US_STATES.map((state) => {
-                    const isSelected = formData.service_states.includes(state);
-                    return (
-                      <Button
-                        key={state}
-                        type="button"
-                        variant={isSelected ? "default" : "outline"}
-                        size="sm"
-                        className="h-9 px-3"
-                        onClick={() => {
-                          setFormData((prev) => {
-                            const current = Array.isArray(prev.service_states) ? prev.service_states : [];
-                            const nextStates = current.includes(state)
-                              ? current.filter((s) => s !== state)
-                              : [...current, state];
-                            return { ...prev, service_states: nextStates };
-                          });
-                        }}
-                      >
-                        {state}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {formData.service_states.length > 0
-                    ? `${formData.service_states.length} state${formData.service_states.length === 1 ? "" : "s"} selected`
-                    : "No states selected"}
-                </div>
+              <div className="col-span-2">
+                <ServiceStatesSelector
+                  value={formData.service_states}
+                  onChange={(states) => setFormData((prev) => ({ ...prev, service_states: states }))}
+                  description="Leave empty to inherit pharmacy coverage. Set product-specific states only when a formulation has different licensing rules."
+                />
               </div>
 
               <div>
@@ -710,7 +770,12 @@ export function ProductFormModal({
 
               {formData.product_type !== "supply" && (
               <div>
-                <Label htmlFor="treatment">Treatment</Label>
+                <Label htmlFor="treatment">
+                  Treatment{" "}
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                    Legacy
+                  </span>
+                </Label>
                 <Select
                   value={formData.treatment}
                   onValueChange={(value) => setFormData({ ...formData, treatment: value })}
@@ -740,6 +805,10 @@ export function ProductFormModal({
                     )}
                   </SelectContent>
                 </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Existing questionnaire classification retained unchanged for
+                  compatibility.
+                </p>
               </div>
               )}
 
@@ -1138,6 +1207,82 @@ export function ProductFormModal({
               </Button>
             </div>
           )}
+
+          {/* Legacy availability filter; never clinical Treatment Type routing. */}
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">
+                  Visit Type Restrictions{" "}
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                    Legacy
+                  </span>
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Existing checkout recommendation availability behavior is
+                  retained unchanged. This does not define the new Product
+                  Treatment Type relationship.
+                </p>
+              </div>
+              <Switch
+                id="restrict_visit_types"
+                checked={formData.restrict_visit_types}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, restrict_visit_types: checked })
+                }
+              />
+            </div>
+
+            {formData.restrict_visit_types && (
+              <div className="bg-slate-50 border rounded-xl p-4 space-y-3 mt-3">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Select Allowed Visit Types
+                </Label>
+                {visitTypeOptions.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    {visitTypeOptions.map((option) => {
+                      const isChecked = formData.allowed_visit_types.includes(
+                        option.value,
+                      );
+                      return (
+                        <label
+                          key={option.value}
+                          className="flex items-center gap-3 p-3 rounded-lg border bg-white shadow-sm cursor-pointer hover:bg-slate-50/50 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              const allowedVisitTypes = isChecked
+                                ? formData.allowed_visit_types.filter(
+                                    (value) => value !== option.value,
+                                  )
+                                : [
+                                    ...formData.allowed_visit_types,
+                                    option.value,
+                                  ];
+                              setFormData({
+                                ...formData,
+                                allowed_visit_types: allowedVisitTypes,
+                              });
+                            }}
+                            className="rounded border-slate-300 text-[#12517A] focus:ring-[#12517A] h-4 w-4"
+                          />
+                          <span className="text-sm font-medium text-slate-700">
+                            {option.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Create treatment types before restricting this product.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Settings */}
           <div className="space-y-4">

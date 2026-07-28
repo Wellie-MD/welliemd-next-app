@@ -226,14 +226,14 @@ export function Header() {
   }
 
   return (
-<header className="h-16 bg-[#12517A] text-white flex items-center justify-between px-4">
+    <header className="h-[52px] bg-[hsl(var(--healthcare-header))] text-white flex items-center justify-between border-b border-white/[0.06] px-7 max-[900px]:px-3.5">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
            {state === "collapsed" && (
           <img 
-            src="/welliemd_logo.png" 
-            alt="Welliemd" 
-            className="h-8 w-auto cursor-pointer"
+            src="/welliemd_dark_logo_transparent.png"
+            alt="Welliemd"
+            className="h-7 w-auto cursor-pointer"
             onClick={handleLogoClick}
           />
            )}
@@ -241,15 +241,15 @@ export function Header() {
         {/* <SidebarTrigger className="text-white-600 hover:bg-white/50 rounded-md p-1" /> */}
       </div>
 
-      <div className="flex-1 max-w-md mx-4">
+      <div className="flex-1 max-w-[280px] mx-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
           <Input
             placeholder="Search"
-            className="pl-10 bg-white border-gray-300 text-gray-800 placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500"
+            className="h-8 rounded-md border-white/10 bg-white/[0.07] pl-9 pr-14 text-[13px] text-white placeholder:text-white/35 focus-visible:border-white/20 focus-visible:ring-1 focus-visible:ring-white/20"
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <kbd className="px-2 py-1 text-xs bg-gray-200 rounded text-gray-600">
+            <kbd className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white/60">
               Ctrl K
             </kbd>
           </div>
@@ -259,7 +259,7 @@ export function Header() {
       <div className="flex items-center gap-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="relative text-white-600 hover:bg-white/50">
+            <Button size="icon" variant="ghost" className="relative h-8 w-8 text-slate-200 hover:bg-white/10 hover:text-white">
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center">
@@ -340,7 +340,7 @@ export function Header() {
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 focus-visible:ring-0">
+            <Button variant="ghost" className="flex h-9 items-center gap-2 text-slate-200 hover:bg-white/10 hover:text-white focus-visible:ring-0">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={user?.avatar_url || ""} alt={user?.full_name} />
                 <AvatarFallback>

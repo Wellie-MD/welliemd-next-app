@@ -1,6 +1,6 @@
 /**
  * Admin Dashboard API Client
- * 
+ *
  * Provides functions to fetch aggregated dashboard data from the Control Plane.
  */
 import axiosInstance from './axiosInstance';
@@ -165,6 +165,18 @@ export interface AdminOrder {
   chargeable_amount?: string | number | null;
   chargeable_amount_source?: 'requested_medicine' | 'prescribed_medicine' | 'requested_medicine_fallback' | null;
   discount_amount: number;
+  coupon_code?: string | null;
+  original_price?: string | number | null;
+  payment_settlement_state?: string | null;
+  payment_settlement_basis?: string | null;
+  payment_settlement_amount?: string | number | null;
+  prescribed_final_amount?: string | number | null;
+  base_capture_amount?: string | number | null;
+  supplemental_delta_amount?: string | number | null;
+  base_captured_amount?: string | number | null;
+  supplemental_captured_amount?: string | number | null;
+  total_patient_captured?: string | number | null;
+  total_patient_refunded?: string | number | null;
   requested_medicine_name?: string | null;
   prescribed_medicine_name?: string | null;
   doctor_name?: string | null;
@@ -175,6 +187,70 @@ export interface AdminOrder {
   tracking_number: string;
   client_name: string;
   client_id: string;
+  treatment_aggregate?: TreatmentOrderAggregate | null;
+}
+
+export interface TreatmentAggregateProduct {
+  product_id?: string | number | null;
+  source_product_id?: string | number | null;
+  med_id?: string | null;
+  name?: string | null;
+  quantity?: number | null;
+  days_supply?: number | null;
+  product_role?: string | null;
+  choice_group?: string | null;
+}
+
+export interface TreatmentOrderAggregate {
+  clinical_status: string;
+  patient_message?: string | null;
+  treatment_case_id: string;
+  authority: {
+    state: string;
+    version: number;
+    fingerprint?: string | null;
+    updated_at?: string | null;
+  };
+  treatment_type: { id: string; key: string; name: string };
+  reconciliation: {
+    version?: number | null;
+    status: string;
+    requested_set: TreatmentAggregateProduct[];
+    prescribed_set: TreatmentAggregateProduct[];
+    factual_differences?: {
+      prescribed_addition_product_ids?: Array<string | number>;
+      requested_absence_product_ids?: Array<string | number>;
+      absence_is_authoritative?: boolean;
+    };
+    is_complete_snapshot?: boolean;
+    unresolved_facts?: unknown[];
+    source_event_id?: string;
+    fingerprint?: string;
+  };
+  settlement: {
+    status: string;
+    operation_id?: string;
+    patient_attempts?: number;
+    reimbursement_attempts?: number;
+    last_error_code?: string;
+    settled_at?: string | null;
+  };
+  support?: {
+    owner?: string | null;
+    pending_reason?: string | null;
+    retry_allowed: boolean;
+    last_error_code?: string;
+    last_error_detail?: string;
+  };
+  siblings: Array<{
+    order_id: string;
+    order_display_id?: string | null;
+    treatment_case_id: string;
+    treatment_type_key: string;
+    treatment_type_name?: string | null;
+    status: string;
+    lifecycle_status?: string;
+  }>;
 }
 
 export interface OrdersListResponse {
@@ -248,7 +324,7 @@ export async function getAdminOrders(
 /**
  * Fetch aggregated filter options (categories and pharmacies) from all tenants.
  * Used to populate filter dropdowns in the admin orders page.
- * 
+ *
  * @returns Promise<OrderFilterOptions> - Aggregated categories and pharmacies
  */
 export async function getOrderFilterOptions(): Promise<OrderFilterOptions> {
@@ -283,6 +359,27 @@ export interface OrderUpdateResponse {
  * deduplicated server-side.  The backend returns 202 when the update is
  * queued for async processing, or 200 when replaying a cached result.
  */
+/**
+ * Fetch full order detail from the control plane.
+ * Returns the same shape as AdminOrder but may include richer fields
+ * such as line_items, requested_medicines, linked_supplies, etc.
+ */
+export async function fetchAdminOrderDetail(orderId: string, clientId: string): Promise<AdminOrder> {
+  try {
+    const { data } = await axiosInstance.get<AdminOrder>(
+      `/admin/dashboard/orders/${orderId}/`,
+      { params: { client_id: clientId } }
+    );
+    return data;
+  } catch (error: any) {
+    console.error('Failed to fetch order detail:', error);
+    throw new Error(
+      error.response?.data?.error ||
+      'Failed to load order details. Please try again.'
+    );
+  }
+}
+
 export async function updateAdminOrder(
   orderId: string,
   payload: OrderUpdatePayload

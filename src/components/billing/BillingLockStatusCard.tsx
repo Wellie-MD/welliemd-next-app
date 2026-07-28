@@ -19,10 +19,10 @@ interface BillingLockStatusCardProps {
 
 /**
  * BillingLockStatusCard
- * 
+ *
  * Admin component showing billing lock state, blocking invoices,
  * and actions to resolve account suspensions.
- * 
+ *
  * Styled as a colored banner matching billing_tab.html Section 2.
  */
 export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) {
@@ -39,15 +39,22 @@ export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) 
         queryKey: ["billingLockStatus", clientId],
         queryFn: () => clientApi.getBillingLockStatus(clientId),
         enabled: !!clientId,
+        // Event-driven: no interval polling. Refetch on focus and after every
+        // payment attempt (see mutation onSettled), including failed ones.
+        staleTime: 0,
+        refetchOnWindowFocus: true,
     });
+
+    const refetchBillingQueries = () => {
+        queryClient.invalidateQueries({ queryKey: ["billingLockStatus", clientId] });
+        queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
+    };
 
     const payAllMutation = useMutation({
         mutationFn: () => clientApi.payAllOutstanding(clientId),
         onSuccess: (result) => {
             if (result.success) {
                 toast.success("All invoices paid successfully");
-                queryClient.invalidateQueries({ queryKey: ["billingLockStatus", clientId] });
-                queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
             } else {
                 toast.error(result.error || "Payment failed");
             }
@@ -55,6 +62,7 @@ export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) 
         onError: (err: any) => {
             toast.error(err?.message || "Payment failed");
         },
+        onSettled: refetchBillingQueries,
     });
 
     const payInvoiceMutation = useMutation({
@@ -62,8 +70,6 @@ export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) 
         onSuccess: (result) => {
             if (result.success) {
                 toast.success("Invoice paid successfully");
-                queryClient.invalidateQueries({ queryKey: ["billingLockStatus", clientId] });
-                queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
             } else {
                 toast.error(result.error || "Payment failed");
             }
@@ -71,6 +77,7 @@ export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) 
         onError: (err: any) => {
             toast.error(err?.message || "Payment failed");
         },
+        onSettled: refetchBillingQueries,
     });
 
     const handlePayAll = async () => {

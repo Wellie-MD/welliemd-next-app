@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import {
   Select,
   SelectContent,
@@ -18,9 +17,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { AdminOrder, updateAdminOrder, OrderUpdatePayload } from "@/api/dashboardApi"
+import { AdminOrder, updateAdminOrder, fetchAdminOrderDetail, OrderUpdatePayload } from "@/api/dashboardApi"
 import { useToast } from "@/hooks/use-toast"
-import { Package, User, Mail, Phone, Building2, Pill, MapPin, CreditCard, Truck, Calendar, Hash } from "lucide-react"
+import {
+  Package,
+  Save,
+  X,
+  Loader2,
+  Truck,
+  RefreshCw,
+} from "lucide-react"
+
+import { TreatmentOrderAggregate } from "@/features/treatments/orders/components/TreatmentOrderAggregate"
+import { DrawerProductsSection } from "./drawer/DrawerProductsSection"
+import { DrawerPricingReceipt } from "./drawer/DrawerPricingReceipt"
+import { DrawerReimbursementSection } from "./drawer/DrawerReimbursementSection"
+import { DrawerClinicalPharmacySection } from "./drawer/DrawerClinicalPharmacySection"
+import { DrawerSupportTimelineSection } from "./drawer/DrawerSupportTimelineSection"
+import { parseStatusLabel, getPrototypePillClass } from "./drawer/drawerUtils"
 
 interface OrderDetailDrawerProps {
   order: AdminOrder | null
@@ -53,80 +67,61 @@ const ORDER_STATUSES = [
 
 const TERMINAL_STATUSES = ["shipped", "canceled"]
 
-function getStatusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  const statusLower = status.toLowerCase()
-  if (statusLower === "shipped" || statusLower === "prescribed" || statusLower === "rx_sent") return "default"
-  if (statusLower === "canceled" || statusLower === "visit_failed" || statusLower === "consult_canceled") return "destructive"
-  if (statusLower === "processing" || statusLower === "visit_pending" || statusLower === "billing_pending") return "secondary"
-  return "outline"
-}
-
-function getPaymentBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  const lower = status.toLowerCase()
-  if (lower === "paid" || lower === "authorized") return "default"
-  if (lower === "failed") return "destructive"
-  return "secondary"
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "—"
-  try {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-  } catch {
-    return dateStr
-  }
-}
-
 export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }: OrderDetailDrawerProps) {
   const [newStatus, setNewStatus] = useState<string>("")
   const [trackingNumber, setTrackingNumber] = useState<string>("")
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [detailOrder, setDetailOrder] = useState<AdminOrder | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
   const { toast } = useToast()
 
-  // Reset form state whenever the selected order changes
+  // When a new order is selected, reset form fields
   useEffect(() => {
     if (order) {
       setNewStatus(order.status)
       setTrackingNumber(order.tracking_number || "")
+      setSelectedProductId(null)
+      setDetailOrder(null)
     } else {
       setNewStatus("")
       setTrackingNumber("")
+      setSelectedProductId(null)
+      setDetailOrder(null)
     }
   }, [order?.id])
 
+  // Fetch full order detail when drawer opens (to get line_items, linked_supplies, etc.)
+  useEffect(() => {
+    if (!open || !order) return
+
+    let cancelled = false
+    setDetailLoading(true)
+
+    // The control-plane route requires a UUID and needs client_id to know
+    // which tenant to proxy to — order.order_id (display id) won't match.
+    fetchAdminOrderDetail(order.id, order.client_id)
+      .then((fullOrder) => {
+        if (!cancelled) {
+          // Merge list-level data (which has treatment_aggregate etc.) with detail data
+          setDetailOrder({ ...order, ...fullOrder })
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          // On error, fall back to list-level data silently
+          console.warn("Failed to fetch full order detail, using list data:", err)
+          setDetailOrder(order)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [open, order?.id])
+
   const isTerminal = order ? TERMINAL_STATUSES.includes(order.status) : false
-
-  const requestedMedicineName = order?.requested_medicine_name || order?.product_name || "—"
-  const rawPrescribedMedicineName = order?.prescribed_medicine_name || null
-  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
-  const prescribedMedicineName =
-    prescribedNameNormalized === "same med" ||
-    prescribedNameNormalized === "same medicine" ||
-    prescribedNameNormalized === "same medication"
-      ? requestedMedicineName
-      : rawPrescribedMedicineName
-
-  const chargeableRaw = order?.chargeable_amount ?? order?.amount ?? 0
-  const chargeableNumber =
-    typeof chargeableRaw === "number"
-      ? chargeableRaw
-      : Number.parseFloat(String(chargeableRaw)) || 0
-  const chargeableSourceLabel =
-    order?.chargeable_amount_source === "prescribed_medicine"
-      ? "Prescribed (Doctor Final)"
-      : order?.chargeable_amount_source === "requested_medicine_fallback"
-        ? "Requested Fallback"
-        : "Requested (Original)"
-  const amountSourcePillClass =
-    order?.chargeable_amount_source === "prescribed_medicine"
-      ? "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800"
-      : order?.chargeable_amount_source === "requested_medicine_fallback"
-        ? "inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-800"
-        : "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800"
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen && order) {
@@ -165,12 +160,10 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
       const response = await updateAdminOrder(order.id, payload)
 
       if (response.success && response.order) {
-        // Synchronous replay (idempotent cached result)
         onOrderUpdated(response.order)
         toast({ title: "Order updated", description: "Order has been updated successfully." })
         onOpenChange(false)
       } else if (response.status === 'queued' || response.status === 'processing') {
-        // Async — update queued via Celery task
         toast({ title: "Update queued", description: "Order update is being processed." })
         onOpenChange(false)
       }
@@ -191,192 +184,149 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
   if (!order) return null
 
+  // Use enriched detail if loaded, fall back to list-level data
+  const displayOrder = detailOrder || order
+
+  const orderTitle = order.order_id || order.display_id || order.id
+  const isPrescribedStatus = String(order.status || "").toLowerCase() === "prescribed"
+  const isRecoveryPending = isPrescribedStatus && (order.payment_recovery_state || "").toLowerCase() === "recovery_pending"
+
+  const orderStatusParsed = parseStatusLabel(order.status)
+  const orderStatusPillClass = getPrototypePillClass(order.status)
+
+  const paymentStatusParsed = parseStatusLabel(order.payment_status)
+  const paymentStatusPillClass = getPrototypePillClass(order.payment_status)
+
   return (
     <Sheet open={open} onOpenChange={handleOpen}>
-      <SheetContent className="w-[480px] sm:w-[540px] overflow-y-auto">
-        <SheetHeader className="pb-4 border-b">
-          <SheetTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Order Details
-          </SheetTitle>
-          <SheetDescription className="font-mono text-sm">
-            {order.order_id || order.display_id}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="space-y-6 py-6">
-          {/* Order Status */}
-          <div className="flex items-center gap-3">
-            <Badge variant={getStatusBadgeVariant(order.status)}>
-              {order.status_display}
-            </Badge>
-            <Badge variant={getPaymentBadgeVariant(order.payment_status)}>
-              {order.payment_status}
-            </Badge>
-          </div>
-
-          {/* Patient Info */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Patient</h3>
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span>{order.patient_name}</span>
+      <SheetContent className="w-full sm:w-[580px] md:w-[620px] max-w-[95vw] overflow-y-auto p-0 flex flex-col">
+        {/* Drawer Header */}
+        <SheetHeader className="p-5 border-b border-border bg-card sticky top-0 z-20 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-primary" />
+                <SheetTitle className="text-lg font-bold font-mono">
+                  Order #{orderTitle}
+                </SheetTitle>
+                {detailLoading && (
+                  <RefreshCw className="h-3.5 w-3.5 text-muted-foreground animate-spin" />
+                )}
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span>{order.patient_email}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{order.patient_phone || "—"}</span>
-              </div>
+              <SheetDescription className="text-xs text-muted-foreground">
+                Placed {new Date(order.created_at).toLocaleDateString()} for{" "}
+                <span className="font-semibold text-slate-900 dark:text-white">{order.patient_name}</span> ({order.client_name})
+              </SheetDescription>
             </div>
-          </div>
 
-          {/* Order Info */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Order Info</h3>
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Client:</span>
-                <span>{order.client_name}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Hash className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Master ID:</span>
-                <span className="font-mono text-xs">{order.master_id || "—"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Product:</span>
-                <span>{order.product_name}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Requested (Original):</span>
-                <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">
-                  {requestedMedicineName}
+            {/* Prototype Pill Badges */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={orderStatusPillClass}>
+                {orderStatusParsed}
+              </span>
+              <span className={paymentStatusPillClass}>
+                {paymentStatusParsed}
+              </span>
+              {isRecoveryPending && (
+                <span className="pill pill-amber">
+                  Payment Recovery Pending
                 </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Prescribed (Doctor Final):</span>
-                <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800">
-                  {prescribedMedicineName || "Awaiting provider decision"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Doctor:</span>
-                <span>{order.doctor_name || "—"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Pharmacy:</span>
-                <span>{order.pharmacy_name || "N/A"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Amount:</span>
-                <span className="font-medium">${chargeableNumber.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Amount Source:</span>
-                <span className={amountSourcePillClass}>
-                  {chargeableSourceLabel}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Dates */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Timeline</h3>
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Ordered:</span>
-                <span>{formatDate(order.created_at)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Prescribed:</span>
-                <span>{formatDate(order.prescribed_at)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Truck className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Shipped:</span>
-                <span>{formatDate(order.shipped_at)}</span>
-              </div>
-              {order.tracking_number && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Truck className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Tracking:</span>
-                  <span className="font-mono">{order.tracking_number}</span>
-                </div>
               )}
             </div>
           </div>
+        </SheetHeader>
 
-          {/* Update Section */}
-          {!isTerminal && (
-            <div className="space-y-4 border-t pt-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Update Order</h3>
-
-              {/* Status Change */}
-              <div className="space-y-2">
-                <Label htmlFor="order-status">Status</Label>
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger id="order-status">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ORDER_STATUSES.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Tracking Number */}
-              <div className="space-y-2">
-                <Label htmlFor="tracking-number">Tracking Number</Label>
-                <Input
-                  id="tracking-number"
-                  placeholder="Enter tracking number"
-                  value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value)}
-                />
-                {newStatus === "shipped" && !trackingNumber.trim() && (
-                  <p className="text-xs text-destructive">
-                    Tracking number is required for shipped status.
-                  </p>
-                )}
-              </div>
-            </div>
+        {/* Extended Vertical Drawer Body (Accurate Section Layout) */}
+        <div className="p-5 space-y-5 flex-1">
+          {/* Treatment Aggregate Lifecycle (if available) */}
+          {displayOrder.treatment_aggregate && (
+            <TreatmentOrderAggregate aggregate={displayOrder.treatment_aggregate} />
           )}
 
-          {isTerminal && (
-            <div className="border-t pt-4">
-              <p className="text-sm text-muted-foreground italic">
-                This order has a terminal status ({order.status_display}) and cannot be modified.
+          {/* 1. Products Section (Multi-products, Requested vs Prescribed, Bundled Supplies) */}
+          <DrawerProductsSection
+            order={displayOrder}
+            selectedProductId={selectedProductId}
+            onSelectProduct={setSelectedProductId}
+          />
+
+          {/* 2. Payment & Itemized Receipt Section */}
+          <DrawerPricingReceipt
+            order={displayOrder}
+            selectedProductId={selectedProductId}
+          />
+
+          {/* 3. B2B Client Reimbursement & Settlement Section */}
+          <DrawerReimbursementSection order={displayOrder} />
+
+          {/* 4. Clinical, Patient & Pharmacy Details */}
+          <DrawerClinicalPharmacySection order={displayOrder} />
+
+          {/* 5. Support Notes, Audit Flags & Milestone Timeline */}
+          <DrawerSupportTimelineSection order={displayOrder} />
+
+          {/* 6. Quick Update Order Controls Section */}
+          {!isTerminal ? (
+            <div className="pt-2 border-t border-border space-y-3">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono flex items-center gap-1.5">
+                <Truck className="h-3.5 w-3.5 text-primary" />
+                <span>Update Order</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-muted/20 p-3 rounded-xl border border-border">
+                <div className="space-y-1">
+                  <Label htmlFor="drawer-order-status" className="text-xs font-medium">Status</Label>
+                  <Select value={newStatus} onValueChange={setNewStatus}>
+                    <SelectTrigger id="drawer-order-status" className="h-8 text-xs bg-card">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ORDER_STATUSES.map((s) => (
+                        <SelectItem key={s.value} value={s.value} className="text-xs">
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="drawer-tracking-number" className="text-xs font-medium">Tracking Number</Label>
+                  <Input
+                    id="drawer-tracking-number"
+                    placeholder="Enter tracking number"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    className="h-8 text-xs font-mono bg-card"
+                  />
+                  {newStatus === "shipped" && !trackingNumber.trim() && (
+                    <p className="text-[10px] text-destructive pt-0.5">
+                      Tracking number is required for shipped status.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+              <p className="text-xs text-muted-foreground italic">
+                This order has a terminal status ({orderStatusParsed}) and cannot be modified.
               </p>
             </div>
           )}
         </div>
 
-        <SheetFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+        {/* Drawer Sticky Footer */}
+        <SheetFooter className="p-4 border-t border-border bg-card sticky bottom-0 z-20 flex items-center justify-between gap-3">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 text-xs gap-1">
+            <X className="h-3.5 w-3.5" />
+            <span>Close</span>
           </Button>
+
           {!isTerminal && (
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save Changes"}
+            <Button size="sm" onClick={handleSave} disabled={saving} className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground shadow-xs">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              <span>{saving ? "Saving..." : "Save Changes"}</span>
             </Button>
           )}
         </SheetFooter>
