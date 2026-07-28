@@ -71,7 +71,7 @@ export default function DeviceModals(props: DeviceModalsProps) {
     <Overlay show={props.goalModalOpen} onClose={() => props.setGoalModalOpen(false)} maxW={380}>
       <ModalHeader title="Set your target BMI" onClose={() => props.setGoalModalOpen(false)} />
       <p style={{ fontSize: 12.5, color: 'var(--km-tm)', lineHeight: 1.5 }}>Your target BMI is stored with your patient health goals and shown on your BMI history.</p>
-      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--km-t2)' }}>Target BMI<input className="km-inp" type="number" min={10} max={80} step={0.1} value={props.goalInput} onChange={(event) => props.setGoalInput(event.target.value)} placeholder="e.g. 24.0" style={{ width: '100%', marginTop: 6 }} /></label>
+      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--km-t2)', display: 'block', marginBottom: 16 }}>Target BMI<input type="number" min={10} max={80} step={0.1} value={props.goalInput} onChange={(event) => props.setGoalInput(event.target.value)} placeholder="e.g. 24.0" style={{ width: '100%', marginTop: 6, background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 11, padding: '12px 14px', fontFamily: 'inherit', fontSize: 14, color: 'var(--km-t)', outline: 'none' }} /></label>
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}><button type="button" onClick={() => props.setGoalModalOpen(false)} style={buttonStyle}>Cancel</button><button type="button" onClick={props.onSaveGoal} style={{ ...buttonStyle, background: 'var(--km-am)', color: '#fff', borderColor: 'var(--km-am)' }}>Save goal</button></div>
     </Overlay>
 
@@ -83,7 +83,7 @@ export default function DeviceModals(props: DeviceModalsProps) {
       <ModalHeader title={props.consentReviewOnly ? 'What you share' : 'Before you connect'} onClose={() => props.setConsentOpen(false)} />
       <p style={{ fontSize: 13, color: 'var(--km-t2)', lineHeight: 1.6 }}>Connecting a device shares your health data with your care team, who use it to monitor your progress and adjust your treatment.</p>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.4px', textTransform: 'uppercase', color: 'var(--km-tm)', marginBottom: 8 }}>Data you'll share</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>{['Sleep', 'Activity', 'Heart rate', 'Body & weight', 'Glucose', 'Nutrition', 'Workouts'].map((item) => <span key={item} style={{ fontSize: 11.5, background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 999, padding: '5px 11px' }}>{item}</span>)}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 16 }}>{['Sleep', 'Activity', 'Heart rate', 'Glucose', 'Workouts'].map((item) => <span key={item} style={{ fontSize: 11.5, background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 999, padding: '5px 11px' }}>{item}</span>)}</div>
       <div style={{ display: 'flex', gap: 10 }}><button type="button" onClick={() => props.setConsentOpen(false)} style={buttonStyle}>Cancel</button><button type="button" onClick={props.consentReviewOnly ? () => props.setConsentOpen(false) : props.onAgreeConsent} style={{ ...buttonStyle, flex: 1.4, background: 'var(--km-am)', color: '#fff', borderColor: 'var(--km-am)' }}>{props.consentReviewOnly ? 'Done' : 'Agree & connect'}</button></div>
     </Overlay>
 

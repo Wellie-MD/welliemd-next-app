@@ -39,7 +39,7 @@ export interface TrendData {
   unit: string;
   dec: number;
   lowerBetter: boolean;
-  series: number[] | null;
+  series: { date: string; val: number }[] | null;
   step?: 'week' | 'day' | undefined;
 }
 
@@ -87,14 +87,18 @@ export interface DeviceMetrics {
   readiness: number;
   recovery: number;
   sleepScore: number;
-  stepsSeries?: number[];
-  sleepSeries?: number[];
+  stepsSeries?: { date: string; val: number }[];
+  sleepSeries?: { date: string; val: number }[];
   sleepDetail?: SleepDetail;
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
-  glucoseSeries?: number[];
-  avgGlucose?: number | null;
-  latestGlucose?: number | null;
+  workoutsSeries?: { date: string; val: number }[];
+  customQueries?: {
+    id: string;
+    name: string;
+    metrics: string[];
+    series: any[];
+  }[];
 }
 
 export interface WeightData {
@@ -135,14 +139,18 @@ export interface DeviceDataResponse {
   readiness?: number;
   recovery?: number;
   sleepScore?: number;
-  stepsSeries?: number[];
-  sleepSeries?: number[];
+  stepsSeries?: { date: string; val: number }[];
+  sleepSeries?: { date: string; val: number }[];
   sleepDetail?: SleepDetail;
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
-  glucoseSeries?: number[];
-  avgGlucose?: number | null;
-  latestGlucose?: number | null;
+  workoutsSeries?: { date: string; val: number }[];
+  customQueries?: {
+    id: string;
+    name: string;
+    metrics: string[];
+    series: any[];
+  }[];
 }
 
 export interface HealthGoalResponse {

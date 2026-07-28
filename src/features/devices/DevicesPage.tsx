@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import ConnectState from './components/ConnectState';
 import ConnectedState from './components/ConnectedState';
 import TelemetryDashboard from './components/TelemetryDashboard';
@@ -160,6 +161,7 @@ export default function DevicesPage() {
           ...(data.glucoseSeries && { glucoseSeries: data.glucoseSeries }),
           ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
           ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
+          ...(data.customQueries && { customQueries: data.customQueries }),
         }));
       }
     } catch (e) {
@@ -168,12 +170,23 @@ export default function DevicesPage() {
   }, []);
 
   useEffect(() => {
+    if (timeRange === 90 || timeRange === 365) {
+      toast.info('Fetching your extended historical data. This may take a moment...', {
+        duration: 4000,
+      });
+    }
     fetchDeviceDataList(timeRange, true);
   }, [timeRange, fetchDeviceDataList]);
 
   // Initial live sync on mount (background)
   useEffect(() => {
-    getDeviceData(7, false).catch(console.error);
+    getDeviceData(7, false)
+      .then(() => {
+        // Re-fetch the UI data from the DB now that the background sync has completed
+        fetchDeviceDataList(timeRange, true);
+      })
+      .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchConnectionsList = useCallback(async (skipConnections = false) => {
@@ -280,6 +293,9 @@ export default function DevicesPage() {
 
       if (!stillPending) {
         if (formatted !== null && formatted.some(c => pendingProviders.includes(c.provider) && c.status === 'connected')) {
+          toast.success('Device successfully connected. Your health data is being synced...', {
+            duration: 5000,
+          });
           fetchConnectionsList(true);
         }
         clearParams();
@@ -465,7 +481,16 @@ export default function DevicesPage() {
             return next;
           });
         })
-        .catch(() => {})
+        .catch((error: any) => {
+          if (error?.error) {
+            const errorMsg = typeof error.error === 'string' 
+              ? error.error 
+              : error.error.message || "Failed to disconnect device.";
+            toast.error(errorMsg);
+          } else {
+            toast.error(error?.message || "Failed to disconnect device.");
+          }
+        })
         .finally(() => {
           setLoading(false);
         });
@@ -514,10 +539,23 @@ export default function DevicesPage() {
   const handleSaveGoal = useCallback(() => {
     const v = Number(goalInput);
     if (v >= 10 && v <= 80) {
-      saveHealthGoal(v).then((response) => {
-        setWeight((prev) => ({ ...prev, targetBmi: response.goal ? Number(response.goal.target_bmi) : null }));
-        setGoalModalOpen(false);
-      });
+      saveHealthGoal(v)
+        .then((response) => {
+          setWeight((prev) => ({ ...prev, targetBmi: response.goal ? Number(response.goal.target_bmi) : null }));
+          setGoalModalOpen(false);
+        })
+        .catch((error: any) => {
+          if (error?.error) {
+            const errorMsg = typeof error.error === 'string' 
+              ? error.error 
+              : error.error.message || "Failed to save health goal.";
+            toast.error(errorMsg);
+          } else {
+            toast.error(error?.message || "Failed to save health goal.");
+          }
+        });
+    } else {
+      toast.error("Please enter a valid target BMI between 10 and 80.");
     }
   }, [goalInput]);
 
@@ -530,7 +568,16 @@ export default function DevicesPage() {
       ]);
       const priorityList = profile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
       setWeight((prev) => buildWeightData(history, prev, priorityList));
-    } catch {}
+    } catch (error: any) {
+      if (error?.error) {
+        const errorMsg = typeof error.error === 'string' 
+          ? error.error 
+          : error.error.message || "Failed to log weight.";
+        toast.error(errorMsg);
+      } else {
+        toast.error(error?.message || "Failed to log weight.");
+      }
+    }
   }, []);
 
   const handleSavePriority = useCallback(async (priorityList: string[]) => {
@@ -552,8 +599,16 @@ export default function DevicesPage() {
       });
       const history = await getVitalsHistory();
       setWeight((prev) => buildWeightData(history, prev, priorityList));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save priority", error);
+      if (error?.error) {
+        const errorMsg = typeof error.error === 'string' 
+          ? error.error 
+          : error.error.message || "Failed to save data source priority.";
+        toast.error(errorMsg);
+      } else {
+        toast.error(error?.message || "Failed to save data source priority.");
+      }
     }
   }, [patientProfile, updatePatientProfile]);
 
@@ -582,7 +637,10 @@ export default function DevicesPage() {
           handleConnect(pendingId);
         }
       })
-      .catch(() => {})
+      .catch((error: any) => {
+        const message = error?.response?.data?.detail || error?.message || error?.error || "You are not allowed to connect wearables at this time.";
+        toast.error(message);
+      })
       .finally(() => {
         setLoading(false);
       });
@@ -600,7 +658,16 @@ export default function DevicesPage() {
         setWeight({ ...WEIGHT_DEFAULT });
         setDeleteDataOpen(false);
       })
-      .catch(() => {})
+      .catch((error: any) => {
+        if (error?.error) {
+          const errorMsg = typeof error.error === 'string' 
+            ? error.error 
+            : error.error.message || "Failed to delete health data.";
+          toast.error(errorMsg);
+        } else {
+          toast.error(error?.message || "Failed to delete health data.");
+        }
+      })
       .finally(() => {
         setLoading(false);
       });

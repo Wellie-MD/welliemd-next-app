@@ -16,7 +16,6 @@ const CARD: React.CSSProperties = {
   border: '1px solid var(--km-b)',
   borderRadius: 14,
   marginBottom: 10,
-  overflow: 'hidden',
 };
 
 export default function TelemetryDashboard({
@@ -278,10 +277,7 @@ export function WeightTrendCard({
       )}
 
       <div style={{ padding: '4px 14px 0' }}>
-        <WeightTrendChart points={weight.points} />
-      </div>
-      <div style={{ padding: '0 14px 8px' }}>
-        <BmiTrendChart points={weight.points} targetBmi={weight.targetBmi} />
+        <WeightTrendChart points={weight.points} targetBmi={weight.targetBmi} />
       </div>
 
       {bottomAction && (
@@ -309,8 +305,10 @@ export function WeightTrendCard({
 /* ─── Weight Trend Chart ─── */
 function WeightTrendChart({
   points,
+  targetBmi,
 }: {
   points: WeightData['points'];
+  targetBmi?: number | null;
 }) {
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
 
@@ -320,8 +318,19 @@ function WeightTrendChart({
   const w = 500, h = 170;
   const padL = 14, padR = 44, padT = 36, padB = 24;
   const n = series.length - 1;
-  const mn = Math.min(...series);
-  const mx = Math.max(...series);
+  let mn = Math.min(...series);
+  let mx = Math.max(...series);
+
+  let targetWeight: number | null = null;
+  if (targetBmi) {
+    const pWithHeight = [...points].reverse().find(p => p.height != null);
+    if (pWithHeight && pWithHeight.height) {
+      targetWeight = (targetBmi * pWithHeight.height * pWithHeight.height) / 703;
+      mn = Math.min(mn, targetWeight);
+      mx = Math.max(mx, targetWeight);
+    }
+  }
+
   const rng = mx - mn || 1;
   const lo = mn - rng * 0.15;
   const vr = mx + rng * 0.15 - lo || 1;
@@ -350,8 +359,21 @@ function WeightTrendChart({
     <div style={{ position: 'relative' }}>
       <svg
         viewBox={`0 0 ${w} ${h}`}
-        style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}
+        style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible', touchAction: 'none' }}
         preserveAspectRatio="none"
+        onPointerMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const scaleX = w / rect.width;
+          const x = (e.clientX - rect.left) * scaleX;
+          if (x < padL - 10 || x > w - padR + 10) {
+            setHoveredIndex(null);
+            return;
+          }
+          const ratio = (x - padL) / (w - padL - padR);
+          const index = Math.round(ratio * n);
+          setHoveredIndex(Math.max(0, Math.min(n, index)));
+        }}
+        onPointerLeave={() => setHoveredIndex(null)}
       >
         <defs>
           <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
@@ -359,19 +381,29 @@ function WeightTrendChart({
             <stop offset="100%" stopColor="var(--km-acp)" stopOpacity="0" />
           </linearGradient>
         </defs>
+        {targetWeight !== null && (
+          <line
+            x1={padL} y1={Y(targetWeight)}
+            x2={w - padR} y2={Y(targetWeight)}
+            stroke="var(--km-t2, #94a3b8)" strokeWidth={1} strokeDasharray="4 4"
+          />
+        )}
         <path d={areaD} fill="url(#area-gradient)" stroke="none" />
         <path d={pathD} fill="none" stroke="var(--km-ac)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         
         {series.map((v, i) => {
           const isHovered = hoveredIndex === i;
+          const isLast = i === n;
+          const showDot = points.length < 30 || isHovered || isLast;
+          if (!showDot) return null;
           return (
             <circle
               key={i} cx={X(i)} cy={Y(v)}
-              r={isHovered ? 5 : (i === n ? 3.4 : 2.4)}
+              r={isHovered ? 5 : (isLast ? 3.4 : 2.4)}
               fill="var(--km-ac)"
-              stroke={i === n || isHovered ? '#fff' : undefined}
-              strokeWidth={i === n || isHovered ? 1.5 : undefined}
-              style={{ transition: 'all 0.2s ease' }}
+              stroke={isLast || isHovered ? '#fff' : undefined}
+              strokeWidth={isLast || isHovered ? 1.5 : undefined}
+              style={{ transition: 'all 0.2s ease', pointerEvents: 'none' }}
             />
           );
         })}
@@ -395,23 +427,7 @@ function WeightTrendChart({
           </text>
         ))}
 
-        {points.map((_, i) => {
-          const prevX = i === 0 ? padL : X(i) - (X(i) - X(i - 1)) / 2;
-          const nextX = i === n ? w - padR : X(i) + (X(i + 1) - X(i)) / 2;
-          return (
-            <rect
-              key={`hitbox-${i}`}
-              x={prevX}
-              y={padT - 20}
-              width={nextX - prevX}
-              height={h - padT + 20}
-              fill="transparent"
-              onMouseEnter={() => setHoveredIndex(i)}
-              onMouseLeave={() => setHoveredIndex(null)}
-              style={{ cursor: 'crosshair' }}
-            />
-          );
-        })}
+
       </svg>
       
       {hoveredIndex !== null && (
@@ -445,45 +461,6 @@ function WeightTrendChart({
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function BmiTrendChart({
-  points,
-  targetBmi,
-}: {
-  points: WeightData['points'];
-  targetBmi: number | null;
-}) {
-  const bmiPoints = points.filter((point) => point.bmi != null);
-  if (!bmiPoints.length) {
-    return <div style={{ padding: '8px 4px', fontSize: 12, color: 'var(--km-tm)' }}>BMI history unavailable until a server-computed BMI is recorded.</div>;
-  }
-  const values = bmiPoints.map((point) => Number(point.bmi));
-  const min = Math.min(...values, ...(targetBmi ? [targetBmi] : []));
-  const max = Math.max(...values, ...(targetBmi ? [targetBmi] : []));
-  const range = max - min || 1;
-  const low = min - range * 0.15;
-  const high = max + range * 0.15;
-  const width = 500;
-  const height = 130;
-  const left = 14;
-  const right = 44;
-  const top = 24;
-  const bottom = 22;
-  const n = Math.max(bmiPoints.length - 1, 1);
-  const x = (i: number) => left + i * ((width - left - right) / n);
-  const y = (value: number) => top + (1 - (value - low) / (high - low)) * (height - top - bottom);
-  const polyline = bmiPoints.map((point, i) => `${x(i)},${y(Number(point.bmi))}`).join(' ');
-  return (
-    <div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-t2)', margin: '4px 0' }}>BMI history</div>
-      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', display: 'block' }}>
-        {targetBmi != null && <line x1={left} y1={y(targetBmi)} x2={width - right} y2={y(targetBmi)} stroke="var(--km-gr)" strokeDasharray="5 4" />}
-        <polyline points={polyline} fill="none" stroke="var(--km-ac)" strokeWidth={2} />
-        {bmiPoints.map((point, i) => <circle key={point.date + i} cx={x(i)} cy={y(Number(point.bmi))} r={3} fill="var(--km-ac)" />)}
-      </svg>
     </div>
   );
 }
