@@ -27,6 +27,12 @@ export function ProgramQuestionsListRow({
   onDelete,
 }: ProgramQuestionsListRowProps) {
   const navigate = useNavigate();
+  const isAuth = question.kind === "personal_details";
+  const isCheckout = question.kind === "checkout";
+  const isConsent = question.kind === "consent";
+  const isSection = question.kind === "section";
+  const isSystem = question.elementConfig?.system === true;
+
   const {
     attributes,
     listeners,
@@ -36,7 +42,7 @@ export function ProgramQuestionsListRow({
     isDragging,
   } = useSortable({
     id: question.id,
-    disabled: !isReorderActive,
+    disabled: !isReorderActive || isAuth || isSystem,
   });
 
   const style = {
@@ -45,12 +51,6 @@ export function ProgramQuestionsListRow({
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 50 : "auto",
   };
-
-  const isAuth = question.kind === "personal_details";
-  const isCheckout = question.kind === "checkout";
-  const isConsent = question.kind === "consent";
-  const isSection = question.kind === "section";
-  const isSystem = question.elementConfig?.system === true;
   const tone = isAuth
     ? PROGRAM_ELEMENT_TONES.auth
     : isCheckout

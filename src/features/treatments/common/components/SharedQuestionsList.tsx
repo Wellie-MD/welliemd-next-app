@@ -200,6 +200,8 @@ export function SharedQuestionsList({
     const sourceQuestion = displayQuestions[oldIndex];
     const targetQuestion = displayQuestions[newIndex];
 
+    if (sourceQuestion.elementConfig?.system === true || sourceQuestion.kind === "personal_details") return;
+
     if (entityType === "program" && sourceQuestion.kind !== targetQuestion.kind &&
         (sourceQuestion.kind === "checkout" || targetQuestion.kind === "checkout")) {
       toast({
@@ -210,13 +212,9 @@ export function SharedQuestionsList({
     }
 
     const previousQuestions = questions;
-    const isSystemDrag = sourceQuestion.elementConfig?.system === true;
     const reordered = arrayMove(displayQuestions, oldIndex, newIndex).map((q, idx) => ({
       ...q,
       order: idx + 1,
-      elementConfig: q.id === sourceQuestion.id && isSystemDrag
-        ? { ...q.elementConfig, system: undefined }
-        : q.elementConfig,
     }));
 
     setQuestions(reordered);
@@ -254,30 +252,6 @@ export function SharedQuestionsList({
         }
       );
     };
-
-    if (isSystemDrag) {
-      const authRow = reordered.find((q) => q.id === sourceQuestion.id)!;
-      const mutation = entityType === "section" ? saveSectionFieldMutation : saveQuestionMutation;
-      const payload = entityType === "section"
-        ? {
-            id: authRow.id,
-            sectionId: entityId,
-            order: authRow.order,
-            label: authRow.text,
-            kind: authRow.kind,
-            required: authRow.required,
-            configuration: authRow.elementConfig || {},
-          }
-        : authRow;
-      mutation.mutate(payload as never, {
-        onSuccess: persistOrder,
-        onError: () => {
-          setQuestions(previousQuestions);
-          toast({ title: "Error", description: "Failed to save the new order.", variant: "destructive" });
-        },
-      });
-      return;
-    }
 
     persistOrder();
   };
