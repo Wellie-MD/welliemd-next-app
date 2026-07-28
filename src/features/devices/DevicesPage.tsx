@@ -189,11 +189,11 @@ export default function DevicesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchConnectionsList = useCallback(async (skipConnections = false) => {
+  const fetchConnectionsList = useCallback(async () => {
     setLoading(true);
     try {
       const [connectionsResult, vitalsResult, goalResult, profileResult] = await Promise.allSettled([
-        skipConnections ? Promise.resolve(null) : getConnections(),
+        getConnections(),
         getVitalsHistory(timeRange),
         getHealthGoal(),
         profileService.getPatientProfile(),
@@ -225,20 +225,8 @@ export default function DevicesPage() {
     }
   }, [timeRange]);
 
-  const checkIsPendingConnect = () => {
-    if (searchParams.get('wearable_connect') === 'pending') return true;
-    if (typeof window !== 'undefined') {
-      return window.location.href.includes('wearable_connect=pending');
-    }
-    return false;
-  };
-  
-  const isPendingConnect = checkIsPendingConnect();
-  
-  const initialIsPendingConnectRef = useRef(isPendingConnect);
-
   useEffect(() => {
-    fetchConnectionsList(initialIsPendingConnectRef.current).finally(() => setInitialLoading(false));
+    fetchConnectionsList().finally(() => setInitialLoading(false));
   }, [fetchConnectionsList]);
 
   const handleRefreshStatus = useCallback(async () => {
@@ -261,6 +249,12 @@ export default function DevicesPage() {
 
   useEffect(() => {
     const pendingProviders = connections.filter(c => c.status === 'pending').map(c => c.provider);
+    
+    const urlProvider = searchParams.get('provider');
+    if (searchParams.get('wearable_connect') === 'pending' && urlProvider && !pendingProviders.includes(urlProvider)) {
+      pendingProviders.push(urlProvider);
+    }
+
     if (pendingProviders.length === 0) return;
     
     let isCancelled = false;
@@ -296,7 +290,7 @@ export default function DevicesPage() {
           toast.success('Device successfully connected. Your health data is being synced...', {
             duration: 5000,
           });
-          fetchConnectionsList(true);
+          fetchConnectionsList();
         }
         clearParams();
         setConnectionSyncError('');
@@ -315,7 +309,7 @@ export default function DevicesPage() {
       isCancelled = true;
       if (pollTimeout) clearTimeout(pollTimeout);
     };
-  }, [connections, handleRefreshStatus, fetchConnectionsList, setSearchParams]);
+  }, [connections, handleRefreshStatus, fetchConnectionsList, setSearchParams, searchParams]);
 
   useEffect(() => {
     async function loadConsent() {
