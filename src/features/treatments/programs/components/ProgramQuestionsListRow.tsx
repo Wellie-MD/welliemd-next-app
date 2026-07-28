@@ -51,6 +51,7 @@ export function ProgramQuestionsListRow({
   const isConsent = question.kind === "consent";
   const isSection = question.kind === "section";
   const isSystem = question.elementConfig?.system === true;
+  const isServiceArea = question.kind === "state_routing";
   const tone = isAuth
     ? PROGRAM_ELEMENT_TONES.auth
     : isCheckout
@@ -161,24 +162,26 @@ export function ProgramQuestionsListRow({
           <span className="pr-1 text-[9px] italic text-slate-300">System</span>
         ) : (
           <>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(event) => {
-                event.stopPropagation();
-                if (isSection) {
-                  navigateToSection();
-                } else if (isConsent) {
-                  navigateToConsent();
-                } else {
-                  onEdit(question);
-                }
-              }}
-              className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-              title={isSection ? "Go to Section" : isConsent ? "Go to Consent" : "Edit Element"}
-            >
-              <Pencil className="h-3 w-3" />
-            </Button>
+            {!isServiceArea && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (isSection) {
+                    navigateToSection();
+                  } else if (isConsent) {
+                    navigateToConsent();
+                  } else {
+                    onEdit(question);
+                  }
+                }}
+                className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
+                title={isSection ? "Go to Section" : isConsent ? "Go to Consent" : "Edit Element"}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
