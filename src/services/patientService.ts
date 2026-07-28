@@ -61,6 +61,7 @@ export interface Patient {
     last_order_id?: string | null;
     last_order_display_id?: string | null;
     engagement_status?: string;
+    vitals_source_priority?: string[] | null;
 }
 
 export interface PatientListResponse {

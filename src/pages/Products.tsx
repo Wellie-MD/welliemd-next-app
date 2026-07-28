@@ -258,8 +258,8 @@ export default function Products() {
           </div>
         </div>
 
-       <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
-          <div className="grid w-full flex-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <FilterSelect
               label="Category"
               value={category}
@@ -518,7 +518,7 @@ function FilterSelect({
         {label}
       </label>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="h-11 min-w-[194px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-[15px] text-slate-500 dark:text-slate-300 shadow-none focus:ring-1 focus:ring-sky-300">
+        <SelectTrigger className="h-11 w-full rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-[15px] text-slate-500 dark:text-slate-300 shadow-none focus:ring-1 focus:ring-sky-300">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

@@ -13,6 +13,7 @@ import {
   Stethoscope,
   User,
   Pencil,
+  TrendingUp,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CustomInsightsModal } from "@/components/patients/CustomInsightsModal";
 import { PatientFollowUpStatus } from "@/components/followups/PatientFollowUpStatus";
 import { PermissionGate } from "@/components/auth/PermissionGate";
 import { Permissions } from "@/constants/permissions";
@@ -72,9 +74,9 @@ type WearableDeviceData = {
   recovery?: number | null;
   sleepScore?: number | null;
   weightSeries?: number[];
-  stepsSeries?: number[];
-  sleepSeries?: number[];
-  readinessSeries?: number[];
+  stepsSeries?: { date: string; val: number }[];
+  sleepSeries?: { date: string; val: number }[];
+  readinessSeries?: { date: string; val: number }[];
   sleepDetail?: {
     deep?: number;
     light?: number;
@@ -85,20 +87,22 @@ type WearableDeviceData = {
   };
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
-  glucoseSeries?: number[];
-  avgGlucose?: number | null;
-  latestGlucose?: number | null;
+  workoutsSeries?: { date: string; val: number }[];
+  customQueries?: {
+    id: string;
+    name: string;
+    metrics: string[];
+    series: any[];
+  }[];
 };
 
 type MetricItem = { l: string; v: string | number; u?: string };
 
-function buildWearableMetrics(data: WearableDeviceData | null) {
+function buildWearableMetrics(data: WearableDeviceData | null, timeRange: number) {
   const sleep: MetricItem[] = [];
   const activity: MetricItem[] = [];
-  const heart: MetricItem[] = [];
   const workouts: MetricItem[] = [];
-  const glucose: MetricItem[] = [];
-  if (!data) return { sleep, activity, heart, workouts, glucose };
+  if (!data) return { sleep, activity, workouts };
 
   if (data.sleep && data.sleep !== "--" && data.sleep !== "0") sleep.push({ l: "Time asleep", v: data.sleep });
   if (data.sleepScore != null && data.sleepScore > 0) sleep.push({ l: "Sleep score", v: data.sleepScore, u: "/100" });
@@ -113,10 +117,9 @@ function buildWearableMetrics(data: WearableDeviceData | null) {
   }
 
   if (data.steps && data.steps !== "--" && data.steps !== "0") activity.push({ l: "Steps", v: data.steps, u: "/day" });
-  if (data.activeDays && data.activeDays !== "--" && data.activeDays !== "0") activity.push({ l: "Active days", v: data.activeDays, u: "of 7" });
+  if (data.activeDays && data.activeDays !== "--" && data.activeDays !== "0") activity.push({ l: "Active days", v: data.activeDays, u: `of ${timeRange}` });
   if (data.restingHr && data.restingHr !== "--" && data.restingHr !== "0") {
     activity.push({ l: "Resting HR", v: data.restingHr, u: "bpm" });
-    heart.push({ l: "Resting HR", v: data.restingHr, u: "bpm" });
   }
 
   const recentWorkouts = data.recentWorkouts || [];
@@ -138,10 +141,7 @@ function buildWearableMetrics(data: WearableDeviceData | null) {
     if (topSport) workouts.push({ l: "Most frequent", v: `${topSport[0]} (${topSport[1]})` });
   }
 
-  if (data.avgGlucose != null) glucose.push({ l: "Average glucose", v: data.avgGlucose, u: "mg/dL" });
-  if (data.latestGlucose != null) glucose.push({ l: "Latest reading", v: data.latestGlucose, u: "mg/dL" });
-
-  return { sleep, activity, heart, workouts, glucose };
+  return { sleep, activity, workouts };
 }
 
 const buildInitialForm = (patient: Patient) => ({
@@ -239,7 +239,10 @@ export default function PatientDetailPage() {
   const [wearablesLoading, setWearablesLoading] = useState(false);
   const [wearableConsent, setWearableConsent] = useState<{ granted: boolean; date: string | null } | null>(null);
   const [providerLogos, setProviderLogos] = useState<Record<string, string>>({});
-  const [healthTab, setHealthTab] = useState<"sleep" | "activity" | "heart" | "workouts" | "glucose">("sleep");
+  const [healthTab, setHealthTab] = useState<"sleep" | "activity" | "workouts">("sleep");
+  const [customInsightsOpen, setCustomInsightsOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState(30);
+  const [vitalsData, setVitalsData] = useState<any[]>([]);
   const [formState, setFormState] = useState({
     first_name: "",
     last_name: "",
@@ -322,7 +325,9 @@ export default function PatientDetailPage() {
     if (!patientId) return;
     let active = true;
     async function loadWearables() {
-      setWearablesLoading(true);
+      // Prevent full component unmount on timeline changes by only showing the spinner initially
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      if (!wearableData) setWearablesLoading(true);
       try {
         api
           .get("/wearables/consent/", { params: { patient_id: patientId } })
@@ -347,10 +352,17 @@ export default function PatientDetailPage() {
 
         const hasConnected = conns.length > 0;
         if (hasConnected) {
-          const dataRes = await api.get("/wearables/device-data/", { params: { patient_id: patientId, days: 7 } });
-          if (active) setWearableData(dataRes.data || null);
+          const [dataRes, vitalsRes] = await Promise.all([
+            api.get("/wearables/device-data/", { params: { patient_id: patientId, days: timeRange } }),
+            api.get("/medical/vitals/", { params: { patient_id: patientId, days: timeRange } }).catch(() => ({ data: [] })),
+          ]);
+          if (active) {
+            setWearableData(dataRes.data || null);
+            setVitalsData(Array.isArray(vitalsRes.data) ? vitalsRes.data : vitalsRes.data?.results || []);
+          }
         } else if (active) {
           setWearableData(null);
+          setVitalsData([]);
         }
       } catch (err) {
         console.error("Failed to load wearables data:", err);
@@ -362,7 +374,7 @@ export default function PatientDetailPage() {
     return () => {
       active = false;
     };
-  }, [patientId]);
+  }, [patientId, timeRange]);
 
   useEffect(() => {
     let active = true;
@@ -414,41 +426,7 @@ export default function PatientDetailPage() {
     return "text-slate-700 bg-slate-50 border-slate-200";
   };
 
-  const renderTrendChart = (series: number[], unit = "", dec = 0, color = "#0ea5e9") => {
-    if (!series || series.length < 2) return null;
-    const w = 640, h = 140;
-    const padL = 14, padR = 46, padT = 24, padB = 24;
-    const n = series.length - 1;
-    const mn = Math.min(...series), mx = Math.max(...series), rng = (mx - mn) || 1;
-    const lo = mn - rng * 0.15;
-    const vr = mx + rng * 0.15 - lo || 1;
-    const X = (i: number) => padL + i * ((w - padL - padR) / n);
-    const Y = (v: number) => padT + (1 - (v - lo) / vr) * (h - padT - padB);
-    const pts = series.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
-    const area = `${padL},${h - padB} ${pts} ${w - padR},${h - padB}`;
-    const last = series[n];
-    return (
-      <svg viewBox={`0 0 ${w} ${h}`} className="h-auto w-full">
-        <polyline points={area} fill={color} opacity={0.08} stroke="none" />
-        <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {series.map((v, i) => (
-          <circle
-            key={i}
-            cx={X(i)}
-            cy={Y(v)}
-            r={i === n ? 3.4 : 2}
-            fill={color}
-            stroke={i === n ? "#fff" : undefined}
-            strokeWidth={i === n ? 1.3 : undefined}
-          />
-        ))}
-        <text x={X(n)} y={Y(last) - 8} fontSize={10.5} fontWeight={700} fill="#334155" textAnchor="end">
-          {dec ? last.toFixed(dec) : Math.round(last).toLocaleString()}
-          {unit ? ` ${unit}` : ""}
-        </text>
-      </svg>
-    );
-  };
+  // `renderTrendChart` has been extracted to `StaffTrendChart` component below to support interactive hooks
 
   const getOrderStatusTone = (status?: string) => {
     const s = (status || "").toLowerCase();
@@ -881,6 +859,34 @@ export default function PatientDetailPage() {
                           ))}
                         </div>
 
+                        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                          <h3 className="mb-2 text-sm font-semibold text-slate-900">Data Sources Priority</h3>
+                          <p className="mb-3 text-xs text-slate-500">
+                            The priority this patient has configured for deduplicating their vitals data (read-only).
+                          </p>
+                          {patient.vitals_source_priority && patient.vitals_source_priority.length > 0 ? (
+                            <div className="flex flex-col gap-2">
+                              {patient.vitals_source_priority.map((source, index) => {
+                                const labels: Record<string, string> = {
+                                  questionnaire: 'Clinical Intake (Questionnaire)',
+                                  patient_portal: 'Manual Dashboard Logs',
+                                  wearable: 'Smart Devices (Wearables)',
+                                };
+                                return (
+                                  <div key={source} className="flex items-center gap-3 rounded-md bg-slate-50 px-3 py-2 text-sm border border-slate-100">
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-600">
+                                      {index + 1}
+                                    </span>
+                                    <span className="font-medium text-slate-700">{labels[source] || source}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-slate-500 italic">No custom priority set by patient.</div>
+                          )}
+                        </div>
+
                         {wearableData && (() => {
                           const {
                             sleep: sleepMetrics,
@@ -888,13 +894,11 @@ export default function PatientDetailPage() {
                             heart: heartMetrics,
                             workouts: workoutsMetrics,
                             glucose: glucoseMetrics,
-                          } = buildWearableMetrics(wearableData);
-                          const healthTabs: { id: "sleep" | "activity" | "heart" | "workouts" | "glucose"; label: string; metrics: MetricItem[] }[] = [
+                          } = buildWearableMetrics(wearableData, timeRange);
+                          const healthTabs: { id: "sleep" | "activity" | "workouts"; label: string; metrics: MetricItem[] }[] = [
                             { id: "sleep", label: "Sleep", metrics: sleepMetrics },
                             { id: "activity", label: "Activity", metrics: activityMetrics },
-                            { id: "heart", label: "Heart", metrics: heartMetrics },
                             { id: "workouts", label: "Workouts", metrics: workoutsMetrics },
-                            { id: "glucose", label: "Glucose", metrics: glucoseMetrics },
                           ];
                           const activeMetrics = healthTabs.find((t) => t.id === healthTab)?.metrics ?? [];
                           const activeTrend =
@@ -902,8 +906,8 @@ export default function PatientDetailPage() {
                               ? { series: wearableData.sleepSeries, unit: "hrs", dec: 1 }
                               : healthTab === "activity" && wearableData.stepsSeries && wearableData.stepsSeries.length > 1
                               ? { series: wearableData.stepsSeries, unit: "", dec: 0 }
-                              : healthTab === "glucose" && wearableData.glucoseSeries && wearableData.glucoseSeries.length > 1
-                              ? { series: wearableData.glucoseSeries, unit: "mg/dL", dec: 0 }
+                              : healthTab === "workouts" && wearableData.workoutsSeries && wearableData.workoutsSeries.length > 1 && wearableData.workoutsSeries.some(s => s.val > 0)
+                              ? { series: wearableData.workoutsSeries, unit: "min", dec: 0 }
                               : null;
 
                           const readinessSeries = wearableData.readinessSeries || [];
@@ -921,7 +925,7 @@ export default function PatientDetailPage() {
                                     <span className="text-sm font-normal text-slate-500"> /100</span>
                                   </div>
                                   {readinessSeries.length > 1 ? (
-                                    renderTrendChart(readinessSeries, "", 0)
+                                    <StaffTrendChart series={readinessSeries} dec={0} color="#0ea5e9" />
                                   ) : (
                                     <div className="p-4 text-center text-sm text-slate-500">Not enough history yet for a trend line.</div>
                                   )}
@@ -940,25 +944,104 @@ export default function PatientDetailPage() {
                                 </CardContent>
                               </Card>
 
-                              {weightSeries.length > 0 && (() => {
-                                const cur = weightSeries[weightSeries.length - 1];
-                                const chg = weightSeries.length > 1 ? +(cur - weightSeries[0]).toFixed(1) : null;
+                              {vitalsData.length > 0 && (() => {
+                                const priorityList = patient?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
+                                const byDate = new Map<string, any>();
+                                
+                                for (const entry of vitalsData) {
+                                  if (entry.weight_lbs == null) continue;
+                                  
+                                  const dateKey = entry.measured_at.split('T')[0];
+                                  const existing = byDate.get(dateKey);
+                                  
+                                  if (!existing) {
+                                    byDate.set(dateKey, entry);
+                                  } else {
+                                    const existingRank = priorityList.indexOf(existing.source);
+                                    const newRank = priorityList.indexOf(entry.source);
+                                    
+                                    const eRank = existingRank === -1 ? 999 : existingRank;
+                                    const nRank = newRank === -1 ? 999 : newRank;
+                                    
+                                    if (nRank < eRank) {
+                                      byDate.set(dateKey, entry);
+                                    } else if (nRank === eRank && new Date(entry.measured_at).getTime() > new Date(existing.measured_at).getTime()) {
+                                      byDate.set(dateKey, entry);
+                                    }
+                                  }
+                                }
+
+                                const sortedVitals = Array.from(byDate.values())
+                                  .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
+
+                                const points = sortedVitals.map(v => ({
+                                  date: v.measured_at,
+                                  weight: Number(v.weight_lbs),
+                                  height: v.height_in ? Number(v.height_in) : null,
+                                  bmi: v.bmi ? Number(v.bmi) : null,
+                                }));
+                                const cur = points[points.length - 1]?.weight;
+                                const chg = points.length > 1 ? +(cur - points[0].weight).toFixed(1) : null;
                                 return (
                                   <Card className="border-slate-200 shadow-sm">
-                                    <CardHeader className="border-b border-slate-100 pb-2 flex-row items-center justify-between space-y-0">
-                                      <CardTitle className="text-base text-slate-900">Weight Trend</CardTitle>
-                                      {chg != null && (
-                                        <span className={`text-xs font-semibold ${chg <= 0 ? "text-emerald-600" : "text-amber-600"}`}>
-                                          {chg <= 0 ? "▼" : "▲"} {Math.abs(chg)} lb overall
-                                        </span>
-                                      )}
+                                    <CardHeader className="border-b border-slate-100 pb-2">
+                                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
+                                            <TrendingUp size={16} strokeWidth={2} />
+                                          </div>
+                                          <CardTitle className="text-base text-slate-900">Weight Trend</CardTitle>
+                                        </div>
+                                        <div className="flex gap-1.5">
+                                          {[
+                                            { label: '1W', days: 7 },
+                                            { label: '1M', days: 30 },
+                                            { label: '3M', days: 90 },
+                                            { label: '1Y', days: 365 },
+                                          ].map(opt => (
+                                            <button
+                                              key={opt.days}
+                                              onClick={() => {
+                                                if (opt.days === 90 || opt.days === 365) {
+                                                  toast({
+                                                    title: 'Fetching extended historical data. This may take a moment...',
+                                                    duration: 4000,
+                                                  });
+                                                }
+                                                setTimeRange(opt.days);
+                                              }}
+                                              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                                                timeRange === opt.days
+                                                  ? 'bg-slate-900 text-white'
+                                                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                                              }`}
+                                            >
+                                              {opt.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
                                     </CardHeader>
                                     <CardContent className="pt-4">
-                                      <div className="mb-2 text-2xl font-bold text-slate-900">
-                                        {cur} <span className="text-sm font-normal text-slate-500">lb</span>
+                                      <div className="mb-4 flex items-baseline justify-between">
+                                        <div>
+                                          <div className="text-3xl font-bold text-slate-900">
+                                            {cur} <span className="text-lg font-normal text-slate-500">lb</span>
+                                          </div>
+                                          {chg != null && (
+                                            <div className={`mt-1 text-sm font-semibold ${chg <= 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                                              {chg <= 0 ? "▼" : "▲"} {Math.abs(chg)} lb overall
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="text-right text-xs text-slate-500">
+                                          BMI <span className="font-semibold text-slate-900">{points[points.length - 1]?.bmi?.toFixed(1) || 'N/A'}</span>
+                                        </div>
                                       </div>
-                                      {weightSeries.length > 1 ? (
-                                        renderTrendChart(weightSeries, "lb", 1)
+                                      {points.length > 1 ? (
+                                        <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                                          <WeightTrendChart points={points as any} targetBmi={null} />
+                                        </div>
                                       ) : (
                                         <div className="p-4 text-center text-sm text-slate-500">Not enough history yet for a trend line.</div>
                                       )}
@@ -983,10 +1066,23 @@ export default function PatientDetailPage() {
                                         {t.label}
                                       </button>
                                     ))}
+                                    {wearableData?.customQueries && wearableData.customQueries.length > 0 && (
+                                      <button
+                                        onClick={() => setCustomInsightsOpen(true)}
+                                        className="flex-none rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[12px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors ml-auto"
+                                      >
+                                        Custom Insights ✦
+                                      </button>
+                                    )}
                                   </div>
+                                  <CustomInsightsModal 
+                                    open={customInsightsOpen}
+                                    onOpenChange={setCustomInsightsOpen}
+                                    customQueries={wearableData?.customQueries}
+                                  />
                                 </CardHeader>
                                 <CardContent className="pt-4 space-y-4">
-                                  {activeTrend && renderTrendChart(activeTrend.series, activeTrend.unit, activeTrend.dec)}
+                                  {activeTrend && <StaffTrendChart series={activeTrend.series} unit={activeTrend.unit} dec={activeTrend.dec} color="#0ea5e9" />}
                                   {activeMetrics.length === 0 ? (
                                     <div className="p-4 text-center text-sm text-slate-500">No recent data available.</div>
                                   ) : (
@@ -1188,6 +1284,323 @@ export default function PatientDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+
+/* ─── Weight Trend Chart ─── */
+function WeightTrendChart({
+  points,
+  targetBmi,
+}: {
+  points: { date: string; weight: number; height?: number | null; bmi?: number | null }[];
+  targetBmi?: number | null;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  if (!points || points.length < 2) return null;
+
+  const series = points.map(p => p.weight);
+  const w = 500, h = 170;
+  const padL = 14, padR = 44, padT = 36, padB = 24;
+  const n = series.length - 1;
+  let mn = Math.min(...series);
+  let mx = Math.max(...series);
+
+  let targetWeight: number | null = null;
+  if (targetBmi) {
+    const pWithHeight = [...points].reverse().find(p => p.height != null);
+    if (pWithHeight && pWithHeight.height) {
+      targetWeight = (targetBmi * pWithHeight.height * pWithHeight.height) / 703;
+      mn = Math.min(mn, targetWeight);
+      mx = Math.max(mx, targetWeight);
+    }
+  }
+
+  const rng = mx - mn || 1;
+  const lo = mn - rng * 0.15;
+  const vr = mx + rng * 0.15 - lo || 1;
+
+  const X = (i: number) => padL + i * ((w - padL - padR) / n);
+  const Y = (v: number) => padT + (1 - (v - lo) / vr) * (h - padT - padB);
+
+  let pathD = `M ${X(0)},${Y(series[0]!)}`;
+  for (let i = 0; i < n; i++) {
+    const p0x = X(i), p0y = Y(series[i]!);
+    const p1x = X(i + 1), p1y = Y(series[i + 1]!);
+    const cx = (p0x + p1x) / 2;
+    pathD += ` C ${cx},${p0y} ${cx},${p1y} ${p1x},${p1y}`;
+  }
+
+  const areaD = `${pathD} L ${w - padR},${h - padB} L ${padL},${h - padB} Z`;
+
+  const fmtD = (dStr: string) => {
+    const d = new Date(dStr);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  const ti = [0, Math.round(n / 2), n].filter((v, ix, a) => a.indexOf(v) === ix);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible', touchAction: 'none' }}
+        preserveAspectRatio="none"
+        onPointerMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const scaleX = w / rect.width;
+          const x = (e.clientX - rect.left) * scaleX;
+          if (x < padL - 10 || x > w - padR + 10) {
+            setHoveredIndex(null);
+            return;
+          }
+          const ratio = (x - padL) / (w - padL - padR);
+          const index = Math.round(ratio * n);
+          setHoveredIndex(Math.max(0, Math.min(n, index)));
+        }}
+        onPointerLeave={() => setHoveredIndex(null)}
+      >
+        <defs>
+          <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {targetWeight !== null && (
+          <line
+            x1={padL} y1={Y(targetWeight)}
+            x2={w - padR} y2={Y(targetWeight)}
+            stroke="var(--km-t2, #94a3b8)" strokeWidth={1} strokeDasharray="4 4"
+          />
+        )}
+        <path d={areaD} fill="url(#area-gradient)" stroke="none" />
+        <path d={pathD} fill="none" stroke="#0ea5e9" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        
+        {series.map((v, i) => {
+          const isHovered = hoveredIndex === i;
+          const isLast = i === n;
+          const showDot = points.length < 30 || isHovered || isLast;
+          if (!showDot) return null;
+          return (
+            <circle
+              key={i} cx={X(i)} cy={Y(v)}
+              r={isHovered ? 5 : (isLast ? 3.4 : 2.4)}
+              fill="#0ea5e9"
+              stroke={isLast || isHovered ? '#fff' : undefined}
+              strokeWidth={isLast || isHovered ? 1.5 : undefined}
+              style={{ transition: 'all 0.2s ease', pointerEvents: 'none' }}
+            />
+          );
+        })}
+
+        {hoveredIndex !== null && (
+          <line
+            x1={X(hoveredIndex)} y1={Y(series[hoveredIndex]!)}
+            x2={X(hoveredIndex)} y2={h - padB}
+            stroke="#0ea5e9" strokeWidth={1} strokeDasharray="3 3"
+            opacity={0.5}
+            pointerEvents="none"
+          />
+        )}
+
+        {ti.map((i) => (
+          <text
+            key={`date-${i}`} x={X(i)} y={h - 4} fontSize={10} fill="var(--km-tm)"
+            textAnchor={i === 0 ? 'start' : i === n ? 'end' : 'middle'}
+          >
+            {fmtD(points[i]!.date)}
+          </text>
+        ))}
+
+
+      </svg>
+      
+      {hoveredIndex !== null && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${((X(hoveredIndex) / w) * 100)}%`,
+            top: `${((Y(series[hoveredIndex]!) / h) * 100)}%`,
+            transform: 'translate(-50%, -115%)',
+            pointerEvents: 'none',
+            background: 'var(--km-s1, rgba(255, 255, 255, 0.9))',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid var(--km-b)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            padding: '8px 12px',
+            borderRadius: 8,
+            fontSize: 11,
+            zIndex: 10,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div style={{ fontWeight: 700, color: 'var(--km-t)', marginBottom: 2 }}>
+            {new Date(points[hoveredIndex]!.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </div>
+          <div style={{ color: 'var(--km-t2)' }}>Weight: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.weight} lb</b></div>
+          {points[hoveredIndex]!.height != null && (
+            <div style={{ color: 'var(--km-t2)' }}>Height: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.height} in</b></div>
+          )}
+          {points[hoveredIndex]!.bmi != null && (
+            <div style={{ color: 'var(--km-t2)' }}>BMI: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.bmi}</b></div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StaffTrendChart({
+  series,
+  dec = 0,
+  color = '#0ea5e9',
+  unit = '',
+}: {
+  series: { date: string; val: number }[];
+  dec?: number;
+  color?: string;
+  unit?: string;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  if (!series || series.length < 2) return null;
+
+  const w = 640, h = 140;
+  const padL = 14, padR = 46, padT = 24, padB = 24;
+  
+  const n = series.length - 1;
+  const vals = series.map(s => s.val);
+  const mn = Math.min(...vals);
+  const mx = Math.max(...vals);
+  const rng = mx - mn || 1;
+  const lo = mn - rng * 0.15;
+  const vr = mx + rng * 0.15 - lo || 1;
+
+  // Map dates to timestamps for proportional X axis spacing
+  const times = series.map(s => new Date(s.date).getTime());
+  const mnTime = times[0]!;
+  const mxTime = times[n]!;
+  const timeRng = mxTime - mnTime || 1;
+
+  const X = (i: number) => padL + ((times[i]! - mnTime) / timeRng) * (w - padL - padR);
+  const Y = (v: number) => padT + (1 - (v - lo) / vr) * (h - padT - padB);
+
+  let pathD = `M ${X(0)},${Y(vals[0]!)}`;
+  for (let i = 0; i < n; i++) {
+    const p0x = X(i), p0y = Y(vals[i]!);
+    const p1x = X(i + 1), p1y = Y(vals[i + 1]!);
+    const cx = (p0x + p1x) / 2;
+    pathD += ` C ${cx},${p0y} ${cx},${p1y} ${p1x},${p1y}`;
+  }
+
+  const areaD = `${pathD} L ${w - padR},${h - padB} L ${padL},${h - padB} Z`;
+
+  const fmtD = (dStr: string) => {
+    const d = new Date(dStr);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  return (
+    <div className="relative w-full">
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="block h-auto w-full overflow-visible touch-none"
+        preserveAspectRatio="none"
+        onPointerMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const scaleX = w / rect.width;
+          const x = (e.clientX - rect.left) * scaleX;
+          if (x < padL - 10 || x > w - padR + 10) {
+            setHoveredIndex(null);
+            return;
+          }
+          // Find the closest point by X coordinate
+          let closestIdx = 0;
+          let minDist = Infinity;
+          for (let i = 0; i <= n; i++) {
+            const dist = Math.abs(X(i) - x);
+            if (dist < minDist) {
+              minDist = dist;
+              closestIdx = i;
+            }
+          }
+          setHoveredIndex(closestIdx);
+        }}
+        onPointerLeave={() => setHoveredIndex(null)}
+      >
+        <defs>
+          <linearGradient id={`area-gradient-${color.replace(/[^a-zA-Z0-9]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.2" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        
+        <path d={areaD} fill={`url(#area-gradient-${color.replace(/[^a-zA-Z0-9]/g, '')})`} stroke="none" />
+        <path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        
+        {series.map((s, i) => {
+          const isHovered = hoveredIndex === i;
+          const isLast = i === n;
+          const showDot = series.length < 30 || isHovered || isLast;
+          if (!showDot) return null;
+          return (
+            <circle
+              key={i} cx={X(i)} cy={Y(s.val)}
+              r={isHovered ? 5 : (isLast ? 3.4 : 2.4)}
+              fill={color}
+              stroke={isLast || isHovered ? '#fff' : undefined}
+              strokeWidth={isLast || isHovered ? 1.5 : undefined}
+              style={{ transition: 'all 0.2s ease', pointerEvents: 'none' }}
+            />
+          );
+        })}
+
+        {hoveredIndex !== null && (
+          <line
+            x1={X(hoveredIndex)} y1={Y(vals[hoveredIndex]!)}
+            x2={X(hoveredIndex)} y2={h - padB}
+            stroke={color} strokeWidth={1} strokeDasharray="3 3"
+            opacity={0.5}
+            pointerEvents="none"
+          />
+        )}
+
+        <text x={X(n)} y={Y(vals[n]!) - 10} fontSize={10.5} fontWeight={700} fill="#334155" textAnchor="end">
+          {dec ? vals[n]!.toFixed(dec) : Math.round(vals[n]!).toLocaleString()}
+          {unit ? ` ${unit}` : ''}
+        </text>
+      </svg>
+      
+      {hoveredIndex !== null && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${((X(hoveredIndex) / w) * 100)}%`,
+            top: `${((Y(vals[hoveredIndex]!) / h) * 100)}%`,
+            transform: 'translate(-50%, -115%)',
+            background: 'var(--km-s1, rgba(255, 255, 255, 0.9))',
+            backdropFilter: 'blur(8px)',
+            color: 'var(--km-t, #0f172a)',
+            padding: '4px 8px',
+            borderRadius: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            pointerEvents: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+            border: '1px solid var(--km-b, #e2e8f0)',
+            whiteSpace: 'nowrap',
+            zIndex: 10,
+          }}
+        >
+          {dec ? vals[hoveredIndex]!.toFixed(dec) : Math.round(vals[hoveredIndex]!).toLocaleString()}
+          {unit ? ` ${unit}` : ''}
+          <div style={{ fontSize: 9, color: 'var(--km-tm, #64748b)', fontWeight: 500, marginTop: 1 }}>
+            {fmtD(series[hoveredIndex]!.date)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
