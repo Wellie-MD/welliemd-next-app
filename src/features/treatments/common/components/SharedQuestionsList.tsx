@@ -212,7 +212,14 @@ export function SharedQuestionsList({
     }
 
     const previousQuestions = questions;
-    const reordered = arrayMove(displayQuestions, oldIndex, newIndex).map((q, idx) => ({
+    const movedQuestions = arrayMove(displayQuestions, oldIndex, newIndex);
+    const personalDetails = movedQuestions.filter(
+      (question) => question.kind === "personal_details",
+    );
+    const reordered = [
+      ...personalDetails,
+      ...movedQuestions.filter((question) => question.kind !== "personal_details"),
+    ].map((q, idx) => ({
       ...q,
       order: idx + 1,
     }));

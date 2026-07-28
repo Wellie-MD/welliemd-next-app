@@ -165,6 +165,18 @@ export interface AdminOrder {
   chargeable_amount?: string | number | null;
   chargeable_amount_source?: 'requested_medicine' | 'prescribed_medicine' | 'requested_medicine_fallback' | null;
   discount_amount: number;
+  coupon_code?: string | null;
+  original_price?: string | number | null;
+  payment_settlement_state?: string | null;
+  payment_settlement_basis?: string | null;
+  payment_settlement_amount?: string | number | null;
+  prescribed_final_amount?: string | number | null;
+  base_capture_amount?: string | number | null;
+  supplemental_delta_amount?: string | number | null;
+  base_captured_amount?: string | number | null;
+  supplemental_captured_amount?: string | number | null;
+  total_patient_captured?: string | number | null;
+  total_patient_refunded?: string | number | null;
   requested_medicine_name?: string | null;
   prescribed_medicine_name?: string | null;
   doctor_name?: string | null;
