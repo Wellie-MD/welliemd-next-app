@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import ConnectState from './components/ConnectState';
@@ -131,7 +131,7 @@ export default function DevicesPage() {
   const [deviceConnected, setDeviceConnected] = useState(false);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [weight, setWeight] = useState<WeightData>({ ...WEIGHT_DEFAULT });
-  const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics>({ ...DEVICE_METRICS_DEFAULT });
+  const [masterDeviceMetrics, setMasterDeviceMetrics] = useState<DeviceMetrics>({ ...DEVICE_METRICS_DEFAULT });
   const [consent, setConsent] = useState<Consent>({ given: false, date: null });
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -140,11 +140,11 @@ export default function DevicesPage() {
   const [priorityModalOpen, setPriorityModalOpen] = useState(false);
   const [timeRange, setTimeRange] = useState(30);
 
-  const fetchDeviceDataList = useCallback(async (days = 30, skipLiveSync = true) => {
+  const fetchMasterDeviceData = useCallback(async () => {
     try {
-      const data = await getDeviceData(days, skipLiveSync);
+      const data = await getDeviceData(365, true);
       if (data) {
-        setDeviceMetrics(prev => ({
+        setMasterDeviceMetrics(prev => ({
           ...prev,
           ...(data.steps && { steps: data.steps }),
           ...(data.sleep && { sleep: data.sleep }),
@@ -165,25 +165,81 @@ export default function DevicesPage() {
         }));
       }
     } catch (e) {
-      console.error('Failed to fetch device data', e);
+      console.error('Failed to fetch master device data', e);
     }
   }, []);
 
-  useEffect(() => {
-    if (timeRange === 90 || timeRange === 365) {
-      toast.info('Fetching your extended historical data. This may take a moment...', {
-        duration: 4000,
-      });
+  const deviceMetrics = useMemo(() => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+    const filterSeries = <T extends { date: string }>(series?: T[]) => {
+      if (!series) return [];
+      return series.filter(item => item.date >= cutoffStr);
+    };
+
+    const stepsSeries = filterSeries(masterDeviceMetrics.stepsSeries);
+    const sleepSeries = filterSeries(masterDeviceMetrics.sleepSeries);
+    const readinessSeries = filterSeries(masterDeviceMetrics.readinessSeries);
+    const workoutsSeries = filterSeries(masterDeviceMetrics.workoutsSeries);
+    const recentWorkouts = filterSeries(masterDeviceMetrics.recentWorkouts);
+    const glucoseSeries = filterSeries(masterDeviceMetrics.glucoseSeries);
+
+    const customQueries = masterDeviceMetrics.customQueries?.map(q => ({
+      ...q,
+      series: filterSeries(q.series)
+    })) || [];
+
+    const activeDays = stepsSeries.length;
+    const workoutsCount = recentWorkouts.length;
+    const avgGlucose = glucoseSeries.length 
+      ? Math.round((glucoseSeries.reduce((sum, g) => sum + g.val, 0) / glucoseSeries.length) * 10) / 10 
+      : null;
+    const latestGlucose = glucoseSeries.length ? glucoseSeries[glucoseSeries.length - 1].val : null;
+
+    const steps = stepsSeries.length ? String(stepsSeries[stepsSeries.length - 1].val) : masterDeviceMetrics.steps;
+    
+    let sleep = masterDeviceMetrics.sleep;
+    if (sleepSeries.length) {
+      const val = sleepSeries[sleepSeries.length - 1].val;
+      const hrs = Math.floor(val);
+      const mins = Math.round((val - hrs) * 60);
+      sleep = `${hrs}h ${mins}m`;
+    } else if (masterDeviceMetrics.sleepSeries?.length === 0) {
+      sleep = null;
     }
-    fetchDeviceDataList(timeRange, true);
-  }, [timeRange, fetchDeviceDataList]);
+
+    const readiness = readinessSeries.length ? String(readinessSeries[readinessSeries.length - 1].val) : masterDeviceMetrics.readiness;
+    
+    return {
+      ...masterDeviceMetrics,
+      stepsSeries,
+      sleepSeries,
+      readinessSeries,
+      workoutsSeries,
+      recentWorkouts,
+      glucoseSeries,
+      customQueries,
+      activeDays: String(activeDays),
+      workoutsCount,
+      avgGlucose,
+      latestGlucose,
+      steps,
+      sleep,
+      readiness,
+    };
+  }, [masterDeviceMetrics, timeRange]);
 
   // Initial live sync on mount (background)
   useEffect(() => {
+    toast.info('Fetching your extended historical data. This may take a moment...', {
+      duration: 4000,
+    });
     getDeviceData(7, false)
       .then(() => {
-        // Re-fetch the UI data from the DB now that the background sync has completed
-        fetchDeviceDataList(timeRange, true);
+        // Re-fetch the full 365 days of data into master metrics
+        fetchMasterDeviceData();
       })
       .catch(console.error);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,14 +294,14 @@ export default function DevicesPage() {
       setDeviceConnected(formatted.length > 0);
       
       // Also refresh the device data via live sync
-      fetchDeviceDataList(timeRange, false);
+      fetchMasterDeviceData();
       
       return formatted;
     } catch {
       setConnectionSyncError('Unable to check the connection right now. Please try again.');
       return null;
     }
-  }, [fetchDeviceDataList]);
+  }, [fetchMasterDeviceData]);
 
   useEffect(() => {
     const pendingProviders = connections.filter(c => c.status === 'pending').map(c => c.provider);
