@@ -235,14 +235,78 @@ export default function PatientDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [wearableConnections, setWearableConnections] = useState<WearableConnection[]>([]);
-  const [wearableData, setWearableData] = useState<WearableDeviceData | null>(null);
+  const [masterWearableData, setMasterWearableData] = useState<WearableDeviceData | null>(null);
   const [wearablesLoading, setWearablesLoading] = useState(false);
   const [wearableConsent, setWearableConsent] = useState<{ granted: boolean; date: string | null } | null>(null);
   const [providerLogos, setProviderLogos] = useState<Record<string, string>>({});
   const [healthTab, setHealthTab] = useState<"sleep" | "activity" | "workouts">("sleep");
   const [customInsightsOpen, setCustomInsightsOpen] = useState(false);
   const [timeRange, setTimeRange] = useState(30);
-  const [vitalsData, setVitalsData] = useState<any[]>([]);
+  const [masterVitalsData, setMasterVitalsData] = useState<any[]>([]);
+
+  const vitalsData = useMemo(() => {
+    if (!masterVitalsData.length) return [];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+    return masterVitalsData.filter(v => (v.measured_at || "").split('T')[0] >= cutoffStr);
+  }, [masterVitalsData, timeRange]);
+
+  const wearableData = useMemo(() => {
+    if (!masterWearableData) return null;
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+    const filterSeries = <T extends { date: string }>(series?: T[]) => {
+      if (!series) return [];
+      return series.filter(item => item.date >= cutoffStr);
+    };
+
+    const stepsSeries = filterSeries(masterWearableData.stepsSeries);
+    const sleepSeries = filterSeries(masterWearableData.sleepSeries);
+    const readinessSeries = filterSeries(masterWearableData.readinessSeries);
+    const workoutsSeries = filterSeries(masterWearableData.workoutsSeries);
+    const recentWorkouts = filterSeries(masterWearableData.recentWorkouts);
+
+    const customQueries = masterWearableData.customQueries?.map(q => ({
+      ...q,
+      series: filterSeries(q.series)
+    })) || [];
+
+    const activeDays = stepsSeries.length;
+    const workoutsCount = recentWorkouts.length;
+    
+    const steps = stepsSeries.length ? String(stepsSeries[stepsSeries.length - 1].val) : masterWearableData.steps;
+    
+    let sleep = masterWearableData.sleep;
+    if (sleepSeries.length) {
+      const val = sleepSeries[sleepSeries.length - 1].val;
+      const hrs = Math.floor(val);
+      const mins = Math.round((val - hrs) * 60);
+      sleep = `${hrs}h ${mins}m`;
+    } else if (masterWearableData.sleepSeries?.length === 0) {
+      sleep = null;
+    }
+
+    const readiness = readinessSeries.length ? readinessSeries[readinessSeries.length - 1].val : masterWearableData.readiness;
+    
+    return {
+      ...masterWearableData,
+      stepsSeries,
+      sleepSeries,
+      readinessSeries,
+      workoutsSeries,
+      recentWorkouts,
+      customQueries,
+      activeDays: String(activeDays),
+      workoutsCount,
+      steps,
+      sleep,
+      readiness,
+    };
+  }, [masterWearableData, timeRange]);
   const [formState, setFormState] = useState({
     first_name: "",
     last_name: "",
@@ -327,7 +391,7 @@ export default function PatientDetailPage() {
     async function loadWearables() {
       // Prevent full component unmount on timeline changes by only showing the spinner initially
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      if (!wearableData) setWearablesLoading(true);
+      if (!masterWearableData) setWearablesLoading(true);
       try {
         api
           .get("/wearables/consent/", { params: { patient_id: patientId } })
@@ -353,16 +417,16 @@ export default function PatientDetailPage() {
         const hasConnected = conns.length > 0;
         if (hasConnected) {
           const [dataRes, vitalsRes] = await Promise.all([
-            api.get("/wearables/device-data/", { params: { patient_id: patientId, days: timeRange } }),
-            api.get("/medical/vitals/", { params: { patient_id: patientId, days: timeRange } }).catch(() => ({ data: [] })),
+            api.get("/wearables/device-data/", { params: { patient_id: patientId, days: 365 } }),
+            api.get("/medical/vitals/", { params: { patient_id: patientId, days: 365 } }).catch(() => ({ data: [] })),
           ]);
           if (active) {
-            setWearableData(dataRes.data || null);
-            setVitalsData(Array.isArray(vitalsRes.data) ? vitalsRes.data : vitalsRes.data?.results || []);
+            setMasterWearableData(dataRes.data || null);
+            setMasterVitalsData(Array.isArray(vitalsRes.data) ? vitalsRes.data : vitalsRes.data?.results || []);
           }
         } else if (active) {
-          setWearableData(null);
-          setVitalsData([]);
+          setMasterWearableData(null);
+          setMasterVitalsData([]);
         }
       } catch (err) {
         console.error("Failed to load wearables data:", err);
@@ -374,7 +438,7 @@ export default function PatientDetailPage() {
     return () => {
       active = false;
     };
-  }, [patientId, timeRange]);
+  }, [patientId]);
 
   useEffect(() => {
     let active = true;
