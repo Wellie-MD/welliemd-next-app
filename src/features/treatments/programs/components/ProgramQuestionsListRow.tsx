@@ -1,8 +1,10 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useNavigate } from "react-router-dom";
 import { GripVertical, Check, FileCheck, Layers3, LockKeyhole, Pencil, ShoppingCart, Trash2 } from "lucide-react";
 import type { ProgramQuestion } from "@/features/treatments/types";
 import { Button } from "@/components/ui/button";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import {
   PROGRAM_AUTHORING_COPY,
   PROGRAM_ELEMENT_TONES,
@@ -24,6 +26,7 @@ export function ProgramQuestionsListRow({
   onEdit,
   onDelete,
 }: ProgramQuestionsListRowProps) {
+  const navigate = useNavigate();
   const {
     attributes,
     listeners,
@@ -64,11 +67,36 @@ export function ProgramQuestionsListRow({
       ? question.checkoutProducts?.map((product) => product.doseLabel || product.category).filter(Boolean).join(", ")
       : question.elementConfig?.description;
 
+  const navigateToSection = () => {
+    const sectionId = question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId;
+    if (sectionId) {
+      navigate(`${ADMIN_TREATMENT_ROUTES.sections}?sectionId=${sectionId}&view=list`);
+    }
+  };
+
+  const navigateToConsent = () => {
+    const consentId = question.elementConfig?.sourceId;
+    if (consentId) {
+      navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentId}`);
+    }
+  };
+
+  const handleRowClick = () => {
+    if (isReorderActive) return;
+    if (isSection) {
+      navigateToSection();
+    } else if (isConsent) {
+      navigateToConsent();
+    } else {
+      onEdit(question);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      onClick={() => !isReorderActive && onEdit(question)}
+      onClick={handleRowClick}
       className={`group grid min-h-[46px] grid-cols-[44px_minmax(0,1fr)_100px_120px_72px] items-center gap-4 border-b border-slate-100 px-7 py-2 transition-colors ${isReorderActive ? "cursor-default" : "cursor-pointer"} ${
         isDragging ? "bg-slate-100/50 shadow-md" : "bg-white hover:bg-slate-50/80"
       }`}
@@ -136,9 +164,18 @@ export function ProgramQuestionsListRow({
             <Button
               variant="ghost"
               size="icon"
-              onClick={(event) => { event.stopPropagation(); onEdit(question); }}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (isSection) {
+                  navigateToSection();
+                } else if (isConsent) {
+                  navigateToConsent();
+                } else {
+                  onEdit(question);
+                }
+              }}
               className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-              title="Edit Element"
+              title={isSection ? "Go to Section" : isConsent ? "Go to Consent" : "Edit Element"}
             >
               <Pencil className="h-3 w-3" />
             </Button>

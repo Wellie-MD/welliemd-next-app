@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DndContext,
   KeyboardSensor,
@@ -9,6 +10,7 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
 import type { ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
 import { useQueryClient } from "@tanstack/react-query";
@@ -89,6 +91,7 @@ export function SharedQuestionsList({
   onOpenPreview,
   allConsents = [],
 }: SharedQuestionsListProps) {
+  const navigate = useNavigate();
   const [questions, setQuestions] = useState<ProgramQuestion[]>(initialQuestions);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -288,7 +291,22 @@ export function SharedQuestionsList({
   // Editing dispatch — every element kind (question, checkout, auth) opens
   // the same QuestionEditorDialog "Question Builder"; it switches its
   // middle/right panels internally based on the active question's kind.
+  // Sections and consents redirect to their dedicated library pages for editing.
   const handleEditClick = (q: ProgramQuestion) => {
+    if (q.kind === "section") {
+      const sectionId = q.elementConfig?.sourceSectionId || q.elementConfig?.sourceId;
+      if (sectionId) {
+        navigate(`${ADMIN_TREATMENT_ROUTES.sections}?sectionId=${sectionId}&view=list`);
+      }
+      return;
+    }
+    if (q.kind === "consent") {
+      const consentId = q.elementConfig?.sourceId;
+      if (consentId) {
+        navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentId}`);
+      }
+      return;
+    }
     setActiveEditingQuestion(q);
     if (q.kind === "checkout" && entityType === "program") {
       setIsCheckoutOpen(true);

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConsentListTable } from "@/features/treatments/libraries/consents/components/ConsentListTable";
@@ -20,6 +21,9 @@ export default function ConsentsPage() {
   const { mutate: deleteConsent } = useDeleteConsent();
   const { mutate: archiveConsent } = useArchiveConsent();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const consentIdFromUrl = searchParams.get("consentId");
+
   const [scopeFilter, setScopeFilter] = useState<ConsentScopeFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -30,6 +34,13 @@ export default function ConsentsPage() {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [previewConsentId, setPreviewConsentId] = useState<string | null>(null);
   const [deleteConsentId, setDeleteConsentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (consentIdFromUrl && consents.some((c) => c.id === consentIdFromUrl)) {
+      setSelectedConsentId(consentIdFromUrl);
+      setIsEditModalOpen(true);
+    }
+  }, [consentIdFromUrl, consents]);
 
   const filteredConsents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -177,7 +188,13 @@ export default function ConsentsPage() {
 
       <ConsentEditModal
         open={isEditModalOpen}
-        onOpenChange={setIsEditModalOpen}
+        onOpenChange={(open) => {
+          setIsEditModalOpen(open);
+          if (!open) {
+            searchParams.delete("consentId");
+            setSearchParams(searchParams);
+          }
+        }}
         consentId={selectedConsentId}
       />
 

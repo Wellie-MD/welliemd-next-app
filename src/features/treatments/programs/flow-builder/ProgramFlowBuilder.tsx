@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 import { ProgramFlowCanvas } from "@/features/treatments/programs/flow-builder/components/ProgramFlowCanvas";
 import { ProgramFlowSidebar } from "@/features/treatments/programs/flow-builder/components/ProgramFlowSidebar";
 import { ProgramFlowConfigPanel } from "@/features/treatments/programs/flow-builder/components/ProgramFlowConfigPanel";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import type { ConsentForm, Program, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 
 interface ProgramFlowBuilderProps {
@@ -26,6 +28,7 @@ export function ProgramFlowBuilder({
   onEditCheckoutQuestion,
   onSaveProgram,
 }: ProgramFlowBuilderProps) {
+  const navigate = useNavigate();
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editingNodeType, setEditingNodeType] = useState<string | null>(null);
@@ -34,6 +37,15 @@ export function ProgramFlowBuilder({
   const handleNodeDoubleClick = (nodeId: string, nodeType: string) => {
     if (nodeType === "question") {
       onEditQuestion(nodeId);
+      return;
+    }
+
+    if (nodeType === "section") {
+      const sectionQuestion = questions.find((q) => q.id === nodeId && q.kind === "section");
+      const sectionId = sectionQuestion?.elementConfig?.sourceSectionId || sectionQuestion?.elementConfig?.sourceId;
+      if (sectionId) {
+        navigate(`${ADMIN_TREATMENT_ROUTES.sections}?sectionId=${sectionId}&view=list`);
+      }
       return;
     }
 
