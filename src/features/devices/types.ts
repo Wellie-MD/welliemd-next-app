@@ -93,6 +93,9 @@ export interface DeviceMetrics {
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
   workoutsSeries?: { date: string; val: number }[];
+  glucoseSeries?: { date: string; val: number }[];
+  avgGlucose?: number;
+  latestGlucose?: number;
   customQueries?: {
     id: string;
     name: string;
@@ -145,6 +148,9 @@ export interface DeviceDataResponse {
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
   workoutsSeries?: { date: string; val: number }[];
+  glucoseSeries?: { date: string; val: number }[];
+  avgGlucose?: number;
+  latestGlucose?: number;
   customQueries?: {
     id: string;
     name: string;

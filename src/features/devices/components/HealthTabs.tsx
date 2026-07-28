@@ -11,6 +11,7 @@ function TrendChart({
   w = 500,
   h = 160,
   unit = '',
+  step: _step = 'day',
 }: {
   series: { date: string; val: number }[];
   dec?: number;
@@ -18,6 +19,7 @@ function TrendChart({
   w?: number;
   h?: number;
   unit?: string;
+  step?: 'week' | 'day';
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -414,6 +416,7 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
       const topSport = Object.entries(sportCounts).sort((a, b) => b[1] - a[1])[0];
       if (topSport) dynamicMetrics.workouts.push({ l: 'Most frequent', v: `${topSport[0]} (${topSport[1]})` });
     }
+  }
 
 
 
@@ -543,5 +546,4 @@ export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }
       })}
     </div>
   );
-}
 }

@@ -127,7 +127,17 @@ type TimelineStep = {
 function buildTimeline(order: PatientOrder): TimelineStep[] {
   const ordered = formatDate(order.created_at);
   const prescribed = formatDate(order.prescribed_at);
-  const amount = `$${order.chargeable_amount || order.amount}`;
+  const recordedCaptured = Number(order.total_patient_captured || 0);
+  const allocatedCaptured = (
+    Number(order.base_captured_amount || 0)
+    + Number(order.supplemental_captured_amount || 0)
+  );
+  const capturedAmount = recordedCaptured > 0
+    ? recordedCaptured
+    : allocatedCaptured;
+  const amount = `$${capturedAmount > 0
+    ? capturedAmount.toFixed(2)
+    : order.chargeable_amount || order.amount}`;
 
   // Map backend status → kinmeds3 display status
   const statusMap: Record<string, string> = {
@@ -489,6 +499,17 @@ export default function OrderDetail() {
       ? requestedMedicineName
       : rawPrescribedMedicineName;
   const displayAmount = order.chargeable_amount || order.amount;
+  const originalAmount = order.original_price || displayAmount;
+  const discountAmount = Number(order.discount_amount || 0);
+  const capturedAmount = Number(
+    order.total_patient_captured
+    || (
+      Number(order.base_captured_amount || 0)
+      + Number(order.supplemental_captured_amount || 0)
+    ),
+  );
+  const refundedAmount = Number(order.total_patient_refunded || 0);
+  const remainingSupplementalAmount = Number(order.remaining_supplemental_amount || 0);
   const showProductImage = Boolean(order.product_image) && !productImageFailed;
   const hasBeenPrescribed =
     Boolean(order.prescribed_at) ||
@@ -782,9 +803,45 @@ export default function OrderDetail() {
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
-          <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Amount</span>
+          <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Order total</span>
           <span style={{ fontSize: 15, fontWeight: 800 }}>${displayAmount}</span>
         </div>
+        {discountAmount > 0 && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
+              <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Price before discount</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>${originalAmount}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
+              <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>
+                Discount{order.coupon_code ? ` (${order.coupon_code})` : ''}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-gr)' }}>
+                −${discountAmount.toFixed(2)}
+              </span>
+            </div>
+          </>
+        )}
+        {capturedAmount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
+            <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Captured</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>${capturedAmount.toFixed(2)}</span>
+          </div>
+        )}
+        {refundedAmount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
+            <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Refunded</span>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>${refundedAmount.toFixed(2)}</span>
+          </div>
+        )}
+        {remainingSupplementalAmount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
+            <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Payment still due</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-am)' }}>
+              ${remainingSupplementalAmount.toFixed(2)}
+            </span>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Ordered</span>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{formatDate(order.created_at)}</span>

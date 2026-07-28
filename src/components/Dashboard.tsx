@@ -66,6 +66,7 @@ function buildWeightData(entries: VitalsEntry[], prev: WeightData, priorityList:
     date: e.measured_at,
     weight: Number(e.weight_lbs),
     bmi: e.bmi != null ? Number(e.bmi) : null,
+    height: e.height_inches != null ? Number(e.height_inches) : null,
   }));
   const series = points.map((p) => p.weight);
   const checkins = points.map((p) => ({
