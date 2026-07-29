@@ -26,6 +26,7 @@ import {
 import { normalizeProgramFlowData, type FlowNormalizationIssue } from "./flowNormalizer";
 import type { FlowEdgeKind, LayoutBox, LayoutType, ProgramFlowEdge } from "./flowTypes";
 import { traceActivePath } from "./flowPathTracing";
+import { hasPatientAuthentication } from "../../programSystemBoundary";
 
 export interface GraphData {
   nodes: Node[];
@@ -119,6 +120,8 @@ export function buildStaticProgramFlowGraph(
   } = normalized;
 
   const allProducts = (program.checkoutQuestions || []).flatMap((cq) => cq.products || []);
+  const hasAuth = hasPatientAuthentication(program);
+  const hasCheckout = (program.checkoutQuestions || []).length > 0;
 
   const place = (id: string, centerX: number, y: number, type: LayoutType, height = BASE_HEIGHTS[type]) => {
     boxes.set(id, { id, centerX, y, type, height });
@@ -205,14 +208,28 @@ export function buildStaticProgramFlowGraph(
     return bottom;
   };
 
+  const consentIds = program.consentIds || [];
+  const programConsents = allConsents.filter((consent) => consentIds.includes(consent.id));
+  const hasAuthoredFlow = (
+    hasAuth
+    || sortedQuestions.length > 0
+    || programConsents.length > 0
+    || hasCheckout
+  );
+  if (!hasAuthoredFlow) {
+    return { nodes: [], edges: [], diagnostics: normalized.issues };
+  }
+
   let y = TOP_PADDING;
   place("start", SPINE_X, y, "start");
   placedNodeIds.add("start");
   y += BASE_HEIGHTS.start + 28;
 
-  place("auth", SPINE_X, y, "auth");
-  placedNodeIds.add("auth");
-  y += BASE_HEIGHTS.auth + SPINE_GAP_Y;
+  if (hasAuth) {
+    place("auth", SPINE_X, y, "auth");
+    placedNodeIds.add("auth");
+    y += BASE_HEIGHTS.auth + SPINE_GAP_Y;
+  }
 
   const spineQuestionIds: string[] = [];
   spineQuestions.forEach((question) => {
@@ -230,8 +247,6 @@ export function buildStaticProgramFlowGraph(
     y = Math.max(y + height, branchBottom) + ROW_GAP_Y;
   });
 
-  const consentIds = program.consentIds || [];
-  const programConsents = allConsents.filter((consent) => consentIds.includes(consent.id));
   const consentNodeIds: string[] = [];
   programConsents.forEach((consent) => {
     const id = `consent-form-${consent.id}`;
@@ -241,8 +256,10 @@ export function buildStaticProgramFlowGraph(
     y += BASE_HEIGHTS.consent + ROW_GAP_Y;
   });
 
-  place("checkout", SPINE_X, y, "checkout");
-  placedNodeIds.add("checkout");
+  if (hasCheckout) {
+    place("checkout", SPINE_X, y, "checkout");
+    placedNodeIds.add("checkout");
+  }
 
   const productStackX = productCenterX(2);
   let productY = y + BASE_HEIGHTS.checkout + 28;
@@ -281,11 +298,20 @@ export function buildStaticProgramFlowGraph(
     });
   });
 
-  y = Math.max(y + BASE_HEIGHTS.checkout, productY) + ROW_GAP_Y;
+  y = hasCheckout
+    ? Math.max(y + BASE_HEIGHTS.checkout, productY) + ROW_GAP_Y
+    : y + ROW_GAP_Y;
   place("end", SPINE_X, y, "end");
   placedNodeIds.add("end");
 
-  const spineNodeIds = ["start", "auth", ...spineQuestionIds, ...consentNodeIds, "checkout", "end"];
+  const spineNodeIds = [
+    "start",
+    ...(hasAuth ? ["auth"] : []),
+    ...spineQuestionIds,
+    ...consentNodeIds,
+    ...(hasCheckout ? ["checkout"] : []),
+    "end",
+  ];
   for (let i = 0; i < spineNodeIds.length - 1; i += 1) {
     addEdge({
       id: `edge-seq-${spineNodeIds[i]}-${spineNodeIds[i + 1]}`,
@@ -390,12 +416,14 @@ export function buildStaticProgramFlowGraph(
   };
 
   pushNode("start", "start", { label: "Start", subtitle: "Patient enters", isFocused: false });
-  pushNode("auth", "auth", {
-    label: "Patient Authentication",
-    subtitle: "Account entry",
-    config: program.authConfig || { email: true, phone: false, identity: false, account: true },
-    isFocused: false,
-  });
+  if (hasAuth) {
+    pushNode("auth", "auth", {
+      label: "Patient Authentication",
+      subtitle: "Account entry",
+      config: program.authConfig || {},
+      isFocused: false,
+    });
+  }
 
   sortedQuestions.forEach((question) => {
     if (!boxes.has(question.id)) return;
@@ -446,11 +474,13 @@ export function buildStaticProgramFlowGraph(
     pushNode(id, "consent", { label: consent.name, consents: [consent], isFocused: false });
   });
 
-  pushNode("checkout", "checkout", {
-    label: "Checkout",
-    checkoutQuestions: program.checkoutQuestions || [],
-    isFocused: false,
-  });
+  if (hasCheckout) {
+    pushNode("checkout", "checkout", {
+      label: "Checkout",
+      checkoutQuestions: program.checkoutQuestions || [],
+      isFocused: false,
+    });
+  }
 
   allProducts.forEach((product) => {
     const id = `product-card-${product.id}`;

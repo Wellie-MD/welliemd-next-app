@@ -12,6 +12,14 @@ const isMultiValueOperator = (operator: VisibilityRule["operator"]): boolean =>
 const isBetweenOperator = (operator: VisibilityRule["operator"]): boolean =>
   operator === "between";
 
+const normalizeRuleValues = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (value === null || value === undefined) return [];
+  return String(value).split(",").map((item) => item.trim()).filter(Boolean);
+};
+
 /** Domain `VisibilityRuleGroup` → shared `VisibilityRuleBuilder` shape. */
 export const toBuilderGroup = (
   group: VisibilityRuleGroup | undefined
@@ -28,9 +36,9 @@ export const toBuilderGroup = (
         question_type: rule.question_type,
         operator: rule.operator,
         value: isBetweenOperator(rule.operator)
-          ? rule.value.split(",").map((item) => item.trim())
+          ? normalizeRuleValues(rule.value)
           : isMultiValueOperator(rule.operator)
-          ? rule.value.split(",").map((item) => item.trim()).filter(Boolean)
+          ? normalizeRuleValues(rule.value)
           : rule.value,
       })),
       ...(group.subgroups || []).map(toBuilderGroup),

@@ -50,7 +50,7 @@ export default function ConsentsPage() {
       const matchesScope =
         scopeFilter === "all" ||
         (scopeFilter === "global" && consent.scope === "global") ||
-        (scopeFilter === "treatment" && consent.scope !== "global");
+        (scopeFilter === "visit_type" && consent.scope === "visit_type");
 
       if (!matchesScope) return false;
       if (!query) return true;

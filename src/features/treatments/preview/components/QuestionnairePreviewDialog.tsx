@@ -23,6 +23,7 @@ import {
   type PreviewCapability,
 } from "@/features/treatments/preview/api";
 import { isMatchingPreviewIdentityAcknowledgement } from "@/features/treatments/preview/identitySwitch";
+import { getPreviewErrorMessage } from "@/features/treatments/preview/previewError";
 import type { PreviewContext } from "@/features/treatments/types";
 
 interface QuestionnairePreviewDialogProps {
@@ -164,14 +165,8 @@ export function QuestionnairePreviewDialog({
           window.clearTimeout(loadingTimeoutRef.current);
           loadingTimeoutRef.current = null;
         }
-        const details = error?.response?.data?.details;
         setStatus("error");
-        setErrorMessage(
-          (typeof details === "string" ? details : null) ||
-          error?.response?.data?.detail ||
-          error?.message ||
-          "The questionnaire preview could not be prepared.",
-        );
+        setErrorMessage(getPreviewErrorMessage(error));
       });
     return () => {
       active = false;

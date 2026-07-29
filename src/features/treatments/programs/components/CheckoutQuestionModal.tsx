@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-question/components/CheckoutPatientPreview";
 import { CheckoutProductsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutProductsSection";
@@ -54,9 +54,9 @@ export function CheckoutQuestionModal({
       <DialogContent className="flex h-[min(760px,calc(100vh-2rem))] max-h-[calc(100vh-2rem)] max-w-[980px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl">
         <div className="z-20 flex shrink-0 items-start justify-between border-b border-slate-200 bg-white px-6 py-4">
           <div>
-            <h2 className="text-[16px] font-bold leading-tight text-slate-900">
+            <DialogTitle className="text-[16px] font-bold leading-tight text-slate-900">
               {initialQuestion ? "Edit Checkout Question" : "Add Checkout Question"}
-            </h2>
+            </DialogTitle>
             <div className="mt-1 text-[12px] text-slate-400">
               Owned by <span className="font-semibold">{programName}</span> · Plans that attach this eligibility inherit this Checkout question automatically.
             </div>

@@ -23,9 +23,6 @@ interface PreviewCapabilityResponse {
 export async function issuePreviewCapability(
   context: PreviewContext,
 ): Promise<PreviewCapability> {
-  if (context.type === "section") {
-    throw new Error("Standalone sections do not use the patient questionnaire.");
-  }
   const { data } = await axiosInstance.post<PreviewCapabilityResponse>(
     QUESTIONNAIRE_PREVIEW_API.issueCapability,
     { source_kind: context.type, source_id: context.id },

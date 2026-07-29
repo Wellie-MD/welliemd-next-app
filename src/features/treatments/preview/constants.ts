@@ -1,6 +1,6 @@
 export const QUESTIONNAIRE_PREVIEW_DEFAULTS = Object.freeze({
-  appBaseUrl: "http://localhost:3001",
-  apiBaseUrl: "http://localhost:8000/api/v1",
+  appBaseUrl: "",
+  apiBaseUrl: "",
   modalMaxHeightPx: 780,
   modalWidthPx: 640,
   protocolVersion: 1,

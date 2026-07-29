@@ -22,7 +22,7 @@ interface SectionListTableProps {
 
 const scopeTone = (scope: CommonSection["scope"]) => {
   if (scope === "global") return "purple";
-  if (scope === "shared") return "blue";
+  if (scope === "visit_type") return "blue";
   return "slate";
 };
 

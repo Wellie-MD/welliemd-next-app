@@ -1,10 +1,17 @@
 import type { PreviewContext } from "@/features/treatments/types";
 import {
-  QUESTIONNAIRE_PREVIEW_DEFAULTS,
   QUESTIONNAIRE_PREVIEW_FRAGMENT,
 } from "@/features/treatments/preview/constants";
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
+
+const localDevelopmentUrl = (kind: "app" | "api") => {
+  const host = typeof window !== "undefined" ? window.location.hostname : "";
+  if (!import.meta.env.DEV || !["localhost", "127.0.0.1"].includes(host)) {
+    return "";
+  }
+  return kind === "app" ? "http://localhost:3001" : "http://localhost:8000/api/v1";
+};
 
 export interface QuestionnairePreviewTarget {
   url: string;
@@ -20,13 +27,15 @@ interface CapabilityPreviewContext {
 }
 
 export const getQuestionnairePreviewBaseUrl = () => {
-  return normalizeBaseUrl(
-    import.meta.env.VITE_QUESTIONNAIRE_PREVIEW_BASE_URL || QUESTIONNAIRE_PREVIEW_DEFAULTS.appBaseUrl
-  );
+  const configured = import.meta.env.VITE_QUESTIONNAIRE_PREVIEW_BASE_URL || localDevelopmentUrl("app");
+  if (!configured) throw new Error("Questionnaire preview URL is not configured for this environment.");
+  return normalizeBaseUrl(configured);
 };
 
 export const getQuestionnairePreviewApiBaseUrl = () => {
-  return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || QUESTIONNAIRE_PREVIEW_DEFAULTS.apiBaseUrl);
+  const configured = import.meta.env.VITE_API_BASE_URL || localDevelopmentUrl("api");
+  if (!configured) throw new Error("Preview API URL is not configured for this environment.");
+  return normalizeBaseUrl(configured);
 };
 
 export const buildQuestionnairePreviewTarget = (
@@ -64,11 +73,7 @@ export const buildQuestionnairePreviewTarget = (
 
   return {
     url: `${baseUrl}/preview?${params.toString()}`,
-    supported: context.type !== "section",
-    reason:
-      context.type === "section"
-        ? "Section preview is not wired to questionnaire runtime yet because sections do not have a standalone runtime route."
-        : undefined,
+    supported: true,
   };
 };
 

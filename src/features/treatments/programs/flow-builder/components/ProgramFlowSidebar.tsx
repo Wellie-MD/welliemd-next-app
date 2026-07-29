@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Search, Lock, Flag, ChevronUp, MoreHorizontal, Grid2X2, Layers3 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import type { ProgramQuestion } from "../../../types";
+import type { ConsentForm, Program, ProgramQuestion } from "../../../types";
+import { hasPatientAuthentication } from "../../programSystemBoundary";
 
 type FlowElement = {
   id: string;
@@ -16,12 +17,16 @@ interface ProgramFlowSidebarProps {
   questions: ProgramQuestion[];
   onSelectNode: (nodeId: string) => void;
   activeNodeId?: string | null;
+  program: Program;
+  allConsents: ConsentForm[];
 }
 
 export function ProgramFlowSidebar({
   questions,
   onSelectNode,
   activeNodeId,
+  program,
+  allConsents,
 }: ProgramFlowSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -34,6 +39,16 @@ export function ProgramFlowSidebar({
       question.elementConfig?.system !== true
     );
 
+    const hasAuth = hasPatientAuthentication(program);
+    const hasCheckout = (program.checkoutQuestions || []).length > 0;
+    const hasConsents = allConsents.some((consent) =>
+      (program.consentIds || []).includes(consent.id)
+    );
+    const hasFlow = (
+      hasAuth || hasCheckout || hasConsents || sortedQuestions.length > 0
+    );
+    if (!hasFlow) return [];
+
     return [
       {
         id: "start",
@@ -41,12 +56,12 @@ export function ProgramFlowSidebar({
         typeBadge: "START",
         isSystem: true,
       },
-      {
+      ...(hasAuth ? [{
         id: "auth",
         label: "Patient Authentication",
         typeBadge: "ACCOUNT ENTRY",
         isSystem: true,
-      },
+      }] : []),
       ...sortedQuestions.map((question, index) => ({
         id: question.id,
         label: question.text || "(untitled question)",
@@ -55,18 +70,18 @@ export function ProgramFlowSidebar({
         index: index + 1,
         kind: question.kind,
       })),
-      {
+      ...(hasConsents ? [{
         id: "consent",
         label: "Consents",
         typeBadge: `CONSENT`,
         isSystem: true,
-      },
-      {
+      }] : []),
+      ...(hasCheckout ? [{
         id: "checkout",
         label: "Checkout",
         typeBadge: `CHECKOUT`,
         isSystem: true,
-      },
+      }] : []),
       {
         id: "end",
         label: "Complete",
@@ -74,7 +89,7 @@ export function ProgramFlowSidebar({
         isSystem: true,
       },
     ];
-  }, [questions]);
+  }, [allConsents, program, questions]);
 
   const filteredElements = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -127,7 +142,9 @@ export function ProgramFlowSidebar({
         <div className="space-y-0.5">
           {filteredElements.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2 py-3 text-center text-[11px] italic text-slate-400 mt-2">
-              No flow elements match search
+              {searchQuery.trim()
+                ? "No flow elements match search"
+                : "No elements have been added to this Program."}
             </div>
           ) : (
             filteredElements.map((element) => {

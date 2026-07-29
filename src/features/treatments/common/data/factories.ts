@@ -52,6 +52,7 @@ export const checkoutProductFactory = (
   price: overrides.price,
   productRole: overrides.productRole,
   choiceGroup: overrides.choiceGroup,
+  patientLabel: overrides.patientLabel,
   visibilityRules: overrides.visibilityRules,
 });
 

@@ -20,10 +20,14 @@ export interface ProgramCheckoutProduct {
   doseLabel: string;
   productId?: string;
   sourceProductId?: string;
-  /** Monthly price in USD. When omitted, falls back to the structured price map. */
+  /** Read-only duration from the exact catalog Product. */
+  rxDaysSupply?: number;
+  /** Patient price snapshot shown during authoring. Backend recalculates it at runtime. */
   price?: number;
   productRole: ProgramProductRole;
   choiceGroup?: string;
+  /** Display name shared by exact Products grouped as supply options. */
+  patientLabel?: string;
   /**
    * Per-product conditional visibility. When omitted or empty, the product is
    * always shown (subject to the parent checkout question's own visibility).

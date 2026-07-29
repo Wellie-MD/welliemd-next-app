@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { CommonSection, ProgramQuestion } from "@/features/treatments/types";
 import { useSectionFields } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
-import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 
 interface SectionFieldsViewProps {
   section: CommonSection;
@@ -105,10 +105,11 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
         onOpenPreview={() => setIsSimulateOpen(true)}
       />
 
-      <PatientFlowTestModal
+      <QuestionnairePreviewDialog
         open={isSimulateOpen}
         onOpenChange={setIsSimulateOpen}
         previewContext={{ type: "section", id: section.id, slug: section.id }}
+        subtitle={`Preview of reusable section "${section.name}"`}
       />
     </>
   );

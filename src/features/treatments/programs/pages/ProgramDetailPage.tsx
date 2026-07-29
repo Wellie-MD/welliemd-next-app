@@ -152,7 +152,7 @@ export default function ProgramDetailPage() {
   const universalConsents = allConsents.filter(c => c.scope === "global");
   const consentsForUI = [
     ...universalConsents.map(c => ({ id: c.id, name: c.name, scope: "global" })),
-    ...programSpecificConsents.map(c => ({ id: c.id, name: c.name, scope: "treatment" })),
+    ...programSpecificConsents.map(c => ({ id: c.id, name: c.name, scope: "visit_type" })),
   ];
 
   const handleCopySlug = () => {
@@ -334,7 +334,7 @@ export default function ProgramDetailPage() {
         programName={foundProgram.name}
         programStatus={foundProgram.status}
         programStage={foundProgram.stage}
-        visitType={foundProgram.visitType || "weightloss"}
+        visitType={foundProgram.visitType || ""}
         slug={foundProgram.slug}
         viewMode={viewMode}
         onViewModeChange={setViewMode}

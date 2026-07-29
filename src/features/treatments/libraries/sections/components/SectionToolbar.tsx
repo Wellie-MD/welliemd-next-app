@@ -2,7 +2,7 @@ import { Download, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export type SectionScopeFilter = "all" | "global" | "shared" | "treatment";
+export type SectionScopeFilter = "all" | "global" | "visit_type";
 
 interface SectionToolbarProps {
   scopeFilter: SectionScopeFilter;
@@ -16,8 +16,7 @@ interface SectionToolbarProps {
 const scopeFilters: Array<{ value: SectionScopeFilter; label: string }> = [
   { value: "all", label: "All" },
   { value: "global", label: "Global" },
-  { value: "shared", label: "Shared" },
-  { value: "treatment", label: "Treatment Specific" },
+  { value: "visit_type", label: "Selected Visit Types" },
 ];
 
 export function SectionToolbar({

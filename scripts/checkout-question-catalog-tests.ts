@@ -106,9 +106,11 @@ assert.deepEqual(persistedQuestion.products[0], {
   doseLabel: "2.5 mg",
   productId: "3",
   sourceProductId: undefined,
+  rxDaysSupply: undefined,
   price: 79,
   productRole: "primary_choice",
   choiceGroup: undefined,
+  patientLabel: undefined,
   visibilityRules: undefined,
 });
 
@@ -131,5 +133,39 @@ const persistedQuestionWithSourceProduct = checkoutQuestionFromRecord(
 );
 assert.equal(persistedQuestionWithSourceProduct.products[0].productId, "33");
 assert.equal(persistedQuestionWithSourceProduct.products[0].sourceProductId, "1");
+
+const groupedQuestion = checkoutQuestionFromRecord(
+  {
+    id: "checkout-grouped",
+    answer_choices: [
+      {
+        option_id: "option-30",
+        product_id: 30,
+        choice_group: "supply-group",
+        patient_label: "Semaglutide 0.25 mg",
+        rx_days_supply: 30,
+      },
+      {
+        option_id: "option-60",
+        product_id: 60,
+        choice_group: "supply-group",
+        patient_label: "Semaglutide 0.25 mg",
+        rx_days_supply: 60,
+      },
+    ],
+  },
+  2,
+);
+assert.deepEqual(
+  groupedQuestion.products.map((item) => ({
+    group: item.choiceGroup,
+    label: item.patientLabel,
+    duration: item.rxDaysSupply,
+  })),
+  [
+    { group: "supply-group", label: "Semaglutide 0.25 mg", duration: 30 },
+    { group: "supply-group", label: "Semaglutide 0.25 mg", duration: 60 },
+  ],
+);
 
 console.log("checkout question catalog dependency tests passed");

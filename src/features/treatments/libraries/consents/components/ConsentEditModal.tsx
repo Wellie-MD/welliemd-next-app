@@ -13,7 +13,6 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import type { ConsentForm, ConsentOption, TreatmentLibraryScope } from "@/features/treatments/types";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
-import { baseVisitTypes } from "@/features/treatments/common/data/visitTypes";
 import { cn } from "@/lib/utils";
 
 interface ConsentEditModalProps {
@@ -44,10 +43,10 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
     [consentId, consents]
   );
 
-  // Visit types available for treatment-scoped consents: union of treatment-type
-  // intake/follow-up visit types plus any already attached to this consent.
+  // Visit Types are derived from the Treatment Type catalog and are read-only
+  // route identities; operators cannot invent an arbitrary value here.
   const visitTypeOptions = useMemo(() => {
-    const keys = new Set(baseVisitTypes);
+    const keys = new Set<string>();
     treatmentTypes.forEach((type) => {
       if (type.intakeVisitType) keys.add(type.intakeVisitType);
       if (type.followupVisitType) keys.add(type.followupVisitType);
@@ -60,7 +59,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
     if (!open) return;
     if (existing) {
       setName(existing.name || "");
-      setScope(existing.scope === "global" ? "global" : "treatment");
+      setScope(existing.scope === "global" ? "global" : "visit_type");
       setVisitTypeKeys(existing.visitTypeKeys ?? []);
       setText(existing.text || "");
       setOptions(existing.options?.length ? existing.options : [defaultOption()]);
@@ -106,10 +105,10 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
       toast({ title: "Validation Error", description: "Consent text is required.", variant: "destructive" });
       return;
     }
-    if (scope === "treatment" && visitTypeKeys.length === 0) {
+    if (scope === "visit_type" && visitTypeKeys.length === 0) {
       toast({
         title: "Validation Error",
-        description: "Select at least one visit type for a treatment-specific consent.",
+        description: "Select at least one Visit Type for a scoped consent.",
         variant: "destructive",
       });
       return;
@@ -124,7 +123,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
       name: name.trim(),
       scope,
       isArchived: existing?.isArchived ?? false,
-      visitTypeKeys: scope === "treatment" ? visitTypeKeys : [],
+      visitTypeKeys: scope === "visit_type" ? visitTypeKeys : [],
       text,
       options: cleanedOptions,
       updatedAt: existing?.updatedAt ?? currentDateStamp(),
@@ -175,7 +174,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                   Scope <span className="text-red-500">*</span>
                 </label>
                 <div className="flex h-10 gap-2">
-                  {(["global", "treatment"] as const).map((value) => (
+                  {(["global", "visit_type"] as const).map((value) => (
                     <label
                       key={value}
                       className={cn(
@@ -193,7 +192,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                         data-testid={`consent-scope-${value}`}
                       />
                       <span className="whitespace-nowrap text-xs font-medium text-slate-700">
-                        {value === "global" ? "Universal" : "Treatment-specific"}
+                        {value === "global" ? "Global" : "Selected Visit Types"}
                       </span>
                     </label>
                   ))}
@@ -201,13 +200,13 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
               </div>
             </div>
 
-            {scope === "treatment" && (
+            {scope === "visit_type" && (
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-slate-900">
                   Visit Types <span className="text-red-500">*</span>
                 </label>
                 <p className="mb-3 text-xs text-slate-500">
-                  This consent only appears for patients on the selected visit types.
+                  This consent only appears for patients on the selected Visit Types.
                 </p>
                 <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3">
                   {visitTypeOptions.length === 0 ? (

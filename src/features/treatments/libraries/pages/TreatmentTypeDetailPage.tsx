@@ -50,9 +50,9 @@ export default function TreatmentTypeDetailPage() {
       intakeProgram: own.find((program) => program.stage === "intake"),
       followupProgram: own.find((program) => program.stage === "follow_up"),
       products: allProducts.filter((product) => product.treatment_type_key === treatmentType?.key),
-      scopedSections: sections.filter((section) => section.scope === "treatment" && section.visitTypeKeys.some((key) => scopeKeys.has(key))),
+      scopedSections: sections.filter((section) => section.scope === "visit_type" && section.visitTypeKeys.some((key) => scopeKeys.has(key))),
       scopedConsents: consents.filter(
-        (consent) => consent.scope === "treatment" && consent.visitTypeKeys.some((key) => scopeKeys.has(key))
+        (consent) => consent.scope === "visit_type" && consent.visitTypeKeys.some((key) => scopeKeys.has(key))
       ),
     };
   }, [programs, sections, consents, allProducts, treatmentType?.key, intakeVisitType]);

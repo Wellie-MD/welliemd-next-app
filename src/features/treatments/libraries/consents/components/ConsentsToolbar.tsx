@@ -2,7 +2,7 @@ import { Download, RotateCcw, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export type ConsentScopeFilter = "all" | "global" | "treatment";
+export type ConsentScopeFilter = "all" | "global" | "visit_type";
 
 interface ConsentsToolbarProps {
   scopeFilter: ConsentScopeFilter;
@@ -17,7 +17,7 @@ interface ConsentsToolbarProps {
 const TABS: Array<{ value: ConsentScopeFilter; label: string }> = [
   { value: "all", label: "All" },
   { value: "global", label: "Global" },
-  { value: "treatment", label: "Treatment Specific" },
+  { value: "visit_type", label: "Selected Visit Types" },
 ];
 
 export function ConsentsToolbar({

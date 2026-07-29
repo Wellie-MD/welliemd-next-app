@@ -104,11 +104,11 @@ export default function ProgramsPage() {
   const consentCountMap = useMemo(() => {
     const map = new Map<string, number>();
     const activeConsents = allConsents.filter(c => !c.isArchived);
-    const globalCount = activeConsents.filter(c => c.scope === "global" || c.scope === "shared").length;
+    const globalCount = activeConsents.filter(c => c.scope === "global").length;
 
     for (const program of activePrograms) {
       const treatmentSpecific = activeConsents.filter(
-        c => c.scope === "treatment" && c.visitTypeKeys.includes(program.visitType)
+        c => c.scope === "visit_type" && c.visitTypeKeys.includes(program.visitType)
       ).length;
       map.set(program.id, globalCount + treatmentSpecific);
     }

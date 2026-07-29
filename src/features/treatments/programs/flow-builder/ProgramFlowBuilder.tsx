@@ -86,6 +86,8 @@ export function ProgramFlowBuilder({
           questions={questions}
           onSelectNode={setFocusedNodeId}
           activeNodeId={focusedNodeId}
+          program={program}
+          allConsents={allConsents}
         />
         <ProgramFlowCanvas
           program={program}

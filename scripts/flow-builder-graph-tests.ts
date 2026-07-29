@@ -77,9 +77,15 @@ test("linear program keeps deterministic spine order", () => {
   const questions = [question({ id: "q1", order: 1 }), question({ id: "q2", order: 2 })];
   const graph = buildStaticProgramFlowGraph(program(), questions, []);
   const ids = graph.nodes.map((item) => item.id);
-  assert.deepEqual(ids.slice(0, 4), ["start", "auth", "q1", "q2"]);
+  assert.deepEqual(ids.slice(0, 3), ["start", "q1", "q2"]);
   assert.ok(node(graph, "q1").position.y < node(graph, "q2").position.y);
   assert.equal(edge(graph, "edge-seq-q1-q2")?.data?.kind, "sequential");
+});
+
+test("empty program has no synthetic flow nodes", () => {
+  const graph = buildStaticProgramFlowGraph(program(), [], []);
+  assert.deepEqual(graph.nodes, []);
+  assert.deepEqual(graph.edges, []);
 });
 
 test("conditional child uses exact answer handle", () => {
@@ -213,7 +219,7 @@ test("node focus traces direct routes without falsely selecting answer rows", ()
   const focused = applyFocusToProgramFlowGraph(staticGraph, program(), questions, "child", null);
   assert.equal(edge(focused, "edge-cond-root-child")?.data?.active, true);
   assert.deepEqual(node(focused, "root").data.focusedChoices, []);
-  assert.equal(edge(focused, "edge-seq-start-auth")?.data?.dimmed, true);
+  assert.equal(edge(focused, "edge-seq-start-root")?.data?.dimmed, true);
 });
 
 test("product focus traces source answer as product", () => {

@@ -35,9 +35,11 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           doseLabel: product.doseLabel,
           productId: product.productId,
           sourceProductId: product.sourceProductId,
+          rxDaysSupply: product.rxDaysSupply,
           price: product.price,
           productRole: product.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
           choiceGroup: product.choiceGroup,
+          patientLabel: product.patientLabel,
           visibilityRules: product.visibilityRules,
         }))
       );
@@ -125,6 +127,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     }
 
     const seenProducts = new Map<string, number>();
+    const seenGroupDurations = new Map<string, number>();
     for (const [index, product] of validProducts.entries()) {
       const productId = String(product.productId);
       const firstIndex = seenProducts.get(productId);
@@ -137,6 +140,27 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
         return;
       }
       seenProducts.set(productId, index);
+      if (
+        product.productRole === PROGRAM_PRODUCT_ROLE.primaryChoice
+        && product.choiceGroup
+        && product.rxDaysSupply
+      ) {
+        const durationKey = `${product.choiceGroup.trim().toLowerCase()}:${product.rxDaysSupply}`;
+        const firstDurationIndex = seenGroupDurations.get(durationKey);
+        if (firstDurationIndex !== undefined) {
+          toast({
+            title: "Duplicate supply duration",
+            description: (
+              `Options ${firstDurationIndex + 1} and ${index + 1} both use a `
+              + `${product.rxDaysSupply}-day Product in choice group "${product.choiceGroup}". `
+              + "Use one exact Product for each duration."
+            ),
+            variant: "destructive",
+          });
+          return;
+        }
+        seenGroupDurations.set(durationKey, index);
+      }
     }
 
     const normalizeGroup = (group: VisibilityRuleGroupForm | undefined): VisibilityRuleGroupForm | undefined => {
@@ -157,6 +181,11 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return {
         ...product,
         sourceProductId,
+        productRole: PROGRAM_PRODUCT_ROLE.primaryChoice,
+        choiceGroup: (
+          product.choiceGroup
+          || `product-${sourceProductId || product.productId}`
+        ),
       };
     };
 

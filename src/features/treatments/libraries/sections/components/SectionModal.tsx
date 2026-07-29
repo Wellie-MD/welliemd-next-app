@@ -17,7 +17,6 @@ import { useSaveSection, useTreatmentTypes } from "@/features/treatments/librari
 import { toast } from "@/components/ui/use-toast";
 import type { CommonSection, TreatmentLibraryScope } from "@/features/treatments/types";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
-import { baseVisitTypes } from "@/features/treatments/common/data/visitTypes";
 import { cn } from "@/lib/utils";
 
 interface SectionModalProps {
@@ -43,10 +42,10 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
     setVisitTypeKeys(section?.visitTypeKeys ?? []);
   }, [open, section]);
 
-  // Visit types available to pick from: the standard set plus any already
-  // attached to this section (in case it references one outside the list).
+  // Visit Types are read-only route identities derived from Treatment Types.
+  // The Admin cannot invent a Visit Type in this picker.
   const visitTypeOptions = useMemo(() => {
-    const keys = new Set(baseVisitTypes);
+    const keys = new Set<string>();
     treatmentTypes.forEach((type) => {
       if (type.intakeVisitType) keys.add(type.intakeVisitType);
       if (type.followupVisitType) keys.add(type.followupVisitType);
@@ -55,21 +54,19 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
     return Array.from(keys).sort((a, b) => a.localeCompare(b));
   }, [section, treatmentTypes]);
 
-  const isTreatment = scope === "treatment";
-  const isShared = scope === "shared";
+  const isVisitTypeScoped = scope === "visit_type";
   const title = section ? "Edit Section" : "Create Section";
   const submitLabel = section ? "Save Changes" : "Create Section";
 
   const canSubmit = useMemo(() => {
     if (!name.trim() || !scope) return false;
-    if ((isTreatment || isShared) && visitTypeKeys.length === 0) return false;
+    if (isVisitTypeScoped && visitTypeKeys.length === 0) return false;
     return true;
-  }, [isShared, isTreatment, name, scope, visitTypeKeys]);
+  }, [isVisitTypeScoped, name, scope, visitTypeKeys]);
 
   const handleScopeChange = (value: TreatmentLibraryScope) => {
     setScope(value);
     if (value === "global") setVisitTypeKeys([]);
-    else if (value === "treatment") setVisitTypeKeys((current) => (current[0] ? [current[0]] : []));
   };
 
   const toggleVisitType = (key: string, checked: boolean) => {
@@ -153,36 +150,12 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">Global - Shown to all patients</SelectItem>
-                  <SelectItem value="shared">Shared - Multiple visit types</SelectItem>
-                  <SelectItem value="treatment">Treatment Specific</SelectItem>
+                  <SelectItem value="visit_type">Selected Visit Types</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {isTreatment ? (
-              <div className="space-y-2">
-                <Label htmlFor="section-visit-type" className="text-xs font-medium text-slate-900">
-                  Visit Type<span className="text-red-500">*</span>
-                </Label>
-                <Select value={visitTypeKeys[0] ?? ""} onValueChange={(value) => setVisitTypeKeys([value])}>
-                  <SelectTrigger id="section-visit-type" className="h-10 border-slate-300 text-sm" data-testid="section-visit-type-select">
-                    <SelectValue placeholder="Select visit type..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visitTypeOptions.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-slate-500">
-                  This section will only appear for patients on the selected visit type.
-                </p>
-              </div>
-            ) : null}
-
-            {isShared ? (
+            {isVisitTypeScoped ? (
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-slate-900">
                   Visit Types<span className="text-red-500">*</span>
@@ -255,7 +228,7 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
                 )}
 
                 <p className="text-xs text-slate-500">
-                  This section will appear for patients on any of the selected visit types.
+                  This section will appear for patients on any of the selected Visit Types.
                 </p>
               </div>
             ) : null}

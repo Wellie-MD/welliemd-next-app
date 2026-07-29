@@ -29,13 +29,13 @@ export function buildFlowGraph({ flowItems, getConsentScope, getConsentVisitType
   );
   const programItems = flowItems.filter((item) => item.kind === "program");
   const consentItems = flowItems.filter((item) => item.kind === "consent");
-  const universalConsents = consentItems.filter((item) => getConsentScope(item.title) !== "treatment");
-  const treatmentSpecificConsents = consentItems.filter((item) => getConsentScope(item.title) === "treatment");
+  const universalConsents = consentItems.filter((item) => getConsentScope(item.title) !== "visit_type");
+  const treatmentSpecificConsents = consentItems.filter((item) => getConsentScope(item.title) === "visit_type");
 
   const tracks: TreatmentTrack[] = programItems.map((program) => {
-    const visitTypes = program.treatmentTypeKey ? [program.treatmentTypeKey] : [];
+    const visitTypes = program.visitType ? [program.visitType] : [];
     const trackConsents = treatmentSpecificConsents.filter((consent) =>
-      getConsentVisitTypeKeys(consent.title).some((visitTypeKey) => visitTypeKey === program.treatmentTypeKey)
+      getConsentVisitTypeKeys(consent.title).some((visitTypeKey) => visitTypeKey === program.visitType)
     );
 
     return {

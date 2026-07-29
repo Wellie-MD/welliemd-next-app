@@ -14,8 +14,16 @@ const countRules = (group: VisibilityRuleGroup | undefined): number => {
 };
 
 export function CheckoutPatientPreview({ validProducts, selectedPreviewIdx, visibilityRuleGroup, onSelectedPreviewChange }: CheckoutPatientPreviewProps) {
-  const activeProduct = validProducts[selectedPreviewIdx] || validProducts[0];
-  const title = activeProduct ? `Product Options — ${activeProduct.doseLabel}` : "Product Options";
+  const groups = Object.values(
+    validProducts.reduce<Record<string, ProgramCheckoutProduct[]>>(
+      (result, product) => {
+        const key = product.choiceGroup || `product-${product.id}`;
+        result[key] = [...(result[key] || []), product];
+        return result;
+      },
+      {},
+    ),
+  );
   const ruleCount = countRules(visibilityRuleGroup);
 
   return (
@@ -47,33 +55,52 @@ export function CheckoutPatientPreview({ validProducts, selectedPreviewIdx, visi
           </div>
 
           <div className="p-5">
-            <h2 className="text-[15px] font-extrabold leading-snug text-slate-950">{title}</h2>
-            <p className="mt-1 text-[11px] font-medium text-slate-500">Choose the option that fits you best.</p>
+            <h2 className="text-[15px] font-extrabold leading-snug text-slate-950">Recommended treatment</h2>
+            <p className="mt-1 text-[11px] font-medium text-slate-500">Choose the available supply for each medication.</p>
 
             <div className="mt-4 space-y-2.5">
-              {validProducts.map((product, index) => {
-                const selected = selectedPreviewIdx === index;
+              {groups.map((group) => {
+                const first = group[0];
                 return (
-                  <button
-                    key={product.id}
-                    type="button"
-                    onClick={() => onSelectedPreviewChange(index)}
-                    className={cn(
-                      "flex w-full cursor-pointer items-start gap-3 rounded-lg border p-3 text-left transition-all",
-                      selected ? "border-emerald-500 bg-emerald-50/40" : "border-slate-200 bg-white hover:border-slate-300"
-                    )}
-                    data-testid={`select-preview-product-${index}`}
-                  >
-                    <span className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border border-slate-300">
-                      {selected && <span className="h-2 w-2 rounded-full bg-emerald-600" />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12px] font-extrabold text-slate-800">{product.doseLabel}</span>
-                      <span className="mt-0.5 block text-[10.5px] leading-snug text-slate-400">
-                        {product.category} · {product.regimen} Regimen
-                      </span>
-                    </span>
-                  </button>
+                  <div key={first.choiceGroup || first.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="text-[12px] font-extrabold text-slate-800">
+                      {first.patientLabel || first.doseLabel}
+                    </div>
+                    <div className="mt-0.5 text-[10.5px] text-slate-400">
+                      {first.category} · {first.regimen} Regimen
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {group.map((product) => {
+                        const index = validProducts.indexOf(product);
+                        const selected = selectedPreviewIdx === index;
+                        return (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => onSelectedPreviewChange(index)}
+                            className={cn(
+                              "rounded-md border px-2 py-2 text-left",
+                              selected
+                                ? "border-emerald-500 bg-emerald-50"
+                                : "border-slate-200 bg-white",
+                            )}
+                            data-testid={`select-preview-product-${index}`}
+                          >
+                            <span className="block text-[10.5px] font-bold text-slate-700">
+                              {product.rxDaysSupply
+                                ? `${product.rxDaysSupply}-day supply`
+                                : "Supply duration missing"}
+                            </span>
+                            {product.price !== undefined && (
+                              <span className="mt-0.5 block text-[11px] font-extrabold text-slate-900">
+                                ${Number(product.price).toFixed(2)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>

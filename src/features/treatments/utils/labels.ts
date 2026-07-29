@@ -5,8 +5,7 @@ export const formatProgramStage = (stage: ProgramStage) =>
 
 export const formatScope = (scope: TreatmentLibraryScope) => {
   if (scope === "global") return "Global";
-  if (scope === "shared") return "Shared";
-  return "Treatment";
+  return "Selected Visit Types";
 };
 
 /** Format an ISO date (YYYY-MM-DD) as MM/DD/YYYY; passes through unknown formats. */

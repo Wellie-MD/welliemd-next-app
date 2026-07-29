@@ -1,1 +1,1 @@
-export type TreatmentLibraryScope = "global" | "shared" | "treatment";
+export type TreatmentLibraryScope = "global" | "visit_type";

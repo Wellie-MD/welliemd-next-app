@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { ChevronDown, Eye, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, MapPin, Package, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VisibilityRuleBuilder } from "@/components/questionnaires/VisibilityRuleBuilder";
 import type { ProductCategory } from "@/api/productCategories";
@@ -24,7 +24,6 @@ import {
   productsForRegimen,
   regimensForProducts,
 } from "../utils/catalogOptions";
-import { PROGRAM_PRODUCT_ROLE_OPTIONS } from "../constants";
 
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
@@ -43,6 +42,8 @@ interface CheckoutProductRowProps {
   ) => void;
   onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
+  selectedForGrouping: boolean;
+  onGroupingSelectionChange: (index: number, selected: boolean) => void;
 }
 
 const createEmptyGroup = (): VisibilityRuleGroup => ({
@@ -104,6 +105,8 @@ export function CheckoutProductRow({
   onProductFieldChange,
   onProductPriceChange,
   onProductVisibilityChange,
+  selectedForGrouping,
+  onGroupingSelectionChange,
 }: CheckoutProductRowProps) {
   const linkedCatalogProduct = resolveCatalogProduct(product, catalogProducts);
   const selectedProductId = linkedCatalogProduct?.id ? String(linkedCatalogProduct.id) : (product.productId ? String(product.productId) : "");
@@ -133,6 +136,17 @@ export function CheckoutProductRow({
   const selectedCategory = categories.find((item) => Number(item.id) === Number(selectedCategoryId));
   const selectedRegimen = titrationCategories.find((item) => Number(item.id) === Number(selectedRegimenId));
   const selectedDoseMapping = doseMappings.find((item) => Number(item.id) === Number(selectedDoseMappingId));
+  const durationLabel = linkedCatalogProduct?.rx_days_supply
+    ? `${linkedCatalogProduct.rx_days_supply}-day supply`
+    : "Supply duration missing";
+  const patientPrice = Number(
+    linkedCatalogProduct?.base_price ?? linkedCatalogProduct?.price ?? product.price ?? 0,
+  );
+  const stateLabel = linkedCatalogProduct?.service_states?.length
+    ? linkedCatalogProduct.service_states.join(", ")
+    : "All configured Program states";
+  const linkedSupplyCount = linkedCatalogProduct?.linked_supplies?.length || 0;
+  const medicineConfigured = Boolean(linkedCatalogProduct?.beluga_medicine_id);
 
   useEffect(() => {
     if (!linkedCatalogProduct) return;
@@ -151,6 +165,7 @@ export function CheckoutProductRow({
       ? String(linkedCatalogProduct.source_product_id)
       : undefined;
     const nextPrice = linkedCatalogProduct.base_price !== undefined ? Number(linkedCatalogProduct.base_price) : product.price;
+    const nextDuration = linkedCatalogProduct.rx_days_supply || undefined;
 
     if (selectedCategoryId && product.categoryId !== selectedCategoryId) {
       onProductFieldChange(index, "categoryId", selectedCategoryId);
@@ -179,6 +194,9 @@ export function CheckoutProductRow({
     if (nextPrice !== undefined && product.price !== nextPrice) {
       onProductFieldChange(index, "price", nextPrice);
     }
+    if (product.rxDaysSupply !== nextDuration) {
+      onProductFieldChange(index, "rxDaysSupply", nextDuration);
+    }
   }, [
     index,
     linkedCatalogProduct,
@@ -191,6 +209,7 @@ export function CheckoutProductRow({
     product.productId,
     product.regimen,
     product.regimenId,
+    product.rxDaysSupply,
     product.sourceProductId,
     selectedCategory?.name,
     selectedCategoryId,
@@ -212,6 +231,7 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "productId", undefined);
     onProductFieldChange(index, "sourceProductId", undefined);
     onProductFieldChange(index, "price", undefined);
+    onProductFieldChange(index, "rxDaysSupply", undefined);
   };
 
   const handleRegimenChange = (value: string) => {
@@ -223,6 +243,7 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "productId", undefined);
     onProductFieldChange(index, "sourceProductId", undefined);
     onProductFieldChange(index, "price", undefined);
+    onProductFieldChange(index, "rxDaysSupply", undefined);
   };
 
   const handleDoseChange = (value: string) => {
@@ -243,6 +264,7 @@ export function CheckoutProductRow({
       "price",
       onlyProduct?.base_price !== undefined ? Number(onlyProduct.base_price) : undefined
     );
+    onProductFieldChange(index, "rxDaysSupply", onlyProduct?.rx_days_supply || undefined);
     if (doseMapping && !product.categoryId) {
       onProductFieldChange(index, "categoryId", doseMapping.category);
       onProductFieldChange(index, "category", doseMapping.category_name);
@@ -268,6 +290,7 @@ export function CheckoutProductRow({
       "price",
       selectedProduct?.base_price !== undefined ? Number(selectedProduct.base_price) : undefined
     );
+    onProductFieldChange(index, "rxDaysSupply", selectedProduct?.rx_days_supply || undefined);
     if (selectedProduct) {
       onProductFieldChange(index, "categoryId", selectedProduct.category);
       onProductFieldChange(index, "category", selectedProduct.category_name || selectedProduct.treatment || product.category);
@@ -285,7 +308,17 @@ export function CheckoutProductRow({
   return (
     <div className="relative space-y-3.5 rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-        <span className="text-[12px] font-bold text-slate-700">Product {index + 1}</span>
+        <label className="flex items-center gap-2 text-[12px] font-bold text-slate-700">
+          <input
+            type="checkbox"
+            checked={selectedForGrouping}
+            onChange={(event) =>
+              onGroupingSelectionChange(index, event.target.checked)
+            }
+            aria-label={`Select Product ${index + 1} for supply grouping`}
+          />
+          Product {index + 1}
+        </label>
         {productCount > 1 && (
           <button
             type="button"
@@ -300,41 +333,16 @@ export function CheckoutProductRow({
       </div>
 
       <div className="space-y-3">
-        <SelectField
-          label="Patient selection role"
-          value={product.productRole}
-          onChange={(value) =>
-            onProductFieldChange(
-              index,
-              "productRole",
-              value as ProgramCheckoutProduct["productRole"],
-            )
-          }
-          options={PROGRAM_PRODUCT_ROLE_OPTIONS.map(({ value, label }) => ({
-            value,
-            label,
-          }))}
-          placeholder="— Select role —"
-          testId={`checkout-product-role-${index}`}
-        />
-        <div className="space-y-1.5">
-          <label className="text-[11.5px] font-bold text-slate-600" htmlFor={`checkout-product-choice-group-${index}`}>
-            Choice group
-          </label>
-          <input
-            id={`checkout-product-choice-group-${index}`}
-            value={product.choiceGroup || ""}
-            onChange={(event) =>
-              onProductFieldChange(index, "choiceGroup", event.target.value)
-            }
-            placeholder="e.g. nad-primary"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-sm outline-none focus:border-blue-500"
-            data-testid={`checkout-product-choice-group-${index}`}
-          />
-          <p className="text-[10.5px] leading-normal text-slate-400">
-            Use the same stable key for alternatives and their required companions.
-          </p>
-        </div>
+        {product.choiceGroup && product.patientLabel && (
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-blue-600">
+              Grouped supply option
+            </div>
+            <div className="mt-0.5 text-[12px] font-semibold text-slate-800">
+              {product.patientLabel}
+            </div>
+          </div>
+        )}
         <SelectField
           label="Category"
           value={selectedCategoryId ? String(selectedCategoryId) : ""}
@@ -377,8 +385,25 @@ export function CheckoutProductRow({
       </div>
 
       {product.category && product.regimen && product.doseLabel && product.productId && (
-        <div className="mt-3 rounded-lg border border-[#b2ebd5] bg-[#d1f4e0]/40 px-3 py-2 text-[11.5px] font-medium leading-relaxed text-[#1e8a4a]">
-          {product.doseLabel} · {product.category} · {product.regimen} regimen
+        <div className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-3">
+          <div className="text-[11.5px] font-semibold leading-relaxed text-emerald-800">
+            {product.doseLabel} · {product.category} · {product.regimen} regimen
+          </div>
+          <div className="grid gap-2 text-[11px] text-slate-600 sm:grid-cols-2">
+            <span className="flex items-center gap-1.5">
+              <Package className="h-3.5 w-3.5 text-emerald-700" />
+              {durationLabel} · ${patientPrice.toFixed(2)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+              {stateLabel}
+            </span>
+            <span>{linkedSupplyCount} linked {linkedSupplyCount === 1 ? "supply" : "supplies"}</span>
+            <span className={medicineConfigured ? "text-emerald-700" : "font-semibold text-amber-700"}>
+              <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />
+              {medicineConfigured ? "Medicine ID configured" : "Medicine ID missing"}
+            </span>
+          </div>
         </div>
       )}
 

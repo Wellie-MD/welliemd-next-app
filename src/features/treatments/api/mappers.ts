@@ -78,6 +78,12 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
   sourceProductId: record.sourceProductId || record.source_product_id
     ? String(record.sourceProductId ?? record.source_product_id)
     : undefined,
+  rxDaysSupply: Number(
+    record.rxDaysSupply
+    ?? record.rx_days_supply
+    ?? record.days_supply
+    ?? record.default_supply_duration,
+  ) || undefined,
   price: Number(record.price ?? record.final_price ?? record.unit_price) || undefined,
   productRole: (
     record.productRole ||
@@ -86,6 +92,9 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
   ) as ProgramCheckoutProduct["productRole"],
   choiceGroup: record.choiceGroup || record.choice_group
     ? String(record.choiceGroup ?? record.choice_group)
+    : undefined,
+  patientLabel: record.patientLabel || record.patient_label
+    ? String(record.patientLabel ?? record.patient_label)
     : undefined,
   visibilityRules: checkoutVisibilityGroup(
     record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule,

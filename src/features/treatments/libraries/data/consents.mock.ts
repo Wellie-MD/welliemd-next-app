@@ -46,7 +46,7 @@ export const mockConsents: ConsentForm[] = [
   {
     id: "consent-glp",
     name: "Consent (GLP-1 Weight Loss)",
-    scope: "treatment",
+    scope: "visit_type",
     status: "active",
     visitTypeKeys: ["weightloss", "glpMicrodosing"],
     updatedAt: "2026-05-12",
@@ -57,7 +57,7 @@ export const mockConsents: ConsentForm[] = [
   {
     id: "consent-trt",
     name: "Consent (TRT)",
-    scope: "treatment",
+    scope: "visit_type",
     status: "active",
     visitTypeKeys: ["trt"],
     updatedAt: "2026-05-10",
@@ -68,7 +68,7 @@ export const mockConsents: ConsentForm[] = [
   {
     id: "consent-hrt",
     name: "Consent (HRT / Estrogen)",
-    scope: "treatment",
+    scope: "visit_type",
     isArchived: true,
     visitTypeKeys: ["menopause"],
     updatedAt: "2026-05-05",
@@ -79,7 +79,7 @@ export const mockConsents: ConsentForm[] = [
   {
     id: "consent-ed",
     name: "Consent (ED / PDE5 inhibitors)",
-    scope: "treatment",
+    scope: "visit_type",
     isArchived: true,
     visitTypeKeys: ["ed"],
     updatedAt: "2026-05-02",
@@ -93,7 +93,7 @@ export const mockConsents: ConsentForm[] = [
   {
     id: "consent-peptide",
     name: "Consent (Peptide therapy)",
-    scope: "treatment",
+    scope: "visit_type",
     status: "active",
     visitTypeKeys: ["antiAging"],
     updatedAt: "2026-04-28",

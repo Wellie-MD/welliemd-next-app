@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog, TreatmentPageHeader } from "@/features/treatments/common/components";
-import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { SectionFieldsView } from "@/features/treatments/libraries/sections/components/SectionFieldsView";
 import { SectionListTable } from "@/features/treatments/libraries/sections/components/SectionListTable";
 import { SectionModal } from "@/features/treatments/libraries/sections/components/SectionModal";
@@ -55,8 +55,7 @@ export default function SectionsPage() {
       const matchesScope =
         scopeFilter === "all" ||
         (scopeFilter === "global" && section.scope === "global") ||
-        (scopeFilter === "shared" && section.scope === "shared") ||
-        (scopeFilter === "treatment" && section.scope === "treatment");
+        (scopeFilter === "visit_type" && section.scope === "visit_type");
 
       const visitTypeText = section.visitTypeKeys.join(" ");
       const matchesSearch =
@@ -182,12 +181,13 @@ export default function SectionsPage() {
       />
 
       {previewSection && (
-        <PatientFlowTestModal
+        <QuestionnairePreviewDialog
           open={Boolean(previewSection)}
           onOpenChange={(open) => {
             if (!open) setPreviewSection(null);
           }}
           previewContext={{ type: "section", id: previewSection.id, slug: previewSection.id }}
+          subtitle={`Preview of reusable section "${previewSection.name}"`}
         />
       )}
 

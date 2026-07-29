@@ -67,7 +67,7 @@ const section: CommonSection = {
 const consent = (id: string, name = id): ConsentForm => ({
   id,
   name,
-  scope: "treatment",
+  scope: "visit_type",
   isArchived: false,
   visitTypeKeys: ["weightloss"],
   updatedAt: "2026-07-20",
