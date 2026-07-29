@@ -896,16 +896,6 @@ export function ProductFormModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="manufacturer_name">Manufacturer</Label>
-                <Input
-                  id="manufacturer_name"
-                  value={formData.manufacturer_name}
-                  onChange={(e) => setFormData({ ...formData, manufacturer_name: e.target.value })}
-                  placeholder="Manufacturer name"
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="ndc_number">NDC Number</Label>
                 <Input
                   id="ndc_number"
@@ -987,17 +977,6 @@ export function ProductFormModal({
                 />
               </div>
               )}
-
-              <div>
-                <Label htmlFor="quantity">Inventory Quantity</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  min="0"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                />
-              </div>
 
               {formData.product_type !== "supply" && (
               <div>

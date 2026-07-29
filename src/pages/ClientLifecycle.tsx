@@ -14,6 +14,7 @@ import {
 
 import {
   clientApi,
+  type Client,
   type ClientLifecycleResponse,
   type InfraResource,
   type LifecycleJob,
@@ -103,6 +104,9 @@ const ERROR_JOB_STATUSES = new Set(["partial_failed", "failed", "blocked"]);
 const WARNING_JOB_STATUSES = new Set(["completed_with_warnings"]);
 const PROVISIONING_RETRY_JOB_STATUSES = new Set(["partial_failed", "failed", "blocked"]);
 const PROVISIONING_RETRY_EXCLUDED_STEPS = new Set(["frontend_ready", "verification"]);
+const RESOLVED_LIFECYCLE_STATES = new Set(["ready", "ready_with_warnings"]);
+const SUCCESSFUL_LIFECYCLE_JOB_STATUSES = new Set(["completed", "completed_with_warnings"]);
+const PROVISIONING_RESOLUTION_OPERATIONS = new Set(["provision", "repair", "verify"]);
 const WARNING_STATUSES = new Set(["ready_with_warnings", "completed_with_warnings"]);
 
 const getWarningBadgeClassName = (status?: string | null) =>
@@ -185,11 +189,23 @@ const getRetryableProvisioningJob = (
   }) || null;
 };
 
+const isProvisioningResolved = (client: Client | null | undefined, latestJob: LifecycleJob | null | undefined) =>
+  Boolean(
+    client?.lifecycle_state &&
+      RESOLVED_LIFECYCLE_STATES.has(client.lifecycle_state) &&
+      !hasPayload(client.last_lifecycle_error) &&
+      latestJob &&
+      PROVISIONING_RESOLUTION_OPERATIONS.has(latestJob.operation_type) &&
+      SUCCESSFUL_LIFECYCLE_JOB_STATUSES.has(latestJob.status)
+  );
+
 const getRetryProvisioningDisabledReason = (
   latestJob: LifecycleJob | null | undefined,
   hasActiveLifecycleJob: boolean,
-  retryableStepName: string | null
+  retryableStepName: string | null,
+  provisioningResolved: boolean
 ) => {
+  if (provisioningResolved) return "Provisioning is already resolved for this client.";
   if (hasActiveLifecycleJob) return "A lifecycle job is already active.";
   if (!latestJob) return "No failed provisioning job is available to retry.";
   if (retryableStepName) return null;
@@ -568,15 +584,21 @@ export default function ClientLifecycle() {
     () => getProvisioningRetryStepName(retryableProvisioningJob),
     [retryableProvisioningJob]
   );
+  const provisioningResolved = useMemo(
+    () => isProvisioningResolved(client, latestJob),
+    [client, latestJob]
+  );
   const retryProvisioningDisabledReason = getRetryProvisioningDisabledReason(
     latestJob,
     hasActiveLifecycleJob,
-    retryProvisioningStepName
+    retryProvisioningStepName,
+    provisioningResolved
   );
   const canRetryProvisioning = Boolean(
-    retryProvisioningStepName && !hasActiveLifecycleJob && !lifecycleMutation.isPending
+    retryProvisioningStepName && !provisioningResolved && !hasActiveLifecycleJob && !lifecycleMutation.isPending
   );
   const showBlockingProvisioningError = Boolean(
+    !provisioningResolved &&
     retryableProvisioningJob &&
     retryableProvisioningJob.id !== latestJob?.id &&
     shouldShowLifecycleError(retryableProvisioningJob.error_payload, retryableProvisioningJob.status)
