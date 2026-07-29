@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, TrendingDown, TrendingUp, Minus, Users, Package, Eye, Clock3, UserRound } from "lucide-react";
 import { differenceInCalendarDays, format, startOfMonth, startOfYear, subDays, subMonths, endOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { cn } from "@/lib/utils";
 import { fetchDashboardCharts, fetchDashboardMetrics } from "@/api/dashboardApi";
 import { fetchOrders } from "@/api/ordersApi";
@@ -379,7 +378,6 @@ export default function Dashboard() {
   const summary = metrics?.patient_summary;
   return <div className="min-h-full bg-[#f7f8fa] px-4 py-5 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-7 sm:py-6">
     <div className="mx-auto max-w-[1500px]">
-      <IntercomInlineBanner />
       <header className="mb-[18px] flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-start">
         <div className="min-w-0"><h1 className="text-[22px] font-bold tracking-tight">Dashboard</h1><p className="mt-1 max-w-[620px] text-[13px] text-slate-400">{rangeLabel}</p></div>
         <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_34px] items-center gap-1.5 sm:grid-cols-[repeat(6,max-content)_34px] 2xl:justify-end">

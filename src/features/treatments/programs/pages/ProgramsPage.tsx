@@ -87,11 +87,14 @@ export default function ProgramsPage() {
   }, [programs]);
 
   const totalTreatmentsCount = new Set(programs.map(p => p.treatmentTypeKey)).size;
-  const missingFollowUpCount = (() => {
+
+  const missingFollowUpKeys = useMemo(() => {
     const keysWithIntake = new Set(programs.filter(p => p.stage === "intake").map(p => p.treatmentTypeKey));
     const keysWithFollowUp = new Set(programs.filter(p => p.stage === "follow_up").map(p => p.treatmentTypeKey));
-    return [...keysWithIntake].filter(key => !keysWithFollowUp.has(key)).length;
-  })();
+    return new Set([...keysWithIntake].filter(key => !keysWithFollowUp.has(key)));
+  }, [programs]);
+
+  const missingFollowUpCount = missingFollowUpKeys.size;
 
   const treatmentTypes = useMemo(() => {
     const keys = new Set(programs.map(p => p.treatmentTypeKey));
@@ -101,8 +104,14 @@ export default function ProgramsPage() {
     }));
   }, [programs, treatmentNameByKey]);
 
-  const hasActiveFilters = selectedStatus !== "all" || selectedTreatment !== "all";
-  const activeFilterCount = (selectedStatus !== "all" ? 1 : 0) + (selectedTreatment !== "all" ? 1 : 0);
+  const hasActiveFilters =
+    filter !== "all" ||
+    selectedStatus !== "all" ||
+    selectedTreatment !== "all";
+  const activeFilterCount =
+    (filter !== "all" ? 1 : 0) +
+    (selectedStatus !== "all" ? 1 : 0) +
+    (selectedTreatment !== "all" ? 1 : 0);
 
   const filteredPrograms = useMemo(() => {
     const query = formatQuery(searchQuery);
@@ -110,6 +119,7 @@ export default function ProgramsPage() {
     let result = programs.filter((program) => {
       if (activeTab === "intake" && program.stage !== "intake") return false;
       if (activeTab === "follow_up" && program.stage !== "follow_up") return false;
+      if (filter === "missing_follow_up" && !missingFollowUpKeys.has(program.treatmentTypeKey)) return false;
       if (selectedStatus !== "all" && program.status !== selectedStatus) return false;
       if (selectedTreatment !== "all" && program.treatmentTypeKey !== selectedTreatment) return false;
 
@@ -137,7 +147,7 @@ export default function ProgramsPage() {
     });
 
     return result;
-  }, [programs, searchQuery, sortBy, activeTab, selectedStatus, selectedTreatment, treatmentNameByKey]);
+  }, [programs, searchQuery, sortBy, activeTab, filter, missingFollowUpKeys, selectedStatus, selectedTreatment, treatmentNameByKey]);
 
   const handleSaveSlug = async (programId: string, newSlug: string) => {
     try {
@@ -266,6 +276,29 @@ export default function ProgramsPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64 p-3">
                 <div className="mb-2">
+                  <div className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">PROGRAM SET</div>
+                  <div className="space-y-0.5">
+                    {([
+                      { value: "all", label: "All Programs" },
+                      { value: "missing_follow_up", label: "Missing Follow-Up" },
+                    ] as const).map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setFilter(option.value)}
+                        className={`flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-xs transition-colors ${
+                          filter === option.value
+                            ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                            : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <span>{option.label}</span>
+                        {filter === option.value && <Check className="h-3.5 w-3.5 text-blue-600" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="my-2 h-px bg-slate-100 dark:bg-slate-700" />
+                <div className="mb-2">
                   <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5 px-1">STATUS</div>
                   <div className="space-y-0.5">
                     {([{value:"all",label:"All Statuses"},{value:"published",label:"Published"},{value:"draft",label:"Draft"}] as const).map((opt) => (
@@ -314,7 +347,7 @@ export default function ProgramsPage() {
                   <>
                     <div className="h-px bg-slate-100 my-2 dark:bg-slate-700" />
                     <div className="flex justify-end">
-                      <button onClick={() => { setSelectedStatus("all"); setSelectedTreatment("all"); }}
+                      <button onClick={() => { setFilter("all"); setSelectedStatus("all"); setSelectedTreatment("all"); }}
                         className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer dark:text-blue-400 dark:hover:text-blue-300">Reset Filters</button>
                     </div>
                   </>

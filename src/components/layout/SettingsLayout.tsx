@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom"
 import { SettingsSidebar } from "./SettingsSidebar"
 import { Loader2 } from "lucide-react"
 import { lazyWithRetry } from "@/utils/lazyWithRetry"
+import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners"
 
 const StoreDetails = lazyWithRetry(() => import("@/pages/settings/StoreDetails"))
 const Integrations = lazyWithRetry(() => import("@/pages/settings/Integrations"))
@@ -45,6 +46,7 @@ export function SettingsLayout() {
       >
 
         <div className="p-6">
+          <IntercomInlineBanner />
           <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>}>
           <Routes>
             <Route path="store-details" element={<StoreDetails />} />

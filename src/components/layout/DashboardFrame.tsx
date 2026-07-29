@@ -9,8 +9,7 @@ import BillingSuspendedBanner from "@/components/billing/BillingSuspendedBanner"
 import { useClientMessages } from "@/contexts/MessagesContext";
 import { Permissions } from "@/constants/permissions";
 import { IntercomWidget } from "@/features/integrations/IntercomWidget";
-import { IntercomBannersProvider } from "@/features/announcements/IntercomBannersContext";
-import { IntercomCardBanner } from "@/features/announcements/IntercomBanners";
+import { IntercomCardBanner, IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { Loader2 } from "lucide-react";
 import { ProgramLegacyRouteRedirect } from "@/features/treatments/navigation/ProgramLegacyRouteRedirect";
 
@@ -173,7 +172,6 @@ export default function DashboardFrame() {
   })();
 
   return (
-    <IntercomBannersProvider>
     <SidebarProvider>
       <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
         <AppSidebar unseenCount={unseenCount} />
@@ -190,6 +188,7 @@ export default function DashboardFrame() {
           <IntercomCardBanner />
 
           <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
+            <IntercomInlineBanner />
             <Suspense fallback={<PageLoadingFallback />}>
             <Routes>
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -241,6 +240,5 @@ export default function DashboardFrame() {
         </div>
       </div>
     </SidebarProvider>
-    </IntercomBannersProvider>
   );
 }

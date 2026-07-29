@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { Suspense, useEffect, useState } from "react";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { authService } from "./services/authService";
@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { useSocialTags } from "@/hooks/useSocialTags";
 import { BrandingProvider } from "@/contexts/BrandingContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
+import { IntercomBannersProvider } from "@/features/announcements/IntercomBannersContext";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
 
 // pages
@@ -26,6 +27,18 @@ const RouteLoadingFallback = () => (
   <div className="flex min-h-screen items-center justify-center bg-background">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
   </div>
+);
+
+const DashboardRouteProviders = () => (
+  <ProtectedRoute>
+    <BrandingProvider>
+      <MessagesProvider pollIntervalMs={30000}>
+        <IntercomBannersProvider>
+          <Outlet />
+        </IntercomBannersProvider>
+      </MessagesProvider>
+    </BrandingProvider>
+  </ProtectedRoute>
 );
 
 const App = () => {
@@ -77,32 +90,11 @@ const App = () => {
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
 
-        {/* Dashboard routes — single MessagesProvider + poller for all dashboard pages */}
-        <Route
-          path="/dashboard/*"
-          element={
-            <ProtectedRoute>
-              <BrandingProvider>
-                <MessagesProvider pollIntervalMs={30000}>
-                  <DashboardFrame />
-                </MessagesProvider>
-              </BrandingProvider>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/dashboard/settings/*"
-          element={
-            <ProtectedRoute>
-              <BrandingProvider>
-                <MessagesProvider pollIntervalMs={30000}>
-                  <SettingsFrame />
-                </MessagesProvider>
-              </BrandingProvider>
-            </ProtectedRoute>
-          }
-        />
+        {/* Keep shared dashboard providers mounted across dashboard/settings navigation. */}
+        <Route element={<DashboardRouteProviders />}>
+          <Route path="/dashboard/settings/*" element={<SettingsFrame />} />
+          <Route path="/dashboard/*" element={<DashboardFrame />} />
+        </Route>
 
         <Route path="*" element={<NotFound />} />
       </Routes>

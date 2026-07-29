@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Header } from "@/components/layout/Header";
 import { SettingsLayout } from "@/components/layout/SettingsLayout";
+import { IntercomCardBanner } from "@/features/announcements/IntercomBanners";
 
 const SettingsFrame = () => (
   <SidebarProvider>
@@ -21,6 +22,7 @@ const SettingsFrame = () => (
           </Suspense>
         </div>
       </div>
+      <IntercomCardBanner />
     </div>
   </SidebarProvider>
 );

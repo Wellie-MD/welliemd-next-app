@@ -214,7 +214,7 @@ export function SortableQuestionRow({
       {row.required ? <><Check className="h-3.5 w-3.5 stroke-[3]" />Required</> : <span className="text-slate-400">Optional</span>}
     </div>
     <div><span className="inline-flex rounded-md border bg-slate-50 px-2.5 py-1 text-xs font-medium">{formatQuestionKind(row.kind)}</span></div>
-    <div className={cn("flex justify-end gap-1.5", isClientQuestion ? "opacity-0 transition-opacity group-hover:opacity-100" : "text-slate-200")}>
+    <div className={cn("flex justify-center gap-1.5", isClientQuestion ? "opacity-0 transition-opacity group-hover:opacity-100" : "text-slate-200")}>
       {row.question && isClientQuestion && !isLocked ? <>
         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); onEdit(row.question!); }} className="h-8 w-8" title="Edit question"><Pencil className="h-4 w-4" /></Button>
         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); onDelete(row.question!.id); }} className="h-8 w-8" title="Delete question"><Trash2 className="h-4 w-4" /></Button>
@@ -235,6 +235,6 @@ export function AuthRow({ subtitle }: { subtitle: string }) {
     </div>
     <div className="text-xs font-semibold text-slate-400">System</div>
     <div><span className="inline-flex rounded-md border bg-slate-50 px-2.5 py-1 text-xs font-medium">Auth</span></div>
-    <div className="flex justify-end text-slate-200"><LockKeyhole className="h-3.5 w-3.5" /></div>
+    <div className="flex justify-center text-slate-200"><LockKeyhole className="h-3.5 w-3.5" /></div>
   </div>;
 }
