@@ -84,17 +84,17 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     field: keyof ProductForm,
     value: ProductForm[keyof ProductForm]
   ) => {
+    // Every caller that changes category already resets its own dependent
+    // fields (regimen/dose/product) explicitly, in the order that keeps the
+    // row consistent. An implicit "category clears dose" side effect here
+    // used to fire regardless of call order — in handleDoseChange it landed
+    // *after* doseLabel/doseMappingId were already set, silently wiping them
+    // back out and leaving a row with a product id but no dose label, which
+    // the backend then rejected as invalid.
     setProducts((current) =>
-      current.map((product, itemIndex) => {
-        if (itemIndex !== index) return product;
-        return {
-          ...product,
-          [field]: value,
-          ...(field === "category"
-            ? { doseLabel: "", doseMappingId: undefined }
-            : {}),
-        };
-      })
+      current.map((product, itemIndex) =>
+        itemIndex === index ? { ...product, [field]: value } : product
+      )
     );
   };
 
