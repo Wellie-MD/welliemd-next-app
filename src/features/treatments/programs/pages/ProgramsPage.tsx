@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -54,7 +54,7 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 
 export default function ProgramsPage() {
   const navigate = useNavigate();
-  const { data: programs = [] } = usePrograms();
+  const { data: programs = [], refetch: refetchPrograms } = usePrograms();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
   const { data: allConsents = [] } = useConsents();
   const saveProgramMutation = useSaveProgram();
@@ -90,6 +90,9 @@ export default function ProgramsPage() {
 
   // Assign to Clients state
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const handleAssignmentsCompleted = useCallback(() => {
+    void refetchPrograms();
+  }, [refetchPrograms]);
 
   // Build treatment type lookup map
   const treatmentTypeMap = useMemo(() => {
@@ -558,6 +561,7 @@ export default function ProgramsPage() {
         items={assignItems}
         itemLabel="program"
         sourceKind={ASSIGNMENT_SOURCE.program}
+        onAssignmentsCompleted={handleAssignmentsCompleted}
       />
     </div>
   );
