@@ -107,6 +107,8 @@ assert.deepEqual(persistedQuestion.products[0], {
   productId: "3",
   sourceProductId: undefined,
   price: 79,
+  productRole: "primary_choice",
+  choiceGroup: undefined,
   visibilityRules: undefined,
 });
 

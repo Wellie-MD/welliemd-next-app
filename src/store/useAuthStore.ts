@@ -100,6 +100,8 @@ const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'admin-auth-storage-v2',
+      // Refresh tokens are scoped per browser tab. The backend rotates and
+      // blacklists them, so sharing one token across tabs creates refresh races.
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         user: state.user,

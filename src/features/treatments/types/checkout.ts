@@ -38,6 +38,7 @@ export interface ProgramCheckoutQuestion {
   text: string;
   products: ProgramCheckoutProduct[];
   visibilityRules: VisibilityRuleGroup;
+  required?: boolean;
 }
 
 export interface CheckoutProductOption {

@@ -9,7 +9,10 @@ import type {
   ProgramQuestion,
   TreatmentType,
 } from "@/features/treatments/types";
-import { PROGRAM_PRODUCT_ROLE } from "@/features/treatments/programs/checkout-question/constants";
+import {
+  isCheckoutQuestionRequired,
+  PROGRAM_PRODUCT_ROLE,
+} from "../programs/checkout-question/constants";
 import type {
   ConsentRecord,
   CustomProgramRecord,
@@ -102,6 +105,7 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
     visibilityRules: checkoutVisibilityGroup(
       record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule ?? record.conditional_logic,
     ) ?? { mode: "simple", rules: [], subgroups: [] },
+    required: Boolean(record.required ?? record.is_required ?? isCheckoutQuestionRequired(rawProducts.map(checkoutProductFromRecord))),
   };
 };
 
@@ -332,7 +336,7 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
 
 // ponytail: partial mapping to avoid stale frontend query cache overwrites during PATCH requests
 export const programToRecord = (program: Partial<Program>, treatmentTypes: TreatmentType[]) => {
-  const payload: Record<string, any> = {};
+  const payload: Record<string, unknown> = {};
 
   if (program.treatmentTypeKey !== undefined) {
     const treatmentType = treatmentTypes.find((item) => item.key === program.treatmentTypeKey);

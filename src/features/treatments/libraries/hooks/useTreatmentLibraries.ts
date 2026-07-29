@@ -124,7 +124,7 @@ export const useSaveProgram = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (program: Program) => treatmentsApi.saveProgram(program),
-    onSuccess: (updatedProgram) => {
+    onSuccess: async (updatedProgram) => {
       queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
         (current || []).map((program) => {
           if (program.id !== updatedProgram.id) {
@@ -138,8 +138,7 @@ export const useSaveProgram = () => {
           };
         })
       );
-      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
-      queryClient.refetchQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
+      await queryClient.refetchQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
   });
@@ -278,7 +277,7 @@ export const useSaveProgramQuestions = (programId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (questions: ProgramQuestion[]) => treatmentsApi.saveProgramQuestions(programId, questions),
-    onSuccess: (questions) => {
+    onSuccess: async (questions) => {
       queryClient.setQueryData(treatmentQueryKeys.programQuestions(programId), questions);
       queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
         (current || []).map((program) =>
@@ -292,6 +291,7 @@ export const useSaveProgramQuestions = (programId: string) => {
         )
       );
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+      await queryClient.refetchQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
   });

@@ -1,6 +1,7 @@
-import { Edit, Trash2 } from "lucide-react";
+import { Check, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
+import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
 
 interface ProgramCheckoutQuestionsProps {
   questions: ProgramCheckoutQuestion[];
@@ -70,6 +71,7 @@ export function ProgramCheckoutQuestions({
             <tr className="border-b border-slate-100 text-[9px] uppercase font-bold text-slate-400 tracking-widest">
               <th className="px-6 py-4 font-bold">Question Text</th>
               <th className="px-6 py-4 font-bold">Category - Regimen - Dose</th>
+              <th className="px-6 py-4 font-bold">Required</th>
               <th className="px-6 py-4 font-bold">Visibility Rules</th>
               <th className="px-6 py-4 text-right font-bold">Actions</th>
             </tr>
@@ -77,40 +79,55 @@ export function ProgramCheckoutQuestions({
           <tbody className="divide-y divide-slate-100">
             {questions.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic text-[13px]">
+                <td colSpan={5} className="px-6 py-8 text-center text-slate-400 italic text-[13px]">
                   No checkout questions defined.
                 </td>
               </tr>
             ) : (
-              questions.map((cq) => (
-                <tr key={cq.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-5 text-[13px] font-bold text-slate-900 w-1/3">
-                    {cq.text}
-                  </td>
-                  <td className="px-6 py-5 text-[13px]">
-                    {renderProductSummary(cq.products)}
-                  </td>
-                  <td className="px-6 py-5 text-[13px] text-slate-400 font-medium">
-                    {renderVisibilitySummary(cq.visibilityRules)}
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="inline-flex items-center gap-2 justify-end">
-                      <button
-                        onClick={() => onEdit(cq)}
-                        className="text-slate-400 hover:text-slate-700 transition-colors"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(cq.id)}
-                        className="text-slate-400 hover:text-slate-700 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              questions.map((cq) => {
+                const isRequired = cq.required ?? isCheckoutQuestionRequired(cq.products);
+                return (
+                  <tr key={cq.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-5 text-[13px] font-bold text-slate-900 w-1/3">
+                      {cq.text}
+                    </td>
+                    <td className="px-6 py-5 text-[13px]">
+                      {renderProductSummary(cq.products)}
+                    </td>
+                    <td className="px-6 py-5 text-[13px]">
+                      <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-700">
+                        {isRequired ? (
+                          <>
+                            <Check className="h-3 w-3 text-slate-600 stroke-[3]" />
+                            Required
+                          </>
+                        ) : (
+                          <span className="text-slate-300 font-normal">Optional</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-[13px] text-slate-400 font-medium">
+                      {renderVisibilitySummary(cq.visibilityRules)}
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="inline-flex items-center gap-2 justify-end">
+                        <button
+                          onClick={() => onEdit(cq)}
+                          className="text-slate-400 hover:text-slate-700 transition-colors"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(cq.id)}
+                          className="text-slate-400 hover:text-slate-700 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

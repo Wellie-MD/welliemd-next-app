@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
-import { PROGRAM_PRODUCT_ROLE } from "../constants";
+import { PROGRAM_PRODUCT_ROLE, isCheckoutQuestionRequired } from "../constants";
+import { toast } from "@/components/ui/use-toast";
 
 type ProductForm = ProgramCheckoutProduct;
 type VisibilityRuleGroupForm = VisibilityRuleGroup;
@@ -123,6 +124,21 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return;
     }
 
+    const seenProducts = new Map<string, number>();
+    for (const [index, product] of validProducts.entries()) {
+      const productId = String(product.productId);
+      const firstIndex = seenProducts.get(productId);
+      if (firstIndex !== undefined) {
+        const label = [product.category, product.regimen, product.doseLabel]
+          .filter(Boolean)
+          .join(" / ");
+        const message = `${label || "This Product"} is selected in options ${firstIndex + 1} and ${index + 1}. A Checkout Question can use the same catalog Product only once. Choose a different Product, or remove the duplicate option.`;
+        toast({ title: "Duplicate Product option", description: message, variant: "destructive" });
+        return;
+      }
+      seenProducts.set(productId, index);
+    }
+
     const normalizeGroup = (group: VisibilityRuleGroupForm | undefined): VisibilityRuleGroupForm | undefined => {
       if (!group) return undefined;
       const rules = group.rules.filter((rule) => rule.questionId && rule.operator && rule.value);
@@ -154,6 +170,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           visibilityRules: normalizeGroup(product.visibilityRules),
         })),
         visibilityRules: normalizeGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
+        required: isCheckoutQuestionRequired(validProducts),
       });
       onOpenChange(false);
     } catch (error) {
