@@ -100,7 +100,9 @@ const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'admin-auth-storage-v2',
-      storage: createJSONStorage(() => sessionStorage),
+      // Auth must be shared by tabs so opening the admin portal in a new tab
+      // can hydrate the existing session.
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
