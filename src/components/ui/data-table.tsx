@@ -23,8 +23,17 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ChevronLeft,
   ChevronRight,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   RotateCcw,
   Download,
   CalendarIcon,
@@ -39,6 +48,8 @@ interface Column {
   key: string;
   label: string;
   sortable?: boolean;
+  sortDirection?: "asc" | "desc" | null;
+  onSort?: () => void;
   headerClassName?: string;
   className?: string;
   width?: string;
@@ -96,6 +107,18 @@ interface DataTableProps {
   pagination?: PaginationConfig; // External pagination config
 }
 
+const getSortTooltip = (column: Column) => {
+  if (column.sortDirection === "desc") {
+    return `${column.label}: sorted highest to lowest. Click to sort lowest to highest.`;
+  }
+
+  if (column.sortDirection === "asc") {
+    return `${column.label}: sorted lowest to highest. Click to clear sorting.`;
+  }
+
+  return `${column.label}: not sorted. Click to sort highest to lowest.`;
+};
+
 export function DataTable({
   data,
   columns,
@@ -141,7 +164,7 @@ export function DataTable({
   const [localSearch, setLocalSearch] = useState<string>("");
 
   // ---- filtering (using the filtered data passed from parent) ----
-  const filteredData = data ?? [];
+  const filteredData = useMemo(() => data ?? [], [data]);
 
   // ---- internal pagination (only if not using external) ----
   useEffect(() => {
@@ -203,7 +226,8 @@ export function DataTable({
   };
 
   return (
-    <div className="space-y-4">
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-4">
       {!hideToolbar && (
         <>
           {/* All filters in a single line */}
@@ -365,8 +389,40 @@ export function DataTable({
                         minWidth: column.minWidth,
                         maxWidth: column.maxWidth,
                       }}
+                    aria-sort={
+                      column.sortDirection === "asc"
+                        ? "ascending"
+                        : column.sortDirection === "desc"
+                          ? "descending"
+                          : undefined
+                    }
                   >
-                    {column.label}
+                    {column.sortable && column.onSort ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={getSortTooltip(column)}
+                            className="inline-flex items-center gap-1.5 rounded-sm text-left uppercase tracking-wider hover:text-gray-950 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            onClick={column.onSort}
+                          >
+                            <span>{column.label}</span>
+                            {column.sortDirection === "asc" ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : column.sortDirection === "desc" ? (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+                            )}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs normal-case">
+                          {getSortTooltip(column)}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      column.label
+                    )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -479,6 +535,7 @@ export function DataTable({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

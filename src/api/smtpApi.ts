@@ -165,6 +165,8 @@ export interface ClientEmailConfiguration {
   email_host_user: string;
   email_host_password: string;
   default_from_email: string;
+  from_name?: string;
+  is_default_domain?: boolean;
   created_at?: string;
   updated_at?: string;
 }

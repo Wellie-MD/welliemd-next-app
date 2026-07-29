@@ -139,7 +139,11 @@ export default function SmtpDomainSettings() {
           email_host_user: config.email_host_user,
           email_host_password: config.email_host_password,
           default_from_email: config.default_from_email,
+          from_name: config.from_name || "",
+          is_default_domain: Boolean(config.is_default_domain),
         })
+        setFromName(config.from_name || "")
+        setIsDefaultDomain(Boolean(config.is_default_domain))
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load configuration')
@@ -158,25 +162,40 @@ export default function SmtpDomainSettings() {
     setCredSuccess(null)
     try {
       if (configId) {
-        await smtpApi.updateEmailConfiguration(configId, formData)
+        await smtpApi.updateEmailConfiguration(configId, {
+          ...formData,
+          from_name: fromName.trim(),
+          is_default_domain: isDefaultDomain,
+        })
         setCredSuccess('Email configuration updated successfully!')
       } else {
-        const response = await smtpApi.createEmailConfiguration(formData)
+        const response = await smtpApi.createEmailConfiguration({
+          ...formData,
+          from_name: fromName.trim(),
+          is_default_domain: isDefaultDomain,
+        })
         setConfigId(response.id)
         setCredSuccess('Email configuration created successfully!')
       }
     } catch (err: any) {
       const data = err.response?.data;
-      let message = "Something went wrong";
-      if (typeof data?.error === "string") {
+      const rawError = data?.error ?? data?.detail ?? data;
+      let message = "Failed to save email configuration";
+      if (typeof rawError === "string") {
         try {
-          message = JSON.parse(data.error).message;
+          const parsed = JSON.parse(rawError);
+          message = parsed?.message || rawError;
         } catch {
-          message = data.error;
+          message = rawError;
         }
+      } else if (rawError && typeof rawError === "object") {
+        message = Object.entries(rawError)
+          .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(", ") : String(value)}`)
+          .join("; ") || message;
+      } else if (err?.message) {
+        message = err.message;
       }
-      const errorMsg = message || 'Failed to save credentials'
-      setCredError(errorMsg)
+      setCredError(message)
       console.error('Error saving email credentials:', err)
     } finally {
       setIsSaving(false)
@@ -202,6 +221,8 @@ export default function SmtpDomainSettings() {
         email_host_password: "",
         default_from_email: "",
       })
+      setFromName("")
+      setIsDefaultDomain(false)
       setCredSuccess('Email configuration deleted successfully!')
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to delete configuration'
