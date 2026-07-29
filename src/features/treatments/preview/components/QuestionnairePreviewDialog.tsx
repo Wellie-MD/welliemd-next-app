@@ -66,6 +66,7 @@ export function QuestionnairePreviewDialog({
   );
   const appliedIdentityRequestRef = useRef<number | null>(null);
   const identitySwitchTimerRef = useRef<number | null>(null);
+  const loadingTimeoutRef = useRef<number | null>(null);
   const identityRequestSequenceRef = useRef(0);
   const identitySwitchStartedAtRef = useRef<number | null>(null);
   const [identity, setIdentity] = useState<QuestionnairePreviewIdentity>(
@@ -78,6 +79,7 @@ export function QuestionnairePreviewDialog({
   const [identitySwitching, setIdentitySwitching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [isSlowLoading, setIsSlowLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [reportedHeight, setReportedHeight] = useState<number | undefined>();
   const [reportedPath, setReportedPath] = useState<string | undefined>();
@@ -113,12 +115,20 @@ export function QuestionnairePreviewDialog({
     [previewUrl],
   );
 
+  const clearTimers = () => {
+    if (identitySwitchTimerRef.current !== null) {
+      window.clearTimeout(identitySwitchTimerRef.current);
+      identitySwitchTimerRef.current = null;
+    }
+    if (loadingTimeoutRef.current !== null) {
+      window.clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+  };
+
   useEffect(() => {
     if (!open) {
-      if (identitySwitchTimerRef.current !== null) {
-        window.clearTimeout(identitySwitchTimerRef.current);
-        identitySwitchTimerRef.current = null;
-      }
+      clearTimers();
       appliedIdentityRequestRef.current = null;
       setCapability(null);
       return;
@@ -134,7 +144,16 @@ export function QuestionnairePreviewDialog({
     setReportedHeight(undefined);
     setReportedPath(undefined);
     setStatus("loading");
+    setIsSlowLoading(false);
     setErrorMessage("");
+
+    // Start a 3s safety timer to detect if popup/iframe is blocked or slow to handshake
+    loadingTimeoutRef.current = window.setTimeout(() => {
+      if (active) {
+        setIsSlowLoading(true);
+      }
+    }, 3000);
+
     issuePreviewCapability(previewContext)
       .then((issued) => {
         if (active) setCapability(issued);
@@ -152,10 +171,7 @@ export function QuestionnairePreviewDialog({
       });
     return () => {
       active = false;
-      if (identitySwitchTimerRef.current !== null) {
-        window.clearTimeout(identitySwitchTimerRef.current);
-        identitySwitchTimerRef.current = null;
-      }
+      clearTimers();
       appliedIdentityRequestRef.current = null;
     };
   }, [open, previewContext.id, previewContext.type]);
@@ -175,6 +191,11 @@ export function QuestionnairePreviewDialog({
       }
 
       if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.ready) {
+        if (loadingTimeoutRef.current !== null) {
+          window.clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
+        setIsSlowLoading(false);
         setStatus("ready");
       } else if (
         event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.identityReady &&
@@ -197,6 +218,7 @@ export function QuestionnairePreviewDialog({
         identitySwitchStartedAtRef.current = null;
         setIdentitySwitching(false);
         setStatus("ready");
+        setIsSlowLoading(false);
         if (event.data.message) {
           setErrorMessage(event.data.message);
         } else {
@@ -244,19 +266,32 @@ export function QuestionnairePreviewDialog({
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
-      if (identitySwitchTimerRef.current !== null) {
-        window.clearTimeout(identitySwitchTimerRef.current);
-        identitySwitchTimerRef.current = null;
-      }
+      clearTimers();
     };
   }, [identity, onOpenChange, open, previewOrigin]);
 
+  const handleIframeLoad = () => {
+    if (loadingTimeoutRef.current !== null) {
+      window.clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+    window.setTimeout(() => {
+      if (status === "loading") {
+        setStatus("ready");
+        setIsSlowLoading(false);
+      }
+    }, 1000);
+  };
+
+  const openInNewTab = () => {
+    if (previewUrl) {
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
   const refresh = () => {
     if (!previewOrigin) return;
-    if (identitySwitchTimerRef.current !== null) {
-      window.clearTimeout(identitySwitchTimerRef.current);
-      identitySwitchTimerRef.current = null;
-    }
+    clearTimers();
     appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
     setAppliedIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
     setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
@@ -266,6 +301,7 @@ export function QuestionnairePreviewDialog({
     identitySwitchStartedAtRef.current = null;
     setIdentitySwitching(false);
     setStatus("loading");
+    setIsSlowLoading(false);
     setErrorMessage("");
     iframeRef.current?.contentWindow?.postMessage(
       {
@@ -279,16 +315,11 @@ export function QuestionnairePreviewDialog({
 
   const requestIdentity = (nextIdentity: QuestionnairePreviewIdentity) => {
     if (!previewOrigin || identitySwitching) return;
-    // The applied identity is already rendered. A retry for the same tab
-    // would never satisfy the pending-switch guard and could reintroduce the
-    // blocking state, so recovery uses Refresh for that case.
     if (nextIdentity === appliedIdentity) return;
     const requestId = ++identityRequestSequenceRef.current;
     appliedIdentityRequestRef.current = requestId;
     identitySwitchStartedAtRef.current = performance.now();
     setErrorMessage("");
-    // A child-frame error must not leave a retry stranded behind the error
-    // state: the iframe is still mounted and can accept a correlated switch.
     if (status !== "ready") setStatus("ready");
     setIdentity(nextIdentity);
     setIdentityRequestId(requestId);
@@ -327,6 +358,7 @@ export function QuestionnairePreviewDialog({
       setErrorMessage("The preview patient switch timed out. Try again or refresh the preview.");
     }, QUESTIONNAIRE_PREVIEW_DEFAULTS.identitySwitchTimeoutMs);
   }, [identity, identityRequestId, previewOrigin, status]);
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -397,12 +429,33 @@ export function QuestionnairePreviewDialog({
         <div className="min-h-0 flex-1 bg-background p-3">
           <div className="relative h-full overflow-hidden rounded-lg border border-border bg-white">
             {status === "loading" || identitySwitching ? (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white p-4">
                 <div className="flex flex-col items-center gap-3 text-xs text-muted-foreground">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-warning" />
-                  {identitySwitching
-                    ? "Switching preview patient…"
-                    : "Loading patient preview…"}
+                  <span>
+                    {identitySwitching
+                      ? "Switching preview patient…"
+                      : "Loading patient preview…"}
+                  </span>
+                  {isSlowLoading ? (
+                    <div className="mt-2 flex flex-col items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-center text-xs text-amber-800">
+                      <p>
+                        Preview is taking longer than expected. This may indicate a browser popup or security setting blocking the application.
+                      </p>
+                      <p style={{ fontSize: "11px", marginTop: "8px" }}>
+                        Try opening in a new tab, or check your browser popup blocker and reload.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="mt-2 h-8 gap-1.5 bg-amber-600 px-3 text-white hover:bg-amber-700"
+                        onClick={openInNewTab}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open in New Tab
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -428,6 +481,15 @@ export function QuestionnairePreviewDialog({
                   >
                     Refresh
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-7 border-destructive/30 px-2 text-[11px] text-destructive"
+                    onClick={openInNewTab}
+                  >
+                    <ExternalLink className="mr-1 h-3 w-3" />
+                    Open Tab
+                  </Button>
                 </span>
               </div>
             ) : null}
@@ -437,26 +499,34 @@ export function QuestionnairePreviewDialog({
                 key={refreshKey}
                 title="Patient questionnaire preview"
                 src={iframeUrl}
+                onLoad={handleIframeLoad}
                 data-content-height={reportedHeight}
                 data-preview-path={reportedPath}
                 className={`h-full w-full border-0 bg-white transition-opacity ${
                   status === "ready" ? "opacity-100" : "opacity-0"
                 }`}
-                sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
+                sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads allow-storage-access-by-user-activation allow-presentation"
               />
             ) : null}
           </div>
         </div>
 
         <div className="flex shrink-0 items-center justify-between border-t border-border px-5 py-3">
-          <div className="flex items-center gap-1">
-            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={refresh} aria-label="Refresh preview">
+          <div className="flex items-center gap-2">
+            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={refresh} title="Refresh preview" aria-label="Refresh preview">
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
-            <Button type="button" size="icon" variant="ghost" className="h-8 w-8" asChild>
-              <a href={previewUrl || undefined} target="_blank" rel="noreferrer" aria-label="Open preview in new tab">
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={openInNewTab}
+              disabled={!previewUrl}
+              title="Open preview in new tab"
+              aria-label="Open preview in new tab"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
             </Button>
           </div>
           <Button type="button" variant="outline" className="h-8 px-4 text-xs" onClick={() => onOpenChange(false)}>
