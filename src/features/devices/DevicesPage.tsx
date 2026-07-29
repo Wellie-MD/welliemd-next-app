@@ -532,11 +532,11 @@ export default function DevicesPage() {
 
   /* ─── Connect Device ─── */
   const handleConnect = useCallback(
-    (providerId: string) => {
+    (providerId: string, skipConsentCheck: boolean = false) => {
       const p = allowedProviders.find((x) => x.id === providerId);
       if (!p) return;
 
-      if (!consent.given) {
+      if (!consent.given && !skipConsentCheck) {
         setConsentOpen(true);
         // Store pending provider
         (window as any).__pendingProvider = providerId;
@@ -757,7 +757,7 @@ export default function DevicesPage() {
         const pendingId = (window as any).__pendingProvider;
         if (pendingId) {
           (window as any).__pendingProvider = null;
-          handleConnect(pendingId);
+          handleConnect(pendingId, true);
         }
       })
       .catch((error: any) => {
