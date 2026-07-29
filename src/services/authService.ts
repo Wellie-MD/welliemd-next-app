@@ -159,6 +159,7 @@ export const authService = {
           timeout: API_REQUEST_TIMEOUT_MS,
           headers: {
             'Content-Type': 'application/json',
+            'X-Wellie-Portal': 'client',
           },
         });
         
@@ -187,23 +188,16 @@ export const authService = {
         
         return newAccessToken;
       } catch (error) {
-        // Only log out if the refresh token is invalid (401) or expired
-        // AND we don't have a valid access token already
-        // Don't log out for network errors or other transient issues
+        // When the refresh token itself returns 401/403 the stored access
+        // token is also stale — the persisted state (localStorage) is
+        // unreliable. Always clear the session so the interceptor or
+        // hydrateAuth redirects the user to sign-in instead of leaving
+        // them in a broken "authenticated" state with an expired token.
         const axiosError = getAxiosError(error);
         const status = axiosError?.response?.status;
-        const authStore = useAuthStore.getState();
         
         if (status === 401 || status === 403) {
-          // Only logout if we don't have a valid access token
-          // If user just logged in, they have a valid token, so don't logout
-          if (!authStore.isAuthenticated || !authStore.accessToken) {
-            console.error('Refresh token is invalid or expired, logging out');
-            authStore.logout();
-          } else {
-            // We have a valid access token, just log the refresh failure
-            console.warn('Refresh token failed but user has valid access token, continuing with existing token');
-          }
+          useAuthStore.getState().logout();
         } else {
           console.error('Token refresh failed (non-auth error):', axiosError?.response?.data || getErrorMessage(error));
         }
@@ -322,25 +316,19 @@ export const authService = {
         return;
       }
     } catch (error) {
-      // Only log out if we don't have a valid access token
-      // If user just logged in and has a valid token, don't log them out
+      // The persisted access token in localStorage is stale after a day or
+      // a page reload — checking authStore.isAuthenticated here is unreliable.
+      // When the refresh endpoint itself responds 401/403 the session is dead;
+      // clear it so the user can sign in again cleanly instead of bouncing
+      // through a broken "authenticated" state.
       const axiosError = getAxiosError(error);
       const status = axiosError?.response?.status;
       if (status === 401 || status === 403) {
-        // Only logout if we don't have a valid access token already
-        if (!authStore.isAuthenticated || !authStore.accessToken) {
-          console.log('Session restoration failed: refresh token invalid or expired');
-          useAuthStore.getState().logout();
-        } else {
-          // We have a valid token, just log the refresh failure but don't logout
-          console.log('Token refresh failed but user has valid access token, continuing with existing token');
-        }
+        console.log('Session restoration failed: refresh token invalid or expired');
+        useAuthStore.getState().logout();
       } else {
         console.log('Session restoration failed (non-auth error, will retry on next request):', getErrorMessage(error));
-        // Don't log out for transient errors - user might still have a valid session
-        // If we have a valid token, keep the user logged in
         if (authStore.isAuthenticated && authStore.accessToken) {
-          // Keep user logged in with existing token
           console.log('Keeping user logged in with existing access token');
         }
       }
