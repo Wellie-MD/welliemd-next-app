@@ -6,6 +6,7 @@ import {
   ShieldAlert,
   StopCircle,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import {
   ASSIGNMENT_ACTION_LABELS,
@@ -18,6 +19,7 @@ import {
   assignmentOperationErrorMessage,
 } from "@/features/treatments/assignment/constants";
 import { AssignmentIssueList } from "@/features/treatments/assignment/components/AssignmentIssueList";
+import { navigateToAssignmentAction } from "@/features/treatments/assignment/navigation";
 import type {
   AssignmentOperation,
   AssignmentPreflight,
@@ -45,6 +47,7 @@ export function AssignmentPairCard(props: {
   permissions: ReadonlySet<string>;
 }) {
   const { pair } = props;
+  const navigate = useNavigate();
   const preflight = pair.preflight;
   const operation = pair.operation;
   const issues = [
@@ -78,11 +81,7 @@ export function AssignmentPairCard(props: {
             <button
               type="button"
               onClick={() =>
-                window.open(
-                  "/dashboard/clients",
-                  "_blank",
-                  "noopener,noreferrer"
-                )
+                navigateToAssignmentAction(navigate, "/dashboard/clients")
               }
               className="mt-2 rounded-md border border-red-200 bg-white px-2.5 py-1 font-medium"
             >
@@ -126,10 +125,9 @@ export function AssignmentPairCard(props: {
                     <button
                       type="button"
                       onClick={() =>
-                        window.open(
-                          stage.action_route,
-                          "_blank",
-                          "noopener,noreferrer"
+                        navigateToAssignmentAction(
+                          navigate,
+                          stage.action_route
                         )
                       }
                       className="shrink-0 rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700"
