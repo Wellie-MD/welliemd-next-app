@@ -1,4 +1,5 @@
 import { RefreshCw, ShieldAlert } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import {
   ASSIGNMENT_ACTION_LABELS,
@@ -8,6 +9,7 @@ import {
   type AssignmentIssue,
   type AssignmentIssueSummary,
 } from "@/features/treatments/assignment/constants";
+import { navigateToAssignmentAction } from "@/features/treatments/assignment/navigation";
 
 /** Renders assignment issues with record-specific corrective actions. */
 export function AssignmentIssueList(props: {
@@ -55,6 +57,7 @@ function AssignmentIssueRow(props: {
   issue: AssignmentIssue;
   canConfigureProduct: boolean;
 }) {
+  const navigate = useNavigate();
   const { issue, canConfigureProduct } = props;
   const subject =
     issue.context.product_name || issue.context.program_name || "Configuration";
@@ -75,7 +78,7 @@ function AssignmentIssueRow(props: {
         <button
           type="button"
           onClick={() =>
-            window.open(issue.action_route, "_blank", "noopener,noreferrer")
+            navigateToAssignmentAction(navigate, issue.action_route)
           }
           className="mt-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1 font-medium"
         >
