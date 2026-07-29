@@ -7,7 +7,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { FollowUpList } from "@/features/followups";
 import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
 import { useViewerIdentity } from "@/features/auth/hooks/use-viewer-identity";
@@ -257,8 +256,6 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* ── Proactive announcement (top banner, Intercom-driven) ── */}
-      <IntercomInlineBanner className="-mt-2 mb-4" />
 
       {/* ── Greeting ── */}
       <div className="km-fade" style={{ paddingTop: 4, marginBottom: 20 }}>
