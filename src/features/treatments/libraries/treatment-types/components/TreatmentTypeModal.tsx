@@ -84,7 +84,7 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex flex-col gap-0 overflow-hidden bg-white p-0 sm:max-w-[540px]">
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden bg-white p-0 sm:max-w-[540px]">
         <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
           <DialogTitle className="text-xl font-bold text-slate-900">
             {treatmentTypeKey ? "Edit Treatment Type" : "Create Treatment Type"}
@@ -96,58 +96,60 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
           </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 p-6">
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-name">
-              Display Name <span className="text-red-500">*</span>
-            </label>
-            <Input
-              id="tt-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="e.g., Branded GLP, Compounded GLP, Testosterone Replacement"
-              data-testid="treatment-type-name"
-            />
-            <p className="mt-1.5 text-xs text-slate-500">
-              Human-readable name shown to admins and (often) to patients. This is the treatment type.
-            </p>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex-1 space-y-6 overflow-y-auto p-6">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-name">
+                Display Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="tt-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="e.g., Branded GLP, Compounded GLP, Testosterone Replacement"
+                data-testid="treatment-type-name"
+              />
+              <p className="mt-1.5 text-xs text-slate-500">
+                Human-readable name shown to admins and (often) to patients. This is the treatment type.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-intake">
+                Intake visit-type identifier <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="tt-intake"
+                value={intake}
+                onChange={(event) => setIntake(event.target.value)}
+                placeholder="e.g., weightloss, trt, ed"
+                className="font-mono"
+                data-testid="treatment-type-intake"
+              />
+              <p className="mt-1.5 text-xs text-slate-500">
+                System identifier used for routing intake visits. <span className="font-semibold text-slate-700">Can be shared</span> across treatment types — e.g. Branded GLP and Compounded GLP both use <Code>weightloss</Code>.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-followup">
+                Follow-up visit-type identifier
+              </label>
+              <Input
+                id="tt-followup"
+                value={followup}
+                onChange={(event) => setFollowup(event.target.value)}
+                placeholder="e.g., weightlossfollowup, trtFollowup"
+                className="font-mono"
+                data-testid="treatment-type-followup"
+              />
+              <p className="mt-1.5 text-xs text-slate-500">
+                Optional. Enter the exact configured provider identifier. It is never inferred from the intake identifier. Leave blank if this treatment doesn&apos;t have follow-ups.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-intake">
-              Intake visit-type identifier <span className="text-red-500">*</span>
-            </label>
-            <Input
-              id="tt-intake"
-              value={intake}
-              onChange={(event) => setIntake(event.target.value)}
-              placeholder="e.g., weightloss, trt, ed"
-              className="font-mono"
-              data-testid="treatment-type-intake"
-            />
-            <p className="mt-1.5 text-xs text-slate-500">
-              System identifier used for routing intake visits. <span className="font-semibold text-slate-700">Can be shared</span> across treatment types — e.g. Branded GLP and Compounded GLP both use <Code>weightloss</Code>.
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-followup">
-              Follow-up visit-type identifier
-            </label>
-            <Input
-              id="tt-followup"
-              value={followup}
-              onChange={(event) => setFollowup(event.target.value)}
-              placeholder="e.g., weightlossfollowup, trtFollowup"
-              className="font-mono"
-              data-testid="treatment-type-followup"
-            />
-            <p className="mt-1.5 text-xs text-slate-500">
-              Optional. Enter the exact configured provider identifier. It is never inferred from the intake identifier. Leave blank if this treatment doesn&apos;t have follow-ups.
-            </p>
-          </div>
-
-          <div className="-mx-6 -mb-6 flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4">
+          <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
