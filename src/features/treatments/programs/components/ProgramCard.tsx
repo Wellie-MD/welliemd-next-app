@@ -146,7 +146,7 @@ export function ProgramCard({
       <div className="mt-1 mb-2">
         {isEditingSlug ? (
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md p-1 shadow-sm h-7">
-            <span className="text-[10px] text-slate-400 px-1">welliemd.com/intake/</span>
+            <span className="text-[10px] text-slate-400 px-1">Slug:</span>
             <input
               value={tempSlug}
               onChange={(e) => setTempSlug(e.target.value)}
@@ -177,7 +177,7 @@ export function ProgramCard({
         ) : (
           <div className="flex items-center gap-2 text-[11px] text-slate-500">
             <span className="truncate">
-              <span className="text-slate-400">welliemd.com/intake/</span>
+              <span className="text-slate-400">Slug: </span>
               <span className="text-slate-700 font-semibold">{program.slug}</span>
             </span>
             <button

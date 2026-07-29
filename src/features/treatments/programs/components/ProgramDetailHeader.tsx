@@ -210,7 +210,7 @@ export function ProgramDetailHeader({
           <div className="mt-3 flex items-center gap-2">
             {isEditingSlug ? (
               <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md p-1 shadow-sm h-8">
-                <span className="text-[11px] text-slate-400 px-1.5">welliemd.com/intake/</span>
+                <span className="text-[11px] text-slate-400 px-1.5">Slug:</span>
                 <input
                   value={tempSlug}
                   onChange={(e) => setTempSlug(e.target.value)}
@@ -238,7 +238,7 @@ export function ProgramDetailHeader({
               <>
                 <div className="inline-flex items-center gap-2 bg-[#fdfcff] border border-[#f0ebfb] rounded-md px-3 py-1.5 shadow-sm text-xs font-medium h-8">
                   <LinkIcon className="h-3.5 w-3.5 text-[#a855f7]" />
-                  <span className="text-slate-400">welliemd.com/intake/</span>
+                  <span className="text-slate-400">Slug:</span>
                   <span className="text-[#9333ea] font-bold">{slug}</span>
                 </div>
                 <Button
@@ -254,6 +254,8 @@ export function ProgramDetailHeader({
                   variant="outline"
                   size="icon"
                   onClick={onCopySlug}
+                  aria-label="Copy slug"
+                  title="Copy slug"
                   className="h-8 w-8 border-slate-200 hover:bg-slate-50 text-slate-400 rounded-md shadow-sm"
                 >
                   <Copy className="h-3.5 w-3.5" />

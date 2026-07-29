@@ -156,8 +156,8 @@ export default function ProgramDetailPage() {
   ];
 
   const handleCopySlug = () => {
-    navigator.clipboard.writeText(`welliemd.com/intake/${foundProgram.slug}`);
-    toast({ title: "URL Copied", description: "Slug URL copied to clipboard." });
+    void navigator.clipboard.writeText(foundProgram.slug);
+    toast({ title: "Slug Copied", description: "Program slug copied to clipboard." });
   };
 
   const handlePublish = async () => {

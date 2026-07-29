@@ -48,7 +48,7 @@ export function CheckoutPatientPreview({ validProducts, selectedPreviewIdx, visi
             </div>
             <div className="flex flex-1 justify-center">
               <div className="rounded bg-slate-100/80 px-4 py-1 text-[10px] font-medium text-slate-400">
-                welliemd.com/intake
+                Tenant questionnaire preview
               </div>
             </div>
             <div className="w-[42px]" />

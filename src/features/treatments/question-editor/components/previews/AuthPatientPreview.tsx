@@ -21,7 +21,7 @@ export function AuthPatientPreview() {
             </div>
             <div className="flex-1 mx-2 flex justify-center">
               <div className="bg-white rounded px-2.5 py-0.5 text-[10px] font-medium text-slate-400 border border-slate-200 shadow-sm">
-                welliemd.com/intake
+                Tenant questionnaire preview
               </div>
             </div>
           </div>

@@ -278,13 +278,10 @@ export function CreateProgramModal({
             <p className="text-[10px] text-slate-400">At checkout, Program states are intersected with the selected Product's effective service states.</p>
           </div>
 
-          {/* URL Slug */}
+          {/* Program slug */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-800">URL Slug</label>
+            <label className="text-xs font-bold text-slate-800">Slug</label>
             <div className="flex rounded-lg border border-slate-200 overflow-hidden h-9 items-center focus-within:ring-1 focus-within:ring-blue-500">
-              <span className="bg-slate-50 border-r border-slate-200 px-3 py-1.5 text-xs text-slate-400 font-medium whitespace-nowrap">
-                welliemd.com/intake/
-              </span>
               <input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
@@ -293,7 +290,7 @@ export function CreateProgramModal({
               />
             </div>
             <p className="text-[10px] text-slate-400 leading-normal">
-              The direct URL patients can use to enter this program (e.g., for marketing links or QR codes). Leave blank to auto-generate from the name. Use lowercase letters, numbers, and hyphens — no spaces.
+              Stable routing identifier for this Program. The client portal combines intake slugs with its tenant questionnaire domain when it creates patient links. Leave blank to auto-generate from the name. Use lowercase letters, numbers, and hyphens — no spaces.
             </p>
           </div>
 
