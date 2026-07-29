@@ -31,11 +31,10 @@ export function ProgramQuestionsListRow({
   const isCheckout = question.kind === "checkout";
   const isConsent = question.kind === "consent";
   const isSection = question.kind === "section";
-  const isPersonalDetails = question.kind === "personal_details";
   const isServiceAreaCheck = question.kind === "state_routing";
   const isSystem = question.elementConfig?.system === true;
-  const canEdit = !isPersonalDetails && !isServiceAreaCheck;
-  const canDelete = !isPersonalDetails;
+  const canEdit = !isAuth && !isServiceAreaCheck;
+  const canDelete = !isAuth;
   const isRowInteractive = !isReorderActive && canEdit;
 
   const {
