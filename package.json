@@ -13,7 +13,8 @@
     "test:flow-builder": "tsc --noEmit -p scripts/tsconfig.flow-builder.json && TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/flow-builder-graph-tests.ts",
     "test:custom-program-stages": "tsc --noEmit -p scripts/tsconfig.flow-builder.json && TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/custom-program-stage-tests.ts",
     "test:checkout-question": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/checkout-question-catalog-tests.ts",
-    "test:preview-identity-switch": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/preview-identity-switch-tests.ts"
+    "test:preview-identity-switch": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/preview-identity-switch-tests.ts",
+    "test:program-authentication": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/program-authentication-boundary-tests.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

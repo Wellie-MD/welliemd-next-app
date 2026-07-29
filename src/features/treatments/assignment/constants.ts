@@ -98,6 +98,7 @@ export const ASSIGNMENT_STAGE_LABELS: Record<string, string> = {
 export const ASSIGNMENT_ACTION_LABELS: Record<string, string> = {
   publish: "Publish",
   configure_treatment: "Configure treatment",
+  configure_product: "Configure product",
   assign_products: "Assign products",
   assign_supplies: "Assign supplies",
   configure_labs: "Configure labs",
@@ -106,3 +107,61 @@ export const ASSIGNMENT_ACTION_LABELS: Record<string, string> = {
   recheck: "Recheck readiness",
   assign_parent: "Assign",
 };
+
+/**
+ * A structured assignment issue returned by preflight or import.
+ *
+ * `message` is safe to render as-is. Identifiers under `diagnostics` are numeric
+ * or UUID references whose database boundary (control plane vs tenant) is
+ * ambiguous, so they are support-only and must never be the sole thing shown to
+ * an operator.
+ */
+export type AssignmentIssue = {
+  code: string;
+  message: string;
+  action: string;
+  action_route: string;
+  context: {
+    program_name?: string;
+    product_name?: string | null;
+    treatment_type_name?: string | null;
+    product_treatment_type_name?: string;
+    option_treatment_type_name?: string;
+    checkout_question_order?: number;
+    checkout_question_label?: string;
+    product_option_order?: number;
+    category?: string | null;
+    regimen?: string | null;
+    dose?: string | null;
+    source_product_reference?: string;
+    required_visit_stage?: string;
+  };
+  diagnostics?: Record<string, unknown>;
+};
+
+export type AssignmentIssueSummary = {
+  issue_count: number;
+  product_count: number;
+  first_action: string;
+  first_action_route: string;
+  headline: string;
+};
+
+/** Permission required before a `configure_product` action can be offered. */
+export const CONFIGURE_PRODUCT_PERMISSION = "product:manage";
+
+/**
+ * The identifiers that disambiguate one checkout option, in the order an
+ * operator scans them. These labels disambiguate Products that share a name.
+ */
+export function issueSelectionLabels(issue: AssignmentIssue): string[] {
+  return [issue.context.category, issue.context.regimen, issue.context.dose]
+    .filter((value): value is string => Boolean(value));
+}
+
+export function issueCheckoutLocation(issue: AssignmentIssue): string {
+  const { checkout_question_label: label, product_option_order: option } =
+    issue.context;
+  if (!label) return "";
+  return option ? `Checkout: "${label}" · Option ${option}` : `Checkout: "${label}"`;
+}

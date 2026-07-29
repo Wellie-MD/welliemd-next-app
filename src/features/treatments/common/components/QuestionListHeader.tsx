@@ -15,6 +15,8 @@ interface QuestionListHeaderProps {
   onAddSection: () => void;
   onAddConsent: () => void;
   onAddCheckout: () => void;
+  /** Disables the Patient Authentication item once the Program already has it. */
+  hasAuthentication?: boolean;
 }
 
 export function QuestionListHeader(props: QuestionListHeaderProps) {
@@ -50,6 +52,7 @@ export function QuestionListHeader(props: QuestionListHeaderProps) {
           onAddSection={props.onAddSection}
           onAddConsent={props.onAddConsent}
           onAddCheckout={props.onAddCheckout}
+          hasAuthentication={props.hasAuthentication}
         />
       </div>
     </header>

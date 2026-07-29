@@ -30,6 +30,7 @@ import {
   AssignmentPairCard,
   AssignmentPairState,
 } from "@/features/treatments/assignment/components/AssignmentPairCard";
+import { useAuthStore } from "@/store/useAuthStore";
 
 interface TreatmentAssignmentModalProps {
   open: boolean;
@@ -84,6 +85,11 @@ export function TreatmentAssignmentModal({
   const [pairs, setPairs] = useState<AssignmentPairState[]>([]);
   const [working, setWorking] = useState(false);
   const [pollAttempts, setPollAttempts] = useState<Record<string, number>>({});
+  const permissionValues = useAuthStore((state) => state.user?.permissions);
+  const permissions = useMemo(
+    () => new Set(permissionValues || []),
+    [permissionValues]
+  );
 
   const filteredItems = useMemo(() => {
     const query = itemSearch.trim().toLowerCase();
@@ -125,7 +131,11 @@ export function TreatmentAssignmentModal({
   ) => {
     setter((current) => {
       const next = new Set(current);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -377,6 +387,7 @@ export function TreatmentAssignmentModal({
                   onRetry={() => retry(pair)}
                   onCancel={() => cancel(pair)}
                   onRecheck={() => recheckPair(pair)}
+                  permissions={permissions}
                 />
               ))
             )}

@@ -47,7 +47,7 @@ export function QuestionEditorSidebar({
       <div className="flex-1 overflow-y-auto p-3 space-y-1">
         {filteredQuestions.map((question) => {
           const isActive = question.id === activeQuestionId;
-          const isAuth = question.kind === "personal_details";
+          const isAuth = question.kind === "patient_authentication";
           const isCheckout = question.kind === "checkout";
           const isConsent = question.kind === "consent";
           const isSection = question.kind === "section";

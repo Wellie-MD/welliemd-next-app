@@ -19,7 +19,8 @@ export function getQuestionTags(question: ProgramQuestion | null | undefined): Q
   const hasVisibility = !!question.visibilityRuleGroup || !!question.visibilityRule;
   const isDQ = question.dqChoices && question.dqChoices.length > 0;
   const isConsent = question.kind === "consent";
-  const isAuth = question.kind === "auth" || question.kind === "personal_details";
+  const isAuth =
+    question.kind === "auth" || question.kind === "patient_authentication";
   const isCheckout = question.kind === "checkout";
   const isSection = question.kind === "section";
 

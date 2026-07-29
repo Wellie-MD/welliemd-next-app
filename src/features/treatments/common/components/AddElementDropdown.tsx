@@ -2,6 +2,7 @@ import {
   ChevronDown,
   FileCheck,
   LayoutTemplate,
+  LockKeyhole,
   MapPin,
   Plus,
   ShoppingCart,
@@ -22,17 +23,37 @@ interface AddElementDropdownProps {
   onAddSection: () => void;
   onAddConsent: () => void;
   onAddCheckout: () => void;
+  /**
+   * Whether the Program already has the Patient Authentication step. A Program
+   * starts empty and the author adds it; only one is ever allowed, so the menu
+   * item is disabled once it is present.
+   */
+  hasAuthentication?: boolean;
+  showAuthentication?: boolean;
 }
 
 export function AddElementDropdown({
   onAddQuestion,
-  onAddAuth: _onAddAuth,
+  onAddAuth,
   onAddServiceArea,
   onAddSection,
   onAddConsent,
   onAddCheckout,
+  hasAuthentication = false,
+  showAuthentication = true,
 }: AddElementDropdownProps) {
   const items = [
+    ...(showAuthentication ? [{
+      label: "Patient Authentication",
+      description: hasAuthentication
+        ? "Already added — a program can only have one."
+        : "Required first step. Patient enters their email, then signs in or creates an account.",
+      onClick: onAddAuth,
+      icon: LockKeyhole,
+      color: "text-slate-900",
+      iconClass: "bg-amber-100 text-amber-600 border-amber-100",
+      disabled: hasAuthentication,
+    }] : []),
     {
       label: "Question",
       description: "Ask the patient something — text, choice, file, etc.",
@@ -94,7 +115,8 @@ export function AddElementDropdown({
             <DropdownMenuItem
               key={item.label}
               onClick={item.onClick}
-              className="group flex cursor-pointer items-start gap-3 rounded-md px-3 py-2.5 outline-none hover:bg-slate-50 focus:bg-slate-50"
+              disabled={item.disabled}
+              className="group flex cursor-pointer items-start gap-3 rounded-md px-3 py-2.5 outline-none hover:bg-slate-50 focus:bg-slate-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
             >
               <span
                 className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${item.iconClass}`}

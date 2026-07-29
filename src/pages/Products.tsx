@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   X,
@@ -253,6 +254,9 @@ function FilterSelect({
 
 export default function Products() {
   const hasFetchedRef = useRef(false);
+  const openedProductReference = useRef<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const targetProductReference = searchParams.get("product");
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Data states
@@ -591,6 +595,56 @@ export default function Products() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      !targetProductReference ||
+      openedProductReference.current === targetProductReference
+    ) {
+      return;
+    }
+
+    const productId = Number(targetProductReference);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      openedProductReference.current = targetProductReference;
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("product");
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
+    openedProductReference.current = targetProductReference;
+    let active = true;
+    productApi
+      .getProduct(productId)
+      .then((product) => {
+        if (!active) return;
+        setSelectedProduct(product as Product);
+        setIsProductModalOpen(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        toast({
+          title: "Product unavailable",
+          description: "The selected product could not be opened.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (!active) return;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("product");
+        setSearchParams(nextParams, { replace: true });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    searchParams,
+    setSearchParams,
+    targetProductReference,
+  ]);
 
   // Delete handler
   const handleDelete = async (product: ProductForAssignment) => {

@@ -189,7 +189,7 @@ function QuestionInputPreview({
     state_routing: "Select state",
     medication_dose: "Select dose",
     pharmacy: "Search pharmacy",
-    personal_details: "Patient details",
+    patient_authentication: "Email, then sign in or register",
     shipping_address: "Shipping address",
     labs_preference: "Lab preference",
     consent: "Consent agreement",

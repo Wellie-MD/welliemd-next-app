@@ -70,7 +70,7 @@ export function QuestionEditorDialog({
               onClose={() => onOpenChange(false)}
               onTestFlow={handleTestFlow}
             />
-          ) : activeQuestion?.kind === "personal_details" ? (
+          ) : activeQuestion?.kind === "patient_authentication" ? (
             <AuthEditor
               activeQuestion={activeQuestion}
               questions={questions}

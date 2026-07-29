@@ -29,7 +29,7 @@ export function ProgramFlowSidebar({
     const sortedQuestions = [...questions].sort(
       (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER)
     ).filter((question) =>
-      question.kind !== "personal_details" &&
+      question.kind !== "patient_authentication" &&
       question.kind !== "checkout" &&
       question.elementConfig?.system !== true
     );
@@ -43,7 +43,7 @@ export function ProgramFlowSidebar({
       },
       {
         id: "auth",
-        label: "Personal Details",
+        label: "Patient Authentication",
         typeBadge: "ACCOUNT ENTRY",
         isSystem: true,
       },

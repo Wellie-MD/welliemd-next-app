@@ -76,7 +76,7 @@ export function normalizeProgramFlowData(questions: ProgramQuestion[]): Normaliz
   // but must never be duplicated as ordinary graph questions.
   const graphQuestions = questions.filter(
     (question) =>
-      question.kind !== "personal_details" &&
+      question.kind !== "patient_authentication" &&
       question.kind !== "checkout" &&
       question.elementConfig?.system !== true
   );

@@ -38,6 +38,7 @@ const product = (overrides: Partial<ProgramCheckoutProduct> & Pick<ProgramChecko
   category: overrides.category || "GLP",
   regimen: overrides.regimen || "Standard",
   doseLabel: overrides.doseLabel || overrides.id,
+  productRole: overrides.productRole || "primary_choice",
   visibilityRules: overrides.visibilityRules,
 });
 

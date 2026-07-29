@@ -10,7 +10,29 @@ interface AuthSetupModalProps {
   initialConfig?: ProgramAuthConfig;
 }
 
-export function AuthSetupModal({ open, onOpenChange }: AuthSetupModalProps) {
+const DEFAULT_AUTH_CONFIG: ProgramAuthConfig = {
+  email: true,
+  phone: false,
+  identity: false,
+  account: true,
+  enabled: true,
+};
+
+export function AuthSetupModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+}: AuthSetupModalProps) {
+  const save = () => {
+    onSave({
+      ...DEFAULT_AUTH_CONFIG,
+      ...(initialConfig || {}),
+      enabled: true,
+    });
+    onOpenChange(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6">
@@ -18,17 +40,20 @@ export function AuthSetupModal({ open, onOpenChange }: AuthSetupModalProps) {
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <LockKeyhole className="h-5 w-5" />
             <DialogTitle className="text-base font-bold text-slate-900">
-              Personal Details · Locked first step
+              Patient Authentication · Locked first step
             </DialogTitle>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            This required questionnaire step collects name, email, US phone number, and the Terms, Privacy Policy, and Telehealth consent before account creation or login.
+            Patients enter their email first. Existing patients then sign in;
+            new patients continue to account creation.
           </p>
         </DialogHeader>
 
         <div className="py-4">
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-800">
-            New patients create an account from this step. Existing patients use the standard login route. Email verification, SMS OTP, and photo-ID toggles are not part of the intake boundary.
+            New-patient account creation collects the required profile fields
+            and legal acknowledgements. Existing patients reuse their saved
+            profile and only complete fields that are missing.
           </div>
         </div>
 
@@ -40,7 +65,14 @@ export function AuthSetupModal({ open, onOpenChange }: AuthSetupModalProps) {
           >
             Cancel
           </Button>
-          <Button onClick={() => onOpenChange(false)} className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white">Done</Button>
+          <Button
+            onClick={save}
+            className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {initialConfig?.enabled
+              ? "Save Patient Authentication"
+              : "Add Patient Authentication"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

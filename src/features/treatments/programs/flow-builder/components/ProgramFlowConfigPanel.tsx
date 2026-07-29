@@ -17,7 +17,7 @@ interface ProgramFlowConfigPanelProps {
 }
 
 const panelTitle = (nodeType: string | null) => {
-  if (nodeType === "auth") return "Personal Details";
+  if (nodeType === "auth") return "Patient Authentication";
   if (nodeType === "consent") return "Consents";
   if (nodeType === "checkout") return "Checkout Routing";
   if (nodeType === "start") return "Start";
@@ -92,7 +92,7 @@ export function ProgramFlowConfigPanel({
         {nodeType === "auth" && (
           <div className="space-y-4 rounded-xl border border-blue-200 bg-blue-50 p-6 text-sm text-blue-900">
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-blue-700">
-              Personal Details · Locked first step
+              Patient Authentication · Locked first step
             </h3>
             <p className="leading-relaxed">
               Patients enter their name, email, validated US phone number, and required consent here. Existing patients log in and new patients create an account. This system boundary cannot be configured, duplicated, deleted, or reordered.

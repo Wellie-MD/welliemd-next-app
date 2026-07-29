@@ -57,6 +57,10 @@ import { DeleteElementDialog } from "@/features/treatments/common/components/Del
 import { countQuestionTypes, filterQuestions } from "@/features/treatments/common/utils/questionList";
 
 import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
+import {
+  PROGRAM_AUTHORING_COPY,
+  PROGRAM_SYSTEM_NODE_KIND,
+} from "@/features/treatments/programs/programAuthoringConstants";
 
 export interface SharedQuestionsListProps {
   entityId: string;
@@ -124,24 +128,12 @@ export function SharedQuestionsList({
   const deleteSectionFieldMutation = useDeleteSectionField(entityId);
   const reorderSectionFieldsMutation = useReorderSectionFields(entityId);
 
-  // Every flow starts with Personal Details. Programs pre-inject a real
-  // one (see ProgramQuestionsList); for entities that don't (e.g. Sections),
-  // lead the list with a non-persisted system entry so it always reads
-  // correctly. It isn't part of `questions` state until something moves it.
-  const systemAuthId = `auth-system-${entityId}`;
-  const displayQuestions = useMemo<ProgramQuestion[]>(() => {
-    if (questions.some((q) => q.kind === "personal_details")) return questions;
-    const systemAuthQuestion: ProgramQuestion = {
-      id: systemAuthId,
-      order: 0,
-      text: "Personal Details",
-      kind: "personal_details",
-      section: entityName,
-      required: true,
-      elementConfig: { system: true, locked: true },
-    };
-    return [systemAuthQuestion, ...questions];
-  }, [questions, systemAuthId, entityName]);
+  // Nothing is created automatically. Patient Authentication appears only after
+  // the author adds it from the Add Element menu, and Programs project it in
+  // ProgramQuestionsList. It is a system node, never a persisted question, so it
+  // is filtered out of every save/reorder payload below.
+  const displayQuestions = questions;
+  const hasAuthentication = authConfig?.enabled === true;
 
   // Sections have no backing Program record, so the Flow view (which always
   // renders through ProgramFlowBuilder — see below) gets a minimal synthetic
@@ -168,6 +160,60 @@ export function SharedQuestionsList({
   const { data: fetchedConsents = [] } = useConsents();
   const effectiveConsents = allConsents.length > 0 ? allConsents : fetchedConsents;
 
+  /**
+   * Authentication settings belong to the Program record, not to a question.
+   * Persisting them as a `personal_details` ProgramQuestion is what produced a
+   * duplicate boundary and grouped demographics at runtime;
+   * publishing such a question is now rejected by the backend.
+   */
+  const saveAuthConfig = (
+    config: ProgramAuthConfig,
+    { enabled = true, successTitle = "Authentication Settings Saved" } = {}
+  ) => {
+    // `enabled` is what records that the author added the element. Adding sets
+    // it true; removing sets it false. The rest of the config is the branch
+    // configuration and is preserved either way.
+    const nextConfig = { ...config, enabled } as ProgramAuthConfig;
+    if (entityType !== "program") {
+      // A Section has no Program record to persist to; keep the change local to
+      // its synthetic flow preview.
+      setSectionFlowOverrides((current) => ({
+        ...current,
+        authConfig: nextConfig,
+      }));
+      return;
+    }
+    saveProgramMutation.mutate(
+      {
+        id: entityId,
+        authConfig: nextConfig,
+      } as Partial<Program> & { id: string },
+      {
+        onSuccess: () => {
+          toast({ title: successTitle });
+        },
+        onError: (error: unknown) => {
+          toast({
+            title: "Error saving authentication settings",
+            description: getApiErrorMessage(
+              error,
+              "The authentication settings could not be saved."
+            ),
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  /** Remove the Patient Authentication element the author previously added. */
+  const removeAuthentication = () => {
+    saveAuthConfig(authConfig || {}, {
+      enabled: false,
+      successTitle: "Patient Authentication Removed",
+    });
+  };
+
   // dnd-kit sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -183,12 +229,9 @@ export function SharedQuestionsList({
     visibilityRules: question.visibilityRuleGroup || { mode: "simple", rules: [] },
   });
 
-  // Patient Authentication can be dragged like any other row — the prototype
-  // never pins it first, only its Actions column is restricted (no delete).
-  // It isn't a real record until something actually moves it, so dragging it
-  // specifically materializes it into a genuine persisted question first,
-  // then reorders. Checkout options stay grouped at the end of the intake and
-  // persist through the program record instead of the question-order endpoint.
+  // Patient Authentication cannot be dragged or duplicated and always stays
+  // first. Authors may remove it, which prevents publication until it is added
+  // again. Checkout options stay grouped at the end of the intake.
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -200,7 +243,14 @@ export function SharedQuestionsList({
     const sourceQuestion = displayQuestions[oldIndex];
     const targetQuestion = displayQuestions[newIndex];
 
-    if (sourceQuestion.elementConfig?.system === true || sourceQuestion.kind === "personal_details") return;
+    if (
+      sourceQuestion.elementConfig?.system === true ||
+      sourceQuestion.kind === PROGRAM_SYSTEM_NODE_KIND
+    ) {
+      return;
+    }
+    // The auth boundary owns position 1; nothing may be dropped above it.
+    if (targetQuestion.kind === PROGRAM_SYSTEM_NODE_KIND) return;
 
     if (entityType === "program" && sourceQuestion.kind !== targetQuestion.kind &&
         (sourceQuestion.kind === "checkout" || targetQuestion.kind === "checkout")) {
@@ -213,12 +263,14 @@ export function SharedQuestionsList({
 
     const previousQuestions = questions;
     const movedQuestions = arrayMove(displayQuestions, oldIndex, newIndex);
-    const personalDetails = movedQuestions.filter(
-      (question) => question.kind === "personal_details",
+    const systemNodes = movedQuestions.filter(
+      (question) => question.kind === PROGRAM_SYSTEM_NODE_KIND,
     );
     const reordered = [
-      ...personalDetails,
-      ...movedQuestions.filter((question) => question.kind !== "personal_details"),
+      ...systemNodes,
+      ...movedQuestions.filter(
+        (question) => question.kind !== PROGRAM_SYSTEM_NODE_KIND,
+      ),
     ].map((q, idx) => ({
       ...q,
       order: idx + 1,
@@ -247,7 +299,17 @@ export function SharedQuestionsList({
     const persistOrder = () => {
       const reorderMutation = entityType === "section" ? reorderSectionFieldsMutation : reorderQuestionsMutation;
       reorderMutation.mutate(
-        reordered.filter((q) => q.kind !== "checkout" && q.elementConfig?.system !== true).map((q) => q.id),
+        // Only persisted authored question IDs reach the API. The
+        // Patient Authentication node has no backing record, so sending its
+        // synthetic ID would fail the reorder.
+        reordered
+          .filter(
+            (q) =>
+              q.kind !== "checkout" &&
+              q.kind !== PROGRAM_SYSTEM_NODE_KIND &&
+              q.elementConfig?.system !== true
+          )
+          .map((q) => q.id),
         {
           onSuccess: () => {
             toast({ title: "Order Saved", description: "The list order has been successfully saved." });
@@ -274,6 +336,13 @@ export function SharedQuestionsList({
   // middle/right panels internally based on the active question's kind.
   // Sections and consents redirect to their dedicated library pages for editing.
   const handleEditClick = (q: ProgramQuestion) => {
+    // Patient Authentication is configured through its own modal; it is a system
+    // boundary, not an authorable question, so it never opens the question editor.
+    if (q.kind === PROGRAM_SYSTEM_NODE_KIND) {
+      setActiveEditingQuestion(null);
+      setIsAuthOpen(true);
+      return;
+    }
     if (q.kind === "section") {
       const sectionId = q.elementConfig?.sourceSectionId || q.elementConfig?.sourceId;
       if (sectionId) {
@@ -367,7 +436,19 @@ export function SharedQuestionsList({
       return;
     }
 
-    const questionToDelete = questions.find((q) => q.id === questionToDeleteId);
+    const questionToDelete = displayQuestions.find(
+      (q) => q.id === questionToDeleteId,
+    );
+
+    // Patient Authentication is a system node with no ProgramQuestion behind it,
+    // so the generic delete mutation has nothing to target. Removing it means
+    // clearing the flag on the Program that records the author added it.
+    if (questionToDelete?.kind === PROGRAM_SYSTEM_NODE_KIND) {
+      removeAuthentication();
+      setIsDeleteDialogOpen(false);
+      setQuestionToDeleteId(null);
+      return;
+    }
 
     // Checkout questions aren't stored in the screening-question list the
     // generic delete mutation targets — they live on Program.checkoutQuestions.
@@ -678,6 +759,8 @@ export function SharedQuestionsList({
             setActiveEditingQuestion(null);
             setIsCheckoutOpen(true);
           }}
+          hasAuthentication={hasAuthentication}
+          showAuthentication={entityType === "program"}
         />
         <ProgramFlowBuilder
           program={effectiveProgram}
@@ -754,18 +837,7 @@ export function SharedQuestionsList({
           open={isAuthOpen}
           onOpenChange={setIsAuthOpen}
           initialConfig={authConfig}
-          onSave={(config) => {
-            const authQuestion: ProgramQuestion = {
-              id: activeEditingQuestion?.id || createMockId("q-auth"),
-              order: activeEditingQuestion?.order || questions.length + 1,
-              text: "Personal Details",
-              kind: "personal_details",
-              section: "Authentication",
-              required: true,
-              elementConfig: { authConfig: config },
-            };
-            saveElement(authQuestion, "Authentication Settings Saved");
-          }}
+          onSave={saveAuthConfig}
         />
         <SectionSelectorModal
           open={isSectionOpen}
@@ -808,6 +880,8 @@ export function SharedQuestionsList({
         onAddSection={() => { setActiveEditingQuestion(null); setIsSectionOpen(true); }}
         onAddConsent={() => { setActiveEditingQuestion(null); setIsConsentOpen(true); }}
         onAddCheckout={() => { setActiveEditingQuestion(null); setIsCheckoutOpen(true); }}
+        hasAuthentication={hasAuthentication}
+        showAuthentication={entityType === "program"}
       />
 
       <main className="mt-7 w-full flex-1">
@@ -867,18 +941,7 @@ export function SharedQuestionsList({
         open={isAuthOpen}
         onOpenChange={setIsAuthOpen}
         initialConfig={authConfig}
-        onSave={(config) => {
-          const authQuestion: ProgramQuestion = {
-            id: activeEditingQuestion?.id || createMockId("q-auth"),
-            order: activeEditingQuestion?.order || questions.length + 1,
-            text: "Personal Details",
-            kind: "personal_details",
-            section: "Authentication",
-            required: true,
-            elementConfig: { authConfig: config },
-          };
-          saveElement(authQuestion, "Authentication Settings Saved");
-        }}
+        onSave={saveAuthConfig}
       />
 
       <SectionSelectorModal

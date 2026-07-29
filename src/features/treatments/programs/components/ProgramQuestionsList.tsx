@@ -7,10 +7,8 @@ import { SharedQuestionsList } from "@/features/treatments/common/components/Sha
 import { useConsents } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { ProgramLabsSection } from "./ProgramLabsSection";
-import {
-  PROGRAM_AUTHORING_COPY,
-  programAuthenticationId,
-} from "@/features/treatments/programs/programAuthoringConstants";
+import { PROGRAM_AUTHORING_COPY } from "@/features/treatments/programs/programAuthoringConstants";
+import { projectAuthoredFlow } from "@/features/treatments/programs/programSystemBoundary";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
 
 interface ProgramQuestionsListProps {
@@ -23,25 +21,12 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
   const { data: allConsents = [] } = useConsents();
   const displayQuestions = useMemo(
     () => {
-      const authoredQuestions = initialQuestions.filter((question) => question.kind !== "checkout");
-      const hasAuthentication = authoredQuestions.some((question) => question.kind === "personal_details");
-      const authentication: ProgramQuestion[] = hasAuthentication ? [] : [{
-        id: programAuthenticationId(program.id),
-        order: 0,
-        text: PROGRAM_AUTHORING_COPY.authTitle,
-        kind: "personal_details",
-        section: "Authentication",
-        required: true,
-        elementConfig: {
-          system: true,
-          locked: true,
-          description: PROGRAM_AUTHORING_COPY.authDescription,
-          authConfig: program.authConfig || {},
-        },
-      }];
-      const flowQuestions = [...authentication, ...authoredQuestions]
-        .sort((left, right) => left.order - right.order)
-        .map((question, index) => ({ ...question, order: index + 1 }));
+      const authoredQuestions = initialQuestions
+        .filter((question) => question.kind !== "checkout")
+        .sort((left, right) => left.order - right.order);
+      // A new Program is empty; Patient Authentication appears only once the
+      // author adds it from the Add Element menu, and is then pinned first.
+      const flowQuestions = projectAuthoredFlow(program, authoredQuestions);
       const checkoutQuestions = (program.checkoutQuestions || []).map((checkout, index): ProgramQuestion => ({
         id: checkout.id,
         order: flowQuestions.length + index + 1,

@@ -28,7 +28,7 @@ export function AuthEditor({
   return (
     <div className="flex flex-col h-full w-full bg-slate-50">
       <QuestionEditorHeader
-        title={`Personal Details · Step ${questionOrder}`}
+        title={`Patient Authentication · Step ${questionOrder}`}
         subtitle={programName}
         isEditMode={isEditMode}
         hideSave={true}
@@ -46,7 +46,7 @@ export function AuthEditor({
               <div className="flex h-5 w-5 items-center justify-center rounded bg-amber-100 text-amber-700">
                 <LockKeyhole className="h-3 w-3" />
               </div>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-800">Personal Details</h3>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-widest text-slate-800">Patient Authentication</h3>
             </div>
 
             {/* Hero summary */}
@@ -65,7 +65,7 @@ export function AuthEditor({
               <div className="flex gap-3 rounded-md border border-slate-200 bg-slate-50 p-3.5">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[12px] font-bold text-blue-700">1</div>
                 <div>
-                  <div className="mb-0.5 text-[13px] font-semibold text-slate-900">Patient enters personal details</div>
+                  <div className="mb-0.5 text-[13px] font-semibold text-slate-900">Patient enters their email address</div>
                   <div className="text-[11.5px] leading-relaxed text-slate-600">First name, last name, email, validated US phone number, and required consent use the native intake UI.</div>
                 </div>
               </div>

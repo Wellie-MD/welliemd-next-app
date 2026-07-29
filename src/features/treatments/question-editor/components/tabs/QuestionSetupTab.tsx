@@ -40,9 +40,12 @@ const QUESTION_TYPE_GROUPS: Array<{
     ],
   },
   {
+    // "Personal Details (Grouped)" is deliberately absent. Name, email,
+    // phone, date of birth, and sex are collected by the locked Patient
+    // Authentication boundary; authoring them again would duplicate the
+    // boundary and is rejected at publication.
     label: "Grouped Fields",
     options: [
-      { value: "personal_details", label: "Personal Details (Grouped)" },
       { value: "shipping_address", label: "Shipping Address (Grouped)" },
     ],
   },

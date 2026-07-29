@@ -1,5 +1,9 @@
 import axiosInstance from "@/api/axiosInstance";
 import { TREATMENT_ASSIGNMENT_ENDPOINTS } from "@/api/endpoints";
+import type {
+  AssignmentIssue,
+  AssignmentIssueSummary,
+} from "@/features/treatments/assignment/constants";
 
 export type AssignmentSourceKind = "program" | "custom_program";
 
@@ -81,6 +85,9 @@ export interface AssignmentPreflight {
       action_route: string;
     }
   >;
+  /** Every invalid checkout option, not only the first. */
+  checkout_issues: AssignmentIssue[];
+  checkout_summary: AssignmentIssueSummary;
 }
 
 export interface AssignmentStep {
@@ -90,6 +97,7 @@ export interface AssignmentStep {
   attempt_count: number;
   error_code: string;
   error_detail: string;
+  error_issues: AssignmentIssue[];
   dependencies: Record<string, unknown>;
   result: Record<string, unknown>;
   updated_at: string;
@@ -115,7 +123,10 @@ export interface AssignmentOperation {
   current_step: string;
   attempt_count: number;
   last_error_code: string;
+  /** Readable summary for logs; render `last_error_issues` instead (H3). */
   last_error_detail: string;
+  last_error_issues: AssignmentIssue[];
+  last_error_summary: AssignmentIssueSummary;
   retryable: boolean;
   cancel_requested: boolean;
   preflight: AssignmentPreflight;

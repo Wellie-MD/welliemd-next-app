@@ -16,6 +16,7 @@ import {
   RETRYABLE_OPERATION_STATUSES,
   TERMINAL_OPERATION_STATUSES,
 } from "@/features/treatments/assignment/constants";
+import { AssignmentIssueList } from "@/features/treatments/assignment/components/AssignmentIssueList";
 import type {
   AssignmentOperation,
   AssignmentPreflight,
@@ -39,6 +40,8 @@ export function AssignmentPairCard(props: {
   onRetry: () => void;
   onCancel: () => void;
   onRecheck: () => void;
+  /** Permissions used to authorize corrective actions. */
+  permissions: ReadonlySet<string>;
 }) {
   const { pair } = props;
   const preflight = pair.preflight;
@@ -47,6 +50,8 @@ export function AssignmentPairCard(props: {
     ...(preflight?.blockers || []),
     ...(preflight?.external_pending || []),
   ];
+  const checkoutIssues = preflight?.checkout_issues || [];
+  const operationIssues = operation?.last_error_issues || [];
   return (
     <article className="rounded-xl border bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -161,18 +166,26 @@ export function AssignmentPairCard(props: {
               </span>
             ))}
           </div>
-          {issues.map((issue) => (
-            <p
-              key={`${issue.kind}:${issue.source_id}`}
-              className="mt-2 flex gap-2 text-xs text-amber-800"
-            >
-              <ShieldAlert className="h-4 w-4 shrink-0" />
-              <span>
-                <strong>{issue.name}:</strong>{" "}
-                {issue.message || issue.code}
-              </span>
-            </p>
-          ))}
+          {issues
+            .filter((issue) => !(issue.facts as { issue?: unknown })?.issue)
+            .map((issue) => (
+              <p
+                key={`${issue.kind}:${issue.source_id}`}
+                className="mt-2 flex gap-2 text-xs text-amber-800"
+              >
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <span>
+                  <strong>{issue.name}:</strong>{" "}
+                  {issue.message || issue.code}
+                </span>
+              </p>
+            ))}
+          <AssignmentIssueList
+            issues={checkoutIssues}
+            summary={preflight.checkout_summary}
+            onRecheck={props.onRecheck}
+            permissions={props.permissions}
+          />
         </>
       )}
       {operation && (
@@ -189,10 +202,19 @@ export function AssignmentPairCard(props: {
               </div>
             ))}
           </div>
-          {operation.last_error_detail && (
-            <p className="mt-2 text-xs text-red-700">
-              {operation.last_error_detail}
-            </p>
+          {operationIssues.length > 0 ? (
+            <AssignmentIssueList
+              issues={operationIssues}
+              summary={operation.last_error_summary}
+              onRecheck={props.onRecheck}
+              permissions={props.permissions}
+            />
+          ) : (
+            operation.last_error_detail && (
+              <p className="mt-2 text-xs text-red-700">
+                {operation.last_error_detail}
+              </p>
+            )
           )}
           <details className="mt-3 rounded-lg border px-3 py-2 text-xs">
             <summary className="cursor-pointer font-medium text-slate-700">

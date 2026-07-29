@@ -47,7 +47,7 @@ export function buildFlowGraph({ flowItems, getConsentScope, getConsentVisitType
 
   const preFan: FlowCanvasSystemItem[] = [
     { id: "sys-start", kind: "start", title: "Start", subtitle: "Patient enters", isStart: true },
-    { id: "sys-auth", kind: "authentication", title: "Personal Details", subtitle: "Account entry", isSystem: true },
+    { id: "sys-auth", kind: "authentication", title: "Patient Authentication", subtitle: "Email first, then sign in or register", isSystem: true },
     ...routingItems,
     { id: "sys-matched", kind: "matched_summary", title: "Matched Programs", subtitle: "Based on what you shared · Multi-select", isSystem: true },
     ...sectionItems,

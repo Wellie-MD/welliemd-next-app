@@ -10,10 +10,11 @@ export function ProgramAuthentication() {
       <div className="border-b border-slate-100 p-6">
         <div className="flex items-center gap-2">
           <LockKeyhole className="h-4 w-4 text-blue-600" />
-          <h3 className="text-[15px] font-extrabold text-slate-900">Personal Details</h3>
+          <h3 className="text-[15px] font-extrabold text-slate-900">Patient Authentication</h3>
         </div>
         <p className="mt-1 max-w-2xl text-[11px] font-medium leading-relaxed text-slate-400">
-          Required first step for every intake. Patients enter their details, accept the required consent, then log in or create an account.
+          Required first step for every intake. Patients enter their email,
+          then existing patients sign in and new patients create an account.
         </p>
       </div>
     </section>

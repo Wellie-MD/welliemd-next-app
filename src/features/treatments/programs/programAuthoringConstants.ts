@@ -3,11 +3,22 @@ import type { QuestionKind } from "@/features/treatments/types";
 export const PROGRAM_AUTHORING_COPY = {
   subtitle: "Manage questions for this template",
   searchPlaceholder: "Search questions, answers, or mapped field",
-  authTitle: "Personal Details",
-  authDescription: "Required intake step — existing patients log in and new patients create an account.",
+  authTitle: "Patient Authentication",
+  authDescription:
+    "Pinned first step — the patient enters their email, then existing patients sign in and new patients create an account.",
   checkoutSection: "Checkout",
   testFlow: "Test Patient Flow",
 } as const;
+
+/**
+ * System boundaries the release contract owns. They are projected into the
+ * builder so an author can see the shape of the journey, but they are never
+ * persisted as ProgramQuestions and never sent to reorder/save APIs.
+ */
+export type ProgramSystemNodeKind = "patient_authentication";
+
+export const PROGRAM_SYSTEM_NODE_KIND: ProgramSystemNodeKind =
+  "patient_authentication";
 
 export const PROGRAM_QUESTION_KIND_ORDER: QuestionKind[] = [
   "text",
@@ -26,7 +37,9 @@ export const PROGRAM_QUESTION_KIND_ORDER: QuestionKind[] = [
   "state_routing",
   "medication_dose",
   "pharmacy",
-  "personal_details",
+  // `personal_details` is deliberately absent: Patient Authentication is a
+  // system boundary, not an authorable clinical question.
+  // Publishing a Program that contains one is rejected by the backend.
   "shipping_address",
   "checkout",
   "sex",
@@ -53,6 +66,7 @@ export const PROGRAM_QUESTION_KIND_LABELS: Record<QuestionKind, string> = {
   state_routing: "State Routing",
   medication_dose: "Medication Dose",
   pharmacy: "Pharmacy",
+  patient_authentication: "Patient Authentication",
   personal_details: "Personal Details",
   shipping_address: "Shipping Address",
   checkout: "Checkout",

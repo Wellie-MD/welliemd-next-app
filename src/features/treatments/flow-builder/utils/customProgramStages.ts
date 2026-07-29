@@ -40,7 +40,7 @@ export interface AdminCustomProgramStageProjection {
 const syntheticAuthentication = (): CustomProgramFlowItem => ({
   id: "builder-authentication",
   kind: "authentication",
-  title: "Personal Details",
+  title: "Patient Authentication",
   subtitle: "Name, email, US phone, consent, and account entry.",
   locked: true,
   required: true,

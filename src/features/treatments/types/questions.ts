@@ -17,6 +17,11 @@ export type QuestionKind =
   | "state_routing"
   | "medication_dose"
   | "pharmacy"
+  // System boundary projected into the builder. Not authorable, never persisted
+  // as a ProgramQuestion.
+  | "patient_authentication"
+  // Legacy questionnaire grouped demographics. Retained so legacy templates
+  // still type-check; Programs must not author it.
   | "personal_details"
   | "shipping_address"
   | "sex"

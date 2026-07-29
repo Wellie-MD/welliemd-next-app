@@ -10,6 +10,7 @@ export interface ProgramAuthConfig {
   phone: boolean;
   identity: boolean;
   account: boolean;
+  enabled?: boolean;
 }
 
 export interface ProgramLabRequirement {

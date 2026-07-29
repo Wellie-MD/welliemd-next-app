@@ -27,7 +27,7 @@ export function ProgramQuestionsListRow({
   onDelete,
 }: ProgramQuestionsListRowProps) {
   const navigate = useNavigate();
-  const isAuth = question.kind === "personal_details";
+  const isAuth = question.kind === "patient_authentication";
   const isCheckout = question.kind === "checkout";
   const isConsent = question.kind === "consent";
   const isSection = question.kind === "section";
@@ -157,7 +157,10 @@ export function ProgramQuestionsListRow({
 
       {/* 5. Actions (Hover Only) */}
       <div className="flex justify-end gap-1 text-right">
-        {isSystem ? (
+        {/* The author added Patient Authentication, so they can configure and
+            remove it. It still cannot be dragged — it is pinned first — and
+            publication requires it, so removing it blocks publish. */}
+        {isSystem && !isAuth ? (
           <span className="pr-1 text-[9px] italic text-slate-300">System</span>
         ) : (
           <>

@@ -200,13 +200,16 @@ export function ProgramCard({
           Content Summary
         </div>
         <div className="grid grid-cols-2 gap-y-2 gap-x-3">
-          <div className="flex items-center gap-1.5 text-slate-600">
+          <div
+            className="flex items-center gap-1.5 text-slate-600"
+            title="Total configured screening questions across every conditional path. Patient preview counts only the path active for that patient."
+          >
             <HelpCircle className="h-3.5 w-3.5 text-slate-400 shrink-0" />
             <span className="text-xs font-semibold text-slate-700">
               {screeningQuestionCount}
             </span>
             <span className="text-[11px] text-slate-400 font-medium">
-              Screening
+              Screening configured
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-slate-600">

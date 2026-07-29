@@ -391,7 +391,7 @@ export function buildStaticProgramFlowGraph(
 
   pushNode("start", "start", { label: "Start", subtitle: "Patient enters", isFocused: false });
   pushNode("auth", "auth", {
-    label: "Personal Details",
+    label: "Patient Authentication",
     subtitle: "Account entry",
     config: program.authConfig || { email: true, phone: false, identity: false, account: true },
     isFocused: false,
