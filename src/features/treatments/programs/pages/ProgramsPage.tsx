@@ -144,37 +144,36 @@ export default function ProgramsPage() {
     setIsCreateOpen(true);
   };
 
-  const handleSaveProgram = (programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">) => {
+  const handleSaveProgram = async (
+    programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">
+  ): Promise<boolean> => {
     if (editingProgram) {
-      const updatedProgram: Program = {
-        ...editingProgram,
+      const updatedProgram = {
+        id: editingProgram.id,
         ...programData,
-        updatedAt: currentDateStamp(),
       };
 
-      saveProgramMutation.mutate(updatedProgram, {
-        onSuccess: () => {
-          toast({
-            title: "Program Updated",
-            description: `Saved changes to ${programData.name}`,
-          });
-          setEditingProgram(null);
-          setIsCreateOpen(false);
-        },
-        onError: (error: unknown) => {
-          if (isDuplicateSlugError(error)) {
-            showDuplicateSlugToast();
-            return;
-          }
-
+      try {
+        await saveProgramMutation.mutateAsync(updatedProgram);
+        toast({
+          title: "Program Updated",
+          description: `Saved changes to ${programData.name}`,
+        });
+        setEditingProgram(null);
+        setIsCreateOpen(false);
+        return true;
+      } catch (error) {
+        if (isDuplicateSlugError(error)) {
+          showDuplicateSlugToast();
+        } else {
           toast({
             title: "Error",
             description: getApiErrorMessage(error, "Failed to update program"),
             variant: "destructive",
           });
-        },
-      });
-      return;
+        }
+        return false;
+      }
     }
 
     const newProg: Program = {
@@ -194,26 +193,27 @@ export default function ProgramsPage() {
       ...programData,
     };
 
-    saveProgramMutation.mutate(newProg, {
-      onSuccess: () => {
-        toast({
-          title: "Program Created",
-          description: `Successfully created program: ${programData.name}`,
-        });
-      },
-      onError: (error: unknown) => {
-        if (isDuplicateSlugError(error)) {
-          showDuplicateSlugToast();
-          return;
-        }
-
+    try {
+      await saveProgramMutation.mutateAsync(newProg);
+      toast({
+        title: "Program Created",
+        description: `Successfully created program: ${programData.name}`,
+      });
+      setIsCreateOpen(false);
+      return true;
+    } catch (error) {
+      if (isDuplicateSlugError(error)) {
+        showDuplicateSlugToast();
+      } else {
         toast({
           title: "Error",
           description: getApiErrorMessage(error, "Failed to create program"),
           variant: "destructive",
         });
-      },
-    });
+      }
+
+      return false;
+    }
   };
 
   const handleSaveSlug = async (programId: string, newSlug: string) => {

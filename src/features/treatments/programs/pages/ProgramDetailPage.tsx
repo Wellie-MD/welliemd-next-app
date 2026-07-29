@@ -560,11 +560,30 @@ export default function ProgramDetailPage() {
         treatmentTypes={treatmentTypes}
         initialProgram={foundProgram}
         mode="edit"
-        onSave={(programData) => {
-          saveProgramMutation.mutate({
-            id: foundProgram.id,
-            ...programData,
-          } as any);
+        onSave={async (programData) => {
+          try {
+            await saveProgramMutation.mutateAsync({
+              id: foundProgram.id,
+              ...programData,
+            });
+            toast({
+              title: "Program Updated",
+              description: `Saved changes to ${programData.name}`,
+            });
+            setIsSettingsOpen(false);
+            return true;
+          } catch (error) {
+            if (isDuplicateSlugError(error)) {
+              showDuplicateSlugToast();
+            } else {
+              toast({
+                title: "Error",
+                description: getApiErrorMessage(error, "Failed to update program"),
+                variant: "destructive",
+              });
+            }
+            return false;
+          }
         }}
       />
 

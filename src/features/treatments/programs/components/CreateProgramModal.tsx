@@ -11,7 +11,9 @@ interface CreateProgramModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   treatmentTypes: TreatmentType[];
-  onSave: (programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">) => void;
+  onSave: (
+    programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">
+  ) => Promise<boolean> | boolean;
   prefillTreatmentTypeKey?: string;
   prefillStage?: ProgramStage;
   initialProgram?: Program | null;
@@ -40,6 +42,7 @@ export function CreateProgramModal({
   const [serviceStatesAll, setServiceStatesAll] = useState(true);
   const [serviceStates, setServiceStates] = useState<string[]>([]);
   const [stateSearch, setStateSearch] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   // Determine pre-filled values
   useEffect(() => {
@@ -96,7 +99,10 @@ export function CreateProgramModal({
 
   const handleNameChange = (val: string) => {
     setName(val);
-    // Auto-generate slug
+    if (mode === "edit") return;
+
+    // New Programs start with a suggested slug. Existing routing identifiers
+    // remain stable unless the user edits the URL Slug field explicitly.
     const generated = val
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -104,7 +110,7 @@ export function CreateProgramModal({
     setSlug(generated);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
       !name.trim()
@@ -116,25 +122,37 @@ export function CreateProgramModal({
       return;
     }
 
-    onSave({
-      name,
-      stage,
-      treatmentTypeKey,
-      visitType: derivedVisitType,
-      slug: slug.toLowerCase().replace(/[^a-z0-9-_]/g, ""),
-      sexRequirement,
-      minAge: minAge ? parseInt(minAge, 10) : null,
-      maxAge: maxAge ? parseInt(maxAge, 10) : null,
-      minBmi: minBmi ? parseFloat(minBmi) : null,
-      maxBmi: maxBmi ? parseFloat(maxBmi) : null,
-      serviceStatesAll,
-      serviceStates: serviceStatesAll ? [] : serviceStates,
-    });
-    onOpenChange(false);
+    setIsSaving(true);
+    try {
+      const saved = await onSave({
+        name,
+        stage,
+        treatmentTypeKey,
+        visitType: derivedVisitType,
+        slug: slug.toLowerCase().replace(/[^a-z0-9-_]/g, ""),
+        sexRequirement,
+        minAge: minAge ? parseInt(minAge, 10) : null,
+        maxAge: maxAge ? parseInt(maxAge, 10) : null,
+        minBmi: minBmi ? parseFloat(minBmi) : null,
+        maxBmi: maxBmi ? parseFloat(maxBmi) : null,
+        serviceStatesAll,
+        serviceStates: serviceStatesAll ? [] : serviceStates,
+      });
+      if (saved) {
+        onOpenChange(false);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && isSaving) return;
+    onOpenChange(nextOpen);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-[500px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
         <DialogHeader className="px-6 py-4 border-b border-slate-100 flex flex-row items-center justify-between">
           <div>
@@ -150,8 +168,10 @@ export function CreateProgramModal({
             </DialogDescription>
           </div>
           <button
+            type="button"
             onClick={() => onOpenChange(false)}
-            className="text-slate-400 hover:text-slate-600 rounded-lg p-1"
+            disabled={isSaving}
+            className="text-slate-400 hover:text-slate-600 rounded-lg p-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X className="h-4 w-4" />
           </button>
@@ -414,16 +434,21 @@ export function CreateProgramModal({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={isSaving}
               className="h-9 px-4 text-xs font-bold border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={missingStageVisitType}
+              disabled={missingStageVisitType || isSaving}
               className="h-9 px-4 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
             >
-              {mode === "edit" ? "Save Changes" : "Create Program"}
+              {isSaving
+                ? "Saving..."
+                : mode === "edit"
+                  ? "Save Changes"
+                  : "Create Program"}
             </Button>
           </div>
         </form>

@@ -19,6 +19,8 @@ import {
 
 const records = <T>(data: PaginatedResponse<T> | T[]): T[] => Array.isArray(data) ? data : data.results || [];
 
+export type ProgramSaveInput = Partial<Program> & Pick<Program, "id">;
+
 export const programsApi = {
   list: async (): Promise<Program[]> => {
     const { data } = await axiosInstance.get<PaginatedResponse<ProgramRecord> | ProgramRecord[]>(
@@ -33,7 +35,7 @@ export const programsApi = {
     return programFromRecord(data);
   },
 
-  save: async (program: Program, treatmentTypes: TreatmentType[]): Promise<Program> => {
+  save: async (program: ProgramSaveInput, treatmentTypes: TreatmentType[]): Promise<Program> => {
     const payload = programToRecord(program, treatmentTypes);
     const { data } = isPersistedUuid(program.id)
       ? await axiosInstance.patch<ProgramRecord>(TREATMENT_PROGRAM_ENDPOINTS.detail(program.id), payload)

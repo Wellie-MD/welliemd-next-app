@@ -6,7 +6,7 @@ import type {
 } from "@/features/treatments/types";
 import { customProgramsApi } from "./customProgramsApi";
 import { consentsApi, sectionsApi, treatmentTypesApi } from "./libraryApi";
-import { programsApi } from "./programsApi";
+import { programsApi, type ProgramSaveInput } from "./programsApi";
 
 export const treatmentsApi = {
   listStats: async (): Promise<ContentLibraryStats> => {
@@ -30,7 +30,8 @@ export const treatmentsApi = {
 
   listPrograms: programsApi.list,
   getProgram: programsApi.get,
-  saveProgram: async (program) => programsApi.save(program, await treatmentTypesApi.list()),
+  saveProgram: async (program: ProgramSaveInput) =>
+    programsApi.save(program, await treatmentTypesApi.list()),
   saveProgramLabRequirements: programsApi.saveLabRequirements,
   updateProgramSlug: programsApi.updateSlug,
   updateProgramStatus: (id: string, status: ProgramStatus) => programsApi.updateStatus(id, status),
