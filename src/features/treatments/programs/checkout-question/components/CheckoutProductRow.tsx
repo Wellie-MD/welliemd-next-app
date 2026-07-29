@@ -386,6 +386,9 @@ export function CheckoutProductRow({
 
       {product.category && product.regimen && product.doseLabel && product.productId && (
         <div className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-3">
+          <div className="text-[12px] font-bold text-slate-900">
+            {linkedCatalogProduct?.name || product.doseLabel}
+          </div>
           <div className="text-[11.5px] font-semibold leading-relaxed text-emerald-800">
             {product.doseLabel} · {product.category} · {product.regimen} regimen
           </div>
