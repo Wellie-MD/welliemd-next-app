@@ -3,8 +3,11 @@ import { Loader2 } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Header } from "@/components/layout/Header";
 import { SettingsLayout } from "@/components/layout/SettingsLayout";
+import { IntercomBannersProvider } from "@/features/announcements/IntercomBannersContext";
+import { IntercomCardBanner } from "@/features/announcements/IntercomBanners";
 
 const SettingsFrame = () => (
+  <IntercomBannersProvider>
   <SidebarProvider>
     <div className="min-h-screen flex w-full">
       <div className="flex-1 flex flex-col">
@@ -21,8 +24,10 @@ const SettingsFrame = () => (
           </Suspense>
         </div>
       </div>
+      <IntercomCardBanner />
     </div>
   </SidebarProvider>
+  </IntercomBannersProvider>
 );
 
 export default SettingsFrame;
