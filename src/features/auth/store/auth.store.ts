@@ -646,7 +646,11 @@ export const useAuthStore = create<AuthState>()(
                   // while initialization was in-flight, a valid access token
                   // should exist in memory. If refresh failed, tokenManager
                   // will already be cleared.
-                  if (authService.isAuthenticated()) {
+                  // Use getAccessToken() instead of isAuthenticated() because
+                  // isAuthenticated() falls back to the persisted localStorage,
+                  // which still holds a stale/expired token and would prevent
+                  // the session from being properly cleared.
+                  if (authService.getAccessToken()) {
                     set((state) => {
                       state.isLoading = false;
                     });
@@ -709,7 +713,9 @@ export const useAuthStore = create<AuthState>()(
               debugLog('Auth initialization failed:', error);
               // Guard against race: do not clear session if auth became valid
               // via manual login while initializeAuth was in-flight.
-              if (authService.isAuthenticated()) {
+              // Use getAccessToken() instead of isAuthenticated() to avoid
+              // trusting a stale/expired token from persisted localStorage.
+              if (authService.getAccessToken()) {
                 set((state) => {
                   state.isLoading = false;
                 });
@@ -824,6 +830,8 @@ export const useAuthStore = create<AuthState>()(
             import('../services/token-manager').then(({ tokenManager }) => {
               tokenManager.setAccessToken(state.tokens!.accessToken);
               debugLog('Token synced to tokenManager from persisted state');
+            }).catch((err) => {
+              debugLog('Failed to sync token to tokenManager on rehydrate:', err);
             });
           }
         },
