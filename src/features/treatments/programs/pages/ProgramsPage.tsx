@@ -87,11 +87,14 @@ export default function ProgramsPage() {
   }, [programs]);
 
   const totalTreatmentsCount = new Set(programs.map(p => p.treatmentTypeKey)).size;
-  const missingFollowUpCount = (() => {
+
+  const missingFollowUpKeys = useMemo(() => {
     const keysWithIntake = new Set(programs.filter(p => p.stage === "intake").map(p => p.treatmentTypeKey));
     const keysWithFollowUp = new Set(programs.filter(p => p.stage === "follow_up").map(p => p.treatmentTypeKey));
-    return [...keysWithIntake].filter(key => !keysWithFollowUp.has(key)).length;
-  })();
+    return new Set([...keysWithIntake].filter(key => !keysWithFollowUp.has(key)));
+  }, [programs]);
+
+  const missingFollowUpCount = missingFollowUpKeys.size;
 
   const treatmentTypes = useMemo(() => {
     const keys = new Set(programs.map(p => p.treatmentTypeKey));
@@ -110,6 +113,7 @@ export default function ProgramsPage() {
     let result = programs.filter((program) => {
       if (activeTab === "intake" && program.stage !== "intake") return false;
       if (activeTab === "follow_up" && program.stage !== "follow_up") return false;
+      if (filter === "missing_follow_up" && !missingFollowUpKeys.has(program.treatmentTypeKey)) return false;
       if (selectedStatus !== "all" && program.status !== selectedStatus) return false;
       if (selectedTreatment !== "all" && program.treatmentTypeKey !== selectedTreatment) return false;
 
@@ -137,7 +141,7 @@ export default function ProgramsPage() {
     });
 
     return result;
-  }, [programs, searchQuery, sortBy, activeTab, selectedStatus, selectedTreatment, treatmentNameByKey]);
+  }, [programs, searchQuery, sortBy, activeTab, filter, missingFollowUpKeys, selectedStatus, selectedTreatment, treatmentNameByKey]);
 
   const handleSaveSlug = async (programId: string, newSlug: string) => {
     try {
