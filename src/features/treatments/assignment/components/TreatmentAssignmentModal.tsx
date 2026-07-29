@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   Loader2,
@@ -18,6 +18,7 @@ import {
   ASSIGNMENT_MAX_POLL_ATTEMPTS,
   OPERATION_STATUS,
   PREFLIGHT_STATUS,
+  RUNTIME_STATE,
   TERMINAL_OPERATION_STATUSES,
 } from "@/features/treatments/assignment/constants";
 import {
@@ -38,6 +39,7 @@ interface TreatmentAssignmentModalProps {
   items: AssignmentListItem[];
   sourceKind: AssignmentSourceKind;
   itemLabel: string;
+  onAssignmentsCompleted?: () => void;
 }
 
 type Phase = "select" | "preflight" | "progress";
@@ -75,6 +77,7 @@ export function TreatmentAssignmentModal({
   items,
   sourceKind,
   itemLabel,
+  onAssignmentsCompleted,
 }: TreatmentAssignmentModalProps) {
   const { clients, loading: clientsLoading, error: clientsError } = useClients("");
   const [phase, setPhase] = useState<Phase>("select");
@@ -85,6 +88,7 @@ export function TreatmentAssignmentModal({
   const [pairs, setPairs] = useState<AssignmentPairState[]>([]);
   const [working, setWorking] = useState(false);
   const [pollAttempts, setPollAttempts] = useState<Record<string, number>>({});
+  const reportedCompletionIdsRef = useRef<Set<string>>(new Set());
   const permissionValues = useAuthStore((state) => state.user?.permissions);
   const permissions = useMemo(
     () => new Set(permissionValues || []),
@@ -110,6 +114,7 @@ export function TreatmentAssignmentModal({
   }, [clientSearch, clients]);
 
   const reset = () => {
+    reportedCompletionIdsRef.current.clear();
     setPhase("select");
     setItemIds(new Set());
     setClientIds(new Set());
@@ -322,10 +327,32 @@ export function TreatmentAssignmentModal({
   const readyCount = pairs.filter(
     (pair) => pair.preflight?.status === PREFLIGHT_STATUS.ready
   ).length;
-  const completeCount = pairs.filter(
-    (pair) => pair.operation?.status === OPERATION_STATUS.completed
-  ).length;
+  const runtimeReadyOperationIds = useMemo(
+    () =>
+      pairs.flatMap((pair) =>
+        pair.operation?.status === OPERATION_STATUS.completed &&
+        pair.operation.runtime_state === RUNTIME_STATE.ready
+          ? [pair.operation.id]
+          : []
+      ),
+    [pairs]
+  );
+  const completeCount = runtimeReadyOperationIds.length;
   const canPreflight = itemIds.size > 0 && clientIds.size > 0 && !working;
+
+  useEffect(() => {
+    if (!open || phase !== "progress") return;
+
+    const newlyCompletedIds = runtimeReadyOperationIds.filter(
+      (id) => !reportedCompletionIdsRef.current.has(id)
+    );
+    if (!newlyCompletedIds.length) return;
+
+    newlyCompletedIds.forEach((id) => {
+      reportedCompletionIdsRef.current.add(id);
+    });
+    onAssignmentsCompleted?.();
+  }, [onAssignmentsCompleted, open, phase, runtimeReadyOperationIds]);
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
