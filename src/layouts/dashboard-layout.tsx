@@ -9,7 +9,7 @@ import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { IntercomWidget } from '@/features/integrations/IntercomWidget';
 import { IntercomBannersProvider } from '@/features/announcements/IntercomBannersContext';
-import { IntercomCardBanner } from '@/features/announcements/IntercomBanners';
+import { IntercomCardBanner, IntercomInlineBanner } from '@/features/announcements/IntercomBanners';
 
 const DashboardLayout: FC = () => {
   const location = useLocation();
@@ -119,6 +119,7 @@ const DashboardLayout: FC = () => {
                   margin: "0 auto",
                 }}
               >
+                <IntercomInlineBanner className="-mt-2 mb-4" />
                 <Outlet />
               </div>
             </div>
