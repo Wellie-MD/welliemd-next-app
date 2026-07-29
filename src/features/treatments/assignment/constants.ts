@@ -76,6 +76,37 @@ export const ASSIGNMENT_STEP_LABELS: Record<string, string> = {
   activate: "Activate tenant runtime",
 };
 
+const ASSIGNMENT_ERROR_MESSAGES: Record<string, string> = {
+  tenant_manifest_parity_failed:
+    "The Program was imported into the client, but the client configuration does not exactly match the approved Admin Portal version. Refresh the assignment to compare the latest release and retry. If the mismatch remains, verify that the client portal is running the current runtime and contact support with the Correlation ID.",
+  tenant_activation_blocked:
+    "The Program was imported and checked, but the client portal could not make it available to patients. Confirm that the client is active, its assignment endpoint is reachable, and all required Products, Labs, and member Programs are ready. Then refresh the assignment and retry. If it still fails, contact support with the Correlation ID.",
+  source_changed:
+    "The Program or its published release changed while this assignment was running. The existing assignment was stopped to prevent an older configuration from reaching the client. Recheck readiness, publish the latest changes if needed, and start a new assignment.",
+  assignment_configuration_changed:
+    "The Program configuration changed while the assignment was in progress. This can include Products, questions, consents, Labs, or member Programs. Recheck readiness so the dependency list is refreshed, then start the assignment again.",
+  parent_assignment_failed:
+    "The main Program could not be imported into the client. Check that the client is active, the assignment endpoint and signing secret are configured, and the client portal is reachable. Correct any issue, then retry the assignment.",
+  member_program_assignment_failed:
+    "A required member Program could not be imported into the client. Open the assignment readiness details, identify the member Program needing attention, publish or configure it, and retry the parent assignment.",
+  product_assignment_failed:
+    "A required Product or supply could not be assigned to the client. Confirm it is active, assigned to this client, linked to the correct Treatment Type, and has complete pricing or fulfillment configuration. Recheck readiness and retry.",
+};
+
+export function assignmentOperationErrorMessage(code?: string, step?: string): string {
+  if (code && ASSIGNMENT_ERROR_MESSAGES[code]) return ASSIGNMENT_ERROR_MESSAGES[code];
+  if (step === "activate") {
+    return "The client runtime could not be activated after the import completed. Confirm the client is active and reachable, then refresh readiness and retry. If activation fails again, contact support with the Correlation ID.";
+  }
+  if (step === "verify") {
+    return "The imported client configuration could not be verified against the approved Program release. Refresh readiness to fetch the current release, then retry the assignment. If it continues, contact support with the Correlation ID.";
+  }
+  if (step === "parent") {
+    return "The Program could not be imported into the client. Check the client connection, endpoint, signing secret, and active tenant status. Correct the client configuration, then retry the assignment.";
+  }
+  return "The assignment could not be completed. Review the failed step and its dependency details, correct the indicated Program, Product, Lab, or client configuration, then retry. If no dependency is identified, contact support with the Correlation ID.";
+}
+
 export const DEPENDENCY_LABELS: Record<string, string> = {
   treatment_type: "Treatment Types",
   product: "Products",

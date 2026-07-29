@@ -329,9 +329,9 @@ export function TreatmentAssignmentModal({
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogContent className="max-w-5xl gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-2xl">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
         <DialogTitle className="sr-only">Dependency-aware assignment</DialogTitle>
-        <header className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+        <header className="flex shrink-0 items-start justify-between border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50">
               <Users className="h-5 w-5 text-sky-600" />
@@ -376,7 +376,7 @@ export function TreatmentAssignmentModal({
             onClientToggle={(id) => toggle(setClientIds, id)}
           />
         ) : (
-          <div className="max-h-[560px] space-y-3 overflow-y-auto bg-slate-50/60 p-5">
+          <div className="min-h-0 max-h-[min(560px,calc(100dvh-13rem))] space-y-3 overflow-y-auto bg-slate-50/60 p-3 sm:p-5">
             {working && pairs.length === 0 ? (
               <AssignmentEmptyState icon={<Loader2 className="h-6 w-6 animate-spin" />} text="Analyzing dependencies…" />
             ) : (
@@ -394,13 +394,13 @@ export function TreatmentAssignmentModal({
           </div>
         )}
 
-        <footer className="flex items-center justify-between border-t border-slate-100 bg-white px-6 py-4">
-          <span className="text-sm text-slate-500">
+        <footer className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+          <span className="text-xs text-slate-500 sm:text-sm">
             {phase === "select"
               ? `${itemIds.size} ${itemLabel}${itemIds.size === 1 ? "" : "s"} · ${clientIds.size} clients`
               : `${readyCount} ready · ${pairs.length - readyCount} require attention`}
           </span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             {phase !== "select" && phase !== "progress" && (
               <button
                 type="button"

@@ -22,7 +22,7 @@ export function AssignmentSelection(props: {
   onClientToggle: (id: string) => void;
 }) {
   return (
-    <div className="grid h-[460px] grid-cols-2 divide-x">
+    <div className="grid min-h-0 h-[min(460px,55dvh)] grid-cols-1 divide-y overflow-hidden sm:grid-cols-2 sm:divide-x sm:divide-y-0">
       <SelectionColumn
         title={`${props.itemLabel}s`}
         search={props.itemSearch}
