@@ -127,6 +127,7 @@ export function formatConnection(c: ConnectionResponse): {
   lastSync: string;
   status?: 'error' | 'pending' | 'connected' | 'disconnected';
   errorType?: string;
+  isBackfilling?: boolean;
 } {
   const formattedSync = c.last_sync_at
     ? new Date(c.last_sync_at).toLocaleDateString('en-US', {
@@ -137,6 +138,8 @@ export function formatConnection(c: ConnectionResponse): {
       })
     : 'never';
 
+  const isStuck = c.is_backfilling && c.updated_at && (Date.now() - new Date(c.updated_at).getTime() > 300000);
+
   return {
     id: c.id,
     provider: c.provider,
@@ -144,5 +147,6 @@ export function formatConnection(c: ConnectionResponse): {
     lastSync: formattedSync,
     status: c.status as any,
     ...(c.last_error ? { errorType: c.last_error } : {}),
+    isBackfilling: isStuck ? false : c.is_backfilling,
   };
 }

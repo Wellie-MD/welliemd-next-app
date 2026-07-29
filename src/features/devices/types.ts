@@ -168,5 +168,7 @@ export interface ConnectionResponse {
   provider: string;
   status: string;
   last_sync_at: string | null;
-  last_error?: string;
+  last_error: string | null;
+  is_backfilling?: boolean;
+  updated_at: string;
 }

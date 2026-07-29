@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Loader2, RefreshCw } from 'lucide-react';
 import ConnectState from './components/ConnectState';
 import ConnectedState from './components/ConnectedState';
 import TelemetryDashboard from './components/TelemetryDashboard';
@@ -139,6 +140,9 @@ export default function DevicesPage() {
   const [connectionSyncError, setConnectionSyncError] = useState('');
   const [priorityModalOpen, setPriorityModalOpen] = useState(false);
   const [timeRange, setTimeRange] = useState(30);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const connectionsSyncTime = useRef<number>(0);
+
 
   const fetchMasterDeviceData = useCallback(async () => {
     try {
@@ -236,17 +240,44 @@ export default function DevicesPage() {
     toast.info('Fetching your extended historical data. This may take a moment...', {
       duration: 4000,
     });
-    getDeviceData(7, false)
-      .then(() => {
-        // Re-fetch the full 365 days of data into master metrics
-        fetchMasterDeviceData();
-      })
-      .catch(console.error);
+    
+    const initializeData = async () => {
+      try {
+        const liveData = await getDeviceData(30, false);
+        if (liveData) {
+          setMasterDeviceMetrics(prev => ({
+            ...prev,
+            ...(liveData.steps && { steps: liveData.steps }),
+            ...(liveData.sleep && { sleep: liveData.sleep }),
+            ...(liveData.restingHr && { restingHr: liveData.restingHr }),
+            ...(liveData.activeDays && { activeDays: liveData.activeDays }),
+            ...(liveData.readiness != null && { readiness: liveData.readiness }),
+            ...(liveData.recovery != null && { recovery: liveData.recovery }),
+            ...(liveData.sleepScore != null && { sleepScore: liveData.sleepScore }),
+            ...(liveData.stepsSeries && { stepsSeries: liveData.stepsSeries }),
+            ...(liveData.sleepSeries && { sleepSeries: liveData.sleepSeries }),
+            ...(liveData.sleepDetail && { sleepDetail: liveData.sleepDetail }),
+            ...(liveData.workoutsCount !== undefined && { workoutsCount: liveData.workoutsCount }),
+            ...(liveData.recentWorkouts && { recentWorkouts: liveData.recentWorkouts }),
+            ...(liveData.glucoseSeries && { glucoseSeries: liveData.glucoseSeries }),
+            ...(liveData.avgGlucose != null && { avgGlucose: liveData.avgGlucose }),
+            ...(liveData.latestGlucose != null && { latestGlucose: liveData.latestGlucose }),
+            ...(liveData.customQueries && { customQueries: liveData.customQueries }),
+          }));
+        }
+        await fetchMasterDeviceData();
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    
+    initializeData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchConnectionsList = useCallback(async () => {
     setLoading(true);
+    const reqTime = Date.now();
     try {
       const [connectionsResult, vitalsResult, goalResult, profileResult] = await Promise.allSettled([
         getConnections(),
@@ -256,9 +287,12 @@ export default function DevicesPage() {
       ]);
 
       if (connectionsResult.status === 'fulfilled' && connectionsResult.value !== null) {
-        const formatted = connectionsResult.value.map(formatConnection);
-        setConnections(formatted);
-        setDeviceConnected(formatted.length > 0);
+        if (reqTime >= connectionsSyncTime.current) {
+          connectionsSyncTime.current = reqTime;
+          const formatted = connectionsResult.value.map(formatConnection);
+          setConnections(formatted);
+          setDeviceConnected(formatted.length > 0);
+        }
       }
 
       setWeight(prev => {
@@ -287,15 +321,15 @@ export default function DevicesPage() {
 
   const handleRefreshStatus = useCallback(async () => {
     setConnectionSyncError('');
+    const reqTime = Date.now();
     try {
       const conns = await syncConnections();
       const formatted = conns.map((c) => formatConnection(c));
-      setConnections(formatted);
-      setDeviceConnected(formatted.length > 0);
-      
-      // Also refresh the device data via live sync
-      fetchMasterDeviceData();
-      
+      if (reqTime >= connectionsSyncTime.current) {
+        connectionsSyncTime.current = reqTime;
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
+      }
       return formatted;
     } catch {
       setConnectionSyncError('Unable to check the connection right now. Please try again.');
@@ -303,8 +337,24 @@ export default function DevicesPage() {
     }
   }, [fetchMasterDeviceData]);
 
+  const handleManualSync = useCallback(async () => {
+    setIsSyncing(true);
+    toast.info(`Syncing your last ${timeRange} days of data. This may take a moment...`, { duration: 3000 });
+    try {
+      await getDeviceData(timeRange, false);
+      await fetchMasterDeviceData();
+      toast.success("Sync complete!");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to sync device data.");
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [timeRange, fetchMasterDeviceData]);
+
+  const pendingProvidersStr = connections.filter(c => c.status === 'pending').map(c => c.provider).sort().join(',');
+
   useEffect(() => {
-    const pendingProviders = connections.filter(c => c.status === 'pending').map(c => c.provider);
+    const pendingProviders = pendingProvidersStr ? pendingProvidersStr.split(',') : [];
     
     const urlProvider = searchParams.get('provider');
     if (searchParams.get('wearable_connect') === 'pending' && urlProvider && !pendingProviders.includes(urlProvider)) {
@@ -339,14 +389,22 @@ export default function DevicesPage() {
       const formatted = await handleRefreshStatus();
       if (isCancelled) return;
 
-      const stillPending = formatted !== null && formatted.some(c => pendingProviders.includes(c.provider) && c.status === 'pending');
+      const providerExists = formatted !== null && formatted.some(c => pendingProviders.includes(c.provider));
+      const stillPending = !providerExists || formatted!.some(c => pendingProviders.includes(c.provider) && c.status === 'pending');
 
       if (!stillPending) {
         if (formatted !== null && formatted.some(c => pendingProviders.includes(c.provider) && c.status === 'connected')) {
-          toast.success('Device successfully connected. Your health data is being synced...', {
+          toast.success('Device successfully connected. Your health data is being synced. It might take ~2-3 min', {
             duration: 5000,
           });
-          fetchConnectionsList();
+          
+          try {
+            await fetchConnectionsList();
+            await fetchMasterDeviceData();
+          } catch (e) {
+            console.error(e);
+            await fetchConnectionsList();
+          }
         }
         clearParams();
         setConnectionSyncError('');
@@ -365,7 +423,22 @@ export default function DevicesPage() {
       isCancelled = true;
       if (pollTimeout) clearTimeout(pollTimeout);
     };
-  }, [connections, handleRefreshStatus, fetchConnectionsList, setSearchParams, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, pendingProvidersStr]);
+
+  // Background polling for progressive real-time graph via isBackfilling
+  const isFetching = connections.some(c => c.isBackfilling);
+
+  useEffect(() => {
+    if (!isFetching) return;
+
+    const interval = setInterval(() => {
+      fetchMasterDeviceData().catch(console.error);
+      fetchConnectionsList().catch(console.error);
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isFetching, fetchMasterDeviceData, fetchConnectionsList]);
 
   useEffect(() => {
     async function loadConsent() {
@@ -704,7 +777,7 @@ export default function DevicesPage() {
         setConnections([]);
         setDeviceConnected(false);
         setConsent({ given: false, date: null });
-        setDeviceMetrics({ ...DEVICE_METRICS_DEFAULT });
+        setMasterDeviceMetrics({ ...DEVICE_METRICS_DEFAULT });
         setWeight({ ...WEIGHT_DEFAULT });
         setDeleteDataOpen(false);
       })
@@ -733,9 +806,34 @@ export default function DevicesPage() {
             <span className="badge bn" style={{ fontSize: 10, verticalAlign: 'middle', marginLeft: 4, padding: '3px 9px', borderRadius: 20, background: 'var(--km-s3)', color: 'var(--km-t2)', fontWeight: 700 }}>Live data</span>
           </p>
         </div>
-        <button
-          onClick={() => setPriorityModalOpen(true)}
-          style={{
+        <div style={{ display: 'flex', gap: 8 }}>
+          {deviceConnected && (
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12.5,
+                padding: '8px 14px',
+                background: 'var(--km-s1)',
+                color: 'var(--km-t)',
+                border: '1px solid var(--km-b)',
+                borderRadius: 10,
+                fontWeight: 600,
+                cursor: isSyncing ? 'not-allowed' : 'pointer',
+                marginTop: 4,
+                opacity: isSyncing ? 0.7 : 1,
+              }}
+            >
+              {isSyncing ? <Loader2 size={16} className="km-spin" /> : <RefreshCw size={16} />}
+              Sync {timeRange} Days
+            </button>
+          )}
+          <button
+            onClick={() => setPriorityModalOpen(true)}
+            style={{
             fontSize: 12.5,
             padding: '8px 14px',
             background: 'var(--km-s1)',
@@ -749,6 +847,7 @@ export default function DevicesPage() {
         >
           Data Sources Priority
         </button>
+        </div>
       </div>
       {initialLoading ? <DevicesSkeleton /> : <>
         {deviceConnected ? (
