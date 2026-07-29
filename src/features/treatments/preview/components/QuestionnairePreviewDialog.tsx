@@ -284,9 +284,14 @@ export function QuestionnairePreviewDialog({
   };
 
   const openInNewTab = () => {
-    if (previewUrl) {
-      window.open(previewUrl, "_blank", "noopener,noreferrer");
-    }
+    if (!previewUrl) return;
+    // Strip parent_origin — it's only for iframe postMessage back-channel.
+    // Without it the questionnaire app runs as a proper standalone page.
+    const url = new URL(previewUrl);
+    url.searchParams.delete("parent_origin");
+    // No windowFeatures string: passing ANY feature string causes browsers to
+    // open a small popup instead of a full tab.
+    window.open(url.toString(), "_blank");
   };
 
   const refresh = () => {
