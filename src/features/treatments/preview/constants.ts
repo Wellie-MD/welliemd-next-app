@@ -4,6 +4,7 @@ export const QUESTIONNAIRE_PREVIEW_DEFAULTS = Object.freeze({
   modalMaxHeightPx: 780,
   modalWidthPx: 640,
   protocolVersion: 1,
+  identitySwitchTimeoutMs: 15000,
 });
 
 export const QUESTIONNAIRE_PREVIEW_API = Object.freeze({
