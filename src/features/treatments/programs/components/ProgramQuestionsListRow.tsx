@@ -31,7 +31,12 @@ export function ProgramQuestionsListRow({
   const isCheckout = question.kind === "checkout";
   const isConsent = question.kind === "consent";
   const isSection = question.kind === "section";
+  const isPersonalDetails = question.kind === "personal_details";
+  const isServiceAreaCheck = question.kind === "state_routing";
   const isSystem = question.elementConfig?.system === true;
+  const canEdit = !isPersonalDetails && !isServiceAreaCheck;
+  const canDelete = !isPersonalDetails;
+  const isRowInteractive = !isReorderActive && canEdit;
 
   const {
     attributes,
@@ -82,7 +87,7 @@ export function ProgramQuestionsListRow({
   };
 
   const handleRowClick = () => {
-    if (isReorderActive) return;
+    if (!isRowInteractive) return;
     if (isSection) {
       navigateToSection();
     } else if (isConsent) {
@@ -97,7 +102,7 @@ export function ProgramQuestionsListRow({
       ref={setNodeRef}
       style={style}
       onClick={handleRowClick}
-      className={`group grid min-h-[46px] grid-cols-[44px_minmax(0,1fr)_100px_120px_72px] items-center gap-4 border-b border-slate-100 px-7 py-2 transition-colors ${isReorderActive ? "cursor-default" : "cursor-pointer"} ${
+      className={`group grid min-h-[46px] grid-cols-[44px_minmax(0,1fr)_100px_120px_72px] items-center gap-4 border-b border-slate-100 px-7 py-2 transition-colors ${isRowInteractive ? "cursor-pointer" : "cursor-default"} ${
         isDragging ? "bg-slate-100/50 shadow-md" : "bg-white hover:bg-slate-50/80"
       }`}
     >
@@ -164,33 +169,37 @@ export function ProgramQuestionsListRow({
           <span className="pr-1 text-[9px] italic text-slate-300">System</span>
         ) : (
           <>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(event) => {
-                event.stopPropagation();
-                if (isSection) {
-                  navigateToSection();
-                } else if (isConsent) {
-                  navigateToConsent();
-                } else {
-                  onEdit(question);
-                }
-              }}
-              className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-              title={isSection ? "Go to Section" : isConsent ? "Go to Consent" : "Edit Element"}
-            >
-              <Pencil className="h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(event) => { event.stopPropagation(); onDelete(question.id); }}
-              className="h-6 w-6 rounded text-slate-300 hover:bg-red-50 hover:text-red-600"
-              title="Delete Element"
-            >
-              <Trash2 className="h-3 w-3" />
-            </Button>
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (isSection) {
+                    navigateToSection();
+                  } else if (isConsent) {
+                    navigateToConsent();
+                  } else {
+                    onEdit(question);
+                  }
+                }}
+                className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
+                title={isSection ? "Go to Section" : isConsent ? "Go to Consent" : "Edit Element"}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(event) => { event.stopPropagation(); onDelete(question.id); }}
+                className="h-6 w-6 rounded text-slate-300 hover:bg-red-50 hover:text-red-600"
+                title="Delete Element"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
           </>
         )}
       </div>
