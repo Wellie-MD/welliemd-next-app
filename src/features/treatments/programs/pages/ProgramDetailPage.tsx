@@ -502,7 +502,7 @@ export default function ProgramDetailPage() {
             <div>Question or Element</div>
             <div>Required</div>
             <div>Type</div>
-            <div className="text-right">Actions</div>
+            <div className="text-center">Actions</div>
           </div>
 
           {filteredRows.length === 0 ? (
