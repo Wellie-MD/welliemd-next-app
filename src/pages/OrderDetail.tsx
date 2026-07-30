@@ -566,8 +566,12 @@ function OrderDetailInner() {
   const isOrderPaymentPending = status === "payment_pending"
   const baseRetryEligibility =
     !paymentCaptured && (isPaymentFailure || isSettlementRetryable || isOrderPaymentPending)
-  const isAllowedStatus = status === "created" || status === "payment_pending"
-  const canChangeProduct = isAllowedStatus && !isLocked
+  const isPreCheckoutProductChange = status === "created" || status === "payment_pending"
+  const isSubmittedVisitProductChange =
+    ["processing", "visit_pending", "consult_scheduled", "consult_rescheduled"].includes(status) &&
+    ["sent_to_beluga", "submitted", "completed"].includes(String(order.visitStatus || "").toLowerCase())
+  const isAllowedStatus = isPreCheckoutProductChange || isSubmittedVisitProductChange
+  const canChangeProduct = isAllowedStatus && (!isLocked || isSubmittedVisitProductChange)
   const canRefundOrVoid = isAuthorized || isRefundable
   const canUseReceipt = ["captured", "approved", "succeeded", "refunded"].includes(paymentStatus) || paymentCaptured
 
@@ -596,7 +600,9 @@ function OrderDetailInner() {
   const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
   const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
   const changeProductTooltip =
-    "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
+    isSubmittedVisitProductChange
+      ? "Product change will resend the updated prescription to the submitted visit."
+      : "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
