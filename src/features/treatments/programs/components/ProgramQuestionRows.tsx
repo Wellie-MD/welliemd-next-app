@@ -214,14 +214,14 @@ export function SortableQuestionRow({
       {row.required ? <><Check className="h-3.5 w-3.5 stroke-[3]" />Required</> : <span className="text-slate-400">Optional</span>}
     </div>
     <div><span className="inline-flex rounded-md border bg-slate-50 px-2.5 py-1 text-xs font-medium">{formatQuestionKind(row.kind)}</span></div>
-    <div className={cn("flex justify-center gap-1.5", isClientQuestion ? "opacity-0 transition-opacity group-hover:opacity-100" : "text-slate-200")}>
+    <div className={cn("flex items-center justify-start gap-1.5", isClientQuestion ? "opacity-0 transition-opacity group-hover:opacity-100" : "text-slate-200")}>
       {row.question && isClientQuestion && !isLocked ? <>
         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); onEdit(row.question!); }} className="h-8 w-8" title="Edit question"><Pencil className="h-4 w-4" /></Button>
         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); onDelete(row.question!.id); }} className="h-8 w-8" title="Delete question"><Trash2 className="h-4 w-4" /></Button>
       </> : row.question && canPreviewLockedQuestion ? <div className="flex items-center gap-1.5">
         <LockKeyhole className="h-3.5 w-3.5" />
         <button type="button" onClick={(event) => { event.stopPropagation(); onPreviewLockedQuestion(row.question!); }} className="inline-flex h-8 w-8 items-center justify-center rounded-md opacity-0 group-hover:opacity-100" aria-label={`Preview ${row.text}`}><Eye className="h-4 w-4" /></button>
-      </div> : <LockKeyhole className="h-3.5 w-3.5" />}
+      </div> : <div className="flex h-8 w-8 items-center justify-start"><LockKeyhole className="h-3.5 w-3.5" /></div>}
     </div>
   </div>;
 }
@@ -235,6 +235,6 @@ export function AuthRow({ subtitle }: { subtitle: string }) {
     </div>
     <div className="text-xs font-semibold text-slate-400">System</div>
     <div><span className="inline-flex rounded-md border bg-slate-50 px-2.5 py-1 text-xs font-medium">Auth</span></div>
-    <div className="flex justify-center text-slate-200"><LockKeyhole className="h-3.5 w-3.5" /></div>
+    <div className="flex h-8 w-8 items-center justify-start text-slate-200"><LockKeyhole className="h-3.5 w-3.5" /></div>
   </div>;
 }

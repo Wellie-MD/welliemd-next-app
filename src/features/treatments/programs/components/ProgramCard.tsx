@@ -123,20 +123,16 @@ export function ProgramCard({
         </div>
       </div>
 
-      {!program.serviceStates || program.serviceStates.length === 0 ? (
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-[#0f1117] dark:text-slate-400">
-          <MapPin className="h-3.5 w-3.5" />
-          Offered in all states
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-1">
-          {program.serviceStates.map((state) => (
-            <span key={state} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10.5px] font-medium text-slate-500 dark:border-slate-700 dark:bg-[#0f1117] dark:text-slate-400">
-              {state}
-            </span>
-          ))}
-        </div>
-      )}
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-[#0f1117] dark:text-slate-400 w-fit">
+        <MapPin className="h-3.5 w-3.5 shrink-0" />
+        Offered in{" "}
+        {!program.serviceStates || program.serviceStates.length === 0
+          ? "all states"
+          : program.serviceStates.length > 4
+            ? `${program.serviceStates.slice(0, 4).join(", ")} +${program.serviceStates.length - 4}`
+            : program.serviceStates.join(", ")
+        }
+      </span>
 
       <div className="flex-1" />
 
