@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Select,
   SelectContent,
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSaveSection, useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useSaveSection, useTreatmentTypes, useVisitTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
 import type { CommonSection, TreatmentLibraryScope } from "@/features/treatments/types";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
@@ -28,6 +28,7 @@ interface SectionModalProps {
 export function SectionModal({ open, onOpenChange, section }: SectionModalProps) {
   const { mutate: saveSection, isPending } = useSaveSection();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
+  const { data: backendVisitTypes = [] } = useVisitTypes();
 
   const [name, setName] = useState("");
   const [scope, setScope] = useState<TreatmentLibraryScope | "">("");
@@ -42,17 +43,18 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
     setVisitTypeKeys(section?.visitTypeKeys ?? []);
   }, [open, section]);
 
-  // Visit Types are read-only route identities derived from Treatment Types.
-  // The Admin cannot invent a Visit Type in this picker.
+  // ponytail: Visit Types are dynamically fetched from the backend visit-type catalog
+  // and merged with active Treatment Types route identities.
   const visitTypeOptions = useMemo(() => {
     const keys = new Set<string>();
+    backendVisitTypes.forEach((vt) => keys.add(vt));
     treatmentTypes.forEach((type) => {
       if (type.intakeVisitType) keys.add(type.intakeVisitType);
       if (type.followupVisitType) keys.add(type.followupVisitType);
     });
     (section?.visitTypeKeys ?? []).forEach((key) => keys.add(key));
     return Array.from(keys).sort((a, b) => a.localeCompare(b));
-  }, [section, treatmentTypes]);
+  }, [section, backendVisitTypes, treatmentTypes]);
 
   const isVisitTypeScoped = scope === "visit_type";
   const title = section ? "Edit Section" : "Create Section";
@@ -177,13 +179,16 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                     <Command>
+                      <CommandInput placeholder="Search visit types..." />
                       <CommandList>
+                        <CommandEmpty className="py-3 text-center text-xs text-slate-500">No visit types found.</CommandEmpty>
                         <CommandGroup>
                           {visitTypeOptions.map((key) => {
                             const checked = visitTypeKeys.includes(key);
                             return (
                               <CommandItem
                                 key={key}
+                                value={key}
                                 onSelect={() => toggleVisitType(key, !checked)}
                                 className="cursor-pointer text-sm"
                                 data-testid={`section-visit-type-${key}`}

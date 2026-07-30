@@ -28,6 +28,11 @@ export const treatmentTypesApi = {
     );
     return records(data).map(treatmentTypeFromRecord);
   },
+  // ponytail: fetch dynamic visit types directly from backend catalog
+  listVisitTypes: async (): Promise<string[]> => {
+    const { data } = await axiosInstance.get<Array<{ visit_type: string }>>("treatments/types/visit-types/");
+    return (Array.isArray(data) ? data : []).map((item) => item.visit_type).filter(Boolean);
+  },
   save: async (type: TreatmentType): Promise<TreatmentType> => {
     const payload = treatmentTypeToRecord(type);
     const { data } = isPersistedUuid(type.id)

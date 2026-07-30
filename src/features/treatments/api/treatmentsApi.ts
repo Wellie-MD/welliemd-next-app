@@ -25,6 +25,7 @@ export const treatmentsApi = {
   },
 
   listTreatmentTypes: treatmentTypesApi.list,
+  listVisitTypes: treatmentTypesApi.listVisitTypes,
   saveTreatmentType: treatmentTypesApi.save,
   deleteTreatmentType: treatmentTypesApi.delete,
 

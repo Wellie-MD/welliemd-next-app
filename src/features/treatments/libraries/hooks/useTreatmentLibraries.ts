@@ -38,6 +38,12 @@ export const useTreatmentTypes = () =>
     queryFn: treatmentsApi.listTreatmentTypes,
   });
 
+export const useVisitTypes = () =>
+  useQuery({
+    queryKey: [...treatmentQueryKeys.all, "visit-types"] as const,
+    queryFn: treatmentsApi.listVisitTypes,
+  });
+
 export const usePrograms = () =>
   useQuery({
     queryKey: treatmentQueryKeys.programs(),

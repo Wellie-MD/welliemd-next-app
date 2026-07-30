@@ -9,6 +9,7 @@ import {
   useConsents,
   useSaveConsent,
   useTreatmentTypes,
+  useVisitTypes,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
 import type { ConsentForm, ConsentOption, TreatmentLibraryScope } from "@/features/treatments/types";
@@ -30,6 +31,7 @@ const defaultOption = (): ConsentOption => ({
 export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditModalProps) {
   const { data: consents = [] } = useConsents();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
+  const { data: backendVisitTypes = [] } = useVisitTypes();
   const { mutate: saveConsent, isPending } = useSaveConsent();
 
   const [name, setName] = useState("");
@@ -43,17 +45,18 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
     [consentId, consents]
   );
 
-  // Visit Types are derived from the Treatment Type catalog and are read-only
-  // route identities; operators cannot invent an arbitrary value here.
+  // ponytail: Visit Types are dynamically fetched from the backend visit-type catalog
+  // and merged with active Treatment Types route identities.
   const visitTypeOptions = useMemo(() => {
     const keys = new Set<string>();
+    backendVisitTypes.forEach((vt) => keys.add(vt));
     treatmentTypes.forEach((type) => {
       if (type.intakeVisitType) keys.add(type.intakeVisitType);
       if (type.followupVisitType) keys.add(type.followupVisitType);
     });
     (existing?.visitTypeKeys ?? []).forEach((key) => keys.add(key));
     return Array.from(keys).sort((a, b) => a.localeCompare(b));
-  }, [treatmentTypes, existing]);
+  }, [backendVisitTypes, treatmentTypes, existing]);
 
   useEffect(() => {
     if (!open) return;
