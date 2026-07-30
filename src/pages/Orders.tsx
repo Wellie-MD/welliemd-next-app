@@ -9,11 +9,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
-import { ChevronLeft, ChevronRight, Eye, RotateCcw, Calendar, Download, Loader2, Search, X } from "lucide-react"
+import { Archive, ArchiveRestore, ChevronLeft, ChevronRight, Eye, RotateCcw, Calendar, Download, Loader2, Search, X } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { format } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarUI } from "@/components/ui/calendar"
+import { usePermissions } from "@/hooks/usePermissions"
+import { Permissions } from "@/constants/permissions"
 
 const ORDER_STATUSES = [
   "All",
@@ -62,6 +64,11 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
 }
 
 const PAYMENT_STATUSES = ["All", "Paid", "Pending", "Failed", "Refunded"]
+const ARCHIVE_VIEWS = [
+  { value: "active", label: "Active Orders" },
+  { value: "archived", label: "Archived Orders" },
+  { value: "all", label: "All Orders" },
+] as const
 
 const parseMoney = (value: unknown): number | null => {
   if (value === null || value === undefined || value === "") return null
@@ -121,11 +128,13 @@ const columns = [
   { key: "order_date", label: "Order Date", minWidth: "120px" },
   { key: "amount", label: "Order Amount", minWidth: "120px" },
   { key: "status", label: "Order Status", minWidth: "140px" },
-  { key: "actions", label: "Actions", minWidth: "60px" },
+  { key: "actions", label: "Actions", minWidth: "100px" },
 ]
 
 export default function Orders() {
   const navigate = useNavigate()
+  const { hasPermission } = usePermissions()
+  const canArchiveOrders = hasPermission(Permissions.ORDER_ARCHIVE)
 
   const [orders, setOrders] = useState<Order[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -139,12 +148,14 @@ export default function Orders() {
   const [categoryId, setCategoryId] = useState("all")
   const [pharmacyId, setPharmacyId] = useState("all")
   const [paymentStatus, setPaymentStatus] = useState("All")
+  const [archiveView, setArchiveView] = useState<"active" | "archived" | "all">("active")
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
 
   const [categories, setCategories] = useState<FilterOption[]>([])
   const [pharmacies, setPharmacies] = useState<FilterOption[]>([])
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
   const filterOptionsLoadedRef = useRef(false)
 
   const searchRef = useRef<HTMLInputElement>(null)
@@ -154,7 +165,7 @@ export default function Orders() {
     return () => clearTimeout(timeout)
   }, [search])
 
-  const hasActiveFilters = orderStatus !== "All" || categoryId !== "all" || pharmacyId !== "all" || paymentStatus !== "All" || debouncedSearch || dateRange?.from || dateRange?.to
+  const hasActiveFilters = orderStatus !== "All" || categoryId !== "all" || pharmacyId !== "all" || paymentStatus !== "All" || archiveView !== "active" || debouncedSearch || dateRange?.from || dateRange?.to
 
   const displayOrders = useMemo(() => orders.map(transformOrderForDisplay), [orders])
 
@@ -162,6 +173,7 @@ export default function Orders() {
     const params: Record<string, string | number> = {
       page,
       page_size: exportPageSize,
+      archive_status: archiveView,
     }
     if (debouncedSearch) params.search = debouncedSearch
     if (orderStatus !== "All") {
@@ -182,7 +194,7 @@ export default function Orders() {
     }
 
     return params
-  }, [debouncedSearch, orderStatus, categoryId, pharmacyId, paymentStatus, dateRange])
+  }, [debouncedSearch, orderStatus, categoryId, pharmacyId, paymentStatus, archiveView, dateRange])
 
   const loadOrders = useCallback(async () => {
     setIsLoading(true)
@@ -224,10 +236,29 @@ export default function Orders() {
     setCategoryId("all")
     setPharmacyId("all")
     setPaymentStatus("All")
+    setArchiveView("active")
     setSearch("")
     setDebouncedSearch("")
     setDateRange(undefined)
     setCurrentPage(1)
+  }
+
+  const handleArchiveToggle = async (order: Order) => {
+    if (!canArchiveOrders) return
+    setBusyOrderId(order.id)
+    setError(null)
+    try {
+      if (order.is_archived) {
+        await ordersApi.unarchiveOrder(order.id)
+      } else {
+        await ordersApi.archiveOrder(order.id)
+      }
+      await loadOrders()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update order archive state")
+    } finally {
+      setBusyOrderId(null)
+    }
   }
 
   const handleExport = async () => {
@@ -377,6 +408,20 @@ export default function Orders() {
               </Select>
             </div>
 
+            <div className="flex flex-col gap-1.5 min-w-[150px]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order View</label>
+              <Select value={archiveView} onValueChange={(v) => { setArchiveView(v as "active" | "archived" | "all"); setCurrentPage(1) }}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="Active Orders" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ARCHIVE_VIEWS.map((view) => (
+                    <SelectItem key={view.value} value={view.value}>{view.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex flex-col gap-1.5 flex-1 min-w-[220px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Search</label>
               <div className="relative">
@@ -491,13 +536,35 @@ export default function Orders() {
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/dashboard/orders/details/${row.id}`)}
-                          className="text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            aria-label={`View order ${row.order_number}`}
+                            title="View order"
+                            onClick={() => navigate(`/dashboard/orders/details/${row.id}`)}
+                            className="text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          {canArchiveOrders && (
+                            <button
+                              type="button"
+                              aria-label={row.is_archived ? `Unarchive order ${row.order_number}` : `Archive order ${row.order_number}`}
+                              title={row.is_archived ? "Unarchive order" : "Archive order"}
+                              disabled={busyOrderId === row.id}
+                              onClick={() => handleArchiveToggle(row)}
+                              className="text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+                            >
+                              {busyOrderId === row.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : row.is_archived ? (
+                                <ArchiveRestore className="h-4 w-4" />
+                              ) : (
+                                <Archive className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
