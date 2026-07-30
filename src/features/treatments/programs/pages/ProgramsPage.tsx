@@ -1,9 +1,11 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Users,
   History,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
@@ -36,6 +38,16 @@ type ApiErrorData = {
   error?: string;
   message?: string;
   blockers?: Array<{ message?: string }>;
+  checkout_issues?: Array<{
+    message?: string;
+    action?: string;
+    action_route?: string;
+    context?: { product_name?: string };
+  }>;
+  checkout_summary?: {
+    headline?: string;
+    first_action_route?: string;
+  };
 };
 
 type ApiErrorLike = {
@@ -49,7 +61,18 @@ const getApiErrorData = (error: unknown) => (error as ApiErrorLike).response?.da
 
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   const apiError = error as ApiErrorLike;
-  return apiError.response?.data?.error || apiError.response?.data?.detail || apiError.response?.data?.message || apiError.message || fallback;
+  const data = apiError.response?.data;
+  const checkoutMessage = data?.checkout_issues
+    ?.map((issue) => issue.message)
+    .filter(Boolean)
+    .join(" ");
+  return checkoutMessage
+    || data?.checkout_summary?.headline
+    || data?.error
+    || data?.detail
+    || data?.message
+    || apiError.message
+    || fallback;
 };
 
 export default function ProgramsPage() {
@@ -66,6 +89,8 @@ export default function ProgramsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"alpha" | "recent">("recent");
   const [viewMode, setViewMode] = useState<ProgramsViewMode>("cards");
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
 
   // Tab filter (reference layout)
   const [activeTab, setActiveTab] = useState<ProgramTabFilter>("all");
@@ -129,7 +154,7 @@ export default function ProgramsPage() {
   }, [activePrograms]);
 
   // Metrics calculation
-  const totalTreatments = treatmentTypes.length;
+  const totalPrograms = activePrograms.length;
   const missingFollowUp = useMemo(() => {
     return treatmentTypes.filter(t => !activePrograms.some(p => p.treatmentTypeKey === t.key && p.stage === "follow_up")).length;
   }, [treatmentTypes, activePrograms]);
@@ -285,9 +310,14 @@ export default function ProgramsPage() {
         });
       },
       onError: (error: unknown) => {
+        const responseData = getApiErrorData(error);
+        const repairRoute = responseData?.checkout_issues?.[0]?.action_route
+          || responseData?.checkout_summary?.first_action_route;
         toast({
-          title: "Error",
-          description: getApiErrorMessage(error, "Failed to duplicate program"),
+          title: "Program needs configuration",
+          description: `${getApiErrorMessage(error, "Failed to duplicate program")}${
+            repairRoute ? ` Open ${repairRoute} to correct it.` : ""
+          }`,
           variant: "destructive",
         });
       },
@@ -402,6 +432,21 @@ export default function ProgramsPage() {
     return result;
   }, [activePrograms, activeTab, searchQuery, selectedStatus, selectedTreatment, sortBy]);
 
+  const displayedPrograms = viewMode === "list" ? listViewPrograms : filteredPrograms;
+  const totalPages = Math.max(1, Math.ceil(displayedPrograms.length / pageSize));
+  const pagedPrograms = useMemo(
+    () => displayedPrograms.slice((page - 1) * pageSize, page * pageSize),
+    [displayedPrograms, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchQuery, selectedStatus, selectedTreatment, sortBy, viewMode]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   const assignItems = useMemo(() => {
     return activePrograms.map((p) => ({
       id: p.id,
@@ -451,10 +496,10 @@ export default function ProgramsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 mb-6">
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-center">
           <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-            TOTAL TREATMENTS
+            TOTAL PROGRAMS
           </span>
           <span className="text-2xl font-bold text-blue-600">
-            {totalTreatments}
+            {totalPrograms}
           </span>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-center relative">
@@ -493,7 +538,7 @@ export default function ProgramsPage() {
           </div>
         ) : (
           <ProgramListTable
-            programs={listViewPrograms}
+            programs={pagedPrograms}
             onEdit={handleEditProgram}
             onPreview={handlePreviewProgram}
             onDuplicate={handleDuplicateProgram}
@@ -509,7 +554,7 @@ export default function ProgramsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
-          {filteredPrograms.map((program) => (
+          {pagedPrograms.map((program) => (
             <ProgramCard
               key={program.id}
               program={program}
@@ -526,6 +571,40 @@ export default function ProgramsPage() {
               archivingProgramId={archivingProgramId}
             />
           ))}
+        </div>
+      )}
+
+      {displayedPrograms.length > 0 && (
+        <div className="mt-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-600">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, displayedPrograms.length)} of{" "}
+            {displayedPrograms.length} programs
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page === 1}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Previous
+            </Button>
+            <span className="min-w-24 text-center text-sm text-slate-600">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={page === totalPages}
+            >
+              Next
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 

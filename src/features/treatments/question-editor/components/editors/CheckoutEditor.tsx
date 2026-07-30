@@ -5,12 +5,14 @@ import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
 import type { ProgramQuestion, ProgramCheckoutQuestion, ProgramCheckoutProduct } from "@/features/treatments/types";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
+import { toast } from "@/components/ui/use-toast";
 import { useMemo, useState } from "react";
 
 interface CheckoutEditorProps {
   activeQuestion?: ProgramQuestion;
   questions: ProgramQuestion[];
   programName?: string;
+  programTreatmentTypeKey?: string | null;
   sidebar: React.ReactNode;
   onSave: (question: ProgramQuestion) => Promise<void>;
   onClose: () => void;
@@ -21,6 +23,7 @@ export function CheckoutEditor({
   activeQuestion,
   questions,
   programName = "WellieMD Initial Assessment",
+  programTreatmentTypeKey,
   sidebar,
   onSave,
   onClose,
@@ -48,6 +51,7 @@ export function CheckoutEditor({
   }, [activeQuestion]);
 
   const [justSaved, setJustSaved] = useState(false);
+  const [incompatibleProducts, setIncompatibleProducts] = useState<string[]>([]);
 
   const form = useCheckoutQuestionForm({
     open: true,
@@ -95,7 +99,17 @@ export function CheckoutEditor({
         isSaving={form.isSaving}
         justSaved={justSaved}
         onClose={onClose}
-        onSave={form.handleSaveModal}
+        onSave={() => {
+          if (incompatibleProducts.length > 0) {
+            toast({
+              title: "Fix checkout products before saving",
+              description: incompatibleProducts.join(". "),
+              variant: "destructive",
+            });
+            return;
+          }
+          void form.handleSaveModal();
+        }}
         onTestFlow={onTestFlow}
       />
 
@@ -107,6 +121,8 @@ export function CheckoutEditor({
             <CheckoutProductsSection
               products={form.products}
               eligibleQuestions={eligibleQuestions}
+              programTreatmentTypeKey={programTreatmentTypeKey}
+              onCompatibilityChange={setIncompatibleProducts}
               onAddProduct={form.handleAddProduct}
               onRemoveProduct={form.handleRemoveProduct}
               onProductFieldChange={form.handleProductFieldChange}

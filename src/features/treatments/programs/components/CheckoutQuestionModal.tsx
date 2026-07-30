@@ -6,6 +6,7 @@ import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-
 import { CheckoutProductsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutProductsSection";
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
+import { useState } from "react";
 
 type CheckoutVisibilityQuestion = Pick<ProgramQuestion, "id" | "text"> & Partial<ProgramQuestion>;
 
@@ -29,6 +30,7 @@ export function CheckoutQuestionModal({
   screeningQuestions = [],
 }: CheckoutQuestionModalProps) {
   const form = useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange });
+  const [incompatibleProducts, setIncompatibleProducts] = useState<string[]>([]);
   const visibilityQuestions: ProgramQuestion[] = screeningQuestions.map((question, index) => ({
     id: question.id,
     order: question.order ?? index + 1,
@@ -77,6 +79,7 @@ export function CheckoutQuestionModal({
               onProductFieldChange={form.handleProductFieldChange}
               onProductPriceChange={form.handleProductPriceChange}
               onProductVisibilityChange={form.handleProductVisibilityChange}
+              onCompatibilityChange={setIncompatibleProducts}
             />
             <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}
@@ -99,7 +102,12 @@ export function CheckoutQuestionModal({
           <Button variant="outline" disabled={form.isSaving} onClick={() => onOpenChange(false)} className="h-9 rounded-lg border-slate-200 px-5 text-xs font-bold text-slate-600 shadow-sm hover:bg-slate-100/80" data-testid="cancel-checkout-question">
             Cancel
           </Button>
-          <Button disabled={form.isSaving} onClick={form.handleSaveModal} className="h-9 rounded-lg bg-[#1d4ed8] px-5 text-xs font-bold text-white shadow-sm hover:bg-blue-700" data-testid="save-checkout-question">
+          <Button
+            disabled={form.isSaving || incompatibleProducts.length > 0}
+            onClick={form.handleSaveModal}
+            className="h-9 rounded-lg bg-[#1d4ed8] px-5 text-xs font-bold text-white shadow-sm hover:bg-blue-700"
+            data-testid="save-checkout-question"
+          >
             {form.isSaving ? "Saving…" : initialQuestion ? "Save Changes" : "Add Checkout Question"}
           </Button>
         </div>

@@ -486,6 +486,8 @@ export default function ProgramDetailPage() {
         onOpenChange={setIsScreeningOpen}
         questions={allQuestions}
         programId={foundProgram.id}
+        programName={foundProgram.name}
+        programTreatmentTypeKey={foundProgram.treatmentTypeKey}
         initialQuestionId={editingScreeningId || null}
         onSave={(updatedQuestion: ProgramQuestion) => {
           if (editingScreeningId) {

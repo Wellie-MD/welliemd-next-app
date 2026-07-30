@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ProgramQuestion } from "@/features/treatments/types";
 
 import { QuestionEditorSidebar } from "./QuestionEditorSidebar";
@@ -16,6 +16,7 @@ export interface QuestionEditorDialogProps {
   questions: ProgramQuestion[];
   programId?: string;
   programName?: string;
+  programTreatmentTypeKey?: string | null;
 }
 
 export function QuestionEditorDialog({
@@ -26,6 +27,7 @@ export function QuestionEditorDialog({
   questions,
   programId = "",
   programName = "WellieMD Initial Assessment",
+  programTreatmentTypeKey,
 }: QuestionEditorDialogProps) {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,11 +62,15 @@ export function QuestionEditorDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="flex h-[94vh] max-h-[880px] w-[96vw] max-w-[1440px] flex-col overflow-hidden rounded-[10px] border border-slate-200 bg-slate-50 p-0 shadow-2xl">
+          <DialogTitle className="sr-only">
+            Edit {activeQuestion?.text || "Program question"}
+          </DialogTitle>
           {activeQuestion?.kind === "checkout" ? (
             <CheckoutEditor
               activeQuestion={activeQuestion}
               questions={questions}
               programName={programName}
+              programTreatmentTypeKey={programTreatmentTypeKey}
               sidebar={sidebar}
               onSave={onSave}
               onClose={() => onOpenChange(false)}

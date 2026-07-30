@@ -819,6 +819,7 @@ export function SharedQuestionsList({
           questions={displayQuestions}
           programId={entityId}
           programName={entityName}
+          programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
         />
         <CheckoutQuestionModal
           open={isCheckoutOpen}
@@ -914,6 +915,7 @@ export function SharedQuestionsList({
         questions={displayQuestions}
         programId={entityId}
         programName={entityName}
+        programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
       />
 
       <CheckoutQuestionModal

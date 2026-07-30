@@ -25,8 +25,20 @@ export const programsApi = {
   list: async (): Promise<Program[]> => {
     const { data } = await axiosInstance.get<PaginatedResponse<ProgramRecord> | ProgramRecord[]>(
       TREATMENT_PROGRAM_ENDPOINTS.collection,
+      { params: { page_size: 100 } },
     );
-    return records(data).map(programFromRecord);
+    if (Array.isArray(data)) return data.map(programFromRecord);
+
+    const allRecords = [...records(data)];
+    let next = data.next;
+    let pageGuard = 0;
+    while (next && pageGuard < 100) {
+      const response = await axiosInstance.get<PaginatedResponse<ProgramRecord>>(next);
+      allRecords.push(...records(response.data));
+      next = response.data.next;
+      pageGuard += 1;
+    }
+    return allRecords.map(programFromRecord);
   },
 
   get: async (id: string): Promise<Program | undefined> => {

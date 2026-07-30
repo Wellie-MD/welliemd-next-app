@@ -22,6 +22,7 @@ interface CheckoutProductsSectionProps {
   ) => void;
   onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
+  onCompatibilityChange?: (incompatibleProductNames: string[]) => void;
 }
 
 export function CheckoutProductsSection({
@@ -33,15 +34,41 @@ export function CheckoutProductsSection({
   onProductFieldChange,
   onProductPriceChange,
   onProductVisibilityChange,
+  onCompatibilityChange,
 }: CheckoutProductsSectionProps) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [titrationCategories, setTitrationCategories] = useState<TitrationCategory[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
+  const [allCatalogProducts, setAllCatalogProducts] = useState<Product[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [groupingSelection, setGroupingSelection] = useState<number[]>([]);
   const [groupLabel, setGroupLabel] = useState("");
+  const incompatibleProducts = useMemo(() => {
+    if (!catalogLoaded || !programTreatmentTypeKey) return [];
+    return products
+      .map((selected) => {
+        if (!selected.productId) return null;
+        const catalogProduct = allCatalogProducts.find(
+          (product) => String(product.id) === String(selected.productId),
+        );
+        const label = selected.patientLabel || selected.doseLabel || "Selected Product";
+        if (!catalogProduct) return `${label} is no longer available in the Product catalog`;
+        if (catalogProduct.treatment_type_key !== programTreatmentTypeKey) {
+          return `${label} belongs to ${catalogProduct.treatment_type_name || "another Treatment Type"}`;
+        }
+        if (!catalogProducts.some((product) => String(product.id) === String(selected.productId))) {
+          return `${label} has incomplete Category, regimen, or dose configuration`;
+        }
+        return null;
+      })
+      .filter((message): message is string => Boolean(message));
+  }, [allCatalogProducts, catalogLoaded, catalogProducts, products, programTreatmentTypeKey]);
+
+  useEffect(() => {
+    onCompatibilityChange?.(incompatibleProducts);
+  }, [incompatibleProducts, onCompatibilityChange]);
 
   useEffect(() => {
     setGroupingSelection((current) => current.filter((index) => index < products.length));
@@ -64,6 +91,7 @@ export function CheckoutProductsSection({
         setCategories(nextCategories || []);
         setTitrationCategories(nextTitrationCategories || []);
         setDoseMappings(nextDoseMappings?.results || []);
+        setAllCatalogProducts(nextProducts || []);
         setCatalogProducts(selectableCatalogProducts(nextProducts || [], programTreatmentTypeKey));
         setCatalogError(null);
         setCatalogLoaded(true);
@@ -214,6 +242,12 @@ export function CheckoutProductsSection({
       {!catalogError && catalogLoaded && hasCatalogMetadata && catalogProducts.length === 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] font-medium text-amber-700">
           No active catalog Products with a matching Treatment Type are available for this Program yet.
+        </div>
+      )}
+      {incompatibleProducts.length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11.5px] font-semibold text-red-700">
+          Remove or repair these checkout products before saving:{" "}
+          {incompatibleProducts.join(", ")}.
         </div>
       )}
       {!catalogError && catalogLoaded && !hasCatalogMetadata && (
