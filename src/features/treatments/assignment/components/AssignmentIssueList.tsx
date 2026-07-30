@@ -73,6 +73,7 @@ function AssignmentIssueRow(props: {
       {selectors.length > 0 && (
         <p className="text-[11px] text-red-700">{selectors.join(" · ")}</p>
       )}
+      {issue.label && <p className="text-[11px] text-red-700">{issue.label}</p>}
       <p className="mt-1">Problem: {issue.message}</p>
       {issue.action_route && !actionBlocked && (
         <button
@@ -89,6 +90,11 @@ function AssignmentIssueRow(props: {
       {actionBlocked && (
         <p className="mt-1.5 text-[11px] italic text-red-700">
           Ask an administrator with product permissions to make this change.
+        </p>
+      )}
+      {issue.corrective_action && (
+        <p className="mt-1.5 font-medium text-red-800">
+          Next step: {issue.corrective_action.label}
         </p>
       )}
     </li>

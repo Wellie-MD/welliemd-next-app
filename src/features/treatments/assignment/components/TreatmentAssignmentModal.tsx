@@ -338,6 +338,13 @@ export function TreatmentAssignmentModal({
     [pairs]
   );
   const completeCount = runtimeReadyOperationIds.length;
+  const failedCount = pairs.filter(
+    (pair) =>
+      pair.error ||
+      pair.operation?.status === OPERATION_STATUS.failed ||
+      pair.operation?.status === OPERATION_STATUS.blocked
+  ).length;
+  const pendingCount = Math.max(0, pairs.length - completeCount - failedCount);
   const canPreflight = itemIds.size > 0 && clientIds.size > 0 && !working;
 
   useEffect(() => {
@@ -372,7 +379,7 @@ export function TreatmentAssignmentModal({
                   ? "Choose sources and tenants."
                   : phase === "preflight"
                     ? "Review every dependency before one confirmation."
-                    : `${completeCount} of ${pairs.length} tenant assignments runtime-ready.`}
+                    : `${completeCount} completed · ${failedCount} failed · ${pendingCount} pending`}
               </p>
             </div>
           </div>
@@ -425,7 +432,9 @@ export function TreatmentAssignmentModal({
           <span className="text-xs text-slate-500 sm:text-sm">
             {phase === "select"
               ? `${itemIds.size} ${itemLabel}${itemIds.size === 1 ? "" : "s"} · ${clientIds.size} clients`
-              : `${readyCount} ready · ${pairs.length - readyCount} require attention`}
+              : phase === "preflight"
+              ? `${readyCount} ready · ${pairs.length - readyCount} require attention`
+              : `${completeCount} completed · ${failedCount} failed · ${pendingCount} pending`}
           </span>
           <div className="flex flex-wrap justify-end gap-2">
             {phase !== "select" && phase !== "progress" && (

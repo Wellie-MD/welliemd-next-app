@@ -78,7 +78,7 @@ export const ASSIGNMENT_STEP_LABELS: Record<string, string> = {
 
 const ASSIGNMENT_ERROR_MESSAGES: Record<string, string> = {
   tenant_manifest_parity_failed:
-    "The Program was imported into the client, but the client configuration does not exactly match the approved Admin Portal version. Refresh the assignment to compare the latest release and retry. If the mismatch remains, verify that the client portal is running the current runtime and contact support with the Correlation ID.",
+    "The client imported a different checkout product role or group than the approved Program release. Publish a new release and reassign after the client importer is updated. The parity guard blocked activation; no runtime configuration was published.",
   tenant_activation_blocked:
     "The Program was imported and checked, but the client portal could not make it available to patients. Confirm that the client is active, its assignment endpoint is reachable, and all required Products, Labs, and member Programs are ready. Then refresh the assignment and retry. If it still fails, contact support with the Correlation ID.",
   source_changed:
@@ -150,6 +150,11 @@ export const ASSIGNMENT_ACTION_LABELS: Record<string, string> = {
 export type AssignmentIssue = {
   code: string;
   message: string;
+  label?: string;
+  corrective_action?: {
+    code: string;
+    label: string;
+  };
   action: string;
   action_route: string;
   context: {
