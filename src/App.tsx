@@ -30,6 +30,7 @@ const FlowBuilder = lazy(() => import("./pages/FlowBuilder"));
 const TemplateAssignment = lazy(() => import("./pages/TemplateAssignment"));
 const TemplateAssignmentHistory = lazy(() => import("./pages/TemplateAssignmentHistory"));
 const Pharmacies = lazy(() => import("./pages/Pharmacies"));
+const BelugaPharmacyLookup = lazy(() => import("./pages/BelugaPharmacyLookup"));
 const TreatmentConfigurations = lazy(() => import("./pages/TreatmentConfigurations"));
 const Orders = lazy(() => import("./pages/Orders"));
 const Prescriptions = lazy(() => import("./pages/Prescriptions"));
@@ -166,6 +167,7 @@ const App = () => {
                     <Route path="/questionnaires/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
                     <Route path="/questionnaires/archive" element={<ProtectedRoute><ArchiveTemplates /></ProtectedRoute>} />
                     <Route path="/pharmacies" element={<ProtectedRoute><Pharmacies /></ProtectedRoute>} />
+                    <Route path="/pharmacies/beluga-lookup" element={<ProtectedRoute><BelugaPharmacyLookup /></ProtectedRoute>} />
                     <Route path="/products/archive" element={<ProtectedRoute><ArchiveProducts /></ProtectedRoute>} />
                     <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
                     <Route path="/users-permissions" element={<ProtectedRoute><UsersPermissions /></ProtectedRoute>} />
