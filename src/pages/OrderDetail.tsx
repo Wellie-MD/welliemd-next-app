@@ -569,7 +569,7 @@ function OrderDetailInner() {
   const isPreCheckoutProductChange = status === "created" || status === "payment_pending"
   const isSubmittedVisitProductChange =
     ["processing", "visit_pending", "consult_scheduled", "consult_rescheduled"].includes(status) &&
-    ["sent_to_beluga", "submitted", "completed"].includes(String(order.visitStatus || "").toLowerCase())
+    Boolean(String(order.visitStatus || order.mrn || "").trim())
   const isAllowedStatus = isPreCheckoutProductChange || isSubmittedVisitProductChange
   const canChangeProduct = isAllowedStatus && (!isLocked || isSubmittedVisitProductChange)
   const canRefundOrVoid = isAuthorized || isRefundable
