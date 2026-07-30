@@ -48,7 +48,7 @@ export const TreatmentRoutingSection: React.FC<TreatmentRoutingSectionProps> = (
               <Badge variant="outline" className="capitalize text-xs font-semibold">
                 {order.treatment_case_summary.beluga_dispatch_status ||
                   order.beluga_dispatch_status ||
-                  "pending"}
+                  "Not recorded"}
               </Badge>
             </div>
 
@@ -64,7 +64,7 @@ export const TreatmentRoutingSection: React.FC<TreatmentRoutingSectionProps> = (
               <span className="font-semibold capitalize text-slate-900 dark:text-white">
                 {order.combined_payment_summary?.allocation?.status ||
                   order.combined_payment_summary?.status ||
-                  "pending"}
+                  "Not recorded"}
               </span>
             </div>
           </div>

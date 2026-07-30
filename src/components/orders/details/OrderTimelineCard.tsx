@@ -121,14 +121,16 @@ export const OrderTimelineCard: React.FC<OrderTimelineCardProps> = ({ order }) =
         if (requisitionUrl) actions.push({ label: "Requisition PDF", url: requisitionUrl })
         if (bookingUrl) actions.push({ label: "Book Consult", url: bookingUrl })
         if (trackingUrl) actions.push({ label: "Track Package", url: trackingUrl })
-        else if (trackingNumber) {
-          const carrierLower = (carrier || "").toLowerCase()
+        else if (trackingNumber && carrier) {
+          const carrierLower = carrier.toLowerCase()
           const fallbackTrackingUrl = carrierLower.includes("fedex")
             ? `https://www.fedex.com/en-us/tracking.html?tracknumbers=${encodeURIComponent(trackingNumber)}`
             : carrierLower.includes("ups")
               ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`
-              : `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`
-          actions.push({ label: carrier ? `Track ${carrier}` : "Track Shipment", url: fallbackTrackingUrl })
+              : carrierLower.includes("usps")
+                ? `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`
+                : null
+          if (fallbackTrackingUrl) actions.push({ label: `Track ${carrier}`, url: fallbackTrackingUrl })
         }
 
         const resultPdfUrl = toUrl(payload.resultPdfUrl) || toUrl(payload.result_pdf_url)
@@ -166,11 +168,12 @@ export const OrderTimelineCard: React.FC<OrderTimelineCardProps> = ({ order }) =
       })
     }
 
-    // 2. Fallback milestone timeline
+    // Older orders may only have persisted milestone timestamps. Keep this
+    // explicitly partial and never infer unrecorded intermediate events.
     const items: TimelineItem[] = []
     if (order.datePrintedShipped) {
       items.push({
-        title: "Rx Sent to Pharmacy",
+        title: "Recorded shipment timestamp",
         date: formatDateTime(order.datePrintedShipped),
         description: order.product_name ? `Prescription sent for ${order.product_name}` : undefined,
         icon: "prescriptions",
@@ -179,7 +182,7 @@ export const OrderTimelineCard: React.FC<OrderTimelineCardProps> = ({ order }) =
     }
     if (order.paymentDate) {
       items.push({
-        title: "Payment Processed",
+        title: "Recorded payment timestamp",
         date: formatDateTime(order.paymentDate),
         icon: "payments",
         iconBg: "bg-primary/10 text-primary border-primary/20",
@@ -187,7 +190,7 @@ export const OrderTimelineCard: React.FC<OrderTimelineCardProps> = ({ order }) =
     }
     if (order.datePrescribed) {
       items.push({
-        title: "Medication Prescribed",
+        title: "Recorded prescription timestamp",
         date: formatDateTime(order.datePrescribed),
         description: order.product_name || undefined,
         icon: "prescriptions",
@@ -196,7 +199,7 @@ export const OrderTimelineCard: React.FC<OrderTimelineCardProps> = ({ order }) =
     }
     if (order.orderDate) {
       items.push({
-        title: "Order Placed via Questionnaire",
+        title: "Order created",
         date: formatDateTime(order.orderDate),
         icon: "schedule",
         iconBg: "bg-primary/10 text-primary border-primary/20",

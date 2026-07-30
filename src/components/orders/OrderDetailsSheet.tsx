@@ -446,10 +446,10 @@ export function OrderDetailsSheet({
                       <div key={item.id} className="rounded-lg border bg-muted/30 p-3">
                         <div className="flex justify-between gap-3">
                           <span className="font-medium">{item.product_name || "Product"}</span>
-                          <span>${item.line_total || "0.00"}</span>
+                          <span>{item.line_total == null ? "Not recorded" : `$${item.line_total}`}</span>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          Qty {item.quantity || 1} · Prescription {item.prescription_status || "pending"} · Fulfilment {item.fulfilment_status || "pending"} · Refund {item.refund_status || "none"}
+                          Qty {item.quantity ?? "Not recorded"} · Prescription {item.prescription_status || "Not recorded"} · Fulfilment {item.fulfilment_status || "Not recorded"} · Refund {item.refund_status || "Not recorded"}
                           {item.duration_days ? ` · ${item.duration_days} day supply` : ""}
                         </div>
                         {item.provider_product_id && (
@@ -459,7 +459,7 @@ export function OrderDetailsSheet({
                         )}
                         {item.reimbursement_amount_snapshot && (
                           <div className="mt-1 text-xs text-muted-foreground">
-                            Reimbursement: ${String((item.reimbursement_amount_snapshot as { total_reimbursement_amount?: string }).total_reimbursement_amount || "0.00")}
+                            Reimbursement: {(item.reimbursement_amount_snapshot as { total_reimbursement_amount?: string }).total_reimbursement_amount == null ? "Not recorded" : `$${String((item.reimbursement_amount_snapshot as { total_reimbursement_amount?: string }).total_reimbursement_amount)}`}
                           </div>
                         )}
                         {item.tracking_number && (
@@ -484,11 +484,11 @@ export function OrderDetailsSheet({
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Phase II clinical routing</h3>
                   <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-xs">
                     <div className="flex justify-between gap-3"><span className="text-muted-foreground">Treatment</span><span className="font-semibold">{order.treatment_case_summary.treatment_type_key || "—"}</span></div>
-                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Beluga review</span><span className="font-semibold">{order.treatment_case_summary.beluga_dispatch_status || order.beluga_dispatch_status || "pending"}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Beluga review</span><span className="font-semibold">{order.treatment_case_summary.beluga_dispatch_status || order.beluga_dispatch_status || "Not recorded"}</span></div>
                     {order.treatment_case_summary.beluga_dispatch_reason && (
                       <div className="rounded-md border bg-background/60 p-2 text-xs"><span className="font-semibold">Beluga dispatch detail:</span> {order.treatment_case_summary.beluga_dispatch_reason}</div>
                     )}
-                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Reimbursement total</span><span className="font-semibold">${order.treatment_case_summary.reimbursement_total || "0.00"}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Reimbursement total</span><span className="font-semibold">{order.treatment_case_summary.reimbursement_total == null ? "Not recorded" : `$${order.treatment_case_summary.reimbursement_total}`}</span></div>
                     <AnswerSnapshot label="Common answers" values={order.treatment_case_summary.common_answers} />
                     <AnswerSnapshot label="Treatment-scoped answers" values={order.treatment_case_summary.scoped_answers} />
                     {order.treatment_case_summary.consents && order.treatment_case_summary.consents.length > 0 && (
@@ -502,11 +502,20 @@ export function OrderDetailsSheet({
                 <section>
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Combined checkout</h3>
                   <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
-                    <div>Payment: {order.combined_payment_summary?.status || "pending"} · ${order.combined_payment_summary?.authorized_amount || "0.00"}</div>
+                    <div>Payment: {order.combined_payment_summary?.status || "Not recorded"} · {order.combined_payment_summary?.authorized_amount == null ? "Amount not recorded" : `$${order.combined_payment_summary.authorized_amount}`}</div>
                     {order.combined_submission_summary.orders.map((sibling) => (
                       <div key={sibling.treatment_case_id} className="flex justify-between gap-3">
                         <span>{sibling.treatment_type_key || "Treatment"}</span>
-                        <span>{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"} · Beluga {sibling.beluga_dispatch_status || "pending"}{sibling.beluga_dispatch_attempt_count ? ` · ${sibling.beluga_dispatch_attempt_count} attempt${sibling.beluga_dispatch_attempt_count === 1 ? "" : "s"}` : ""}</span>
+                        <span>
+                          {sibling.payment_allocation?.status || sibling.status || "Status not recorded"} ·{" "}
+                          {sibling.payment_allocation?.allocated_amount != null
+                            ? `$${sibling.payment_allocation.allocated_amount}`
+                            : sibling.treatment_total != null
+                              ? `$${sibling.treatment_total}`
+                              : "Amount not recorded"}{" "}
+                          · Beluga {sibling.beluga_dispatch_status || "Not recorded"}
+                          {sibling.beluga_dispatch_attempt_count ? ` · ${sibling.beluga_dispatch_attempt_count} attempt${sibling.beluga_dispatch_attempt_count === 1 ? "" : "s"}` : ""}
+                        </span>
                       </div>
                     ))}
                   </div>

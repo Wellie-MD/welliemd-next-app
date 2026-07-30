@@ -484,6 +484,41 @@ export interface PaginatedOrdersResponse {
   results: Order[]
 }
 
+const normalizePaginatedOrders = (payload: unknown): PaginatedOrdersResponse => {
+  if (Array.isArray(payload)) {
+    return {
+      count: payload.length,
+      next: null,
+      previous: null,
+      results: payload as Order[],
+    }
+  }
+
+  const data = payload && typeof payload === "object"
+    ? payload as Record<string, unknown>
+    : {}
+  const nested = data.data && typeof data.data === "object"
+    ? data.data as Record<string, unknown>
+    : null
+  const rawResults = data.results ?? nested?.results
+  const results = Array.isArray(rawResults)
+    ? rawResults.filter((item): item is Order => Boolean(item && typeof item === "object"))
+    : []
+  const rawCount = data.count ?? nested?.count
+  const parsedCount = Number(rawCount)
+
+  return {
+    count: Number.isFinite(parsedCount) ? parsedCount : results.length,
+    next: typeof (data.next ?? nested?.next) === "string"
+      ? String(data.next ?? nested?.next)
+      : null,
+    previous: typeof (data.previous ?? nested?.previous) === "string"
+      ? String(data.previous ?? nested?.previous)
+      : null,
+    results,
+  }
+}
+
 export interface OrderRefundRequest {
   amount?: string | number
   refund_target?: "auto" | "base" | "supplemental"
@@ -548,8 +583,8 @@ const ENDPOINT = '/orders/'
 
 export const fetchOrders = async (params?: Record<string, unknown>): Promise<PaginatedOrdersResponse> => {
   try {
-    const { data } = await api.get<PaginatedOrdersResponse>(ENDPOINT, { params })
-    return data
+    const { data } = await api.get<unknown>(ENDPOINT, { params })
+    return normalizePaginatedOrders(data)
   } catch (error) {
     console.error('Failed to fetch orders:', error)
     throw error
@@ -558,8 +593,8 @@ export const fetchOrders = async (params?: Record<string, unknown>): Promise<Pag
 
 export const fetchOrdersByPatient = async (patientId: string, params?: Record<string, unknown>): Promise<PaginatedOrdersResponse> => {
   try {
-    const { data } = await api.get<PaginatedOrdersResponse>(ENDPOINT, { params: { ...params, patient_id: patientId } })
-    return data
+    const { data } = await api.get<unknown>(ENDPOINT, { params: { ...params, patient_id: patientId } })
+    return normalizePaginatedOrders(data)
   } catch (error) {
     console.error(`Failed to fetch orders for patient ${patientId}:`, error)
     throw error

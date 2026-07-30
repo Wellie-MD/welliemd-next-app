@@ -47,7 +47,7 @@ const PAYMENT_STATUS_OPTIONS = [
 ] as const
 
 const orderColumns = [
-  { key: "order_id", label: "Order #", minWidth: "120px", className: "font-medium" },
+  { key: "order_number", label: "Order #", minWidth: "120px", className: "font-medium" },
   { key: "patient_name", label: "Patient", minWidth: "160px" },
   { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
   { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
@@ -88,7 +88,8 @@ const ORDER_STATUS_CHOICES = [
 ]
 
 // Helper function to parse date strings. Handles ISO timestamps and DD/MM/YYYY.
-const parseDate = (dateString?: string | null) => {
+const parseDate = (value?: unknown) => {
+  const dateString = typeof value === "string" ? value : ""
   if (!dateString) return new Date()
 
   // If it's an ISO-like string with a 'T' or '-' assume Date can parse it
@@ -108,9 +109,9 @@ const parseDate = (dateString?: string | null) => {
   return new Date(dateString)
 }
 
-const formatDateLabel = (dateString?: string | null) => {
-  if (!dateString) return "-"
-  const date = parseDate(dateString)
+const formatDateLabel = (value?: unknown) => {
+  if (typeof value !== "string" || !value) return "-"
+  const date = parseDate(value)
   if (isNaN(date.getTime())) return "-"
   return date.toLocaleDateString("en-US", {
     month: "short",
@@ -125,8 +126,8 @@ const parseMoney = (value: unknown): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
-const stripPharmacyAddress = (value?: string | null) => {
-  if (!value) return "-"
+const stripPharmacyAddress = (value?: unknown) => {
+  if (typeof value !== "string" || !value) return "-"
   const trimmed = value.trim()
   if (!trimmed) return "-"
 
@@ -149,8 +150,15 @@ const stripPharmacyAddress = (value?: string | null) => {
 
 const formatMoneyLabel = (value: unknown) => {
   const amount = parseMoney(value)
-  if (amount == null) return "0.00"
+  if (amount == null) return "-"
   return `$${amount.toFixed(2)}`
+}
+
+const formatCellText = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return "-"
+  if (typeof value === "string" || typeof value === "number") return String(value)
+  if (typeof value === "boolean") return value ? "Yes" : "No"
+  return "-"
 }
 
 const formatStatusLabel = (value?: string | null) => {
@@ -188,13 +196,17 @@ const transformOrderForDisplay = (order: Order) => {
   return {
     ...order,
     order_number: order.order_id || order.display_id || "-",
-    patient_name: order.patient?.full_name || settlementOrder.patient_name || order.name || order.email || "-",
+    patient_name: (
+      order.patient && typeof order.patient === "object"
+        ? order.patient.full_name
+        : null
+    ) || settlementOrder.patient_name || order.name || order.email || "-",
     patient_email: settlementOrder.patient_email || order.email || "-",
     patient_phone: settlementOrder.patient_phone || order.phone || "-",
     product_name: order.product_name || "-",
     pharmacy_name_only: stripPharmacyAddress(order.pharmacy_name || order.pharmacy_display),
     orderDate: order.orderDate || order.created_at,
-    orderStatus: order.orderStatus || order.status || "created",
+    orderStatus: order.orderStatus || order.status || null,
     orderTotal,
   }
 }
@@ -295,7 +307,7 @@ export default function Orders() {
     setError(null)
     try {
       const data = await ordersApi.fetchOrders(getOrderParams(currentPage, pageSize))
-      setOrders(data.results)
+      setOrders(Array.isArray(data.results) ? data.results : [])
       setTotalCount(data.count ?? data.results.length)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load orders')
@@ -502,7 +514,7 @@ export default function Orders() {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const currentStatus = row.orderStatus ?? 'created'
+                const currentStatus = row.orderStatus
                 const isPrescribedStatus = String(currentStatus || "").toLowerCase() === "prescribed"
                 const recoveryState = String(row.payment_recovery_state || "").toLowerCase()
                 const remaining = parseMoney(row.remaining_supplemental_amount)
@@ -551,7 +563,7 @@ export default function Orders() {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const originalStatus = row.orderStatus ?? 'created'
+                const originalStatus = row.orderStatus
                 const isShipmentFinalized = originalStatus === 'shipped' || originalStatus === 'delivered' // Tracking should stay visible for delivered orders
 
                 if (!isShipmentFinalized) {
@@ -564,7 +576,10 @@ export default function Orders() {
               }
             }
           }
-          return col
+          return {
+            ...col,
+            render: (_: unknown, row: Record<string, unknown>) => formatCellText(row[col.key]),
+          }
         })}
         fitToWidth={true}
         searchPlaceholder="Search by order number, patient name, email, or phone"

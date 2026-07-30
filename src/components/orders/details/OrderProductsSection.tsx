@@ -57,25 +57,7 @@ export const isSupplyItem = (item: Record<string, unknown>): boolean => {
   if (!item) return false
   const type = String(item.item_type || item.type || item.category || item.kind || "").toLowerCase()
   if (type === "supply" || type === "supplies" || item.is_supply === true) return true
-  if (item.source_supply_relation_id != null) return true
-
-  const name = String(item.product_name || item.name || "").toLowerCase()
-  if (
-    name.includes("supply") ||
-    name.includes("supplies") ||
-    name.includes("syringe") ||
-    name.includes("swab") ||
-    name.includes("needle") ||
-    name.includes("alcohol") ||
-    name.includes("sharps") ||
-    name.includes("vial adapter") ||
-    name.includes("prep pad") ||
-    name.includes("wipes") ||
-    name.includes("saline")
-  ) {
-    return true
-  }
-  return false
+  return item.source_supply_relation_id != null
 }
 
 const matchesLineItem = (
