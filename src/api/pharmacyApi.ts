@@ -42,12 +42,42 @@ export type Pharmacy = {
   updated_at?: string;
 };
 
+export type BelugaPharmacy = {
+  PharmacyId: number;
+  StoreName: string;
+  Address1: string;
+  Address2?: string | null;
+  City: string;
+  State: string;
+  ZipCode: string;
+  PrimaryPhone?: string | null;
+  PrimaryPhoneType?: number | null;
+  PrimaryFax?: string | null;
+  PhoneAdditional1?: string | null;
+  PhoneAdditionalType1?: number | null;
+  PhoneAdditional2?: string | null;
+  PhoneAdditionalType2?: number | null;
+  PhoneAdditional3?: string | null;
+  PhoneAdditionalType3?: number | null;
+  PharmacySpecialties?: string[];
+  ServiceLevel?: number | null;
+  Latitude?: number | null;
+  Longitude?: number | null;
+};
+
+export type PharmacySearchPayload = {
+  city?: string;
+  state?: string;
+  zip?: string;
+  name?: string;
+};
+
 type Paginated<T> = { results: T[]; count?: number; next?: string | null; previous?: string | null };
 
 const base = "/medical/pharmacies";
 
 export const pharmacyApi = {
-  list: async (params?: Record<string, any>) => {
+  list: async (params?: Record<string, unknown>) => {
     const { data } = await axiosInstance.get<Paginated<Pharmacy>>(`${base}/`, { params });
     return data.results ?? [];
   },
@@ -89,12 +119,20 @@ export const pharmacyApi = {
     return data;
   },
 
-  belugaSearch: async (payload: { city?: string; state?: string; zip?: string; name?: string }) => {
+  belugaSearch: async (payload: PharmacySearchPayload) => {
     const { data } = await axiosInstance.post(`${base}/search/`, payload);
     return data?.pharmacies ?? [];
   },
 
-  completeVisit: async (payload: any) => {
+  belugaLookup: async (payload: PharmacySearchPayload) => {
+    const { data } = await axiosInstance.post<{ success: boolean; pharmacies: BelugaPharmacy[] }>(
+      `${base}/beluga-lookup/`,
+      payload
+    );
+    return data?.pharmacies ?? [];
+  },
+
+  completeVisit: async (payload: unknown) => {
     const { data } = await axiosInstance.post(`${base}/complete_visit_with_beluga/`, payload);
     return data;
   },

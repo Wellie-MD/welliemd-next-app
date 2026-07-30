@@ -19,7 +19,8 @@ import {
   ChevronDown,
   ChevronRight,
   Archive,
-  ShieldCheck
+  ShieldCheck,
+  type LucideIcon
 } from "lucide-react"
 
 import {
@@ -42,7 +43,24 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const menuSections = [
+type MenuChild = {
+  title: string
+  url: string
+}
+
+type MenuItem = {
+  title: string
+  url?: string
+  icon: LucideIcon
+  children?: MenuChild[]
+}
+
+type MenuSection = {
+  label: string
+  items: MenuItem[]
+}
+
+const menuSections: MenuSection[] = [
   {
     label: "MANAGEMENT",
     items: [
@@ -79,8 +97,14 @@ const menuSections = [
     items: [
       { title: "Questionnaires", url: "/dashboard/questionnaires", icon: FileText },
 
-      // ✅ NEW: Pharmacies top-level item
-      { title: "Pharmacies", url: "/dashboard/pharmacies", icon: MapPin },
+      {
+        title: "Pharmacies",
+        icon: MapPin,
+        children: [
+          { title: "Pharmacies", url: "/dashboard/pharmacies" },
+          { title: "Find Beluga Pharmacies", url: "/dashboard/pharmacies/beluga-lookup" },
+        ]
+      },
 
       {
         title: "Products",
@@ -170,9 +194,9 @@ export function AppSidebar() {
     )
   }
 
-  const isItemActive = (item: any) => {
+  const isItemActive = (item: MenuItem) => {
     if (item.children) {
-      return item.children.some((child: any) => currentPath.startsWith(child.url))
+      return item.children.some((child) => currentPath.startsWith(child.url))
     }
     return currentPath === item.url
   }
