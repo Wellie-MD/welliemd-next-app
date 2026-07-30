@@ -146,7 +146,7 @@ export function parseMetricValue(value: string): number {
 // Orders API
 // ============================================================================
 
-export interface AdminOrder {
+export interface AdminOrderSummary {
   id: string;
   display_id: string;
   order_id?: string | null;
@@ -189,6 +189,107 @@ export interface AdminOrder {
   client_id: string;
   treatment_aggregate?: TreatmentOrderAggregate | null;
 }
+
+export interface AdminOrderLineItem {
+  id: string;
+  product_id?: number | null;
+  product_name?: string | null;
+  item_type?: string | null;
+  quantity?: string | number | null;
+  unit_patient_price?: string | number | null;
+  unit_shipping_fee?: string | number | null;
+  line_total?: string | number | null;
+  is_included?: boolean;
+  parent_line_item?: string | null;
+  source_supply_relation_id?: number | null;
+  status?: string | null;
+  prescription_status?: string | null;
+  fulfilment_status?: string | null;
+  shipment_status?: string | null;
+  refund_status?: string | null;
+  duration_days?: number | null;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  shipment_provider?: string | null;
+}
+
+export interface AdminOrderActivityEvent {
+  id: string;
+  event_type: string;
+  status: string;
+  title: string;
+  description: string;
+  source: string;
+  occurred_at: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface AdminOrderDetail extends AdminOrderSummary {
+  line_items: AdminOrderLineItem[];
+  activity_events: AdminOrderActivityEvent[];
+  requested_medicines?: Array<Record<string, unknown>>;
+  prescribed_medicines?: Array<Record<string, unknown>>;
+  prescription_medications?: Array<Record<string, unknown>>;
+  shipping_address_snapshot?: {
+    formatted?: string | null;
+    address1?: string | null;
+    address2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+    source: "checkout_snapshot";
+  } | null;
+  shipping_address?: string | null;
+  address?: string | null;
+  pharmacy?: {
+    id?: string | number | null;
+    name?: string | null;
+    store_name?: string | null;
+    npi?: string | null;
+    phone?: string | null;
+    address?: string | null;
+  } | null;
+  pharmacy_npi?: string | null;
+  pharmacy_phone?: string | null;
+  pharmacy_address?: string | null;
+  pharmacy_fulfillment_status?: string | null;
+  allowed_status_transitions?: Array<{ value: string; label: string }>;
+  tracking_url?: string | null;
+  paymentProcessor?: string | null;
+  paymentTransactionId?: string | null;
+  paymentProcessorTransactionId?: string | null;
+  payment_settlement_transactions?: Array<{
+    id: string;
+    processor?: string | null;
+    status?: string | null;
+    amount?: string | number | null;
+    processor_transaction_id?: string | null;
+    created_at?: string | null;
+  }>;
+  pricing?: {
+    medication_subtotal?: string | number | null;
+    supplies_subtotal?: string | number | null;
+    shipping_total?: string | number | null;
+    discount_total?: string | number | null;
+    grand_total?: string | number | null;
+    payable_amount?: string | number | null;
+    currency?: string | null;
+  } | null;
+  grand_total?: string | number | null;
+  payable_amount?: string | number | null;
+  totalRefunded?: string | number | null;
+  notes?: string | null;
+  coupon_code?: string | null;
+  medication_cost_to_client?: string | number | null;
+  consult_cost_to_client?: string | number | null;
+  shipping_fee_to_client?: string | number | null;
+  consult_type?: string | null;
+  billing_pending_reason?: string | null;
+}
+
+/** Backward-compatible list-row alias. Rich drawer components require AdminOrderDetail. */
+export type AdminOrder = AdminOrderSummary;
 
 export interface TreatmentAggregateProduct {
   product_id?: string | number | null;
@@ -364,9 +465,9 @@ export interface OrderUpdateResponse {
  * Returns the same shape as AdminOrder but may include richer fields
  * such as line_items, requested_medicines, linked_supplies, etc.
  */
-export async function fetchAdminOrderDetail(orderId: string, clientId: string): Promise<AdminOrder> {
+export async function fetchAdminOrderDetail(orderId: string, clientId: string): Promise<AdminOrderDetail> {
   try {
-    const { data } = await axiosInstance.get<AdminOrder>(
+    const { data } = await axiosInstance.get<AdminOrderDetail>(
       `/admin/dashboard/orders/${orderId}/`,
       { params: { client_id: clientId } }
     );

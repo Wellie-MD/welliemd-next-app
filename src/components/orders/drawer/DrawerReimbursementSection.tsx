@@ -1,10 +1,10 @@
 import React from "react"
-import { AdminOrder } from "@/api/dashboardApi"
+import { AdminOrderDetail } from "@/api/dashboardApi"
 import { DollarSign, AlertCircle } from "lucide-react"
 import { parseStatusLabel, getPrototypePillClass } from "./drawerUtils"
 
 interface DrawerReimbursementSectionProps {
-  order: AdminOrder
+  order: AdminOrderDetail
 }
 
 const parseMoney = (val?: string | number | null): number | null => {
@@ -27,11 +27,11 @@ export const DrawerReimbursementSection: React.FC<DrawerReimbursementSectionProp
 
   // Real per-order reimbursement breakdown, same fields the client portal uses —
   // no fields means no reimbursement data yet, not zero cost.
-  const medCost = parseMoney((order as any).medication_cost_to_client)
-  const consultCost = parseMoney((order as any).consult_cost_to_client)
-  const shippingCost = parseMoney((order as any).shipping_fee_to_client)
-  const consultType = (order as any).consult_type as string | null | undefined
-  const billingPendingReason = (order as any).billing_pending_reason as string | null | undefined
+  const medCost = parseMoney(order.medication_cost_to_client)
+  const consultCost = parseMoney(order.consult_cost_to_client)
+  const shippingCost = parseMoney(order.shipping_fee_to_client)
+  const consultType = order.consult_type
+  const billingPendingReason = order.billing_pending_reason
 
   const hasReimbursementData =
     medCost != null || consultCost != null || shippingCost != null || billingPendingReason != null

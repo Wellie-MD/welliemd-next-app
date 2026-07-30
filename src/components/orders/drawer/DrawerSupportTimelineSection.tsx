@@ -1,10 +1,10 @@
 import React from "react"
-import { AdminOrder } from "@/api/dashboardApi"
+import { AdminOrderDetail } from "@/api/dashboardApi"
 import { MessageSquareText, ShieldAlert, User, Clock, Calendar, FileText, Truck } from "lucide-react"
 import { parseStatusLabel, getPrototypePillClass } from "./drawerUtils"
 
 interface DrawerSupportTimelineSectionProps {
-  order: AdminOrder
+  order: AdminOrderDetail
 }
 
 const formatDate = (dateStr: string | null): string => {
@@ -24,7 +24,7 @@ const formatDate = (dateStr: string | null): string => {
 
 export const DrawerSupportTimelineSection: React.FC<DrawerSupportTimelineSectionProps> = ({ order }) => {
   const support = order.treatment_aggregate?.support
-  const notes = (order as any).notes
+  const notes = order.notes
 
   const hasSupportData =
     Boolean(notes) ||
@@ -34,18 +34,12 @@ export const DrawerSupportTimelineSection: React.FC<DrawerSupportTimelineSection
     Boolean(support?.last_error_detail)
 
   const milestones = React.useMemo(() => {
-    const list: Array<{ title: string; date: string; icon: string }> = []
-
-    if (order.shipped_at) {
-      list.push({ title: "Rx Shipped to Patient", date: formatDate(order.shipped_at), icon: "truck" })
-    }
-    if (order.prescribed_at) {
-      list.push({ title: "Medication Prescribed", date: formatDate(order.prescribed_at), icon: "rx" })
-    }
-    if (order.created_at) {
-      list.push({ title: "Order Placed", date: formatDate(order.created_at), icon: "created" })
-    }
-    return list
+    return order.activity_events.map((event) => ({
+      id: event.id,
+      title: event.title || event.event_type.replace(/\./g, " "),
+      description: event.description,
+      date: formatDate(event.occurred_at),
+    }))
   }, [order])
 
   return (
@@ -135,10 +129,14 @@ export const DrawerSupportTimelineSection: React.FC<DrawerSupportTimelineSection
         </div>
 
         <div className="bg-card border border-border rounded-xl p-3.5 space-y-2">
-          {milestones.map((m, idx) => (
-            <div key={idx} className="flex items-center justify-between text-xs py-1 border-b border-border/40 last:border-b-0">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground min-w-[110px] font-medium">{m.title}</span>
+          {milestones.length === 0 && (
+            <p className="text-xs text-muted-foreground">No recorded activity events.</p>
+          )}
+          {milestones.map((m) => (
+            <div key={m.id} className="flex items-start justify-between gap-3 text-xs py-1 border-b border-border/40 last:border-b-0">
+              <div>
+                <span className="text-slate-900 dark:text-white font-medium">{m.title}</span>
+                {m.description && <p className="mt-0.5 text-[11px] text-muted-foreground">{m.description}</p>}
               </div>
               <span className="font-mono text-slate-900 dark:text-white font-semibold text-[11px]">{m.date}</span>
             </div>

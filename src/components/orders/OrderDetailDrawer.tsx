@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { AdminOrder, updateAdminOrder, fetchAdminOrderDetail, OrderUpdatePayload } from "@/api/dashboardApi"
+import { AdminOrder, AdminOrderDetail, updateAdminOrder, fetchAdminOrderDetail, OrderUpdatePayload } from "@/api/dashboardApi"
 import { useToast } from "@/hooks/use-toast"
 import {
   Package,
@@ -43,28 +43,6 @@ interface OrderDetailDrawerProps {
   onOrderUpdated: (updatedOrder: AdminOrder) => void
 }
 
-const ORDER_STATUSES = [
-  { value: "created", label: "Created" },
-  { value: "payment_pending", label: "Payment Pending" },
-  { value: "processing", label: "Processing" },
-  { value: "visit_failed", label: "Visit Failed" },
-  { value: "visit_pending", label: "Visit Pending" },
-  { value: "consult_scheduled", label: "Consult Scheduled" },
-  { value: "consult_rescheduled", label: "Consult Rescheduled" },
-  { value: "consult_canceled", label: "Consult Canceled" },
-  { value: "no_show", label: "No Show" },
-  { value: "referred", label: "Referred" },
-  { value: "prescribed", label: "Prescribed" },
-  { value: "billing_pending", label: "Billing Pending" },
-  { value: "rx_sent", label: "Rx Sent" },
-  { value: "shipped", label: "Shipped" },
-  { value: "in_transit", label: "In Transit" },
-  { value: "out_for_delivery", label: "Out for Delivery" },
-  { value: "delivered", label: "Delivered" },
-  { value: "delivery_failed", label: "Delivery Failed" },
-  { value: "canceled", label: "Canceled" },
-]
-
 const TERMINAL_STATUSES = ["shipped", "canceled"]
 
 export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }: OrderDetailDrawerProps) {
@@ -72,8 +50,9 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
   const [trackingNumber, setTrackingNumber] = useState<string>("")
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [detailOrder, setDetailOrder] = useState<AdminOrder | null>(null)
+  const [detailOrder, setDetailOrder] = useState<AdminOrderDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
   const { toast } = useToast()
 
   // When a new order is selected, reset form fields
@@ -83,11 +62,13 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
       setTrackingNumber(order.tracking_number || "")
       setSelectedProductId(null)
       setDetailOrder(null)
+      setDetailError(null)
     } else {
       setNewStatus("")
       setTrackingNumber("")
       setSelectedProductId(null)
       setDetailOrder(null)
+      setDetailError(null)
     }
   }, [order?.id])
 
@@ -97,21 +78,20 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
     let cancelled = false
     setDetailLoading(true)
+    setDetailError(null)
 
     // The control-plane route requires a UUID and needs client_id to know
     // which tenant to proxy to — order.order_id (display id) won't match.
     fetchAdminOrderDetail(order.id, order.client_id)
       .then((fullOrder) => {
         if (!cancelled) {
-          // Merge list-level data (which has treatment_aggregate etc.) with detail data
-          setDetailOrder({ ...order, ...fullOrder })
+          setDetailOrder({ ...order, ...fullOrder } as AdminOrderDetail)
         }
       })
       .catch((err) => {
         if (!cancelled) {
-          // On error, fall back to list-level data silently
-          console.warn("Failed to fetch full order detail, using list data:", err)
-          setDetailOrder(order)
+          setDetailOrder(null)
+          setDetailError(err instanceof Error ? err.message : "Failed to load order details.")
         }
       })
       .finally(() => {
@@ -185,7 +165,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
   if (!order) return null
 
   // Use enriched detail if loaded, fall back to list-level data
-  const displayOrder = detailOrder || order
+  const displayOrder = detailOrder
 
   const orderTitle = order.order_id || order.display_id || order.id
   const isPrescribedStatus = String(order.status || "").toLowerCase() === "prescribed"
@@ -238,6 +218,36 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
         {/* Extended Vertical Drawer Body (Accurate Section Layout) */}
         <div className="p-5 space-y-5 flex-1">
+          {detailError && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+              <p className="font-semibold text-destructive">Order details are unavailable</p>
+              <p className="mt-1 text-muted-foreground">{detailError}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  setDetailError(null)
+                  setDetailLoading(true)
+                  fetchAdminOrderDetail(order.id, order.client_id)
+                    .then((fullOrder) => setDetailOrder({ ...order, ...fullOrder } as AdminOrderDetail))
+                    .catch((error) => setDetailError(error instanceof Error ? error.message : "Failed to load order details."))
+                    .finally(() => setDetailLoading(false))
+                }}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {detailLoading && !displayOrder && (
+            <div className="flex items-center justify-center gap-2 rounded-xl border p-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading authoritative order details…
+            </div>
+          )}
+
+          {displayOrder && <>
           {/* Treatment Aggregate Lifecycle (if available) */}
           {displayOrder.treatment_aggregate && (
             <TreatmentOrderAggregate aggregate={displayOrder.treatment_aggregate} />
@@ -264,6 +274,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
           {/* 5. Support Notes, Audit Flags & Milestone Timeline */}
           <DrawerSupportTimelineSection order={displayOrder} />
+          </>}
 
           {/* 6. Quick Update Order Controls Section */}
           {!isTerminal ? (
@@ -281,7 +292,18 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {ORDER_STATUSES.map((s) => (
+                      {[
+                        {
+                          value: order.status,
+                          label: order.status_display || parseStatusLabel(order.status),
+                        },
+                        ...(detailOrder?.allowed_status_transitions || []),
+                      ].filter(
+                        (item) => Boolean(item?.value),
+                      ).filter(
+                        (item, index, items) =>
+                          items.findIndex((candidate) => candidate.value === item.value) === index,
+                      ).map((s) => (
                         <SelectItem key={s.value} value={s.value} className="text-xs">
                           {s.label}
                         </SelectItem>

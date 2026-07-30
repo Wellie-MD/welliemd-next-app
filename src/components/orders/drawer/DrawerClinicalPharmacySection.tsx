@@ -1,11 +1,11 @@
 import React, { useState } from "react"
-import { AdminOrder } from "@/api/dashboardApi"
+import { AdminOrderDetail } from "@/api/dashboardApi"
 import { useToast } from "@/hooks/use-toast"
 import { Stethoscope, User, Mail, Phone, Building2, ExternalLink, Copy, Check, Calendar, Hash, MapPin, Truck } from "lucide-react"
 import { parseStatusLabel, getPrototypePillClass } from "./drawerUtils"
 
 interface DrawerClinicalPharmacySectionProps {
-  order: AdminOrder
+  order: AdminOrderDetail
 }
 
 export const DrawerClinicalPharmacySection: React.FC<DrawerClinicalPharmacySectionProps> = ({ order }) => {
@@ -13,24 +13,25 @@ export const DrawerClinicalPharmacySection: React.FC<DrawerClinicalPharmacySecti
   const [copiedAddr, setCopiedAddr] = useState(false)
 
   const doctor = order.doctor_name || "—"
-  const masterId = order.master_id || order.id
+  const masterId = order.master_id || null
 
   const email = order.patient_email || "—"
   const phone = order.patient_phone || "—"
-  const address = (order as any).shipping_address || (order as any).address || "—"
+  const address = order.shipping_address_snapshot?.formatted || order.shipping_address || order.address || "—"
 
-  const pharmacyName = order.pharmacy_name || (order as any).pharmacy?.name || "—"
-  const pharmacyNpi = (order as any).pharmacy_npi || (order as any).pharmacy?.npi || (order as any).pharmacy_id || "—"
-  const pharmacyPhone = (order as any).pharmacy_phone || (order as any).pharmacy?.phone || "—"
-  const pharmacyAddress = (order as any).pharmacy_address || (order as any).pharmacy?.address || "—"
+  const pharmacyName = order.pharmacy_name || order.pharmacy?.store_name || order.pharmacy?.name || "—"
+  const pharmacyNpi = order.pharmacy_npi || order.pharmacy?.npi || "—"
+  const pharmacyPhone = order.pharmacy_phone || order.pharmacy?.phone || "—"
+  const pharmacyAddress = order.pharmacy_address || order.pharmacy?.address || "—"
 
-  const rawFulfillmentStatus = (order as any).fulfillmentStatus || (order as any).pharmacy_fulfillment_status || order.status || "processing"
-  const fulfillmentStatusParsed = parseStatusLabel(rawFulfillmentStatus)
-  const fulfillmentPillClass = getPrototypePillClass(rawFulfillmentStatus)
+  const rawFulfillmentStatus = order.pharmacy_fulfillment_status
+  const fulfillmentStatusParsed = rawFulfillmentStatus ? parseStatusLabel(rawFulfillmentStatus) : "Not recorded"
+  const fulfillmentPillClass = rawFulfillmentStatus ? getPrototypePillClass(rawFulfillmentStatus) : "pill"
 
-  const carrier = (order as any).shipment_provider || (order as any).carrier || "—"
+  const medicationLine = order.line_items.find((item) => item.item_type !== "supply")
+  const carrier = medicationLine?.shipment_provider || "—"
   const trackingNumber = order.tracking_number
-  const trackingUrl = (order as any).tracking_url
+  const trackingUrl = medicationLine?.tracking_url || order.tracking_url
 
   const rxTransmittedDate = order.prescribed_at ? new Date(order.prescribed_at).toLocaleDateString() : "—"
 
@@ -106,10 +107,12 @@ export const DrawerClinicalPharmacySection: React.FC<DrawerClinicalPharmacySecti
             <span className="font-semibold text-slate-900 dark:text-white">{order.client_name}</span>
           </div>
 
-          <div className="flex justify-between items-center text-slate-700 dark:text-slate-300 pt-1.5 border-t border-border/40">
-            <span className="text-muted-foreground">Master Episode ID:</span>
-            <span className="font-mono text-[11px] text-slate-900 dark:text-white font-medium break-all">{masterId}</span>
-          </div>
+          {masterId && (
+            <div className="flex justify-between items-center text-slate-700 dark:text-slate-300 pt-1.5 border-t border-border/40">
+              <span className="text-muted-foreground">Master Episode ID:</span>
+              <span className="font-mono text-[11px] text-slate-900 dark:text-white font-medium break-all">{masterId}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -133,7 +136,7 @@ export const DrawerClinicalPharmacySection: React.FC<DrawerClinicalPharmacySecti
 
           {pharmacyNpi !== "—" && (
             <div className="flex justify-between items-center text-slate-700 dark:text-slate-300">
-              <span className="text-muted-foreground">Pharmacy NPI / ID:</span>
+              <span className="text-muted-foreground">Pharmacy NPI:</span>
               <span className="font-mono text-[11px] text-slate-900 dark:text-white">{pharmacyNpi}</span>
             </div>
           )}
