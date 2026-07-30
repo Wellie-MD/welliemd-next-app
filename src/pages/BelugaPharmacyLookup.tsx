@@ -224,6 +224,7 @@ export default function BelugaPharmacyLookup() {
             <Table size="sm">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="min-w-28">Beluga Pharmacy ID</TableHead>
                   <TableHead className="min-w-40">Pharmacy</TableHead>
                   <TableHead className="min-w-48">Address</TableHead>
                   <TableHead>Phone</TableHead>
@@ -236,9 +237,9 @@ export default function BelugaPharmacyLookup() {
               <TableBody>
                 {results.map((pharmacy) => (
                   <TableRow key={`${pharmacy.PharmacyId}-${pharmacy.StoreName}`}>
+                    <TableCell className="font-medium text-gray-900">{pharmacy.PharmacyId}</TableCell>
                     <TableCell>
                       <div className="font-medium text-gray-900">{pharmacy.StoreName}</div>
-                      <div className="text-muted-foreground">ID {pharmacy.PharmacyId}</div>
                     </TableCell>
                     <TableCell className="whitespace-pre-line">{formatAddress(pharmacy)}</TableCell>
                     <TableCell>{pharmacy.PrimaryPhone || "-"}</TableCell>
