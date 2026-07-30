@@ -437,12 +437,12 @@ export default function Orders() {
         data={filteredOrders}
         columns={orderColumns.map(col => {
           // Canonical order number (matches invoice/admin priority).
-          if (col.key === 'order_number') {
+          if (col.key === 'order_id' || col.key === 'order_number') {
             return {
               ...col,
               render: (_: any, row: any) => {
                 const detailId = row.id
-                const orderLabel = row.order_number || '—'
+                const orderLabel = row.order_number || row.order_id || '—'
                 if (!detailId) {
                   return <span className="text-sm font-medium">{orderLabel}</span>
                 }

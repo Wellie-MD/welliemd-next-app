@@ -178,7 +178,11 @@ export default function LabOrders() {
               {rows.map((row) => (
                 <tr key={row.raw_id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="px-3 py-4">
-                    <button onClick={() => navigate(`/dashboard/orders/labs/${row.raw_id}`)} className="text-blue-600 hover:underline font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/dashboard/orders/labs/${row.raw_id || row.id}`)}
+                      className="text-primary hover:underline font-semibold text-left"
+                    >
                       {row.id}
                     </button>
                   </td>
