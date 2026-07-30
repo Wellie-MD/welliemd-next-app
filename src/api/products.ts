@@ -234,6 +234,37 @@ export interface AssignmentSummary {
   recent_successful: number;
 }
 
+export type ProductChangeAction = "created" | "updated" | "status" | "deleted";
+
+export interface ProductChangeLog {
+  id: number;
+  product_id_snapshot: number;
+  product_name_snapshot: string;
+  record_type: string;
+  action: ProductChangeAction;
+  field_name: string;
+  field_label: string;
+  old_value: unknown;
+  new_value: unknown;
+  old_display: string;
+  new_display: string;
+  changed_by?: string | null;
+  changed_by_name: string;
+  changed_by_email: string;
+  changed_by_role: string;
+  changed_at: string;
+}
+
+export interface ProductChangeHistoryResponse {
+  record: {
+    id: number;
+    name: string;
+    type: string;
+  };
+  total_changes: number;
+  results: ProductChangeLog[];
+}
+
 // ==================== PRODUCT API (ADMIN) ====================
 
 export const productApi = {
@@ -282,6 +313,20 @@ export const productApi = {
    */
   deleteProduct: async (id: string | number): Promise<void> => {
     await axiosInstance.delete(`products/${id}/`);
+  },
+
+  /**
+   * Get a product's audit trail for the admin change history modal
+   */
+  getChangeHistory: async (
+    id: string | number,
+    action?: "all" | ProductChangeAction
+  ): Promise<ProductChangeHistoryResponse> => {
+    const { data } = await axiosInstance.get<ProductChangeHistoryResponse>(
+      `products/${id}/change-history/`,
+      { params: action && action !== "all" ? { action } : undefined }
+    );
+    return data;
   },
 
   /**
