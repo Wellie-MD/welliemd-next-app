@@ -20,48 +20,17 @@ import { PaymentMethodsService } from '@/features/payment-methods/services/payme
 
 // ---------- Product icon (SVG-based per kinmeds3) ----------
 function ProductIcon({ productName }: { productName: string }) {
-  const lc = (productName || '').toLowerCase();
-
-  if (lc.includes('wegovy') || lc.includes('semaglutide') || lc.includes('glp')) {
-    return (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.5">
-        <path d="M18.5 2.5a2.121 2.121 0 013 3L7 20l-4 1 1-4L18.5 2.5z" />
-      </svg>
-    );
-  }
-  if (lc.includes('injection') || lc.includes('sermorelin') || lc.includes('nad')) {
-    return (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4f8ef7" strokeWidth="1.5">
-        <path d="M18 2l4 4-14 14H4v-4L18 2z" />
-        <path d="M14 6l4 4" />
-        <path d="M4 20l-2 2" />
-      </svg>
-    );
-  }
-  if (lc.includes('sildenafil') || lc.includes('tabs') || lc.includes('tablet')) {
-    return (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.5">
-        <ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-45 12 12)" />
-        <line x1="5.5" y1="5.5" x2="18.5" y2="18.5" />
-      </svg>
-    );
-  }
+  void productName;
   return (
     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.5">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M8 12h8M12 8v8" />
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5M12 22V12" />
     </svg>
   );
 }
 
 function getProductIconBg(productName: string): string {
-  const lc = (productName || '').toLowerCase();
-  if (lc.includes('wegovy') || lc.includes('semaglutide') || lc.includes('glp') || lc.includes('sildenafil') || lc.includes('tabs') || lc.includes('tablet')) {
-    return 'rgba(167,139,250,0.15)';
-  }
-  if (lc.includes('injection') || lc.includes('sermorelin') || lc.includes('nad')) {
-    return 'rgba(79,142,247,0.15)';
-  }
+  void productName;
   return 'rgba(34,197,94,0.15)';
 }
 
@@ -488,7 +457,13 @@ export default function OrderDetail() {
   const ref = order.order_id || order.display_id;
   const statusConfig = STATUS_CONFIG[order.status] || { label: order.status, badgeClass: 'km-badge km-badge-gray' };
   const timelineFromEvents = buildTimelineFromEvents(order.activity_events);
-  const timeline = timelineFromEvents.length > 0 ? timelineFromEvents : buildTimeline(order);
+  const timeline = timelineFromEvents.length > 0
+    ? timelineFromEvents
+    : [{
+        type: 'done' as const,
+        label: `Current status: ${order.status_display || order.status}`,
+        sub: order.created_at ? `Order created ${formatDate(order.created_at)}` : 'No activity history has been recorded.',
+      }];
   const requestedMedicineName = order.requested_medicine_name || order.product_name;
   const rawPrescribedMedicineName = order.prescribed_medicine_name || null;
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase();
@@ -688,10 +663,10 @@ export default function OrderDetail() {
                 <div key={item.id} style={{ padding: '9px 0', borderTop: index ? '1px solid var(--km-b)' : undefined }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>{item.product_name || 'Product'}</span>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>${item.line_total || '0.00'}</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{item.line_total == null ? 'Not recorded' : `$${item.line_total}`}</span>
               </div>
               <div style={{ marginTop: 3, color: 'var(--km-tm)', fontSize: 11 }}>
-                Qty {item.quantity || 1}{!order.treatment_aggregate ? ` · Prescription ${item.prescription_status || 'pending'}` : ''} · Fulfilment {item.fulfilment_status || 'pending'} · Refund {item.refund_status || 'none'}
+                Qty {item.quantity ?? 'Not recorded'}{!order.treatment_aggregate ? ` · Prescription ${item.prescription_status || 'Not recorded'}` : ''} · Fulfilment {item.fulfilment_status || 'Not recorded'} · Refund {item.refund_status || 'Not recorded'}
                 {item.duration_days ? ` · ${item.duration_days} day supply` : ''}
               </div>
               {item.tracking_number && (
@@ -724,7 +699,7 @@ export default function OrderDetail() {
       {order.combined_submission_summary?.orders && order.combined_submission_summary.orders.length > 1 && (
         <div className="km-fade" style={{ background: 'var(--km-s1)', borderRadius: 10, border: '1px solid var(--km-b)', padding: 14, marginBottom: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--km-tm)', marginBottom: 8 }}>
-            Combined checkout · {order.combined_payment_summary?.status || 'pending'}
+            Combined checkout · {order.combined_payment_summary?.status || 'Status not recorded'}
           </div>
           {order.combined_submission_summary.orders.map((sibling) => (
             <div key={sibling.treatment_case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '5px 0', fontSize: 12 }}>

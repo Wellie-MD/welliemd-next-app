@@ -48,25 +48,6 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   failed:             { label: 'Failed',            css: 'km-badge km-badge-red' },
 };
 
-function getProductIcon(productName: string): string {
-  const name = productName?.toLowerCase() || '';
-  
-  // Pen injectors (GLP-1 medications)
-  if (name.includes('wegovy') || name.includes('ozempic') || name.includes('rybelsus') || name.includes('trulicity') || name.includes('mounjaro') || name.includes('zepbound')) return '🖊️';
-  // Injection vials
-  if (name.includes('sermorelin') || name.includes('nad+') || name.includes('bpc-157') || name.includes('tb-500') || name.includes('injection')) return '💉';
-  // Capsules/pills
-  if (name.includes('glutathione') || name.includes('semaglutide') || name.includes('glp-1') || name.includes('lipotropic') || name.includes('vitamin')) return '💊';
-  // Tablets
-  if (name.includes('sildenafil') || name.includes('viagra') || name.includes('tadalafil') || name.includes('cialis') || name.includes('finasteride') || name.includes('propecia')) return '💊';
-  // Topical
-  if (name.includes('cream') || name.includes('gel') || name.includes('topical')) return '🧴';
-  // Supplements
-  if (name.includes(' NAC ') || name.includes('coq10') || name.includes('magnesium') || name.includes('zinc') || name.includes('b-complex')) return '🌿';
-  
-  return '💊'; // Default
-}
-
 function OrderStatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status] || { label: status, css: 'km-badge km-badge-gray' };
   const s = (status || '').toLowerCase();
@@ -93,7 +74,6 @@ function OrderStatusBadge({ status }: { status: string }) {
 
 function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () => void }) {
   const ref = getOrderReference(order);
-  const icon = getProductIcon(order.product_name);
   const displayAmount = order.chargeable_amount || order.amount;
   const hasProductImage = Boolean(order.product_image);
   const treatmentCount = order.combined_submission_summary?.orders?.length || 0;
@@ -107,7 +87,7 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
           </div>
         ) : (
           <div className="km-oimg" style={{ background: 'var(--km-s3)', fontSize: 20 }}>
-            {icon}
+            <Package size={18} aria-hidden="true" />
           </div>
         )}
         <div className="km-oileft">
@@ -164,7 +144,7 @@ function CombinedOrderGroup({ orders, onClick }: { orders: PatientOrder[]; onCli
   const checkoutTotal = summary?.checkout_total?.grand_total;
   const total = typeof checkoutTotal === 'string' || typeof checkoutTotal === 'number'
     ? checkoutTotal
-    : payment?.authorized_amount || '0.00';
+    : payment?.authorized_amount;
 
   return (
     <div className="km-combined-order-group" style={{ borderBottom: '1px solid var(--km-b)' }}>
@@ -172,10 +152,10 @@ function CombinedOrderGroup({ orders, onClick }: { orders: PatientOrder[]; onCli
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-t)' }}>Combined checkout</div>
           <div style={{ fontSize: 11, color: 'var(--km-tm)', marginTop: 2 }}>
-            {orders.length} treatment orders · one payment · {payment?.status || summary?.status || 'pending'}
+            {orders.length} treatment orders · one payment · {payment?.status || summary?.status || 'Status not recorded'}
           </div>
         </div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-t)' }}>${total}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-t)' }}>{total == null ? 'Amount not recorded' : `$${total}`}</div>
       </div>
       {orders.map((order) => (
         <div key={order.id} style={{ borderTop: '1px solid var(--km-b)' }}>
