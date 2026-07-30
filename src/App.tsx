@@ -78,9 +78,8 @@ const App = () => {
   );
 
   useEffect(() => {
-    const authStore = useAuthStore.getState();
-
     const initializeAuth = async () => {
+      const authStore = useAuthStore.getState();
       authStore.clearExpiredSession();
 
       const authStart = performance.now();
@@ -100,7 +99,24 @@ const App = () => {
       }
     };
 
-    void initializeAuth();
+    // zustand's persist middleware rehydrates the store from localStorage
+    // asynchronously, even for a sync storage like localStorage. Reading
+    // useAuthStore.getState() before that finishes returns the empty initial
+    // state (refreshToken: null) — which is exactly what happens when a new
+    // tab is opened (e.g. right-click "open in new tab" on a link): the tab
+    // starts cold, this effect fires, and if hydration hasn't landed yet the
+    // refresh token read here is empty, so auth "fails" even though the
+    // session is fine in localStorage. Wait for hydration to actually finish
+    // first.
+    if (useAuthStore.persist.hasHydrated()) {
+      void initializeAuth();
+      return undefined;
+    }
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
+      unsubscribe();
+      void initializeAuth();
+    });
+    return unsubscribe;
   }, []);
 
   if (!isInitialized) {
