@@ -16,7 +16,7 @@ interface OrderPaymentCardProps {
 }
 
 const formatProcessorName = (val?: string | null): string => {
-  if (!val) return "Authorize.Net"
+  if (!val) return "Not recorded"
   const lower = val.toLowerCase()
   if (lower.includes("stripe")) return "Stripe"
   if (lower.includes("authorize")) return "Authorize.Net"
@@ -25,7 +25,7 @@ const formatProcessorName = (val?: string | null): string => {
 }
 
 const formatPaymentStatusLabel = (val?: string | null): string => {
-  if (!val) return "Captured & Paid"
+  if (!val) return "Not recorded"
   const lower = val.toLowerCase()
   if (lower === "captured" || lower === "paid" || lower === "completed" || lower === "succeeded") return "Captured & Paid"
   if (lower === "authorized" || lower === "auth_hold") return "Authorized (Hold)"
@@ -39,12 +39,8 @@ const parseTransactionId = (order: Order): string => {
   return (
     order.paymentProcessorTransactionId ||
     order.paymentTransactionId ||
-    order.paymentReference ||
-    order.charge_id ||
     order.transaction_id ||
-    order.combined_payment_summary?.transaction_id ||
-    order.episode_id ||
-    (order.id ? `TXN-${order.id.replace(/[^a-zA-Z0-9]/g, "").slice(-12).toUpperCase()}` : "TX-PRIMARY")
+    "Not recorded"
   )
 }
 
@@ -58,7 +54,8 @@ export const OrderPaymentCard: React.FC<OrderPaymentCardProps> = ({
   onRetryClick,
 }) => {
   const processor = formatProcessorName(order.paymentProcessor || order.payment_method_summary?.processor)
-  const paymentStatusFormatted = formatPaymentStatusLabel(order.paymentStatus || order.status)
+  const allocation = order.combined_payment_summary?.allocation
+  const paymentStatusFormatted = formatPaymentStatusLabel(allocation?.status || order.paymentStatus)
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const transId = parseTransactionId(order)
 
@@ -88,7 +85,7 @@ export const OrderPaymentCard: React.FC<OrderPaymentCardProps> = ({
           <div className="flex justify-between items-start text-muted-foreground gap-2">
             <span className="flex-shrink-0">Settlement State</span>
             <span className="font-semibold text-slate-900 dark:text-white capitalize text-right break-words">
-              {settlementState || "Settled"}
+              {settlementState || order.treatment_aggregate?.settlement?.status || "Not recorded"}
             </span>
           </div>
 

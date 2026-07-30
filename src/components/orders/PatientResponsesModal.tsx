@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PatientResponses, QuestionnairePhoto, updateOrderQuestionnaireImages } from "@/api/ordersApi"
+import { IntakeResponseSummary, PatientResponses, QuestionnairePhoto, updateOrderQuestionnaireImages } from "@/api/ordersApi"
 import { User, FileText, Pill, AlertCircle, Link2, Copy, Image as ImageIcon, Upload, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useEffect, useRef, useState } from "react"
@@ -13,6 +13,7 @@ interface PatientResponsesModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   patientResponses: PatientResponses | null | undefined
+  intakeResponseSummary?: IntakeResponseSummary | null
   patientName?: string
   checkoutUrl?: string | null
   orderId?: string
@@ -23,6 +24,7 @@ export function PatientResponsesModal({
   open,
   onOpenChange,
   patientResponses,
+  intakeResponseSummary,
   patientName = "Patient",
   checkoutUrl,
   orderId,
@@ -173,7 +175,7 @@ export function PatientResponsesModal({
     }
   }
 
-  if (!patientResponses) {
+  if (!patientResponses && !intakeResponseSummary) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
@@ -221,16 +223,17 @@ export function PatientResponsesModal({
   }
 
   // Extract formObj from the beluga payload - this is where Q/A pairs are stored
-  const rawFormObj = patientResponses.formObj || patientResponses.questionnaireItems
+  const safePatientResponses = patientResponses || {}
+  const rawFormObj = safePatientResponses.formObj || safePatientResponses.questionnaireItems
   const formObj: Record<string, unknown> = (rawFormObj && typeof rawFormObj === 'object' && !Array.isArray(rawFormObj)) 
     ? rawFormObj as Record<string, unknown> 
     : {}
-  const patientInfo = patientResponses.patientInfo || {}
+  const patientInfo = safePatientResponses.patientInfo || {}
 
   // Convert formObj Q1/A1, Q2/A2 format to array
   const questionsArray: { question: string; answer: string }[] = []
   
-  if (formObj && typeof formObj === 'object') {
+  if (!intakeResponseSummary && formObj && typeof formObj === 'object') {
     // Handle Q1/A1, Q2/A2 format from Beluga formObj
     const keys = Object.keys(formObj).filter(k => k.startsWith('Q'))
     keys.sort((a, b) => {
@@ -248,6 +251,18 @@ export function PatientResponsesModal({
           answer: String(answer)
         })
       }
+    })
+  }
+  if (intakeResponseSummary) {
+    intakeResponseSummary.sections.forEach((section) => {
+      section.responses.forEach((response) => {
+        questionsArray.push({
+          question: response.question,
+          answer: typeof response.answer === "string"
+            ? response.answer
+            : JSON.stringify(response.answer),
+        })
+      })
     })
   }
 
@@ -381,14 +396,14 @@ export function PatientResponsesModal({
     bmi: patientInfo.bmi || bmiFromQuestion || computedBmi,
     sex: patientInfo.sex || '',
     // Location fields - look in patientResponses root and formObj
-    address: patientInfo.address || String(patientResponses.address || ''),
-    city: patientInfo.city || String(patientResponses.city || ''),
-    state: patientInfo.state || String(patientResponses.state || ''),
-    zip: patientInfo.zip || String(patientResponses.zip || patientResponses.zipCode || ''),
+    address: patientInfo.address || String(safePatientResponses.address || ''),
+    city: patientInfo.city || String(safePatientResponses.city || ''),
+    state: patientInfo.state || String(safePatientResponses.state || ''),
+    zip: patientInfo.zip || String(safePatientResponses.zip || safePatientResponses.zipCode || ''),
   }
 
-  const medications = patientResponses.medications || []
-  const company = patientResponses.company || ''
+  const medications = safePatientResponses.medications || []
+  const company = safePatientResponses.company || ''
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

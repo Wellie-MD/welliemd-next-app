@@ -8,10 +8,9 @@ interface OrderMedicalCardProps {
 }
 
 export const OrderMedicalCard: React.FC<OrderMedicalCardProps> = ({ order }) => {
-  const doctor = order.doctor_name || order.provider_network || "Junction Physician Network"
-  const network = order.provider_network || "Beluga Health"
-  const rxDate = order.datePrescribed || order.prescription_source_received_at || order.date || "—"
-  const masterId = order.episode_id || order.display_id || order.id
+  const doctor = order.doctor_name
+  const network = order.provider_network
+  const rxDate = order.datePrescribed
 
   return (
     <div className="bg-card rounded-2xl border border-border shadow-xs overflow-hidden">
@@ -29,7 +28,7 @@ export const OrderMedicalCard: React.FC<OrderMedicalCardProps> = ({ order }) => 
         <div className="flex justify-between items-start text-muted-foreground gap-2">
           <span className="text-[11px] uppercase tracking-wider font-semibold flex-shrink-0">Prescribing Doctor:</span>
           <span className="font-semibold text-slate-900 dark:text-white text-right break-words">
-            {doctor}
+            {doctor || "Not assigned"}
           </span>
         </div>
 
@@ -37,21 +36,21 @@ export const OrderMedicalCard: React.FC<OrderMedicalCardProps> = ({ order }) => 
           <span className="text-[11px] uppercase tracking-wider font-semibold flex-shrink-0">Clinical Network:</span>
           <span className="font-semibold text-slate-900 dark:text-white text-right flex items-center gap-1 break-words">
             <Globe className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-            <span>{network}</span>
+            <span>{network || "Not recorded"}</span>
           </span>
         </div>
 
         <div className="flex justify-between items-start text-muted-foreground gap-2">
           <span className="text-[11px] uppercase tracking-wider font-semibold flex-shrink-0">Rx Received:</span>
           <span className="font-medium text-slate-800 dark:text-slate-200 text-right font-mono break-all">
-            {rxDate}
+            {rxDate || "Not recorded"}
           </span>
         </div>
 
         <div className="flex justify-between items-start text-muted-foreground gap-2 pt-2 border-t border-border/40">
-          <span className="text-[11px] uppercase tracking-wider font-semibold flex-shrink-0">Master Episode ID:</span>
+          <span className="text-[11px] uppercase tracking-wider font-semibold flex-shrink-0">Visit Master ID:</span>
           <span className="font-mono text-xs text-slate-900 dark:text-white text-right break-all font-semibold">
-            {masterId}
+            {order.mrn || "Not recorded"}
           </span>
         </div>
       </div>

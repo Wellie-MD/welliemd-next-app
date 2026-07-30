@@ -149,8 +149,21 @@ export type ClientTreatmentConsent = {
 
 const currentDateStamp = () => new Date().toISOString().split("T")[0];
 
-const unwrapRecords = <T>(data: PaginatedResponse<T> | T[]): T[] =>
-  Array.isArray(data) ? data : data.results || [];
+const fetchAllRecords = async <T>(endpoint: string): Promise<T[]> => {
+  const records: T[] = [];
+  let nextUrl: string | null = `${endpoint}${endpoint.includes("?") ? "&" : "?"}page_size=100`;
+  let pageCount = 0;
+
+  while (nextUrl && pageCount < 100) {
+    const { data } = await axiosInstance.get<PaginatedResponse<T> | T[]>(nextUrl);
+    if (Array.isArray(data)) return [...records, ...data];
+    records.push(...(data.results || []));
+    nextUrl = data.next || null;
+    pageCount += 1;
+  }
+
+  return records;
+};
 
 const createClientQuestionId = () => `custom-q-${Date.now()}`;
 
@@ -389,10 +402,8 @@ const patchCustomProgram = async (
 
 export const treatmentsApi = {
   listPrograms: async (): Promise<Program[]> => {
-    const { data } = await axiosInstance.get<PaginatedResponse<ProgramApiRecord> | ProgramApiRecord[]>(
-      "treatments/programs/"
-    );
-    return unwrapRecords(data).map(mapProgramFromApi);
+    const records = await fetchAllRecords<ProgramApiRecord>("treatments/programs/");
+    return records.map(mapProgramFromApi);
   },
 
   getProgram: async (id: string): Promise<Program | undefined> => {
@@ -407,24 +418,18 @@ export const treatmentsApi = {
   },
 
   listSections: async (): Promise<ClientTreatmentSection[]> => {
-    const { data } = await axiosInstance.get<PaginatedResponse<SectionApiRecord> | SectionApiRecord[]>(
-      "treatments/sections/"
-    );
-    return unwrapRecords(data).map(mapSectionFromApi);
+    const records = await fetchAllRecords<SectionApiRecord>("treatments/sections/");
+    return records.map(mapSectionFromApi);
   },
 
   listConsents: async (): Promise<ClientTreatmentConsent[]> => {
-    const { data } = await axiosInstance.get<PaginatedResponse<ConsentApiRecord> | ConsentApiRecord[]>(
-      "treatments/consents/"
-    );
-    return unwrapRecords(data).map(mapConsentFromApi);
+    const records = await fetchAllRecords<ConsentApiRecord>("treatments/consents/");
+    return records.map(mapConsentFromApi);
   },
 
   listCustomPrograms: async (): Promise<CustomProgram[]> => {
-    const { data } = await axiosInstance.get<PaginatedResponse<CustomProgramApiRecord> | CustomProgramApiRecord[]>(
-      "treatments/custom-programs/"
-    );
-    return unwrapRecords(data).map(mapCustomProgramFromApi);
+    const records = await fetchAllRecords<CustomProgramApiRecord>("treatments/custom-programs/");
+    return records.map(mapCustomProgramFromApi);
   },
 
   getCustomProgram: async (id: string): Promise<CustomProgram | undefined> => {

@@ -53,6 +53,9 @@ export interface QuestionnairePhoto {
 
 // Prescribed medication from RX_WRITTEN webhook (PrescriptionEvent.medications)
 export interface PrescriptionMedication {
+  id?: string | number
+  product_id?: string | number
+  source_product_id?: string | number
   name?: string
   prescribed_name?: string
   strength?: string
@@ -62,6 +65,33 @@ export interface PrescriptionMedication {
   medId?: string
   rxId?: string
   shipping_fee?: string | number | null
+}
+
+export interface IntakeResponseSummary {
+  source: "phase_ii"
+  program?: { id?: string | null; name?: string; release_version?: number | null }
+  sections: Array<{
+    title: string
+    responses: Array<{
+      question_id: string
+      question: string
+      answer: unknown
+      answer_type?: string
+      label_unavailable?: boolean
+    }>
+  }>
+  consents?: unknown[]
+}
+
+export interface ShippingAddressSnapshot {
+  address1?: string
+  address2?: string
+  city?: string
+  state?: string
+  postal_code?: string
+  country?: string
+  formatted?: string
+  source: "checkout_snapshot"
 }
 
 export interface OrderPricingSupplyLineItem {
@@ -102,12 +132,15 @@ export interface OrderLineItem {
   id: string
   product_id?: number | null
   product_name?: string | null
+  product_image?: string | null
   item_type?: string
   quantity?: string | number
   unit_patient_price?: string | number
   unit_shipping_fee?: string | number
   line_total?: string | number
   status?: string
+  is_included?: boolean
+  parent_line_item?: string | null
   source_supply_relation_id?: number | null
   patient_price_snapshot?: Record<string, unknown>
   reimbursement_amount_snapshot?: Record<string, unknown> | null
@@ -127,6 +160,8 @@ export interface OrderLineItem {
   cancelled_at?: string | null
   refunded_amount?: string | number
   lifecycle_snapshot?: Record<string, unknown>
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 export interface TreatmentCaseSummary {
@@ -326,6 +361,12 @@ export interface TreatmentOrderAggregate {
 
 export interface Order {
   id: string
+  combined_submission_id?: string | null
+  treatment_case_id?: string | null
+  treatment_type_id?: string | null
+  treatment_type_key?: string | null
+  combined_payment_id?: string | null
+  payment_allocation_id?: string | null
   product?: number | string | null
   display_id?: string
   order_id?: string | null
@@ -385,6 +426,8 @@ export interface Order {
   tracking_number?: string | null
   shipping_carrier?: string | null
   patient_responses?: PatientResponses | null
+  intake_response_summary?: IntakeResponseSummary | null
+  shipping_address_snapshot?: ShippingAddressSnapshot | null
   checkout_url?: string | null
   provider_network?: string | null
   notes?: string | null
@@ -431,6 +474,7 @@ export interface Order {
   beluga_dispatch_reason?: string | null
   beluga_dispatch_attempt_count?: number | null
   treatment_aggregate?: TreatmentOrderAggregate | null
+  transaction_id?: string | number | null
 }
 
 export interface PaginatedOrdersResponse {

@@ -78,6 +78,27 @@ export const isSupplyItem = (item: Record<string, unknown>): boolean => {
   return false
 }
 
+const matchesLineItem = (
+  line: OrderLineItem,
+  medication: PrescriptionMedication
+): boolean => {
+  const lineProduct = line.product_id == null ? "" : String(line.product_id)
+  const medicationProducts = [
+    medication.product_id,
+    medication.source_product_id,
+    medication.id,
+  ].filter((value) => value != null).map(String)
+  if (lineProduct && medicationProducts.includes(lineProduct)) return true
+  const providerId = String(line.provider_product_id || "")
+  return Boolean(providerId && medication.medId && providerId === String(medication.medId))
+}
+
+const findMedicationForLine = (
+  line: OrderLineItem,
+  medications: PrescriptionMedication[]
+): PrescriptionMedication | undefined =>
+  medications.find((medication) => matchesLineItem(line, medication))
+
 export function extractOrderSupplies(order: Order): BundledSupplyItem[] {
   const supplies: BundledSupplyItem[] = []
   const seen = new Set<string>()
@@ -183,7 +204,7 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
 
   // Separate medication products from supply line items & bundle supplies into parent products
   const productItems: NormalizedProductItem[] = React.useMemo(() => {
-    const doctorName = order.doctor_name || order.provider_network || "Dr. Assigned"
+    const doctorName = order.doctor_name || undefined
     const requestedList = order.requested_medicines || []
     const prescribedList = order.prescribed_medicines || order.prescription_medications || []
     const allSupplies = extractOrderSupplies(order)
@@ -201,11 +222,20 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
         const unitP = Number(item.unit_patient_price) || 0
         const total = Number(item.line_total) || unitP * qty
 
-        const matchingReq = requestedList[idx] || requestedList[0]
-        const matchingRx = prescribedList[idx] || prescribedList[0]
+        const matchingReq = findMedicationForLine(item, requestedList)
+        const matchingRx = findMedicationForLine(item, prescribedList)
 
-        const reqName = matchingReq?.name || item.product_name || order.product_name || "Requested Product"
+        const reqName = matchingReq?.name || item.product_name || "Product name unavailable"
         const prescribedName = item.product_name || matchingRx?.name || matchingRx?.prescribed_name || reqName
+        const linkedSupplies = lineItems
+          .filter((candidate) => isSupplyItem(candidate) && String(candidate.parent_line_item || "") === String(item.id))
+          .map((candidate) => ({
+            id: String(candidate.id),
+            name: candidate.product_name || "Supply name unavailable",
+            quantity: Number(candidate.quantity) || 1,
+            unitPrice: Number(candidate.unit_patient_price) || 0,
+            isIncluded: Boolean(candidate.is_included),
+          }))
 
         medProducts.push({
           id: String(item.id || `line-${idx}`),
@@ -224,7 +254,7 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
           trackingNumber: item.tracking_number || undefined,
           trackingUrl: item.tracking_url || undefined,
           shipmentProvider: item.shipment_provider || undefined,
-          bundledSupplies: [],
+          bundledSupplies: linkedSupplies,
         })
       })
     } else {
@@ -270,7 +300,7 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
     }
 
     // Attach extracted bundled supplies to medication products
-    if (allSupplies.length > 0 && medProducts.length > 0) {
+    if (!order.line_items?.length && allSupplies.length > 0 && medProducts.length > 0) {
       medProducts[0].bundledSupplies = allSupplies
     }
 

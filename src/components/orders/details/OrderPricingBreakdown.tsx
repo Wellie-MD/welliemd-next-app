@@ -23,7 +23,7 @@ const formatMoney = (value?: number | null): string => {
 }
 
 const formatProcessorName = (val?: string | null): string => {
-  if (!val) return "Authorize.Net"
+  if (!val) return "Not recorded"
   const lower = val.toLowerCase()
   if (lower.includes("stripe")) return "Stripe"
   if (lower.includes("authorize")) return "Authorize.Net"
@@ -32,7 +32,7 @@ const formatProcessorName = (val?: string | null): string => {
 }
 
 const formatPaymentStatusLabel = (val?: string | null): string => {
-  if (!val) return "Captured & Paid"
+  if (!val) return "Not recorded"
   const lower = val.toLowerCase()
   if (lower === "captured" || lower === "paid" || lower === "completed" || lower === "succeeded") return "Captured & Paid"
   if (lower === "authorized" || lower === "auth_hold") return "Authorized (Hold)"
@@ -46,24 +46,16 @@ const parseTransactionId = (order: Order): string => {
   return (
     order.paymentProcessorTransactionId ||
     order.paymentTransactionId ||
-    order.paymentReference ||
-    order.charge_id ||
     order.transaction_id ||
-    order.combined_payment_summary?.transaction_id ||
-    order.episode_id ||
-    (order.id ? `TXN-${order.id.replace(/[^a-zA-Z0-9]/g, "").slice(-12).toUpperCase()}` : "TX-PRIMARY")
+    "Not recorded"
   )
 }
 
 const parsePaymentDate = (order: Order): string => {
   const rawDate =
-    order.datePaid ||
-    order.date ||
-    order.created_at ||
-    order.prescription_source_received_at ||
-    order.datePrescribed
+    order.paymentDate
 
-  if (!rawDate) return "Completed at Checkout"
+  if (!rawDate) return "Not recorded"
   try {
     const d = new Date(rawDate)
     if (!isNaN(d.getTime())) {
@@ -154,7 +146,8 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
   const taxAmount = parseMoney(order.pricing?.tax_total)
   const consultFee = parseMoney(order.pricing?.consult_fee)
   const grandTotal = parseMoney(
-    order.pricing?.grand_total ??
+    order.treatment_case_summary?.treatment_total ??
+      order.pricing?.grand_total ??
       order.grand_total ??
       order.payable_amount ??
       order.orderTotal ??
@@ -171,8 +164,14 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
     ? computedGross - grandTotal
     : rawDiscount
 
-  const refundedAmount = parseMoney(order.totalRefunded) ?? 0
-  const netCollected = grandTotal != null ? Math.max(0, grandTotal - refundedAmount) : null
+  const allocation = order.combined_payment_summary?.allocation
+  const refundedAmount = parseMoney(allocation?.refunded_amount ?? order.totalRefunded) ?? 0
+  const allocationCaptured = parseMoney(allocation?.captured_amount)
+  const netCollected = allocationCaptured != null
+    ? Math.max(0, allocationCaptured - refundedAmount)
+    : grandTotal != null
+      ? Math.max(0, grandTotal - refundedAmount)
+      : null
 
   // Applied coupons
   const appliedCoupons = Array.isArray(order.pricing?.applied_coupons)
@@ -201,7 +200,9 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
     ? (splitRemainingBaseAmount ?? 0) + (splitRemainingSupplementalAmount ?? 0)
     : rawRemainingSupplemental
 
-  const paymentStatusFormatted = formatPaymentStatusLabel(order.paymentStatus || order.status)
+  const paymentStatusFormatted = formatPaymentStatusLabel(
+    order.combined_payment_summary?.allocation?.status || order.paymentStatus
+  )
   const processorFormatted = formatProcessorName(order.paymentProcessor || order.payment_method_summary?.processor)
   const transactionIdFormatted = parseTransactionId(order)
   const paymentDateFormatted = parsePaymentDate(order)

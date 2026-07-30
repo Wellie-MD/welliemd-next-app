@@ -502,7 +502,20 @@ export default function OrderDetail() {
         <PatientResponsesModal
           open={showPatientResponses}
           onOpenChange={setShowPatientResponses}
-          order={order}
+          patientResponses={order.patient_responses}
+          intakeResponseSummary={order.intake_response_summary}
+          patientName={order.patient?.full_name || order.name || "Patient"}
+          checkoutUrl={order.checkout_url}
+          orderId={order.id}
+          onImagesSaved={(photos) => {
+            setOrder((previous) => previous ? {
+              ...previous,
+              patient_responses: {
+                ...(previous.patient_responses || {}),
+                photos,
+              },
+            } : previous)
+          }}
         />
       )}
 

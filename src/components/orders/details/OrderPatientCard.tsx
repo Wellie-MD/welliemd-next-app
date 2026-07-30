@@ -2,9 +2,8 @@ import React from "react"
 import { Order } from "@/api/ordersApi"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
-import { User, Mail, Phone, MapPin, ClipboardList, Copy, Check, Stethoscope } from "lucide-react"
+import { User, Mail, Phone, MapPin, ClipboardList, Copy, Check } from "lucide-react"
 
 interface OrderPatientCardProps {
   order: Order
@@ -25,8 +24,9 @@ export const OrderPatientCard: React.FC<OrderPatientCardProps> = ({ order, onOpe
 
   const email = order.email || order.patient_responses?.patientInfo?.email || "—"
   const phone = order.phone || order.patient_responses?.patientInfo?.phone || "—"
-  const address = order.shipping_address || order.address || "—"
-  const pharmacy = order.pharmacy_name || order.pharmacy_display || order.booking_location || "—"
+  const address = order.shipping_address_snapshot?.formatted || order.shipping_address || order.address || "—"
+  const addressIsSnapshot = Boolean(order.shipping_address_snapshot?.formatted)
+  const isPhaseTwoOrder = Boolean(order.treatment_case_id || order.combined_submission_id)
 
   const handleCopyAddress = () => {
     if (address === "—") return
@@ -97,17 +97,13 @@ export const OrderPatientCard: React.FC<OrderPatientCardProps> = ({ order, onOpe
           <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed bg-muted/40 p-3 rounded-xl border border-border">
             {address}
           </p>
-        </div>
-
-        {/* Pharmacy Details */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            <Stethoscope className="h-3.5 w-3.5" />
-            <span>Fulfillment Pharmacy</span>
-          </div>
-          <p className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white bg-muted/40 p-3 rounded-xl border border-border">
-            {pharmacy}
-          </p>
+          {address !== "—" && !addressIsSnapshot && (
+            <p className="text-[11px] text-amber-700 dark:text-amber-300">
+              {isPhaseTwoOrder
+                ? "Order shipping snapshot unavailable; showing current patient profile address."
+                : "Legacy order: current patient profile address."}
+            </p>
+          )}
         </div>
 
         {/* Questionnaire Responses Button */}

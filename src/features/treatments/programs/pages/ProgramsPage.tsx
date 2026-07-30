@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ArrowDownAZ, Clock3, Filter, Search, Check } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDownAZ, ChevronLeft, ChevronRight, Clock3, Filter, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ type ProgramsFilter = "all" | "missing_follow_up";
 type ProgramsSort = "recent" | "alpha";
 type ProgramsViewMode = "card" | "list";
 type ActiveTab = "all" | "intake" | "follow_up";
+const PAGE_SIZE = 12;
 
 const stripTreatmentSuffix = (name: string) => name.replace(/\s+(Intake|Follow-?up)$/i, "").trim() || name.trim();
 
@@ -69,6 +70,7 @@ export default function ProgramsPage() {
   const [selectedTreatment, setSelectedTreatment] = useState<string>("all");
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
+  const [page, setPage] = useState(1);
 
 
   const questionnaireBaseUrl = useMemo(() => {
@@ -86,7 +88,7 @@ export default function ProgramsPage() {
     return map;
   }, [programs]);
 
-  const totalTreatmentsCount = new Set(programs.map(p => p.treatmentTypeKey)).size;
+  const totalProgramsCount = programs.length;
 
   const missingFollowUpKeys = useMemo(() => {
     const keysWithIntake = new Set(programs.filter(p => p.stage === "intake").map(p => p.treatmentTypeKey));
@@ -148,6 +150,20 @@ export default function ProgramsPage() {
 
     return result;
   }, [programs, searchQuery, sortBy, activeTab, filter, missingFollowUpKeys, selectedStatus, selectedTreatment, treatmentNameByKey]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPrograms.length / PAGE_SIZE));
+  const pagedPrograms = useMemo(
+    () => filteredPrograms.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredPrograms, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, filter, searchQuery, selectedStatus, selectedTreatment, sortBy, viewMode]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const handleSaveSlug = async (programId: string, newSlug: string) => {
     try {
@@ -213,8 +229,8 @@ export default function ProgramsPage() {
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none">
               <div className="grid md:grid-cols-2">
                 <button type="button" onClick={() => setFilter("all")} className={statusSegmentClassName(filter === "all")}>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Total Treatments</span>
-                  <span className="mt-1 text-[30px] font-extrabold leading-none text-[#5b4dff] dark:text-[#7b83ff]">{totalTreatmentsCount}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Total Programs</span>
+                  <span className="mt-1 text-[30px] font-extrabold leading-none text-[#5b4dff] dark:text-[#7b83ff]">{totalProgramsCount}</span>
                 </button>
                 <button type="button" onClick={() => setFilter("missing_follow_up")}
                   className={cn(statusSegmentClassName(filter === "missing_follow_up"), "border-t border-slate-200 md:border-l md:border-t-0 dark:border-slate-700")}>
@@ -365,7 +381,7 @@ export default function ProgramsPage() {
           filteredPrograms.length === 0 ? (
             <EmptyStateCard title="No programs found" description="No program rows match your search." />
           ) : (
-            <ProgramListTable programs={filteredPrograms}
+            <ProgramListTable programs={pagedPrograms}
               treatmentNameByKey={Object.fromEntries(treatmentNameByKey)}
               onEditSlug={(p) => setEditingProgram(p)}
               onPreviewProgram={handleOpenPreview}
@@ -376,7 +392,7 @@ export default function ProgramsPage() {
           <EmptyStateCard title="No programs found" description="No programs match your search." />
         ) : (
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
-            {filteredPrograms.map((program) => (
+            {pagedPrograms.map((program) => (
               <ProgramCard key={program.id} program={program}
                 treatmentName={treatmentNameByKey.get(program.treatmentTypeKey)}
                 screeningQuestionCount={program.questionCount || 0}
@@ -385,6 +401,28 @@ export default function ProgramsPage() {
             ))}
           </div>
         )}
+
+        {filteredPrograms.length > 0 ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-[#171b27] sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredPrograms.length)} of{" "}
+              {filteredPrograms.length} programs
+            </p>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" disabled={page === 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}>
+                <ChevronLeft className="mr-1 h-4 w-4" /> Previous
+              </Button>
+              <span className="min-w-24 text-center text-sm text-slate-600 dark:text-slate-300">
+                Page {page} of {totalPages}
+              </span>
+              <Button type="button" variant="outline" size="sm" disabled={page === totalPages}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>
+                Next <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <SlugEditorModal open={Boolean(editingProgram)} onOpenChange={(open) => { if (!open) setEditingProgram(null); }}
