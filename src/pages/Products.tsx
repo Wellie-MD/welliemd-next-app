@@ -9,6 +9,8 @@ import {
   Users,
   Plus,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Check,
   Pencil,
   Trash2,
@@ -81,7 +83,7 @@ interface ApiError {
   };
 }
 
-const PAGE_SIZE = 250;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 type AssignmentOperation = "assign" | "reassign";
 type BulkProgressStatus = "idle" | "running" | "completed" | "partial" | "stopped";
@@ -208,19 +210,19 @@ function FilterSelect({
   const active = value !== "all";
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative w-full" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`flex min-w-44 items-center justify-between gap-3 rounded-lg border bg-white px-3.5 py-2.5 text-sm outline-none transition-all duration-150 ${
+        className={`flex w-full items-center justify-between gap-2 rounded-lg border bg-white px-3.5 py-2.5 text-xs sm:text-sm outline-none transition-all duration-150 ${
           active
             ? "border-sky-400 text-slate-800 font-semibold"
             : "border-slate-200 text-slate-500 font-normal hover:border-slate-300"
         }`}
       >
-        {current.l}
+        <span className="truncate">{current.l}</span>
         <ChevronDown
-          className={`h-4 w-4 transition-transform duration-150 text-slate-400 ${
+          className={`h-4 w-4 shrink-0 transition-transform duration-150 text-slate-400 ${
             open ? "rotate-180" : ""
           }`}
         />
@@ -237,13 +239,13 @@ function FilterSelect({
                 onChange(it.v);
                 setOpen(false);
               }}
-              className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-sm hover:bg-slate-50 transition-colors ${
+              className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-xs sm:text-sm hover:bg-slate-50 transition-colors ${
                 it.v === value ? "bg-sky-50 text-sky-700 font-semibold" : "text-slate-800"
               }`}
             >
-              {it.l}
+              <span className="truncate">{it.l}</span>
               {it.v === value && (
-                <Check className="h-3.5 w-3.5 text-sky-500" />
+                <Check className="h-3.5 w-3.5 shrink-0 text-sky-500" />
               )}
             </button>
           ))}
@@ -269,8 +271,8 @@ export default function Products() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [totalProducts, setTotalProducts] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   // Selection states
   const [selectedProducts, setSelectedProducts] = useState<Set<number>>(
@@ -326,15 +328,17 @@ export default function Products() {
   const [lastAssignmentOperation, setLastAssignmentOperation] =
     useState<AssignmentOperation>("assign");
 
-  // Check if more products available
-  const hasMoreProducts = products.length < totalProducts;
+  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize));
+  const showingStart = totalProducts === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingEnd = Math.min(currentPage * pageSize, totalProducts);
 
   // Fetch products with filters
-  const fetchProducts = useCallback(async (page: number, replace: boolean = false) => {
+  const fetchProducts = useCallback(async (page: number = 1, size: number = pageSize) => {
     try {
+      setLoading(true);
       const params: Record<string, string | number | boolean> = {
         page,
-        page_size: PAGE_SIZE,
+        page_size: size,
         is_admin_product: true,
       };
 
@@ -363,7 +367,7 @@ export default function Products() {
       );
 
       const results = response.data.results || [];
-      setProducts((prev) => (replace ? results : [...prev, ...results]));
+      setProducts(results);
       setSelectedProductCache((prev) => {
         const next = new Map(prev);
         results.forEach((product) => next.set(product.id, product));
@@ -378,8 +382,10 @@ export default function Products() {
         description: "Failed to load products",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-  }, [categoryFilter, typeFilter, pharmacyFilter, statusFilter, treatmentTypeFilter, productSearch]);
+  }, [categoryFilter, typeFilter, pharmacyFilter, statusFilter, treatmentTypeFilter, productSearch, pageSize]);
 
   // Initial load
   useEffect(() => {
@@ -400,7 +406,7 @@ export default function Products() {
         setClients(Array.isArray(clientsData) ? clientsData : []);
 
         // Fetch products on page 1
-        await fetchProducts(1, true);
+        await fetchProducts(1, pageSize);
       } catch (error) {
         console.error("Failed to fetch initial data:", error);
         toast({
@@ -418,32 +424,18 @@ export default function Products() {
       setInitialLoadDone(true);
     };
     init();
-  }, [fetchProducts]);
+  }, [fetchProducts, pageSize]);
 
   // Filter change trigger
   useEffect(() => {
     if (!initialLoadDone) return;
 
     const delayDebounceFn = setTimeout(() => {
-      fetchProducts(1, true);
+      fetchProducts(1, pageSize);
     }, 300); // 300ms debounce for search input
 
     return () => clearTimeout(delayDebounceFn);
-  }, [fetchProducts, initialLoadDone]);
-
-  // Load more handler
-  const handleLoadMore = async () => {
-    if (loadingMore || !hasMoreProducts) return;
-
-    try {
-      setLoadingMore(true);
-      await fetchProducts(currentPage + 1, false);
-    } catch (error) {
-      console.error("Failed to load more products:", error);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  }, [fetchProducts, initialLoadDone, pageSize]);
 
   // Filter clients based on search
   const filteredClients = useMemo(() => {
@@ -967,7 +959,7 @@ export default function Products() {
 
   return (
     <div
-      className="px-8 py-7 min-h-screen bg-slate-50/30"
+      className="px-4 py-5 sm:px-8 sm:py-7 min-h-screen bg-slate-50/30"
       style={{
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
       }}
@@ -980,16 +972,16 @@ export default function Products() {
       ` }} />
 
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
             Products
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-500">
             Products <span className="px-1 text-slate-400">›</span> Products
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <button
             onClick={() => {
               if (selectedProducts.size > 0) {
@@ -1003,7 +995,7 @@ export default function Products() {
                 });
               }
             }}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
+            className="flex-1 sm:flex-none justify-center rounded-lg border border-slate-200 bg-white px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
           >
             Assign Product
           </button>
@@ -1012,17 +1004,17 @@ export default function Products() {
               setSelectedProduct(null);
               setIsProductModalOpen(true);
             }}
-            className="flex items-center gap-2 rounded-lg bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2.5 text-sm font-semibold transition-colors outline-none"
+            className="flex-1 sm:flex-none justify-center items-center gap-2 rounded-lg bg-sky-400 hover:bg-sky-500 text-slate-950 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold transition-colors outline-none flex"
           >
             <Plus className="h-4 w-4" /> Create New
           </button>
         </div>
       </div>
 
-      {/* Filters Row */}
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      {/* Filters Grid */}
+      <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7 gap-3 items-end">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Category
           </label>
           <FilterSelect
@@ -1041,7 +1033,7 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Purchase Type
           </label>
           <FilterSelect
@@ -1057,7 +1049,7 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Pharmacy
           </label>
           <FilterSelect
@@ -1076,7 +1068,7 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Status
           </label>
           <FilterSelect
@@ -1092,8 +1084,8 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Treatment Type (New)
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Treatment Type
           </label>
           <FilterSelect
             label="All Treatment Types"
@@ -1119,8 +1111,8 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Visit Type (Legacy)
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Visit Type
           </label>
           <FilterSelect
             label="All Visit Types"
@@ -1133,16 +1125,16 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Search
           </label>
-          <div className="relative">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
               placeholder="Search products..."
-              className="flex min-w-44 items-center justify-between gap-3 rounded-lg border bg-white pl-9 pr-8 py-2.5 text-sm outline-none focus:ring-1 focus:ring-sky-400 focus:border-sky-400 transition-all text-slate-800"
+              className="flex w-full items-center gap-2 rounded-lg border bg-white pl-9 pr-8 py-2.5 text-xs sm:text-sm outline-none focus:ring-1 focus:ring-sky-400 focus:border-sky-400 transition-all text-slate-800"
               style={{
                 borderColor: productSearch ? "#38bdf8" : "#e2e8f0",
                 fontWeight: productSearch ? 600 : 400
@@ -1166,285 +1158,407 @@ export default function Products() {
           statusFilter !== "all" ||
           treatmentTypeFilter !== "all" ||
           productSearch !== "") && (
-          <button
-            onClick={resetFilters}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-slate-600" /> Reset Filters
-          </button>
-        )}
-
-        <span className="ml-auto pb-2.5 text-sm font-medium text-slate-500">
-          Showing {products.length} of {totalProducts}
-        </span>
-      </div>
-
-      {/* Products Table Card */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/50">
-              <th className="px-5 py-3 text-left w-[50px]">
-                <CustomCheckbox
-                  checked={allChecked}
-                  indeterminate={someChecked}
-                  onChange={toggleAllProducts}
-                />
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Name
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Category
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Pharmacy / Manufacturer
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Drug Form
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Status
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Purchase Type
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Treatment Type / Derived Routing (New)
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Restrictions (Legacy)
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Created At
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-[100px]">
-
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white">
-            {displayedProducts.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={11}
-                  className="px-4 py-12 text-center text-sm text-slate-400"
-                >
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <Loader2 className="h-5 w-5 animate-spin mr-2 text-sky-500" />
-                      Fetching products...
-                    </div>
-                  ) : (
-                    "No products match these filters."
-                  )}
-                </td>
-              </tr>
-            ) : (
-              displayedProducts.map((product) => {
-                const isSelected = selectedProducts.has(product.id);
-                return (
-                  <tr
-                    key={product.id}
-                    className="transition-colors cursor-pointer border-b border-slate-100"
-                    style={{
-                      background: isSelected ? "#e3f3fb" : "#fff",
-                    }}
-                    onClick={() => toggleProduct(product)}
-                  >
-                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
-                      <CustomCheckbox
-                        checked={isSelected}
-                        onChange={() => toggleProduct(product)}
-                      />
-                    </td>
-                    <td className="px-4 py-4 font-semibold text-slate-800">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span>{product.name}</span>
-                        {product.is_modified_need_to_re_assigned && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge
-                                  variant="destructive"
-                                  className="text-[10px] h-4 px-1.5 font-bold"
-                                >
-                                  UPDATED
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>You have updated this product.</p>
-                                <p>
-                                  You need to re-assign it to clients to push
-                                  the updates.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <Pill>{product.category_name || "-"}</Pill>
-                    </td>
-                    <td className="px-4 py-4 text-slate-500">
-                      {product.pharmacy_name || "-"}
-                      {product.manufacturer_name && (
-                        <span className="block text-xs mt-0.5 text-slate-400">
-                          {product.manufacturer_name}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-slate-500">
-                      {product.rx_drug_form || "-"}
-                    </td>
-                    <td className="px-4 py-4">
-                      <Badge
-                        variant={product.is_active ? "default" : "secondary"}
-                        className={
-                          product.is_active
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50"
-                            : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-100"
-                        }
-                      >
-                        {product.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-4">
-                      {product.purchase_type ? (
-                        <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {product.product_type === "supply" ? (
-                        <span className="text-xs text-slate-400">Not applicable</span>
-                      ) : product.treatment_type_name ? (
-                        <div className="space-y-1">
-                          <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
-                            {product.treatment_type_name}
-                          </Badge>
-                          {product.treatment_type_is_active === false && (
-                            <Badge variant="outline" className="ml-1 border-amber-200 bg-amber-50 text-amber-700">
-                              Inactive Treatment Type
-                            </Badge>
-                          )}
-                          <div className="text-[10px] text-slate-500">
-                            Intake: {product.derived_intake_visit_type || "Not configured"}
-                          </div>
-                          <div className="text-[10px] text-slate-500">
-                            Follow-up: {product.derived_followup_visit_type || "Not configured"}
-                          </div>
-                        </div>
-                      ) : (
-                        <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
-                          Unassigned
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {product.restrict_visit_types ? (
-                        <div className="flex flex-wrap gap-1">
-                          {(product.allowed_visit_types || []).map((vt: string) => (
-                            <Badge key={vt} variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
-                              {vt}
-                            </Badge>
-                          ))}
-                          {(product.allowed_visit_types || []).length === 0 && (
-                            <span className="text-xs text-amber-600 font-medium">None</span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-xs">Unrestricted</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-slate-500">
-                      {formatDate(product.created_at)}
-                    </td>
-                    <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-3">
-                        <button
-	                          type="button"
-	                          className="hover:opacity-70 text-slate-400 outline-none"
-	                          onClick={() => openEditProduct(product)}
-	                        >
-                          <Pencil className="h-4.5 w-4.5" />
-                        </button>
-                        <button
-                          type="button"
-                          className="hover:opacity-70 text-red-400 outline-none"
-                          onClick={() => handleDelete(product)}
-                        >
-                          <Trash2 className="h-4.5 w-4.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-
-        {/* Load More Trigger */}
-        {hasMoreProducts && (
-          <div className="px-6 py-4 border-t border-slate-100 flex justify-center bg-slate-50/50">
+          <div className="col-span-full xl:col-auto">
             <button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="min-w-[200px] border border-slate-200 bg-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50"
+              onClick={resetFilters}
+              className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
             >
-              {loadingMore ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading...
-                </span>
-              ) : (
-                `Load More (${products.length} of ${totalProducts})`
-              )}
+              <RotateCcw className="h-3.5 w-3.5 text-slate-600" /> Reset Filters
             </button>
           </div>
         )}
       </div>
 
+      {/* Products Data Container (Mobile Cards + Desktop Table) */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        {/* Mobile View (< md) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {displayedProducts.length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-400">
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-sky-500" />
+                  Fetching products...
+                </div>
+              ) : (
+                "No products match these filters."
+              )}
+            </div>
+          ) : (
+            displayedProducts.map((product) => {
+              const isSelected = selectedProducts.has(product.id);
+              return (
+                <div
+                  key={product.id}
+                  onClick={() => toggleProduct(product)}
+                  className={`p-4 transition-colors cursor-pointer space-y-3 ${
+                    isSelected ? "bg-sky-50/70" : "bg-white hover:bg-slate-50/60"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <CustomCheckbox
+                        checked={isSelected}
+                        onChange={() => toggleProduct(product)}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-slate-900 text-sm">{product.name}</span>
+                          {product.is_modified_need_to_re_assigned && (
+                            <Badge variant="destructive" className="text-[10px] h-4 px-1.5 font-bold">
+                              UPDATED
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {product.pharmacy_name || "No Pharmacy"} {product.manufacturer_name ? `• ${product.manufacturer_name}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100"
+                        onClick={() => openEditProduct(product)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="p-1.5 text-red-400 hover:text-red-600 rounded-md hover:bg-red-50"
+                        onClick={() => handleDelete(product)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1 text-xs">
+                    <Pill>{product.category_name || "Uncategorized"}</Pill>
+                    <Badge
+                      variant={product.is_active ? "default" : "secondary"}
+                      className={
+                        product.is_active
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                          : "bg-slate-100 text-slate-600 border border-slate-200"
+                      }
+                    >
+                      {product.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    {product.purchase_type && (
+                      <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
+                    )}
+                    {product.treatment_type_name && (
+                      <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                        {product.treatment_type_name}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop View (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full border-collapse text-sm min-w-[950px]">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/50">
+                <th className="px-5 py-3 text-left w-[50px]">
+                  <CustomCheckbox
+                    checked={allChecked}
+                    indeterminate={someChecked}
+                    onChange={toggleAllProducts}
+                  />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Category
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Pharmacy / Manufacturer
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Drug Form
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Purchase Type
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Treatment Type / Derived Routing (New)
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Restrictions (Legacy)
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Created At
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-[100px]">
+
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {displayedProducts.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={11}
+                    className="px-4 py-12 text-center text-sm text-slate-400"
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 animate-spin mr-2 text-sky-500" />
+                        Fetching products...
+                      </div>
+                    ) : (
+                      "No products match these filters."
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                displayedProducts.map((product) => {
+                  const isSelected = selectedProducts.has(product.id);
+                  return (
+                    <tr
+                      key={product.id}
+                      className="transition-colors cursor-pointer border-b border-slate-100"
+                      style={{
+                        background: isSelected ? "#e3f3fb" : "#fff",
+                      }}
+                      onClick={() => toggleProduct(product)}
+                    >
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                        <CustomCheckbox
+                          checked={isSelected}
+                          onChange={() => toggleProduct(product)}
+                        />
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-slate-800">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span>{product.name}</span>
+                          {product.is_modified_need_to_re_assigned && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant="destructive"
+                                    className="text-[10px] h-4 px-1.5 font-bold"
+                                  >
+                                    UPDATED
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>You have updated this product.</p>
+                                  <p>
+                                    You need to re-assign it to clients to push
+                                    the updates.
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <Pill>{product.category_name || "-"}</Pill>
+                      </td>
+                      <td className="px-4 py-4 text-slate-500">
+                        {product.pharmacy_name || "-"}
+                        {product.manufacturer_name && (
+                          <span className="block text-xs mt-0.5 text-slate-400">
+                            {product.manufacturer_name}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-slate-500">
+                        {product.rx_drug_form || "-"}
+                      </td>
+                      <td className="px-4 py-4">
+                        <Badge
+                          variant={product.is_active ? "default" : "secondary"}
+                          className={
+                            product.is_active
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50"
+                              : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-100"
+                          }
+                        >
+                          {product.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-4">
+                        {product.purchase_type ? (
+                          <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {product.product_type === "supply" ? (
+                          <span className="text-xs text-slate-400">Not applicable</span>
+                        ) : product.treatment_type_name ? (
+                          <div className="space-y-1">
+                            <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                              {product.treatment_type_name}
+                            </Badge>
+                            {product.treatment_type_is_active === false && (
+                              <Badge variant="outline" className="ml-1 border-amber-200 bg-amber-50 text-amber-700">
+                                Inactive Treatment Type
+                              </Badge>
+                            )}
+                            <div className="text-[10px] text-slate-500">
+                              Intake: {product.derived_intake_visit_type || "Not configured"}
+                            </div>
+                            <div className="text-[10px] text-slate-500">
+                              Follow-up: {product.derived_followup_visit_type || "Not configured"}
+                            </div>
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+                            Unassigned
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {product.restrict_visit_types ? (
+                          <div className="flex flex-wrap gap-1">
+                            {(product.allowed_visit_types || []).map((vt: string) => (
+                              <Badge key={vt} variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                                {vt}
+                              </Badge>
+                            ))}
+                            {(product.allowed_visit_types || []).length === 0 && (
+                              <span className="text-xs text-amber-600 font-medium">None</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Unrestricted</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-slate-500">
+                        {formatDate(product.created_at)}
+                      </td>
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            className="hover:opacity-70 text-slate-400 outline-none"
+                            onClick={() => openEditProduct(product)}
+                          >
+                            <Pencil className="h-4.5 w-4.5" />
+                          </button>
+                          <button
+                            type="button"
+                            className="hover:opacity-70 text-red-400 outline-none"
+                            onClick={() => handleDelete(product)}
+                          >
+                            <Trash2 className="h-4.5 w-4.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Server Pagination Footer */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6 py-4 border-t border-slate-200 bg-slate-50/50">
+          <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-500">
+            <span>
+              Showing {showingStart}-{showingEnd} of {totalProducts}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline">Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const newSize = Number(e.target.value);
+                  setPageSize(newSize);
+                  fetchProducts(1, newSize);
+                }}
+                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none focus:border-sky-400"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs sm:text-sm text-slate-600 font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => fetchProducts(currentPage - 1)}
+                disabled={currentPage <= 1 || loading}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => fetchProducts(currentPage + 1)}
+                disabled={currentPage >= totalPages || loading}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Floating Action Bar */}
       {selectedProducts.size > 0 && (
         <div
-          className="fixed bottom-7 left-1/2 z-40 flex items-center gap-4 rounded-2xl px-5 py-3 shadow-2xl bg-slate-950"
+          className="fixed bottom-4 left-1/2 z-40 flex w-[calc(100vw-2rem)] max-w-lg items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-2xl bg-slate-950 text-xs sm:text-sm"
           style={{
             animation: "barIn .2s cubic-bezier(.2,.8,.3,1)",
             transform: "translateX(-50%)",
           }}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <span
-              className="flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-bold bg-sky-400 text-slate-950"
+              className="flex h-6 min-w-6 sm:h-7 sm:min-w-7 items-center justify-center rounded-full px-1.5 text-xs font-bold bg-sky-400 text-slate-950"
             >
               {selectedProducts.size}
             </span>
-            <span className="text-sm font-medium text-white">
+            <span className="font-medium text-white truncate">
               {selectedProducts.size} product{selectedProducts.size > 1 ? "s" : ""} selected
             </span>
           </div>
-          <div className="h-5 w-px bg-slate-800" />
-          <button
-            onClick={() => setSelectedProducts(new Set())}
-            className="text-sm font-medium text-slate-400 hover:text-white transition-colors outline-none"
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => {
-              setSelectedClients(new Set());
-              setClientSearch("");
-              setIsAssignModalOpen(true);
-            }}
-            className="flex items-center gap-2 rounded-xl bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2 text-sm font-semibold transition-colors outline-none"
-          >
-            <Users className="h-4 w-4" />
-            Assign to Clients
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setSelectedProducts(new Set())}
+              className="font-medium text-slate-400 hover:text-white transition-colors outline-none px-2"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => {
+                setSelectedClients(new Set());
+                setClientSearch("");
+                setIsAssignModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-sky-400 hover:bg-sky-500 text-slate-950 px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors outline-none"
+            >
+              <Users className="h-4 w-4" />
+              Assign
+            </button>
+          </div>
         </div>
       )}
 
@@ -1456,7 +1570,7 @@ export default function Products() {
         onSuccess={() => {
           setIsProductModalOpen(false);
           setSelectedProduct(null);
-          fetchProducts(1, true); // reload page 1
+          fetchProducts(1, pageSize); // reload page 1
         }}
       />
 
