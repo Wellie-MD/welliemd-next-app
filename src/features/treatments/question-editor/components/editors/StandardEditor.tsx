@@ -44,7 +44,7 @@ export function StandardEditor({
   const [uploadConfig, setUploadConfig] = useState({
     upload_type: "general",
     max_file_size_mb: 10,
-    allowed_extensions: [".jpg", ".jpeg", ".png", ".pdf"],
+    allowed_extensions: [".jpg", ".jpeg", ".png", ".heic", ".pdf"],
   });
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -72,10 +72,10 @@ export function StandardEditor({
           max_file_size_mb: Number(config.max_file_size_mb || 10),
           allowed_extensions: Array.isArray(config.allowed_extensions)
             ? config.allowed_extensions.map(String)
-            : [".jpg", ".jpeg", ".png", ".pdf"],
+            : [".jpg", ".jpeg", ".png", ".heic", ".pdf"],
         });
       } else {
-        setUploadConfig({ upload_type: "general", max_file_size_mb: 10, allowed_extensions: [".jpg", ".jpeg", ".png", ".pdf"] });
+        setUploadConfig({ upload_type: "general", max_file_size_mb: 10, allowed_extensions: [".jpg", ".jpeg", ".png", ".heic", ".pdf"] });
       }
 
       if (activeQuestion.visibilityRuleGroup) {
@@ -100,7 +100,7 @@ export function StandardEditor({
       setChoices(["Option 1", "Option 2"]);
       setDqChoices([]);
       setConsentText("");
-      setUploadConfig({ upload_type: "general", max_file_size_mb: 10, allowed_extensions: [".jpg", ".jpeg", ".png", ".pdf"] });
+      setUploadConfig({ upload_type: "general", max_file_size_mb: 10, allowed_extensions: [".jpg", ".jpeg", ".png", ".heic", ".pdf"] });
       setVisibilityRuleGroup(undefined);
       setRequired(true);
       setIncludeInQa(true);

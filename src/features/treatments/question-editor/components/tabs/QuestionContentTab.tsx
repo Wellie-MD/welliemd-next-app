@@ -192,7 +192,10 @@ export function QuestionContentTab({
                 min={1}
                 max={100}
                 value={uploadConfig.max_file_size_mb}
-                onChange={(event) => setUploadConfig({ ...uploadConfig, max_file_size_mb: Math.max(1, Number(event.target.value) || 1) })}
+                onChange={(event) => setUploadConfig({
+                  ...uploadConfig,
+                  max_file_size_mb: Math.min(100, Math.max(1, Number(event.target.value) || 1)),
+                })}
                 className="h-10 font-normal"
                 data-testid="file-upload-max-size"
               />
@@ -205,6 +208,10 @@ export function QuestionContentTab({
                 <label key={extension} className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
                   <Checkbox
                     checked={uploadConfig.allowed_extensions.includes(extension)}
+                    disabled={
+                      uploadConfig.allowed_extensions.includes(extension)
+                      && uploadConfig.allowed_extensions.length === 1
+                    }
                     onCheckedChange={(checked) => {
                       const next = checked
                         ? [...uploadConfig.allowed_extensions, extension]
