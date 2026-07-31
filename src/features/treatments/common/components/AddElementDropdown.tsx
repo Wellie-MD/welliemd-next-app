@@ -87,7 +87,7 @@ export function AddElementDropdown({
       iconClass: "bg-violet-100 text-violet-600 border-violet-100",
     },
     {
-      label: "Checkout",
+      label: "Product Display",
       description: "Show the patient available products and let them pick a regimen.",
       onClick: onAddCheckout,
       icon: ShoppingCart,
