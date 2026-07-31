@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
 import type { TreatmentType } from "@/features/treatments/types";
 
 export type ProgramsViewMode = "cards" | "list";
-export type ProgramTabFilter = "all" | "intake" | "follow_up";
+export type ProgramTabFilter = "all" | "intake" | "follow_up" | "missing_follow_up";
 export type ProgramStatusFilter = "all" | "draft" | "published";
 
 interface ProgramsFiltersProps {
@@ -26,7 +26,10 @@ interface ProgramsFiltersProps {
 }
 
 const tabs: Array<[ProgramTabFilter, string]> = [
-  ["all", "All Programs"], ["intake", "Intake Programs"], ["follow_up", "Follow-up Programs"],
+  ["all", "All Programs"],
+  ["intake", "Intake Programs"],
+  ["follow_up", "Follow-up Programs"],
+  ["missing_follow_up", "Missing Follow-up"],
 ];
 
 export function ProgramsFilters(props: ProgramsFiltersProps) {
