@@ -249,7 +249,7 @@ export default function SmsAnalytics() {
       </Card>
 
       <Dialog open={Boolean(selectedDelivery)} onOpenChange={(open) => !open && setSelectedDelivery(null)}>
-        <DialogContent showCloseButton={false} className="max-w-2xl gap-0 overflow-hidden p-0">
+        <DialogContent showCloseButton={false} className="max-w-2xl gap-0 overflow-hidden p-0 [&>button.absolute]:hidden">
           <div className="flex items-start justify-between gap-4 border-b bg-card px-5 py-4">
             <div className="min-w-0"><DialogTitle>{selectedDelivery?.template_label}</DialogTitle><div className="mt-1 truncate text-xs text-muted-foreground">To {selectedDelivery?.recipient_name} {selectedDelivery?.recipient_phone} · {formatDate(selectedDelivery?.queued_at)}</div></div>
             <div className="flex shrink-0 items-center gap-3">{selectedDelivery?.status && <StatusBadge status={selectedDelivery.status} />}<DialogClose asChild><Button type="button" variant="outline" size="sm">Close</Button></DialogClose></div>
