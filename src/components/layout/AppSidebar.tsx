@@ -79,6 +79,8 @@ const menuSections = [
         icon: TrendingUp,
         children: [
           { title: "Live View", url: "/dashboard/analytics/live" },
+          { title: "Email", url: "/dashboard/analytics/email" },
+          { title: "SMS", url: "/dashboard/analytics/sms" },
           { title: "Reports", url: "/dashboard/analytics/reports" },
           // { title: "Cohorts", url: "/dashboard/analytics/cohorts" },
         ],
