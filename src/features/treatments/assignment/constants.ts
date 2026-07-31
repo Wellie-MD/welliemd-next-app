@@ -107,6 +107,20 @@ export function assignmentOperationErrorMessage(code?: string, step?: string): s
   return "The assignment could not be completed. Review the failed step and its dependency details, correct the indicated Program, Product, Lab, or client configuration, then retry. If no dependency is identified, contact support with the Correlation ID.";
 }
 
+/**
+ * Historical assignment operations may contain an exact backend validation
+ * detail but no structured issue list. Show that detail only for the known
+ * checkout configuration contract; do not render arbitrary transport errors.
+ */
+export function assignmentOperationDetailMessage(detail?: string): string | null {
+  const value = detail?.trim();
+  if (!value) return null;
+  if (/^Checkout question \d+,\s*Product option \d+:/i.test(value)) {
+    return value;
+  }
+  return null;
+}
+
 export const DEPENDENCY_LABELS: Record<string, string> = {
   treatment_type: "Treatment Types",
   product: "Products",
