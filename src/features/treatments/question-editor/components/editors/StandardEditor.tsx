@@ -41,6 +41,11 @@ export function StandardEditor({
   const [lockClientChanges, setLockClientChanges] = useState(true);
   const [prefillFromPrevious, setPrefillFromPrevious] = useState(false);
   const [consentText, setConsentText] = useState("");
+  const [uploadConfig, setUploadConfig] = useState({
+    upload_type: "general",
+    max_file_size_mb: 10,
+    allowed_extensions: [".jpg", ".jpeg", ".png", ".pdf"],
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
@@ -56,6 +61,22 @@ export function StandardEditor({
       setChoices(activeQuestion.choices || []);
       setDqChoices(activeQuestion.dqChoices || []);
       setConsentText(activeQuestion.consentText || "");
+      const configuredUpload = (
+        activeQuestion.elementConfig?.uploadConfig
+        || activeQuestion.elementConfig?.upload_config
+      );
+      if (configuredUpload && typeof configuredUpload === "object") {
+        const config = configuredUpload as Record<string, unknown>;
+        setUploadConfig({
+          upload_type: String(config.upload_type || "general"),
+          max_file_size_mb: Number(config.max_file_size_mb || 10),
+          allowed_extensions: Array.isArray(config.allowed_extensions)
+            ? config.allowed_extensions.map(String)
+            : [".jpg", ".jpeg", ".png", ".pdf"],
+        });
+      } else {
+        setUploadConfig({ upload_type: "general", max_file_size_mb: 10, allowed_extensions: [".jpg", ".jpeg", ".png", ".pdf"] });
+      }
 
       if (activeQuestion.visibilityRuleGroup) {
         setVisibilityRuleGroup(activeQuestion.visibilityRuleGroup);
@@ -79,6 +100,7 @@ export function StandardEditor({
       setChoices(["Option 1", "Option 2"]);
       setDqChoices([]);
       setConsentText("");
+      setUploadConfig({ upload_type: "general", max_file_size_mb: 10, allowed_extensions: [".jpg", ".jpeg", ".png", ".pdf"] });
       setVisibilityRuleGroup(undefined);
       setRequired(true);
       setIncludeInQa(true);
@@ -143,6 +165,10 @@ export function StandardEditor({
       choices: isChoiceType ? choices : undefined,
       dqChoices: isChoiceType ? dqChoices : undefined,
       consentText: questionType === "consent" ? consentText : undefined,
+      elementConfig: {
+        ...(activeQuestion?.elementConfig || {}),
+        ...(questionType === "file_upload" ? { uploadConfig } : {}),
+      },
       visibilityRuleGroup: visibilityRuleGroup,
     };
     setIsSaving(true);
@@ -192,6 +218,8 @@ export function StandardEditor({
               handleToggleDqChoice={handleToggleDqChoice}
               consentText={consentText}
               setConsentText={setConsentText}
+              uploadConfig={uploadConfig}
+              setUploadConfig={setUploadConfig}
             />
             <div className="h-px bg-slate-100 w-full" />
             <QuestionVisibilityTab

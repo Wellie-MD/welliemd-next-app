@@ -52,7 +52,6 @@ const QUESTION_TYPE_GROUPS: Array<{
   {
     label: "Beluga Mapped",
     options: [
-      { value: "sex", label: "Sex (Beluga Mapped)" },
       { value: "self_reported_meds", label: "Self Reported Medications (Beluga Mapped)" },
       { value: "allergies", label: "Allergies (Beluga Mapped)" },
       { value: "medical_conditions", label: "Medical Conditions (Beluga Mapped)" },

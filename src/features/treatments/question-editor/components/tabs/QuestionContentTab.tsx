@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, FileText, Plus } from "lucide-react";
 import type { QuestionKind } from "@/features/treatments/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const KIND_PATIENT_VIEW: Partial<Record<QuestionKind, string>> = {
   text: "Short text input",
@@ -36,6 +37,16 @@ interface QuestionContentTabProps {
   handleToggleDqChoice: (choice: string) => void;
   consentText: string;
   setConsentText: (val: string) => void;
+  uploadConfig: {
+    upload_type: string;
+    max_file_size_mb: number;
+    allowed_extensions: string[];
+  };
+  setUploadConfig: (val: {
+    upload_type: string;
+    max_file_size_mb: number;
+    allowed_extensions: string[];
+  }) => void;
 }
 
 export function QuestionContentTab({
@@ -50,6 +61,8 @@ export function QuestionContentTab({
   handleToggleDqChoice,
   consentText,
   setConsentText,
+  uploadConfig,
+  setUploadConfig,
 }: QuestionContentTabProps) {
   const isChoiceType = kind === "single_choice" || kind === "multiple_choice";
 
@@ -146,6 +159,64 @@ export function QuestionContentTab({
               />
             </div>
           </div>
+        </div>
+      ) : kind === "file_upload" ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">Upload settings</h4>
+            <p className="mt-1 text-xs text-slate-500">
+              These settings are used by the patient questionnaire and validated again by the server.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+              Upload purpose
+              <select
+                value={uploadConfig.upload_type}
+                onChange={(event) => setUploadConfig({ ...uploadConfig, upload_type: event.target.value })}
+                className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-normal"
+                data-testid="file-upload-purpose"
+              >
+                <option value="general">General document</option>
+                <option value="prescription">Prescription</option>
+                <option value="photo_id">Photo ID</option>
+                <option value="insurance_card">Insurance card</option>
+                <option value="medical_records">Medical records</option>
+                <option value="lab_results">Lab results</option>
+              </select>
+            </label>
+            <label className="space-y-1.5 text-sm font-semibold text-slate-700">
+              Maximum file size (MB)
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={uploadConfig.max_file_size_mb}
+                onChange={(event) => setUploadConfig({ ...uploadConfig, max_file_size_mb: Math.max(1, Number(event.target.value) || 1) })}
+                className="h-10 font-normal"
+                data-testid="file-upload-max-size"
+              />
+            </label>
+          </div>
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-slate-700">Allowed file types</legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {[".jpg", ".jpeg", ".png", ".pdf", ".heic"].map((extension) => (
+                <label key={extension} className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+                  <Checkbox
+                    checked={uploadConfig.allowed_extensions.includes(extension)}
+                    onCheckedChange={(checked) => {
+                      const next = checked
+                        ? [...uploadConfig.allowed_extensions, extension]
+                        : uploadConfig.allowed_extensions.filter((item) => item !== extension);
+                      setUploadConfig({ ...uploadConfig, allowed_extensions: next });
+                    }}
+                  />
+                  {extension.replace(".", "").toUpperCase()}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
       ) : kind === "consent" ? (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden p-6 space-y-3">

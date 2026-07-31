@@ -6,6 +6,8 @@ import {
 } from "@/components/questionnaires/VisibilityRuleBuilder";
 import {
   fromBuilderGroup,
+  PATIENT_PROFILE_AGE_ID,
+  PATIENT_PROFILE_SEX_ID,
   toBuilderGroup,
 } from "@/features/treatments/utils/visibilityBuilderAdapters";
 import type { ProgramQuestion, VisibilityRule, VisibilityRuleGroup } from "@/features/treatments/types";
@@ -65,6 +67,19 @@ export function QuestionVisibilityTab({
   }
 
   builderQuestions.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+  builderQuestions.push(
+    {
+      id: PATIENT_PROFILE_SEX_ID,
+      question_text: "Patient profile — Sex assigned at birth",
+      order_index: 10000,
+      answer_choices: ["Male", "Female", "Other"],
+    },
+    {
+      id: PATIENT_PROFILE_AGE_ID,
+      question_text: "Patient profile — Age",
+      order_index: 10001,
+    },
+  );
 
   const hasRules = !!visibilityRuleGroup && (
     (visibilityRuleGroup.rules?.length || 0) > 0 || (visibilityRuleGroup.subgroups || []).length > 0

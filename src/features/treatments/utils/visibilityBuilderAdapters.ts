@@ -12,6 +12,9 @@ const isMultiValueOperator = (operator: VisibilityRule["operator"]): boolean =>
 const isBetweenOperator = (operator: VisibilityRule["operator"]): boolean =>
   operator === "between";
 
+export const PATIENT_PROFILE_SEX_ID = "__patient_profile_sex__";
+export const PATIENT_PROFILE_AGE_ID = "__patient_profile_age__";
+
 const normalizeRuleValues = (value: unknown): string[] => {
   if (Array.isArray(value)) {
     return value.map((item) => String(item).trim()).filter(Boolean);
@@ -32,14 +35,17 @@ export const toBuilderGroup = (
     children: [
       ...(group.rules || []).map<VisibilityCondition>((rule) => ({
         type: "condition",
-        question_id: rule.questionId,
+        question_id:
+          rule.source === "patient_profile" && rule.field === "sex"
+            ? PATIENT_PROFILE_SEX_ID
+            : rule.source === "patient_profile" && rule.field === "age"
+            ? PATIENT_PROFILE_AGE_ID
+            : rule.questionId,
         question_type: rule.question_type,
         operator: rule.operator,
-        value: isBetweenOperator(rule.operator)
+        value: isBetweenOperator(rule.operator) || isMultiValueOperator(rule.operator)
           ? normalizeRuleValues(rule.value)
-          : isMultiValueOperator(rule.operator)
-          ? normalizeRuleValues(rule.value)
-          : rule.value,
+          : normalizeRuleValues(rule.value).join(","),
       })),
       ...(group.subgroups || []).map(toBuilderGroup),
     ],
@@ -73,11 +79,20 @@ export const fromBuilderGroup = (group: VisibilityGroup): VisibilityRuleGroup =>
       value = String(child.value || "");
     }
 
+    const isPatientProfileSex = child.question_id === PATIENT_PROFILE_SEX_ID;
+    const isPatientProfileAge = child.question_id === PATIENT_PROFILE_AGE_ID;
     rules.push({
       questionId: child.question_id,
       question_type: child.question_type,
       operator: child.operator,
       value,
+      ...(isPatientProfileSex || isPatientProfileAge
+        ? {
+            source: "patient_profile" as const,
+            field: isPatientProfileSex ? "sex" : "age",
+            questionId: child.question_id,
+          }
+        : {}),
     });
   });
 

@@ -25,6 +25,28 @@ interface SectionModalProps {
   section?: CommonSection | null;
 }
 
+const sectionSaveErrorMessage = (error: unknown): string => {
+  const data = (error as { response?: { data?: unknown } })?.response?.data;
+  if (typeof data === "string" && data.trim()) return data;
+  if (data && typeof data === "object") {
+    const body = data as Record<string, unknown>;
+    const direct = [body.detail, body.message, body.error].find(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    );
+    if (direct) return direct;
+    const fieldMessages = Object.entries(body)
+      .flatMap(([field, value]) => {
+        if (Array.isArray(value)) return value.map((item) => `${field}: ${String(item)}`);
+        if (typeof value === "string") return [`${field}: ${value}`];
+        return [];
+      })
+      .filter(Boolean);
+    if (fieldMessages.length) return fieldMessages.join(" ");
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return "The section could not be saved. Review the section scope and Visit Type selections.";
+};
+
 export function SectionModal({ open, onOpenChange, section }: SectionModalProps) {
   const { mutate: saveSection, isPending } = useSaveSection();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
@@ -57,9 +79,10 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
   const isVisitTypeScoped = scope === "visit_type";
   const title = section ? "Edit Section" : "Create Section";
   const submitLabel = section ? "Save Changes" : "Create Section";
+  const nameTooLong = name.trim().length > 200;
 
   const canSubmit = useMemo(() => {
-    if (!name.trim() || !scope) return false;
+    if (!name.trim() || nameTooLong || !scope) return false;
     if (isVisitTypeScoped && visitTypeKeys.length === 0) return false;
     return true;
   }, [isVisitTypeScoped, name, scope, visitTypeKeys]);
@@ -81,7 +104,11 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
     if (!canSubmit || !scope) {
       toast({
         title: "Validation Error",
-        description: "Section name and scope are required.",
+        description: nameTooLong
+          ? "Section names must be 200 characters or fewer."
+          : isVisitTypeScoped && visitTypeKeys.length === 0
+            ? "Select at least one Visit Type. Visit Types come from Treatment Type routes."
+            : "Section name and scope are required.",
         variant: "destructive",
       });
       return;
@@ -104,10 +131,10 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
         });
         onOpenChange(false);
       },
-      onError: () => {
+      onError: (error) => {
         toast({
           title: "Save Failed",
-          description: "The section could not be saved.",
+          description: sectionSaveErrorMessage(error),
           variant: "destructive",
         });
       },
@@ -137,7 +164,11 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
                 placeholder="e.g., Medical Baseline, Identity Verification"
                 className="h-10 border-slate-300 text-sm"
                 data-testid="section-name-input"
+                maxLength={200}
               />
+              <p className={cn("text-xs", nameTooLong ? "text-red-600" : "text-slate-500")}>
+                {name.trim().length}/200 characters
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -228,7 +259,7 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
                 )}
 
                 <p className="text-xs text-slate-500">
-                  This section will appear for patients on any of the selected Visit Types.
+                  This section will appear for patients on any selected Visit Type. Visit Types are read-only routes supplied by Treatment Type configuration.
                 </p>
               </div>
             ) : null}

@@ -50,11 +50,13 @@ export function AuthSetupModal({
         </DialogHeader>
 
         <div className="py-4">
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-800">
-            New-patient account creation collects the required profile fields
-            and legal acknowledgements. Existing patients reuse their saved
-            profile and only complete fields that are missing.
-          </div>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-blue-800">
+            New-patient account creation collects name, phone, date of birth,
+            sex assigned at birth, and the required legal acknowledgements.
+            Existing patients reuse their saved profile and only complete
+            fields that are missing. Do not add duplicate DOB or sex questions
+            to the clinical flow.
+            </div>
         </div>
 
         <DialogFooter className="border-t border-slate-100 pt-4 flex gap-2 justify-end">

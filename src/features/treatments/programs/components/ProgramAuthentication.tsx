@@ -15,6 +15,8 @@ export function ProgramAuthentication() {
         <p className="mt-1 max-w-2xl text-[11px] font-medium leading-relaxed text-slate-400">
           Required first step for every intake. Patients enter their email,
           then existing patients sign in and new patients create an account.
+          New-patient account creation collects date of birth and sex assigned
+          at birth once; existing patients reuse those saved profile values.
         </p>
       </div>
     </section>

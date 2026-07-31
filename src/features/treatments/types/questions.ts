@@ -59,7 +59,9 @@ export interface VisibilityRule {
   operator: VisibilityRuleOperator;
   /** For "in"/"not_in" the value is a comma-separated list of choices.
       For "between" the value is "min,max". */
-  value: string;
+  value: string | string[];
+  source?: "answer" | "patient_profile";
+  field?: string;
 }
 
 export interface VisibilityRuleGroup {
