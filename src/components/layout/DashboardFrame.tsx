@@ -22,7 +22,6 @@ import OrderDetail from "@/pages/OrderDetail";
 import Payments from "@/pages/Payments";
 import AnalyticsCohorts from "@/pages/AnalyticsCohorts";
 import AnalyticsReports from "@/pages/AnalyticsReports";
-import EmailAnalytics from "@/pages/EmailAnalytics";
 import SmsAnalytics from "@/pages/SmsAnalytics";
 import CouponInsights from "@/pages/CouponInsights";
 import Billing from "@/pages/Billing";
@@ -185,7 +184,6 @@ export default function DashboardFrame() {
                 }
               />
               <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-              <Route path="/analytics/email" element={<ProtectedRoute><EmailAnalytics /></ProtectedRoute>} />
               <Route path="/analytics/sms" element={<ProtectedRoute><SmsAnalytics /></ProtectedRoute>} />
               <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
               <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
