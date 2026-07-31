@@ -11,6 +11,7 @@ export interface SmsAnalyticsStats {
   delivered: number;
   pending: number;
   failed: number;
+  canceled: number;
   queued: number;
   undelivered: number;
   delivery_rate: number;
