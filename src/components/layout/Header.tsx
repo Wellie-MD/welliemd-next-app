@@ -16,9 +16,8 @@ import { useAuthStore } from "@/store/useAuthStore"
 import { authService } from "@/services/authService"
 import api from "@/api/axiosInstance"
 import { useNavigate } from "react-router-dom"
-import { useSidebar } from "../ui/sidebar"
+import { useSidebar, SidebarTrigger } from "../ui/sidebar"
 import { useClients } from "@/hooks/useClients"
-// import { SidebarTrigger } from "../ui/sidebar"
 
 const formatNotificationTime = (raw: string): string => {
   if (!raw) return ""
@@ -33,6 +32,7 @@ export function Header() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const { clients } = useClients()
+  const { state, isMobile } = useSidebar()
   const [items, setItems] = useState<Array<{
     id: string
     title: string
@@ -63,8 +63,6 @@ export function Header() {
   const handleLogoClick = () => {
     navigate('/')
   }
-
-  const { state } = useSidebar()
 
   useEffect(() => {
     let cancelled = false
@@ -226,19 +224,17 @@ export function Header() {
   }
 
   return (
-    <header className="h-[52px] bg-[hsl(var(--healthcare-header))] text-white flex items-center justify-between border-b border-white/[0.06] px-7 max-[900px]:px-3.5">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-           {state === "collapsed" && (
+    <header className="h-[52px] bg-[hsl(var(--healthcare-header))] text-white flex items-center justify-between border-b border-white/[0.06] px-4 md:px-7">
+      <div className="flex items-center gap-3">
+        <SidebarTrigger className="md:hidden text-slate-300 hover:bg-white/10 hover:text-white" />
+        {(state === "collapsed" || isMobile) && (
           <img 
             src="/welliemd_dark_logo_transparent.png"
             alt="Welliemd"
             className="h-7 w-auto cursor-pointer"
             onClick={handleLogoClick}
           />
-           )}
-        </div>
-        {/* <SidebarTrigger className="text-white-600 hover:bg-white/50 rounded-md p-1" /> */}
+        )}
       </div>
 
       <div className="flex-1 max-w-[280px] mx-4">
@@ -246,9 +242,9 @@ export function Header() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
           <Input
             placeholder="Search"
-            className="h-8 rounded-md border-white/10 bg-white/[0.07] pl-9 pr-14 text-[13px] text-white placeholder:text-white/35 focus-visible:border-white/20 focus-visible:ring-1 focus-visible:ring-white/20"
+            className="h-8 rounded-md border-white/10 bg-white/[0.07] pl-9 pr-3 sm:pr-14 text-[13px] text-white placeholder:text-white/35 focus-visible:border-white/20 focus-visible:ring-1 focus-visible:ring-white/20"
           />
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <div className="hidden sm:block absolute right-3 top-1/2 transform -translate-y-1/2">
             <kbd className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white/60">
               Ctrl K
             </kbd>
@@ -256,7 +252,7 @@ export function Header() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center sm:gap-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="icon" variant="ghost" className="relative h-8 w-8 text-slate-200 hover:bg-white/10 hover:text-white">

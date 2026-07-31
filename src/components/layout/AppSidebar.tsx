@@ -175,12 +175,12 @@ type SidebarItem = {
 };
 
 export function AppSidebar() {
-  const { state } = useSidebar()
+  const { state, isMobile } = useSidebar()
   const location = useLocation()
   const currentPath = location.pathname
   const [openSections, setOpenSections] = useState<string[]>([])
 
-  const collapsed = state === "collapsed"
+  const collapsed = state === "collapsed" && !isMobile
 
   // Auto-open sections when a child is active
   useEffect(() => {
@@ -232,9 +232,9 @@ export function AppSidebar() {
   }
 
   function SidebarLogo() {
-    const { state } = useSidebar()
+    const { state, isMobile } = useSidebar()
 
-    if (state === "collapsed") return null
+    if (state === "collapsed" && !isMobile) return null
 
     return (
       <img

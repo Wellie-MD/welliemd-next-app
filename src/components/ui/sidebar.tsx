@@ -189,7 +189,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-[--sidebar-width] bg-[hsl(var(--healthcare-sidebar))] p-0 text-sidebar-foreground [&>button]:hidden border-r border-white/[0.06]"
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -258,7 +258,7 @@ const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar, state} = useSidebar()
+  const { toggleSidebar, state, isMobile, openMobile } = useSidebar()
 
   return (
     <Button
@@ -273,12 +273,13 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      {state === "expanded" ? (
+      {isMobile ? (
+        openMobile ? <X className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />
+      ) : state === "expanded" ? (
         <X className="h-4 w-4" />
       ) : (
         <ChevronsRight className="h-4 w-4" />
       )}
-      {/* <PanelLeft /> */}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )
