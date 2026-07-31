@@ -627,13 +627,6 @@ export default function SmtpDomainSettings() {
             <Globe className="w-4 h-4" />
             DNS
           </TabsTrigger>
-          <TabsTrigger
-            value="tracking"
-            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Tracking
-          </TabsTrigger>
           <TabsTrigger 
             value="spf" 
             className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
