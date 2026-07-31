@@ -170,7 +170,7 @@ export type AssignmentIssue = {
     label: string;
   };
   action: string;
-  action_route: string;
+  action_route?: string;
   context: {
     program_name?: string;
     product_name?: string | null;
