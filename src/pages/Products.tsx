@@ -1167,6 +1167,10 @@ export default function Products() {
             </button>
           </div>
         )}
+
+        <span className="ml-auto pb-2.5 text-sm font-medium text-slate-500">
+          Showing {products.length} of {totalProducts}
+        </span>
       </div>
 
       {/* Products Data Container (Mobile Cards + Desktop Table) */}
