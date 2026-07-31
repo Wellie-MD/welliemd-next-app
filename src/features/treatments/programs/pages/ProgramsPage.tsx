@@ -359,6 +359,14 @@ export default function ProgramsPage() {
   };
 
   // Filtered & sorted programs for program-level card view
+  const missingFollowUpTreatmentKeys = useMemo(() => {
+    return new Set(
+      treatmentTypes
+        .filter(t => !activePrograms.some(p => p.treatmentTypeKey === t.key && p.stage === "follow_up"))
+        .map(t => t.key)
+    );
+  }, [treatmentTypes, activePrograms]);
+
   const filteredPrograms = useMemo(() => {
     let result = [...activePrograms];
 
@@ -366,6 +374,8 @@ export default function ProgramsPage() {
       result = result.filter(p => p.stage === "intake");
     } else if (activeTab === "follow_up") {
       result = result.filter(p => p.stage === "follow_up");
+    } else if (activeTab === "missing_follow_up") {
+      result = result.filter(p => missingFollowUpTreatmentKeys.has(p.treatmentTypeKey));
     }
 
     if (searchQuery.trim()) {
@@ -393,7 +403,7 @@ export default function ProgramsPage() {
     }
 
     return result;
-  }, [activePrograms, activeTab, searchQuery, selectedStatus, selectedTreatment, sortBy]);
+  }, [activePrograms, activeTab, missingFollowUpTreatmentKeys, searchQuery, selectedStatus, selectedTreatment, sortBy]);
 
   // Flat program list for the list view (search-filtered, sorted)
   const listViewPrograms = useMemo(() => {
@@ -403,6 +413,8 @@ export default function ProgramsPage() {
       result = result.filter(p => p.stage === "intake");
     } else if (activeTab === "follow_up") {
       result = result.filter(p => p.stage === "follow_up");
+    } else if (activeTab === "missing_follow_up") {
+      result = result.filter(p => missingFollowUpTreatmentKeys.has(p.treatmentTypeKey));
     }
 
     if (searchQuery.trim()) {
@@ -430,7 +442,7 @@ export default function ProgramsPage() {
     }
 
     return result;
-  }, [activePrograms, activeTab, searchQuery, selectedStatus, selectedTreatment, sortBy]);
+  }, [activePrograms, activeTab, missingFollowUpTreatmentKeys, searchQuery, selectedStatus, selectedTreatment, sortBy]);
 
   const displayedPrograms = viewMode === "list" ? listViewPrograms : filteredPrograms;
   const totalPages = Math.max(1, Math.ceil(displayedPrograms.length / pageSize));
@@ -492,26 +504,56 @@ export default function ProgramsPage() {
         }
       />
 
-      {/* Metric Cards Row (existing content kept) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-center">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-            TOTAL PROGRAMS
-          </span>
-          <span className="text-2xl font-bold text-blue-600">
-            {totalPrograms}
-          </span>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-center relative">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="h-2 w-2 rounded-full bg-slate-300"></span>
-            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-              MISSING FOLLOW-UP
-            </span>
+      {/* Metric / Stat Summary Strip (Matching Prototype tx-summary) */}
+      <div className="flex flex-col sm:flex-row bg-white border border-slate-200 rounded-xl overflow-hidden mt-6 mb-5 shadow-sm">
+        <div
+          onClick={() => {
+            setActiveTab("all");
+            setSelectedStatus("all");
+            setSelectedTreatment("all");
+          }}
+          className={`flex-1 px-4 py-3.5 cursor-pointer border-b sm:border-b-0 sm:border-r border-slate-100 transition-colors hover:bg-slate-50/80 ${
+            activeTab === "all" ? "bg-blue-50/70" : ""
+          }`}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              setActiveTab("all");
+              setSelectedStatus("all");
+              setSelectedTreatment("all");
+            }
+          }}
+        >
+          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            Total treatments
           </div>
-          <span className="text-2xl font-bold text-slate-900">
+          <div className={`text-2xl font-semibold leading-none ${activeTab === "all" ? "text-blue-600" : "text-slate-900"}`}>
+            {totalPrograms}
+          </div>
+        </div>
+        <div
+          onClick={() => {
+            setActiveTab("missing_follow_up");
+          }}
+          className={`flex-1 px-4 py-3.5 cursor-pointer transition-colors hover:bg-slate-50/80 ${
+            activeTab === "missing_follow_up" ? "bg-blue-50/70" : ""
+          }`}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              setActiveTab("missing_follow_up");
+            }
+          }}
+        >
+          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-slate-300 inline-block"></span>
+            Missing follow-up
+          </div>
+          <div className={`text-2xl font-semibold leading-none ${activeTab === "missing_follow_up" ? "text-blue-600" : "text-slate-900"}`}>
             {missingFollowUp}
-          </span>
+          </div>
         </div>
       </div>
 

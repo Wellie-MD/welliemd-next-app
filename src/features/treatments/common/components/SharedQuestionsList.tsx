@@ -727,8 +727,12 @@ export function SharedQuestionsList({
   // settings edited from a Section's canvas are canvas-local only (there's
   // nowhere to persist them yet), everything else (questions, checkout)
   // already saves through the normal section-field mutations.
+  const effectiveProgram = useMemo(
+    () => program ?? syntheticProgram,
+    [program, syntheticProgram]
+  );
+
   if (viewMode === "flow") {
-    const effectiveProgram = program ?? syntheticProgram;
 
     return (
       <div className="flex min-h-screen w-full flex-col gap-6 bg-slate-50 p-6">
@@ -936,7 +940,7 @@ export function SharedQuestionsList({
             : null
         }
         programName={entityName}
-        programTreatmentTypeKey={program?.treatmentTypeKey}
+        programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
         screeningQuestions={questions}
       />
 
