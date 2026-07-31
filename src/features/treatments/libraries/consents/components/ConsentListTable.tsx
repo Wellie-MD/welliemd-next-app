@@ -29,9 +29,9 @@ export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPrev
           <TableRow>
             <TableHead className="w-[300px] px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</TableHead>
             <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Scope</TableHead>
-            <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Visit Type</TableHead>
-            <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Last Updated</TableHead>
-            <TableHead className="px-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</TableHead>
+            <TableHead className="whitespace-nowrap px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Visit Type</TableHead>
+            <TableHead className="whitespace-nowrap px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Last Updated</TableHead>
+            <TableHead className="px-4 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -71,9 +71,9 @@ export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPrev
                   <span className="rounded bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">All</span>
                 )}
               </TableCell>
-              <TableCell className="px-4 text-slate-500 text-xs">{formatDateUS(consent.updatedAt)}</TableCell>
-              <TableCell className="px-4 text-right">
-                <div className="flex justify-end gap-1">
+              <TableCell className="whitespace-nowrap px-4 text-slate-500 text-xs">{formatDateUS(consent.updatedAt)}</TableCell>
+              <TableCell className="px-4 text-center">
+                <div className="flex justify-center gap-1">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600" title="Preview" onClick={() => onPatientPreview?.(consent.id)}>
                     <Eye className="h-4 w-4" />
                   </Button>
