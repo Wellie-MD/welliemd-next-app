@@ -177,11 +177,12 @@ export default function SmsAnalytics() {
         <Alert variant="destructive"><AlertDescription>Failed to load SMS analytics.</AlertDescription></Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard label="SMS Attempts" value={stats?.total_sms ?? 0} detail={selectedRange.detail} />
         <StatCard label="Delivered" value={stats?.delivered ?? 0} detail={`${formatPercent(stats?.delivery_rate)} delivery rate`} tone="text-emerald-600 dark:text-emerald-400" />
         <StatCard label="Pending" value={stats?.pending ?? 0} detail={`${stats?.queued ?? 0} queued`} tone="text-amber-600 dark:text-amber-400" />
         <StatCard label="Failed or Undelivered" value={stats?.failed ?? 0} detail={`${formatPercent(stats?.failure_rate)} failure rate`} tone="text-red-600 dark:text-red-400" />
+        <StatCard label="Canceled" value={stats?.canceled ?? 0} detail="canceled by provider" tone="text-slate-600 dark:text-slate-300" />
       </div>
 
       <Alert>
