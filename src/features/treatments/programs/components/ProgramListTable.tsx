@@ -37,11 +37,11 @@ export function ProgramListTable({
   archivingProgramId,
 }: ProgramListTableProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <Table>
         <TableHeader className="bg-slate-50">
           <TableRow>
-            <TableHead className="w-[280px] px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</TableHead>
+            <TableHead className="min-w-[300px] px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Name</TableHead>
             <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Type</TableHead>
             <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Treatment Type</TableHead>
             <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Visit Type</TableHead>
@@ -49,7 +49,7 @@ export function ProgramListTable({
             <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Checkout Qs</TableHead>
             <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</TableHead>
             <TableHead className="px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Last Updated</TableHead>
-            <TableHead className="px-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</TableHead>
+            <TableHead className="px-4 text-center text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -59,10 +59,10 @@ export function ProgramListTable({
 
             return (
               <TableRow key={program.id} className="group hover:bg-slate-50/50">
-                <TableCell className="px-4 font-medium">
+                <TableCell className="px-4 font-medium min-w-[300px]">
                   <div className="flex items-center gap-2">
                     <Link
-                      className="text-slate-900 hover:text-blue-600 hover:underline"
+                      className="text-slate-900 font-semibold hover:text-blue-600 hover:underline"
                       to={ADMIN_TREATMENT_ROUTES.programQuestions(program.id)}
                     >
                       {program.name}
