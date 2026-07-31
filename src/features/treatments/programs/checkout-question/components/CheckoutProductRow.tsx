@@ -344,6 +344,60 @@ export function CheckoutProductRow({
           </div>
         )}
         <SelectField
+          label="Checkout role"
+          value={product.productRole || "primary_choice"}
+          onChange={(value) => onProductFieldChange(index, "productRole", value as ProgramCheckoutProduct["productRole"])}
+          options={[
+            { value: "primary_choice", label: "Primary choice — patient selects it" },
+            { value: "required_companion", label: "Required companion — always included" },
+            { value: "optional_addon", label: "Optional add-on — charged only if chosen" },
+            { value: "clinician_only", label: "Clinician only — never patient-selectable" },
+            { value: "informational", label: "Informational — no Order line or charge" },
+          ]}
+          testId={`checkout-product-role-${index}`}
+        />
+        <div>
+          <div className="text-[10.5px] font-medium text-slate-500">
+            Selectable quantities
+          </div>
+          <input
+            value={(product.allowedQuantities || [1]).join(", ")}
+            onChange={(event) => {
+              const parsed = [...new Set(
+                event.target.value
+                  .split(",")
+                  .map((entry) => Number(entry.trim()))
+                  .filter((entry) => Number.isInteger(entry) && entry > 0),
+              )].sort((first, second) => first - second);
+              const allowed = parsed.length ? parsed : [1];
+              onProductFieldChange(index, "allowedQuantities", allowed);
+              // The default must stay inside the offered set; publication
+              // preflight rejects the release otherwise.
+              if (!allowed.includes(Number(product.defaultQuantity))) {
+                onProductFieldChange(index, "defaultQuantity", allowed[0]);
+              }
+            }}
+            placeholder="1"
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] outline-none focus:border-blue-500"
+            data-testid={`checkout-product-quantities-${index}`}
+          />
+          <div className="mt-1 text-[10.5px] text-slate-400">
+            Comma separated. One value means the patient cannot change it.
+          </div>
+        </div>
+        {(product.allowedQuantities || [1]).length > 1 && (
+          <SelectField
+            label="Default quantity"
+            value={String(product.defaultQuantity || (product.allowedQuantities || [1])[0])}
+            onChange={(value) => onProductFieldChange(index, "defaultQuantity", Number(value))}
+            options={(product.allowedQuantities || [1]).map((quantity) => ({
+              value: String(quantity),
+              label: String(quantity),
+            }))}
+            testId={`checkout-product-default-quantity-${index}`}
+          />
+        )}
+        <SelectField
           label="Category"
           value={selectedCategoryId ? String(selectedCategoryId) : ""}
           onChange={handleCategoryChange}

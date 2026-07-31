@@ -90,6 +90,12 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
     record.product_role ||
     PROGRAM_PRODUCT_ROLE.primaryChoice
   ) as ProgramCheckoutProduct["productRole"],
+  allowedQuantities: Array.isArray(record.allowed_quantities ?? record.allowedQuantities)
+    ? (record.allowed_quantities ?? record.allowedQuantities as unknown[])
+        .map(Number)
+        .filter((value: number) => Number.isInteger(value) && value > 0)
+    : undefined,
+  defaultQuantity: Number(record.default_quantity ?? record.defaultQuantity) || undefined,
   choiceGroup: record.choiceGroup || record.choice_group
     ? String(record.choiceGroup ?? record.choice_group)
     : undefined,
@@ -114,7 +120,16 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
     visibilityRules: checkoutVisibilityGroup(
       record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule ?? record.conditional_logic,
     ) ?? { mode: "simple", rules: [], subgroups: [] },
-    required: Boolean(record.required ?? record.is_required ?? isCheckoutQuestionRequired(rawProducts.map(checkoutProductFromRecord))),
+    // Authored on the question. The legacy role inference is only a fallback
+    // for releases saved before the field existed.
+    required: Boolean(
+      record.required
+      ?? record.is_required
+      ?? checkoutConfig?.is_required
+      ?? isCheckoutQuestionRequired(rawProducts.map(checkoutProductFromRecord)),
+    ),
+    minSelections: (record.min_selections ?? checkoutConfig?.min_selections ?? null) as number | null,
+    maxSelections: (record.max_selections ?? checkoutConfig?.max_selections ?? null) as number | null,
   };
 };
 

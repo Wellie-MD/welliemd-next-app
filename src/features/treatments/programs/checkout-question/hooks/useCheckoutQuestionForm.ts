@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
-import { PROGRAM_PRODUCT_ROLE, isCheckoutQuestionRequired } from "../constants";
+import { PROGRAM_PRODUCT_ROLE } from "../constants";
 import { toast } from "@/components/ui/use-toast";
 
 type ProductForm = ProgramCheckoutProduct;
@@ -17,6 +17,9 @@ interface UseCheckoutQuestionFormArgs {
 export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange }: UseCheckoutQuestionFormArgs) {
   const [products, setProducts] = useState<ProductForm[]>([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
   const [visibilityRuleGroup, setVisibilityRuleGroup] = useState<VisibilityRuleGroupForm | undefined>(undefined);
+  const [isRequired, setIsRequired] = useState(true);
+  const [minSelections, setMinSelections] = useState<number | null>(null);
+  const [maxSelections, setMaxSelections] = useState<number | null>(null);
   const [selectedPreviewIdx, setSelectedPreviewIdx] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -40,9 +43,14 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           productRole: product.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
           choiceGroup: product.choiceGroup,
           patientLabel: product.patientLabel,
+          allowedQuantities: product.allowedQuantities,
+          defaultQuantity: product.defaultQuantity,
           visibilityRules: product.visibilityRules,
         }))
       );
+      setIsRequired(initialQuestion.required !== false);
+      setMinSelections(initialQuestion.minSelections ?? null);
+      setMaxSelections(initialQuestion.maxSelections ?? null);
       setVisibilityRuleGroup(
         initialQuestion.visibilityRules
           ? {
@@ -60,6 +68,9 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     } else {
       setProducts([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
       setVisibilityRuleGroup(undefined);
+      setIsRequired(true);
+      setMinSelections(null);
+      setMaxSelections(null);
     }
     setSelectedPreviewIdx(0);
     setFormError(null);
@@ -181,7 +192,9 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return {
         ...product,
         sourceProductId,
-        productRole: PROGRAM_PRODUCT_ROLE.primaryChoice,
+        // Authored per option. Forcing primary_choice here made it impossible
+        // to configure a required companion or an optional add-on at all.
+        productRole: product.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
         choiceGroup: (
           product.choiceGroup
           || `product-${sourceProductId || product.productId}`
@@ -199,7 +212,9 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           visibilityRules: normalizeGroup(product.visibilityRules),
         })),
         visibilityRules: normalizeGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
-        required: isCheckoutQuestionRequired(validProducts),
+        required: isRequired,
+        minSelections,
+        maxSelections,
       });
       onOpenChange(false);
     } catch (error) {
@@ -238,6 +253,12 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
 
   return {
     products,
+    isRequired,
+    setIsRequired,
+    minSelections,
+    setMinSelections,
+    maxSelections,
+    setMaxSelections,
     visibilityRuleGroup,
     selectedPreviewIdx,
     setSelectedPreviewIdx,
