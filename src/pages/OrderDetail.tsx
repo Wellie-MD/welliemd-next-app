@@ -2617,9 +2617,9 @@ function OrderDetailInner() {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(statusLabels).map(([value, label]) => (
+                  {(["shipped", "canceled"] as const).map((value) => (
                     <SelectItem key={value} value={value}>
-                      {label}
+                      {statusLabels[value] || value}
                     </SelectItem>
                   ))}
                 </SelectContent>
