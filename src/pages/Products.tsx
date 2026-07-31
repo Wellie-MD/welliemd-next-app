@@ -245,13 +245,13 @@ export default function Products() {
   }
 
   return (
-    <div className="min-h-full bg-slate-50 dark:bg-slate-950/20 px-5 py-8 sm:px-7 lg:px-9">
+    <div className="min-h-full bg-slate-50 dark:bg-slate-950/20 px-4 py-6 sm:px-7 lg:px-9">
       <div className="space-y-6">
         <div>
-          <h1 className="text-[26px] font-bold leading-8 tracking-normal text-slate-950 dark:text-slate-50">
+          <h1 className="text-xl sm:text-[26px] font-bold leading-8 tracking-normal text-slate-950 dark:text-slate-50">
             Products
           </h1>
-          <div className="mt-1 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <div className="mt-1 flex items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             <span>Home</span>
             <span className="text-slate-400 dark:text-slate-500">›</span>
             <span>Products</span>
@@ -259,7 +259,7 @@ export default function Products() {
         </div>
 
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7">
             <FilterSelect
               label="Category"
               value={category}
@@ -291,7 +291,7 @@ export default function Products() {
               }}
             />
             <FilterSelect
-              label="Treatment Type (New)"
+              label="Treatment Type"
               value={treatmentType}
               placeholder="All Treatment Types"
               options={treatmentTypeOptions}
@@ -318,7 +318,7 @@ export default function Products() {
                 Search
               </label>
               <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                 <Input
                   value={search}
                   onChange={(event) => {
@@ -326,17 +326,17 @@ export default function Products() {
                     setCurrentPage(1)
                   }}
                   placeholder="Search products..."
-                  className="h-11 w-full rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-10 text-[15px] text-slate-700 dark:text-slate-200 shadow-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-sky-300"
+                  className="h-11 w-full rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-9 text-xs sm:text-[15px] text-slate-700 dark:text-slate-200 shadow-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-sky-300"
                 />
               </div>
             </div>
             {hasActiveFilters && (
-              <div className="flex items-end">
+              <div className="flex items-end col-span-1 sm:col-span-auto">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={resetFilters}
-                  className="h-11 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-[15px] font-semibold text-slate-950 dark:text-slate-200 shadow-none hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  className="h-11 w-full sm:w-auto rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-xs sm:text-[15px] font-semibold text-slate-950 dark:text-slate-200 shadow-none hover:bg-slate-50 dark:hover:bg-slate-800/50"
                 >
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Reset Filters
@@ -345,12 +345,63 @@ export default function Products() {
             )}
           </div>
 
-          <div className="pb-3 text-sm text-slate-500 dark:text-slate-400 2xl:text-right whitespace-nowrap">
+          <div className="pb-1 sm:pb-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400 2xl:text-right whitespace-nowrap">
             Showing {showingStart}-{showingEnd} of {totalCount}
           </div>
         </div>
+
         <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <div className="overflow-x-auto">
+          {/* Mobile View (< md) */}
+          <div className="block md:hidden divide-y divide-slate-200 dark:divide-slate-800">
+            {loading ? (
+              <div className="h-40 flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Loading products...</span>
+              </div>
+            ) : products.length > 0 ? (
+              products.map((product) => (
+                <div
+                  key={product.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setEditing(product)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") setEditing(product)
+                  }}
+                  className="p-4 cursor-pointer space-y-2.5 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-sm text-slate-950 dark:text-slate-100">
+                        {product.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {getProductPharmacyName(product) || "No Pharmacy"} • {formatDrugForm(product.rx_drug_form)}
+                      </p>
+                    </div>
+                    <Pill tone={product.is_active ? "green" : "red"}>
+                      {product.is_active ? "Active" : "Inactive"}
+                    </Pill>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1 text-xs">
+                    <Pill tone="blue">{product.category_name || "Uncategorized"}</Pill>
+                    <Pill tone="blue">{getPurchaseTypeLabel(product.purchase_type)}</Pill>
+                    {product.treatment_type_name && (
+                      <Pill tone="blue">{product.treatment_type_name}</Pill>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="h-36 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                No products found.
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <Table className="min-w-[1120px] text-[15px]">
               <TableHeader>
                 <TableRow className="border-slate-200 dark:border-slate-800 hover:bg-transparent">
@@ -437,7 +488,7 @@ export default function Products() {
           </div>
 
           <div className="flex flex-col gap-4 border-t border-slate-200 dark:border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               <span>Rows per page</span>
               <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
                 <SelectTrigger className="h-9 w-[72px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-755 dark:text-slate-200">
@@ -453,7 +504,7 @@ export default function Products() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               <span>
                 Page {currentPage} of {totalPages}
               </span>
