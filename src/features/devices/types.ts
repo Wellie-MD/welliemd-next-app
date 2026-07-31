@@ -108,6 +108,7 @@ export interface WeightData {
   series: number[];
   checkins: { label: string; w: number }[];
   start: number | null;
+  targetWeightLbs: number | null;
   targetBmi: number | null;
   heightIn: number | null;
   points: { date: string; weight: number; bmi: number | null; height: number | null }[];
@@ -160,7 +161,7 @@ export interface DeviceDataResponse {
 }
 
 export interface HealthGoalResponse {
-  goal: { target_bmi: string | number; updated_at: string } | null;
+  goal: { target_weight_lbs?: string | number | null; target_bmi?: string | number | null; updated_at: string } | null;
 }
 
 export interface ConnectionResponse {

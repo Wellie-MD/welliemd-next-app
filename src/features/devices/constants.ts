@@ -101,6 +101,7 @@ export const WEIGHT_DEFAULT: WeightData = {
   series: [],
   checkins: [],
   start: null,
+  targetWeightLbs: null,
   targetBmi: null,
   heightIn: null,
   points: [],

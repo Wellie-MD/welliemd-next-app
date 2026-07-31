@@ -305,7 +305,10 @@ export default function DevicesPage() {
           : prev;
         return {
           ...next,
-          targetBmi: goalResult.status === 'fulfilled' && goalResult.value.goal
+          targetWeightLbs: goalResult.status === 'fulfilled' && goalResult.value.goal?.target_weight_lbs != null
+            ? Number(goalResult.value.goal.target_weight_lbs)
+            : next.targetWeightLbs,
+          targetBmi: goalResult.status === 'fulfilled' && goalResult.value.goal?.target_bmi != null
             ? Number(goalResult.value.goal.target_bmi)
             : next.targetBmi,
         };
@@ -655,16 +658,20 @@ export default function DevicesPage() {
 
   /* ─── Goal Modal ─── */
   const handleOpenGoal = useCallback(() => {
-    setGoalInput(weight.targetBmi ? String(weight.targetBmi) : '');
+    setGoalInput(weight.targetWeightLbs ? String(weight.targetWeightLbs) : (weight.targetBmi ? String(weight.targetBmi) : ''));
     setGoalModalOpen(true);
-  }, [weight.targetBmi]);
+  }, [weight.targetWeightLbs, weight.targetBmi]);
 
   const handleSaveGoal = useCallback(() => {
     const v = Number(goalInput);
-    if (v >= 10 && v <= 80) {
+    if (v >= 40 && v <= 800) {
       saveHealthGoal(v)
         .then((response) => {
-          setWeight((prev) => ({ ...prev, targetBmi: response.goal ? Number(response.goal.target_bmi) : null }));
+          setWeight((prev) => ({
+            ...prev,
+            targetWeightLbs: response.goal?.target_weight_lbs ? Number(response.goal.target_weight_lbs) : v,
+            targetBmi: response.goal?.target_bmi ? Number(response.goal.target_bmi) : prev.targetBmi,
+          }));
           setGoalModalOpen(false);
         })
         .catch((error: any) => {
@@ -678,7 +685,7 @@ export default function DevicesPage() {
           }
         });
     } else {
-      toast.error("Please enter a valid target BMI between 10 and 80.");
+      toast.error("Please enter a valid target weight between 40 and 800 lbs.");
     }
   }, [goalInput]);
 

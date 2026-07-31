@@ -113,9 +113,9 @@ export async function getHealthGoal(): Promise<HealthGoalResponse> {
   return response.data;
 }
 
-export async function saveHealthGoal(targetBmi: number): Promise<HealthGoalResponse> {
+export async function saveHealthGoal(targetWeightLbs: number): Promise<HealthGoalResponse> {
   const response = await apiClient.put<HealthGoalResponse>(DEVICE_ENDPOINTS.healthGoal, {
-    target_bmi: targetBmi,
+    target_weight_lbs: targetWeightLbs,
   });
   return response.data;
 }

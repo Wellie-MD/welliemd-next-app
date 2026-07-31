@@ -69,9 +69,9 @@ export default function DeviceModals(props: DeviceModalsProps) {
     </Overlay>
 
     <Overlay show={props.goalModalOpen} onClose={() => props.setGoalModalOpen(false)} maxW={380}>
-      <ModalHeader title="Set your target BMI" onClose={() => props.setGoalModalOpen(false)} />
-      <p style={{ fontSize: 12.5, color: 'var(--km-tm)', lineHeight: 1.5 }}>Your target BMI is stored with your patient health goals and shown on your BMI history.</p>
-      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--km-t2)', display: 'block', marginBottom: 16 }}>Target BMI<input type="number" min={10} max={80} step={0.1} value={props.goalInput} onChange={(event) => props.setGoalInput(event.target.value)} placeholder="e.g. 24.0" style={{ width: '100%', marginTop: 6, background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 11, padding: '12px 14px', fontFamily: 'inherit', fontSize: 14, color: 'var(--km-t)', outline: 'none' }} /></label>
+      <ModalHeader title="Set your target weight" onClose={() => props.setGoalModalOpen(false)} />
+      <p style={{ fontSize: 12.5, color: 'var(--km-tm)', lineHeight: 1.5 }}>Your target weight is stored with your health goals and displayed as your goal line on your weight progress chart.</p>
+      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--km-t2)', display: 'block', marginBottom: 16 }}>Target weight (lbs)<input type="number" min={40} max={800} step={0.1} value={props.goalInput} onChange={(event) => props.setGoalInput(event.target.value)} placeholder="e.g. 150.0" style={{ width: '100%', marginTop: 6, background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 11, padding: '12px 14px', fontFamily: 'inherit', fontSize: 14, color: 'var(--km-t)', outline: 'none' }} /></label>
       <div style={{ display: 'flex', gap: 10, marginTop: 18 }}><button type="button" onClick={() => props.setGoalModalOpen(false)} style={buttonStyle}>Cancel</button><button type="button" onClick={props.onSaveGoal} style={{ ...buttonStyle, background: 'var(--km-am)', color: '#fff', borderColor: 'var(--km-am)' }}>Save goal</button></div>
     </Overlay>
 

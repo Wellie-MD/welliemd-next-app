@@ -249,9 +249,12 @@ export function WeightTrendCard({
 
       {onOpenGoalModal && (
         <div style={{ padding: '2px 18px 2px', fontSize: 12, color: 'var(--km-t2)' }}>
-          {weight.targetBmi && weight.targetBmi > 0 ? (
+          {weight.targetWeightLbs && weight.targetWeightLbs > 0 ? (
             <>
-              Target BMI <b style={{ color: 'var(--km-t)' }}>{weight.targetBmi.toFixed(1)}</b>{' '}
+              Target Weight <b style={{ color: 'var(--km-t)' }}>{weight.targetWeightLbs.toFixed(1)} lb</b>
+              {weight.targetBmi && weight.targetBmi > 0 ? (
+                <span style={{ color: 'var(--km-tm)', marginLeft: 4 }}> (BMI {weight.targetBmi.toFixed(1)})</span>
+              ) : null}{' '}
               <span
                 style={{ color: 'var(--km-ac)', cursor: 'pointer', marginLeft: 6 }}
                 onClick={onOpenGoalModal}
@@ -264,7 +267,7 @@ export function WeightTrendCard({
               style={{ color: 'var(--km-ac)', cursor: 'pointer' }}
               onClick={onOpenGoalModal}
             >
-              + Set a target BMI
+              + Set a target weight
             </span>
           )}
         </div>
@@ -277,7 +280,7 @@ export function WeightTrendCard({
       )}
 
       <div style={{ padding: '4px 14px 0' }}>
-        <WeightTrendChart points={weight.points} targetBmi={weight.targetBmi} />
+        <WeightTrendChart points={weight.points} targetWeightLbs={weight.targetWeightLbs} targetBmi={weight.targetBmi} />
       </div>
 
       {bottomAction && (
@@ -305,9 +308,11 @@ export function WeightTrendCard({
 /* ─── Weight Trend Chart ─── */
 function WeightTrendChart({
   points,
+  targetWeightLbs,
   targetBmi,
 }: {
   points: WeightData['points'];
+  targetWeightLbs?: number | null;
   targetBmi?: number | null;
 }) {
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
@@ -321,14 +326,16 @@ function WeightTrendChart({
   let mn = Math.min(...series);
   let mx = Math.max(...series);
 
-  let targetWeight: number | null = null;
-  if (targetBmi) {
+  let targetWeight: number | null = targetWeightLbs ?? null;
+  if (targetWeight == null && targetBmi) {
     const pWithHeight = [...points].reverse().find(p => p.height != null);
     if (pWithHeight && pWithHeight.height) {
       targetWeight = (targetBmi * pWithHeight.height * pWithHeight.height) / 703;
-      mn = Math.min(mn, targetWeight);
-      mx = Math.max(mx, targetWeight);
     }
+  }
+  if (targetWeight != null) {
+    mn = Math.min(mn, targetWeight);
+    mx = Math.max(mx, targetWeight);
   }
 
   const rng = mx - mn || 1;

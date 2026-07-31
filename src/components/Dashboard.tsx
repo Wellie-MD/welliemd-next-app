@@ -206,7 +206,12 @@ export default function Dashboard() {
           const next = buildWeightData(vitalsHistory, prev, priorityList);
           return {
             ...next,
-            targetBmi: healthGoal?.goal ? Number(healthGoal.goal.target_bmi) : next.targetBmi,
+            targetWeightLbs: healthGoal?.goal?.target_weight_lbs != null
+              ? Number(healthGoal.goal.target_weight_lbs)
+              : next.targetWeightLbs,
+            targetBmi: healthGoal?.goal?.target_bmi != null
+              ? Number(healthGoal.goal.target_bmi)
+              : next.targetBmi,
           };
         });
       } catch (error) {
