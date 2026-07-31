@@ -39,7 +39,7 @@ export function CreateProgramModal({
   const [maxAge, setMaxAge] = useState<string>("");
   const [minBmi, setMinBmi] = useState<string>("");
   const [maxBmi, setMaxBmi] = useState<string>("");
-  const [serviceStatesAll, setServiceStatesAll] = useState(true);
+  const [serviceStatesAll, setServiceStatesAll] = useState(false);
   const [serviceStates, setServiceStates] = useState<string[]>([]);
   const [stateSearch, setStateSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -57,7 +57,7 @@ export function CreateProgramModal({
         setMaxAge(initialProgram.maxAge != null ? String(initialProgram.maxAge) : "");
         setMinBmi(initialProgram.minBmi != null ? String(initialProgram.minBmi) : "");
         setMaxBmi(initialProgram.maxBmi != null ? String(initialProgram.maxBmi) : "");
-        setServiceStatesAll(initialProgram.serviceStatesAll ?? true);
+        setServiceStatesAll(initialProgram.serviceStatesAll ?? false);
         setServiceStates(initialProgram.serviceStates || []);
       } else if (prefillTreatmentTypeKey) {
         setTreatmentTypeKey(prefillTreatmentTypeKey);
@@ -70,6 +70,8 @@ export function CreateProgramModal({
           setName(autoName);
           setSlug(autoName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""));
         }
+        setServiceStatesAll(false);
+        setServiceStates([]);
       } else {
         setName("");
         setStage("intake");
@@ -80,7 +82,7 @@ export function CreateProgramModal({
         setMaxAge("");
         setMinBmi("");
         setMaxBmi("");
-        setServiceStatesAll(true);
+        setServiceStatesAll(false);
         setServiceStates([]);
       }
     }
