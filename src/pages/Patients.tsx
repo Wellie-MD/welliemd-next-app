@@ -4,7 +4,7 @@ import { AlertCircle } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { useNavigate } from "react-router-dom"
 import { isWithinInterval, parseISO, format } from "date-fns"
-import { exportToCSV } from "@/utils/exportUtils"
+import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
 import { patientService, type Patient } from "@/services/patientService"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -27,9 +27,11 @@ interface PatientTableRow {
 const getPatientStatusLabel = (engagementStatus?: string) => {
   const normalized = (engagementStatus || "").trim().toLowerCase()
   if (normalized === "active") return "Active"
-  if (normalized === "inactive") return "Inactive"
+  if (normalized === "in_review") return "In Review"
+  if (normalized === "lapsed" || normalized === "inactive") return "Lapsed"
+  if (normalized === "registered") return "Registered"
   if (normalized === "dropoff" || normalized === "drop_off" || normalized === "abandon") {
-    return "Drop-off"
+    return "Registered"
   }
   return "-"
 }
@@ -76,13 +78,44 @@ const patientColumns = [
   { key: "lastOrder", label: "Last Order", width: "100px" }
 ]
 
-const statusFilters = ["All", "Active", "Inactive", "Drop-off"]
+const statusFilters = ["All", "Active", "In Review", "Lapsed", "Registered"]
 
 // Helper function to parse date in DD/MM/YYYY format
 const parseDate = (dateString: string) => {
   const [day, month, year] = dateString.split('/')
   return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
 }
+
+const filterPatientRows = (
+  patients: PatientTableRow[],
+  date: DateRange | undefined,
+  activeAdditionalFilters: string[]
+) => patients.filter(patient => {
+  let matchesDateRange = true
+  if (date?.from || date?.to) {
+    const patientStartDate = parseDate(patient.startDate)
+
+    if (date.from && date.to) {
+      matchesDateRange = isWithinInterval(patientStartDate, {
+        start: date.from,
+        end: date.to
+      })
+    } else if (date.from) {
+      matchesDateRange = patientStartDate >= date.from
+    } else if (date.to) {
+      matchesDateRange = patientStartDate <= date.to
+    }
+  }
+
+  let matchesAdditionalFilters = true
+  if (activeAdditionalFilters.length > 0) {
+    if (activeAdditionalFilters.includes("Refills")) {
+      matchesAdditionalFilters = patient.orders > 1
+    }
+  }
+
+  return matchesDateRange && matchesAdditionalFilters
+})
 
 export default function Patients() {
   const navigate = useNavigate()
@@ -93,6 +126,7 @@ export default function Patients() {
   const [date, setDate] = useState<DateRange | undefined>()
   const [patients, setPatients] = useState<PatientTableRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
   // Server-side pagination state
@@ -112,11 +146,19 @@ export default function Patients() {
   // Map UI filter to backend engagement_status
   const getEngagementStatus = (filter: string): string | undefined => {
     if (filter === "Active") return "active"
-    if (filter === "Inactive") return "inactive"
-    if (filter === "Drop-off") return "dropoff"
+    if (filter === "In Review") return "in_review"
+    if (filter === "Lapsed") return "lapsed"
+    if (filter === "Registered") return "registered"
     if (filter === "All") return "all"
     return undefined
   }
+
+  const getPatientParams = useCallback((exportPage: number, exportPageSize: number) => ({
+    page: exportPage,
+    page_size: exportPageSize,
+    search: searchTerm || undefined,
+    engagement_status: getEngagementStatus(activeFilter),
+  }), [searchTerm, activeFilter])
 
   const handleStatusFilterChange = useCallback((status: string) => {
     setActiveFilter(status)
@@ -133,13 +175,7 @@ export default function Patients() {
     setLoading(true)
     setError(null)
     try {
-      const engagementStatus = getEngagementStatus(activeFilter)
-      const response = await patientService.getPatients({
-        page,
-        page_size: pageSize,
-        search: searchTerm || undefined,
-        engagement_status: engagementStatus,
-      })
+      const response = await patientService.getPatients(getPatientParams(page, pageSize))
       
       const patientIds = response.results.map(p => p.id)
       
@@ -160,7 +196,7 @@ export default function Patients() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, searchTerm, activeFilter])
+  }, [page, pageSize, getPatientParams])
 
   // Fetch patients when pagination or search changes
   useEffect(() => {
@@ -172,38 +208,7 @@ export default function Patients() {
     // We already filter by search and status on the server in fetchPatients.
     // However, if the user has local UI filters like 'date' or 'additionalFilters' 
     // that are not yet implemented on the server, we still apply them here.
-    return patients.filter(patient => {
-      // Date range filter (local for now)
-      let matchesDateRange = true
-      if (date?.from || date?.to) {
-        const patientStartDate = parseDate(patient.startDate)
-        
-        if (date.from && date.to) {
-          matchesDateRange = isWithinInterval(patientStartDate, {
-            start: date.from,
-            end: date.to
-          })
-        } else if (date.from) {
-          matchesDateRange = patientStartDate >= date.from
-        } else if (date.to) {
-          matchesDateRange = patientStartDate <= date.to
-        }
-      }
-
-      // Additional filters logic (local for now)
-      let matchesAdditionalFilters = true
-      if (activeAdditionalFilters.length > 0) {
-        if (activeAdditionalFilters.includes("Refills")) {
-          matchesAdditionalFilters = patient.orders > 1
-        }
-        // Add more local filter logic if needed
-      }
-
-      // We handle search and primary status filter on server side now 
-      // but if the server response doesn't exactly match the local state 
-      // (e.g. during transitions), this local filter keeps the UI consistent.
-      return matchesDateRange && matchesAdditionalFilters
-    })
+    return filterPatientRows(patients, date, activeAdditionalFilters)
   }, [patients, date, activeAdditionalFilters])
 
   // Create filter configuration for DataTable
@@ -231,9 +236,29 @@ export default function Patients() {
     fetchPatients()
   }, [fetchPatients])
 
-  const handleExport = useCallback(() => {
-    exportToCSV(filteredPatients, patientColumns, 'patients_export')
-  }, [filteredPatients])
+  const handleExport = useCallback(async () => {
+    setExporting(true)
+    setError(null)
+    try {
+      const allPatients = await fetchAllPaginatedResults((exportPage, exportPageSize) =>
+        patientService.getPatients(getPatientParams(exportPage, exportPageSize))
+      )
+      const patientIds = allPatients.map(p => p.id)
+      const [productNameMap, visitStatusMap] = await Promise.all([
+        patientService.getProductNamesForPatients(patientIds),
+        patientService.getLatestVisitsForPatients(patientIds),
+      ])
+      const transformedData = allPatients.map(patient =>
+        transformPatientData(patient, productNameMap[patient.id], visitStatusMap[patient.id])
+      )
+      exportToCSV(filterPatientRows(transformedData, date, activeAdditionalFilters), patientColumns, 'patients_export')
+    } catch (err: any) {
+      console.error('Error exporting patients:', err)
+      setError(err.message || 'Failed to export patients')
+    } finally {
+      setExporting(false)
+    }
+  }, [getPatientParams, date, activeAdditionalFilters])
 
   const handleRowClick = useCallback((row: any) => {
     navigate(`/dashboard/patients/${row.id}`)
@@ -266,6 +291,7 @@ export default function Patients() {
         onSearch={setSearchInput}
         onResetFilters={handleResetFilters}
         onExport={handleExport}
+        exportLoading={exporting}
         onRefresh={handleRefresh}
         onRowClick={handleRowClick}
         loading={loading}

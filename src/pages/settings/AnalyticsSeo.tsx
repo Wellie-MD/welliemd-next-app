@@ -216,7 +216,7 @@ export default function AnalyticsSeo() {
 
       toast({
         title: "Success",
-        description: "Analytics & SEO settings updated!",
+        description: "SEO settings updated!",
         variant: "default",
       })
     } catch (err) {
@@ -244,7 +244,7 @@ export default function AnalyticsSeo() {
   return (
     <div className="mx-auto space-y-8 p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Analytics & SEO</h1>
+        <h1 className="text-2xl font-semibold text-foreground">SEO</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">

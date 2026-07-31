@@ -54,6 +54,7 @@ export interface QuestionnairePhoto {
 // Prescribed medication from RX_WRITTEN webhook (PrescriptionEvent.medications)
 export interface PrescriptionMedication {
   name?: string
+  prescribed_name?: string
   strength?: string
   price?: string | number | null
   refills?: string
@@ -165,6 +166,8 @@ export interface Order {
   tracking_number?: string | null
   patient_responses?: PatientResponses | null
   checkout_url?: string | null
+  is_archived?: boolean
+  archived_at?: string | null
   provider_network?: string | null
   notes?: string | null
   // Detail page: from PrescriptionEvent / Visit
@@ -189,7 +192,9 @@ export interface Order {
   consult_cost_to_client?: string | null
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
+  billing_pending_reason?: string | null
   activity_events?: OrderActivityEvent[]
+  episode_id?: string | null
 }
 
 export interface PaginatedOrdersResponse {
@@ -242,6 +247,12 @@ export interface SendCheckoutLinkResponse {
   message?: string
   order_id?: string
   order_display_id?: string
+}
+
+export interface ResendReceiptResponse {
+  success: boolean
+  message?: string
+  recipient_email?: string
 }
 
 export interface UpdateQuestionnaireImagesPayload {
@@ -319,6 +330,26 @@ export const updateOrder = async (id: string, payload: Partial<Order>): Promise<
   }
 }
 
+export const archiveOrder = async (id: string): Promise<Order> => {
+  try {
+    const { data } = await api.post<Order>(`${ENDPOINT}${id}/archive/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to archive order ${id}:`, error)
+    throw error
+  }
+}
+
+export const unarchiveOrder = async (id: string): Promise<Order> => {
+  try {
+    const { data } = await api.post<Order>(`${ENDPOINT}${id}/unarchive/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to unarchive order ${id}:`, error)
+    throw error
+  }
+}
+
 export const deleteOrder = async (id: string): Promise<void> => {
   try {
     await api.delete(`${ENDPOINT}${id}/`)
@@ -364,6 +395,28 @@ export const sendCheckoutLink = async (id: string): Promise<SendCheckoutLinkResp
     return data
   } catch (error) {
     console.error(`Failed to send checkout link for order ${id}:`, error)
+    throw error
+  }
+}
+
+export const resendReceipt = async (id: string): Promise<ResendReceiptResponse> => {
+  try {
+    const { data } = await api.post<ResendReceiptResponse>(`${ENDPOINT}${id}/receipt/resend/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to resend receipt for order ${id}:`, error)
+    throw error
+  }
+}
+
+export const downloadReceipt = async (id: string): Promise<Blob> => {
+  try {
+    const { data } = await api.get(`${ENDPOINT}${id}/receipt/download/`, {
+      responseType: "blob",
+    })
+    return data
+  } catch (error) {
+    console.error(`Failed to download receipt for order ${id}:`, error)
     throw error
   }
 }
@@ -436,11 +489,15 @@ export const ordersApi = {
   fetchOrderByOrderId,
   createOrder,
   updateOrder,
+  archiveOrder,
+  unarchiveOrder,
   deleteOrder,
   searchOrders,
   refundOrder,
   retryPayment,
   sendCheckoutLink,
+  resendReceipt,
+  downloadReceipt,
   changeProduct,
   updateOrderQuestionnaireImages,
   fetchCategories,

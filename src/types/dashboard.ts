@@ -21,6 +21,10 @@ export interface LiveSummary {
 
 export interface PatientSummary {
   active_patients: number
+  in_review_patients?: number
+  lapsed_patients?: number
+  registered_patients?: number
+  total_patients?: number
   inactive_patients: number
   dropoff_patients: number
   calculated_at: string
@@ -70,9 +74,26 @@ export interface DashboardMetrics {
   total_sales?: number
   total_orders?: number
   growth_percentage?: number
+  captured_orders?: number
+  average_order_value?: number | null
+  conversion_rate?: number | null
   // Shared sections
   live_summary?: LiveSummary
   patient_summary?: PatientSummary
+}
+
+export interface DashboardChartPoint {
+  day: string
+  total_sales: number
+  net_revenue: number
+  new_patients: number
+}
+
+export interface DashboardChartResponse {
+  period: { start: string; end: string }
+  comparison: { start: string; end: string }
+  current: DashboardChartPoint[]
+  previous: DashboardChartPoint[]
 }
 
 export interface DashboardData {

@@ -196,6 +196,10 @@ export const useDashboardMetrics = ({ fallbackKpis, filters }: UseDashboardMetri
 
     const patientSummary = {
         active_patients: metrics?.patient_summary?.active_patients ?? liveSummary.active_carts,
+        in_review_patients: metrics?.patient_summary?.in_review_patients ?? metrics?.patient_summary?.inactive_patients ?? liveSummary.checking_out,
+        lapsed_patients: metrics?.patient_summary?.lapsed_patients ?? metrics?.patient_summary?.inactive_patients ?? 0,
+        registered_patients: metrics?.patient_summary?.registered_patients ?? metrics?.patient_summary?.dropoff_patients ?? liveSummary.purchased,
+        total_patients: metrics?.patient_summary?.total_patients,
         inactive_patients: metrics?.patient_summary?.inactive_patients ?? liveSummary.checking_out,
         dropoff_patients: metrics?.patient_summary?.dropoff_patients ?? liveSummary.purchased,
         calculated_at: metrics?.patient_summary?.calculated_at ?? "",

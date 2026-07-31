@@ -23,6 +23,13 @@ import {
 } from "@/components/ui/alert-dialog"
 
 type Affiliate = AffiliateType
+type AffiliateSortColumn = "total_referrals" | "total_commission"
+type SortDirection = "asc" | "desc"
+
+interface AffiliateSort {
+  column: AffiliateSortColumn
+  direction: SortDirection
+}
 
 const formatCurrency = (value: string | number | null | undefined) => {
   const amount = Number(value ?? 0)
@@ -48,6 +55,7 @@ export default function Affiliates() {
   const [insightsAffiliate, setInsightsAffiliate] = useState<Affiliate | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [sortBy, setSortBy] = useState<AffiliateSort | null>(null)
   const [dataTableKey, setDataTableKey] = useState(0)
 
   // NEW: delete modal state
@@ -86,6 +94,31 @@ export default function Affiliates() {
     })
   }, [affiliates, searchTerm, statusFilter])
 
+  const sortedAffiliates = useMemo(() => {
+    if (!sortBy) return filteredAffiliates
+
+    return [...filteredAffiliates].sort((a, b) => {
+      const valueA = Number(a[sortBy.column] ?? 0)
+      const valueB = Number(b[sortBy.column] ?? 0)
+
+      return sortBy.direction === "desc" ? valueB - valueA : valueA - valueB
+    })
+  }, [filteredAffiliates, sortBy])
+
+  const handleColumnSort = (column: AffiliateSortColumn) => {
+    setSortBy((currentSort) => {
+      if (!currentSort || currentSort.column !== column) {
+        return { column, direction: "desc" }
+      }
+
+      if (currentSort.direction === "desc") {
+        return { column, direction: "asc" }
+      }
+
+      return null
+    })
+  }
+
   const filters = useMemo(
     () => [
       {
@@ -115,6 +148,7 @@ export default function Affiliates() {
 
   const handleResetFilters = () => {
     setStatusFilter("all")
+    setSortBy(null)
     setSearchTerm("")
     setDataTableKey((currentKey) => currentKey + 1)
   }
@@ -156,11 +190,17 @@ const columns = [
     {
       key: "total_referrals",
       label: "Referral Count",
+      sortable: true,
+      sortDirection: sortBy?.column === "total_referrals" ? sortBy.direction : null,
+      onSort: () => handleColumnSort("total_referrals"),
       render: (val: number) => val ?? 0,
     },
     {
       key: "total_commission",
       label: "Earned Commission",
+      sortable: true,
+      sortDirection: sortBy?.column === "total_commission" ? sortBy.direction : null,
+      onSort: () => handleColumnSort("total_commission"),
       render: (val: string) => formatCurrency(val),
     },
     { key: "discount_type", label: "Discount Type" },
@@ -182,7 +222,7 @@ const columns = [
     {
       key: "__actions",
       label: "Actions",
-      render: (_: any, row: Affiliate) => (
+      render: (_: unknown, row: Affiliate) => (
         <div className="flex items-center gap-3 justify-end">
           <button
             type="button"
@@ -254,7 +294,7 @@ const columns = [
 
       <DataTable
         key={dataTableKey}
-        data={filteredAffiliates}
+        data={sortedAffiliates}
         columns={columns}
         filters={filters}
         searchPlaceholder="Search by affiliate name or slug"
@@ -275,7 +315,7 @@ const columns = [
       <AffiliateInsightsSheet
         open={!!insightsAffiliate}
         onOpenChange={(v) => !v && setInsightsAffiliate(null)}
-        affiliate={insightsAffiliate as any}
+        affiliate={insightsAffiliate}
       />
 
       {/* Delete confirmation modal */}

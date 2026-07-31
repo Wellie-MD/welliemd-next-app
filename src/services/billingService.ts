@@ -38,6 +38,32 @@ export interface InvoiceItem {
   metadata?: Record<string, any>;
 }
 
+export interface InvoicePrescriptionItem {
+  name?: string;
+  med_id?: string;
+  rx_id?: string;
+  quantity?: string | number | null;
+  refills?: string | number | null;
+  strength?: string | number | null;
+  medication_amount?: string;
+  shipping_amount?: string;
+  product_total?: string;
+  patient_amount?: string;
+}
+
+export interface InvoicePrescriptionEvent {
+  name?: string;
+  event_kind?: "initial_prescription" | "revision" | string;
+  revision_number?: number | string | null;
+  occurred_at?: string | null;
+  webhook_event_id?: string;
+  medication_amount?: string;
+  shipping_amount?: string;
+  product_total?: string;
+  patient_total?: string;
+  items?: InvoicePrescriptionItem[];
+}
+
 export interface Invoice {
   id: string;
   invoice_number?: string;
@@ -77,7 +103,7 @@ export interface Invoice {
   revision_adjustments?: Array<{
     id: string;
     invoice_number: string;
-    kind: "supplemental_charge" | "credit_note";
+    kind: "supplemental_charge" | "credit_note" | "no_charge_revision";
     status: string;
     revision_number?: number | string | null;
     product_name?: string;
@@ -86,13 +112,18 @@ export interface Invoice {
     product_total: string;
     adjustment_amount: string;
     created_at?: string | null;
+    source?: string;
   }>;
+  prescription_events?: InvoicePrescriptionEvent[];
   adjustment_summary?: {
     invoice_total: string;
     supplemental_charges: string;
     credit_notes: string;
     net_adjustment: string;
     adjusted_total: string;
+    captured_amount?: string;
+    hold_released_amount?: string;
+    capture_status?: string;
   } | null;
   intended_authorization_amount?: string | number;
   authorization_retry_count?: number;

@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { smtpApi, ClientEmailConfiguration, MailgunDomainStats, MailgunStatsRange } from "@/api/smtpApi"
+import { smtpApi, ClientEmailConfiguration, MailgunTrackingStatus } from "@/api/smtpApi"
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -22,11 +22,11 @@ import {
   Globe, 
   Shield, 
   Key, 
-  BarChart3, 
   MoreVertical, 
   Copy, 
   Plus,
-  Check
+  Check,
+  RefreshCw
 } from "lucide-react"
 
 // DNS Record Card Component
@@ -85,24 +85,6 @@ function DnsRecordCard({ type, name, value, priority, valid }: DnsRecordCardProp
   )
 }
 
-// Stat Card Component
-interface StatCardProps {
-  title: string
-  value: string | number
-  subtext?: string
-  colorClass?: string
-}
-
-function StatCard({ title, value, subtext, colorClass = "bg-primary/20" }: StatCardProps) {
-  return (
-    <div className={`${colorClass} rounded-lg p-4 min-w-[140px]`}>
-      <p className="text-xs text-muted-foreground mb-1">{title}</p>
-      <p className="text-2xl font-bold">{value}</p>
-      {subtext && <p className="text-xs text-muted-foreground mt-1">{subtext}</p>}
-    </div>
-  )
-}
-
 export default function SmtpDomainSettings() {
   const [formData, setFormData] = useState<ClientEmailConfiguration>({
     email_host_user: "",
@@ -124,16 +106,13 @@ export default function SmtpDomainSettings() {
   const [fromName, setFromName] = useState("")
   const [showAddDomain, setShowAddDomain] = useState(false)
   const [newDomainName, setNewDomainName] = useState("")
-  const [statsRange, setStatsRange] = useState<MailgunStatsRange>("week")
-  const [emailStats, setEmailStats] = useState<MailgunDomainStats | null>(null)
-  const [statsLoading, setStatsLoading] = useState(false)
-  const [statsError, setStatsError] = useState<string | null>(null)
-
   // Mailgun Domain Status
   const [mgStatus, setMgStatus] = useState<any>(null);
   const [mgLoading, setMgLoading] = useState(false);
   const [mgError, setMgError] = useState<string | null>(null);
   const [mgSuccess, setMgSuccess] = useState<string | null>(null);
+  const [trackingStatus, setTrackingStatus] = useState<MailgunTrackingStatus | null>(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
 
   // Fetch existing configuration on mount
   useEffect(() => {
@@ -158,12 +137,22 @@ export default function SmtpDomainSettings() {
           } catch (e) {
             console.log("Could not fetch domain status")
           }
+          try {
+            const tracking = await smtpApi.getMailgunTrackingStatus(config.smtp_domain_name)
+            setTrackingStatus(tracking)
+          } catch (e) {
+            console.log("Could not fetch domain tracking status")
+          }
         }
         setFormData({
           email_host_user: config.email_host_user,
           email_host_password: config.email_host_password,
           default_from_email: config.default_from_email,
+          from_name: config.from_name || "",
+          is_default_domain: Boolean(config.is_default_domain),
         })
+        setFromName(config.from_name || "")
+        setIsDefaultDomain(Boolean(config.is_default_domain))
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load configuration')
@@ -182,25 +171,40 @@ export default function SmtpDomainSettings() {
     setCredSuccess(null)
     try {
       if (configId) {
-        await smtpApi.updateEmailConfiguration(configId, formData)
+        await smtpApi.updateEmailConfiguration(configId, {
+          ...formData,
+          from_name: fromName.trim(),
+          is_default_domain: isDefaultDomain,
+        })
         setCredSuccess('Email configuration updated successfully!')
       } else {
-        const response = await smtpApi.createEmailConfiguration(formData)
+        const response = await smtpApi.createEmailConfiguration({
+          ...formData,
+          from_name: fromName.trim(),
+          is_default_domain: isDefaultDomain,
+        })
         setConfigId(response.id)
         setCredSuccess('Email configuration created successfully!')
       }
     } catch (err: any) {
       const data = err.response?.data;
-      let message = "Something went wrong";
-      if (typeof data?.error === "string") {
+      const rawError = data?.error ?? data?.detail ?? data;
+      let message = "Failed to save email configuration";
+      if (typeof rawError === "string") {
         try {
-          message = JSON.parse(data.error).message;
+          const parsed = JSON.parse(rawError);
+          message = parsed?.message || rawError;
         } catch {
-          message = data.error;
+          message = rawError;
         }
+      } else if (rawError && typeof rawError === "object") {
+        message = Object.entries(rawError)
+          .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(", ") : String(value)}`)
+          .join("; ") || message;
+      } else if (err?.message) {
+        message = err.message;
       }
-      const errorMsg = message || 'Failed to save credentials'
-      setCredError(errorMsg)
+      setCredError(message)
       console.error('Error saving email credentials:', err)
     } finally {
       setIsSaving(false)
@@ -226,6 +230,8 @@ export default function SmtpDomainSettings() {
         email_host_password: "",
         default_from_email: "",
       })
+      setFromName("")
+      setIsDefaultDomain(false)
       setCredSuccess('Email configuration deleted successfully!')
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to delete configuration'
@@ -273,11 +279,38 @@ export default function SmtpDomainSettings() {
     try {
       const res = await smtpApi.getMailgunDomain(mgDomain);
       setMgStatus(res);
+      try {
+        setTrackingStatus(await smtpApi.getMailgunTrackingStatus(mgDomain));
+      } catch (trackingError) {
+        console.log("Could not refresh tracking status", trackingError);
+      }
       setMgSuccess("Domain status refreshed.");
     } catch (err: any) {
       setMgError(err?.response?.data?.error || err.message || "Failed to fetch domain");
     } finally {
       setMgLoading(false);
+    }
+  };
+
+  const handleEnableTracking = async () => {
+    if (!mgDomain) return;
+    setMgError(null);
+    setMgSuccess(null);
+    setTrackingLoading(true);
+    try {
+      const result = await smtpApi.enableMailgunTracking(mgDomain);
+      setTrackingStatus(result);
+      if (result.errors?.length) {
+        setMgError(result.errors.map((item) => `${item.feature}: ${item.message}`).join("; "));
+      } else if (result.certificate_status === "processing") {
+        setMgSuccess("Tracking enabled. HTTPS certificate generation is processing.");
+      } else {
+        setMgSuccess("Click, open, unsubscribe, and HTTPS tracking are enabled.");
+      }
+    } catch (err: any) {
+      setMgError(err?.response?.data?.error || err?.response?.data?.detail || err?.message || "Failed to enable tracking");
+    } finally {
+      setTrackingLoading(false);
     }
   };
 
@@ -290,6 +323,15 @@ export default function SmtpDomainSettings() {
     try {
       const res = await smtpApi.verifyMailgunDomain(mgDomain);
       setMgStatus(res);
+      if (res.tracking && typeof res.tracking === "object") {
+        setTrackingStatus(res.tracking as MailgunTrackingStatus);
+      } else {
+        try {
+          setTrackingStatus(await smtpApi.getMailgunTrackingStatus(mgDomain));
+        } catch (trackingError) {
+          console.log("Could not refresh tracking status after verification", trackingError);
+        }
+      }
       setMgSuccess("DNS records verification triggered.");
     } catch (err: any) {
       setMgError(err?.response?.data?.error || err.message || "Failed to verify domain");
@@ -297,27 +339,6 @@ export default function SmtpDomainSettings() {
       setMgLoading(false);
     }
   };
-
-  const loadEmailStats = async (range: MailgunStatsRange = statsRange) => {
-    if (!mgDomain) return
-    setStatsError(null)
-    setStatsLoading(true)
-    try {
-      const stats = await smtpApi.getMailgunDomainStats(mgDomain, range)
-      setEmailStats(stats)
-    } catch (err: any) {
-      setStatsError(err?.response?.data?.error || err.message || "Failed to load email statistics")
-      setEmailStats(null)
-    } finally {
-      setStatsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (activeTab === "stats" && mgDomain) {
-      loadEmailStats(statsRange)
-    }
-  }, [activeTab, mgDomain, statsRange])
 
   // Mailgun: Delete Domain
   const handleDeleteDomain = async () => {
@@ -394,23 +415,6 @@ export default function SmtpDomainSettings() {
     if (dmarcRecords.length === 0) return "unknown"
     return dmarcRecords.every((r: any) => r.valid === "valid" || r.status === "valid") ? "valid" : "invalid"
   }
-
-  const formatPercent = (value?: number | null) => {
-    const numericValue = Number(value || 0)
-    return `${Number.isInteger(numericValue) ? numericValue : numericValue.toFixed(1)}%`
-  }
-
-  const formatLastUsed = (value?: string | null) => {
-    if (!value) return "Never"
-    return new Date(value).toLocaleString()
-  }
-
-  const statsRanges: Array<{ value: MailgunStatsRange; label: string }> = [
-    { value: "today", label: "Today" },
-    { value: "week", label: "This Week" },
-    { value: "month", label: "This Month" },
-    { value: "all", label: "All Time" },
-  ]
 
   // Loading state
   if (isLoading) {
@@ -609,6 +613,13 @@ export default function SmtpDomainSettings() {
             <Settings className="w-4 h-4" />
             Settings
           </TabsTrigger>
+          <TabsTrigger
+            value="tracking"
+            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Tracking
+          </TabsTrigger>
           <TabsTrigger 
             value="dns" 
             className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
@@ -636,13 +647,6 @@ export default function SmtpDomainSettings() {
           >
             <Shield className="w-4 h-4" />
             DMARC
-          </TabsTrigger>
-          <TabsTrigger 
-            value="stats" 
-            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
-          >
-            <BarChart3 className="w-4 h-4" />
-            Stats
           </TabsTrigger>
         </TabsList>
 
@@ -708,6 +712,91 @@ export default function SmtpDomainSettings() {
                   )}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tracking Tab */}
+        <TabsContent value="tracking" className="mt-6">
+          <Card>
+            <CardContent className="p-6 space-y-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-medium mb-1">Domain Tracking</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Enable click, open, unsubscribe, and HTTPS tracking for this sending domain.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleEnableTracking}
+                  disabled={trackingLoading || !mgDomain}
+                >
+                  {trackingLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                  Enable Tracking
+                </Button>
+              </div>
+
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">Tracking hostname</span>
+                  <span className="font-mono text-sm break-all text-right">
+                    {trackingStatus?.tracking_hostname || "Not available"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-muted-foreground">Tracking CNAME</span>
+                  <Badge variant={trackingStatus?.dns_ready ? "default" : "outline"}>
+                    {trackingStatus?.dns_ready ? "Verified" : "Required"}
+                  </Badge>
+                </div>
+              </div>
+
+              {trackingStatus?.dns_record && (
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Tracking DNS record</h3>
+                  <DnsRecordCard
+                    type={String(trackingStatus.dns_record.record_type || trackingStatus.dns_record.type || "CNAME")}
+                    name={String(trackingStatus.dns_record.name || trackingStatus.tracking_hostname || "")}
+                    value={String(trackingStatus.dns_record.value || trackingStatus.dns_record.target || "")}
+                    valid={String(trackingStatus.dns_record.valid || "")}
+                  />
+                </div>
+              )}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ["Click tracking", trackingStatus?.click_tracking],
+                  ["Open tracking", trackingStatus?.open_tracking],
+                  ["Unsubscribe tracking", trackingStatus?.unsubscribe_tracking],
+                  ["HTTPS tracking", trackingStatus?.tracking_scheme === "https"],
+                ].map(([label, enabled]) => (
+                  <div key={String(label)} className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <span className="text-sm font-medium">{label}</span>
+                    <Badge variant={enabled ? "default" : "outline"}>
+                      {enabled ? "Enabled" : "Disabled"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <p className="text-sm font-medium">Tracking certificate</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    HTTPS becomes available after Mailgun finishes certificate generation.
+                  </p>
+                </div>
+                <Badge variant={trackingStatus?.certificate_status === "active" ? "default" : "outline"}>
+                  {trackingStatus?.certificate_status || "Unknown"}
+                </Badge>
+              </div>
+
+              {!trackingStatus?.dns_ready && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  Add and verify the tracking CNAME shown in the DNS tab before enabling HTTPS tracking.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -870,116 +959,6 @@ export default function SmtpDomainSettings() {
               {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
               Verify DMARC Record
             </Button>
-          </div>
-        </TabsContent>
-
-        {/* Stats Tab */}
-        <TabsContent value="stats" className="mt-6">
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-medium mb-1">Email Statistics</h2>
-              <p className="text-sm text-muted-foreground">
-                Track email sending performance for this domain
-              </p>
-            </div>
-
-            {/* Time Filter */}
-            <div className="flex gap-2">
-              {statsRanges.map((option) => (
-                <Button
-                  key={option.value}
-                  variant={statsRange === option.value ? "default" : "outline"}
-                  size="sm"
-                  disabled={statsLoading}
-                  onClick={() => setStatsRange(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-
-            {statsError && (
-              <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <p className="text-sm">{statsError}</p>
-              </div>
-            )}
-
-            {statsLoading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader className="w-4 h-4 animate-spin" />
-                Loading email statistics...
-              </div>
-            )}
-
-            {/* Stat Cards Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard 
-                title="Total Emails" 
-                value={emailStats?.total_emails ?? 0}
-                colorClass="bg-cyan-500/20 dark:bg-cyan-900/30"
-              />
-              <StatCard 
-                title="Sent Successfully" 
-                value={emailStats?.sent_successfully ?? 0}
-                colorClass="bg-green-500/20 dark:bg-green-900/30"
-              />
-              <StatCard 
-                title="Failed" 
-                value={emailStats?.failed ?? 0}
-                colorClass="bg-purple-500/20 dark:bg-purple-900/30"
-              />
-              <StatCard
-                title="Skipped / Other"
-                value={emailStats?.other ?? 0}
-                subtext={`${emailStats?.skipped ?? 0} skipped`}
-                colorClass="bg-slate-500/20 dark:bg-slate-900/30"
-              />
-              <div className="rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-1">Success Rate</p>
-                <p className="text-2xl font-bold">{formatPercent(emailStats?.success_rate)}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard 
-                title="Opened" 
-                value={emailStats?.opened ?? 0}
-                subtext={`${formatPercent(emailStats?.open_rate)} open rate`}
-                colorClass="bg-orange-500/20 dark:bg-orange-900/30"
-              />
-              <StatCard 
-                title="Clicked" 
-                value={emailStats?.clicked ?? 0}
-                subtext={`${formatPercent(emailStats?.click_rate)} click rate`}
-                colorClass="bg-amber-500/20 dark:bg-amber-900/30"
-              />
-              <div className="rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-1">Last Used</p>
-                <p className="text-lg font-medium">{formatLastUsed(emailStats?.last_used)}</p>
-              </div>
-            </div>
-
-            {/* Domain Information */}
-            <Card className="mt-6">
-              <CardContent className="p-6">
-                <h3 className="font-medium mb-4">Domain Information</h3>
-                <div className="space-y-2 text-sm">
-                  <p>
-                    <span className="text-muted-foreground">Domain added:</span>{" "}
-                    {mgStatus?.domain?.created_at ? new Date(mgStatus.domain.created_at).toLocaleDateString() : "N/A"}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Last verification check:</span>{" "}
-                    {new Date().toLocaleString()}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Domain state:</span>{" "}
-                    {mgStatus?.domain?.state || "Unknown"}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
       </Tabs>

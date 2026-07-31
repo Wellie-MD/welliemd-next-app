@@ -57,6 +57,7 @@ import {
   Copy,
   Edit,
   ExternalLink,
+  Download,
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -197,6 +198,8 @@ function OrderDetailInner() {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
   const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
   const [sendCheckoutLinkLoading, setSendCheckoutLinkLoading] = useState(false)
+  const [resendReceiptLoading, setResendReceiptLoading] = useState(false)
+  const [downloadReceiptLoading, setDownloadReceiptLoading] = useState(false)
   const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
@@ -258,6 +261,60 @@ function OrderDetailInner() {
       })
     } finally {
       setSendCheckoutLinkLoading(false)
+    }
+  }
+
+  const handleDownloadReceipt = async () => {
+    if (!order?.id || downloadReceiptLoading) return
+
+    try {
+      setDownloadReceiptLoading(true)
+      const blob = await ordersApi.downloadReceipt(order.id)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `receipt-${order.order_id || order.display_id || order.id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to download receipt."
+      toast({
+        title: message,
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadReceiptLoading(false)
+    }
+  }
+
+  const handleResendReceipt = async () => {
+    if (!order?.id || resendReceiptLoading) return
+
+    try {
+      setResendReceiptLoading(true)
+      const response = await ordersApi.resendReceipt(order.id)
+      toast({
+        title: response.message || "Receipt email sent.",
+        description: response.recipient_email ? `Sent to ${response.recipient_email}` : undefined,
+      })
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to resend receipt."
+      toast({
+        title: message,
+        variant: "destructive",
+      })
+    } finally {
+      setResendReceiptLoading(false)
     }
   }
 
@@ -509,9 +566,14 @@ function OrderDetailInner() {
   const isOrderPaymentPending = status === "payment_pending"
   const baseRetryEligibility =
     !paymentCaptured && (isPaymentFailure || isSettlementRetryable || isOrderPaymentPending)
-  const isAllowedStatus = status === "created" || status === "payment_pending"
-  const canChangeProduct = isAllowedStatus && !isLocked
+  const isPreCheckoutProductChange = status === "created" || status === "payment_pending"
+  const isSubmittedVisitProductChange =
+    ["processing", "visit_pending", "consult_scheduled", "consult_rescheduled"].includes(status) &&
+    Boolean(String(order.visitStatus || order.mrn || "").trim())
+  const isAllowedStatus = isPreCheckoutProductChange || isSubmittedVisitProductChange
+  const canChangeProduct = isAllowedStatus && (!isLocked || isSubmittedVisitProductChange)
   const canRefundOrVoid = isAuthorized || isRefundable
+  const canUseReceipt = ["captured", "approved", "succeeded", "refunded"].includes(paymentStatus) || paymentCaptured
 
   const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
   const initialReqPrice = parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
@@ -538,7 +600,9 @@ function OrderDetailInner() {
   const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
   const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
   const changeProductTooltip =
-    "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
+    isSubmittedVisitProductChange
+      ? "Product change will resend the updated prescription to the submitted visit."
+      : "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
@@ -856,7 +920,7 @@ function OrderDetailInner() {
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.visitStatus || order.mrn) {
+  if ((order.visitStatus || order.mrn) && order.status !== "created" && order.status !== "payment_pending" && order.status !== "abandoned" && order.status !== "") {
     timelineItems.push({
       title: "Visit Pending",
       date: formatDateTime(order.orderDate),
@@ -865,17 +929,19 @@ function OrderDetailInner() {
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.status !== "created" && order.status !== "abandoned" && order.status !== "") {
-    timelineItems.push({
-      title: "Processing",
-      date: formatDateTime(order.orderDate),
-      icon: "event",
-      iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
-    })
+  if (order.status === "payment_pending") {
     timelineItems.push({
       title: "Payment Pending",
       date: formatDateTime(order.orderDate),
       icon: "credit_card",
+      iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+  if (order.status !== "created" && order.status !== "payment_pending" && order.status !== "abandoned" && order.status !== "") {
+    timelineItems.push({
+      title: "Processing",
+      date: formatDateTime(order.orderDate),
+      icon: "event",
       iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
     })
   }
@@ -1063,32 +1129,34 @@ function OrderDetailInner() {
           }
         }
 
+        // Show unresolved product name on billing_pending events
+        if (evt.event_type === "status.billing_pending") {
+          const evtPayload = evt.payload || {} as any;
+          if (evtPayload.mapping_status === "unresolved" || evtPayload.decision === "unresolved") {
+            const rawName = evtPayload.prescribed_medication_name || "";
+            desc = rawName
+              ? `${desc}\nPrescribed: ${rawName} — catalog mapping unresolved.`.trim()
+              : `${desc}\nPrescription catalog mapping unresolved.`.trim()
+          }
+        }
+
         // Inject prescribed product into initial Prescribed event if missing
         if (evt.event_type === "status.prescribed") {
           if (!desc.includes("Prescribed: ")) {
-            let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+            const evtPayload = evt.payload || {} as any;
+            const mappingUnresolved = evtPayload.mapping_status === "unresolved" || evtPayload.decision === "unresolved";
 
-            // If there are revisions, the CURRENT product name might not be the INITIAL one.
-            // We can find the initial product from the FIRST rx_revision event.
-            const firstRxRevision = Array.isArray(order.activity_events)
-              ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
-              : null;
+            if (mappingUnresolved) {
+              const rawName = evtPayload.prescribed_medication_name || "";
+              desc = rawName
+                ? `${desc}\nPrescribed: ${rawName} (mapping unresolved).`.trim()
+                : `${desc}\nPrescription mapping unresolved.`.trim()
+            } else {
+              let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
 
-            if (firstRxRevision && firstRxRevision.description) {
-              const rxDesc = firstRxRevision.description;
-              const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-              if (prevMatch && prevMatch[1]) {
-                pName = prevMatch[1].trim();
-              } else if (rxDesc.includes("Prescribed: ")) {
-                const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-                if (newMatch && newMatch[1]) {
-                  pName = newMatch[1].trim();
-                }
+              if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
+                desc = `${desc}\nPrescribed: ${pName}.`.trim()
               }
-            }
-
-            if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
-              desc = `${desc}\nPrescribed: ${pName}.`.trim()
             }
           }
 
@@ -1805,28 +1873,51 @@ function OrderDetailInner() {
                         {prescribedMedicineDisplayName}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                      <span className="text-slate-500 dark:text-slate-400">Product amount</span>
-                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
-                    </div>
-                    {previewDiscountAmount > 0 && (
-                      <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                        <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
-                        <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
-                      </div>
+                    {order.billing_pending_reason === "prescription_mapping_unresolved" ? (
+                      <>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Product amount</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">—</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">—</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Shipping</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">—</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
+                          <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
+                          <span className="text-slate-900 dark:text-white font-bold tabular-nums">—</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Product amount</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
+                        </div>
+                        {previewDiscountAmount > 0 && (
+                          <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                            <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
+                            <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${productSubtotalPrice}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Shipping</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(previewShippingFee)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
+                          <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
+                          <span className="text-slate-900 dark:text-white font-bold tabular-nums">${prescribedFinalDisplay ?? totalPrice}</span>
+                        </div>
+                      </>
                     )}
-                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                      <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
-                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${productSubtotalPrice}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                      <span className="text-slate-500 dark:text-slate-400">Shipping</span>
-                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(previewShippingFee)}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
-                      <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
-                      <span className="text-slate-900 dark:text-white font-bold tabular-nums">${prescribedFinalDisplay ?? totalPrice}</span>
-                    </div>
                   </>
                 )}
               </div>
@@ -1954,6 +2045,10 @@ function OrderDetailInner() {
               {order.prescription_medications && order.prescription_medications.length > 0 ? (
                 order.prescription_medications.map((med, idx) => (
                   <React.Fragment key={idx}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Medication</span>
+                      <span className="text-slate-900 dark:text-white font-medium text-right">{med.prescribed_name || med.name || "—"}</span>
+                    </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-500">Strength</span>
                       <span className="text-slate-900 dark:text-white font-medium">{med.strength || "None"}</span>
@@ -2104,7 +2199,7 @@ function OrderDetailInner() {
                 <span className="text-slate-900 dark:text-white font-medium">{formatDate(paymentDisplayDate) || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Provider</span>
+                <span className="text-slate-500">Gateway</span>
                 <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor || "—"}</span>
               </div>
               <div className="flex justify-between">
@@ -2192,6 +2287,39 @@ function OrderDetailInner() {
                 </span>
               </div>
             </div>
+
+            {canUseReceipt && (
+              <div className="flex flex-wrap justify-end gap-2 mb-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[11px] h-7 border-slate-200 text-slate-700 hover:bg-slate-50 dark:text-slate-200"
+                  onClick={handleDownloadReceipt}
+                  disabled={downloadReceiptLoading}
+                >
+                  {downloadReceiptLoading ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-3 w-3 mr-1" />
+                  )}
+                  Download Receipt
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[11px] h-7 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
+                  onClick={handleResendReceipt}
+                  disabled={resendReceiptLoading}
+                >
+                  {resendReceiptLoading ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Mail className="h-3 w-3 mr-1" />
+                  )}
+                  Resend Receipt
+                </Button>
+              </div>
+            )}
 
             {(hasSplitSettlement || settlementTransactions.length > 0) && (
               <div className="bg-muted/30 border rounded-lg p-4 mb-6 space-y-2 text-[12px]">
@@ -2489,9 +2617,9 @@ function OrderDetailInner() {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(statusLabels).map(([value, label]) => (
+                  {(["shipped", "canceled"] as const).map((value) => (
                     <SelectItem key={value} value={value}>
-                      {label}
+                      {statusLabels[value] || value}
                     </SelectItem>
                   ))}
                 </SelectContent>

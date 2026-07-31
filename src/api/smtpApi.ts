@@ -7,17 +7,38 @@ const apiBaseUrl = rawApiBaseUrl.endsWith("/") ? rawApiBaseUrl : `${rawApiBaseUr
 export interface MailgunDomain {
   name: string;
   smtp_password?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface MailgunDomainResponse {
-  domain: any;
-  receiving_dns_records: any[];
-  sending_dns_records: any[];
-  [key: string]: any;
+  domain: Record<string, unknown>;
+  receiving_dns_records: Array<Record<string, unknown>>;
+  sending_dns_records: Array<Record<string, unknown>>;
+  [key: string]: unknown;
 }
 
-export type MailgunStatsRange = "today" | "week" | "month" | "all";
+export interface MailgunTrackingStatus {
+  domain: string;
+  tracking_hostname: string;
+  dns_ready: boolean;
+  dns_record?: Record<string, unknown> | null;
+  click_tracking: boolean;
+  open_tracking: boolean;
+  unsubscribe_tracking: boolean;
+  tracking_scheme: "http" | "https" | null;
+  certificate_status: "active" | "processing" | "expired" | "error" | "not_configured" | "unknown";
+  certificate_error?: string | null;
+  error?: string;
+  errors?: Array<{ feature: string; message: string }>;
+  certificate_location?: string;
+}
+
+export type MailgunStatsRange = "today" | "week" | "month" | "year" | "all";
+
+export interface MailgunStatsReason {
+  reason: string;
+  count: number;
+}
 
 export interface MailgunDomainStats {
   domain: string;
@@ -27,15 +48,57 @@ export interface MailgunDomainStats {
   total_emails: number;
   sent_successfully: number;
   failed: number;
+  permanent_failed: number;
+  temporary_failed: number;
+  bounced: number;
+  delivered_after_retry: number;
   skipped: number;
   other: number;
+  skipped_reasons: MailgunStatsReason[];
+  other_reasons: MailgunStatsReason[];
   opened: number;
   clicked: number;
+  unsubscribed: number;
   success_rate: number;
   open_rate: number;
   click_rate: number;
+  unsubscribe_rate: number;
   last_used: string | null;
-  source: "mailgun" | "local";
+  source: "mailgun_metrics" | "mailgun_events" | "local";
+}
+
+export type EmailAudience = "all" | "patient" | "admin";
+
+export interface EmailLogRow {
+  id: string;
+  sent_at: string | null;
+  event_at: string | null;
+  recipient_name: string;
+  recipient_email: string;
+  template_type: string;
+  template_label: string;
+  subject: string;
+  status: string;
+  provider_event: string;
+  reason: string;
+  audience: EmailAudience;
+  mailgun_message_id: string;
+  retry_count: number;
+  can_retry: boolean;
+}
+
+export interface EmailAnalyticsResponse {
+  stats: MailgunDomainStats;
+  results: EmailLogRow[];
+  count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+export interface EmailLogDetail extends EmailLogRow {
+  preview_html: string;
 }
 
 export const createMailgunDomain = async (domain: MailgunDomain): Promise<MailgunDomainResponse> => {
@@ -53,7 +116,17 @@ export const verifyMailgunDomain = async (domainName: string): Promise<MailgunDo
   return data;
 };
 
-export const deleteMailgunDomain = async (domainName: string): Promise<any> => {
+export const getMailgunTrackingStatus = async (domainName: string): Promise<MailgunTrackingStatus> => {
+  const { data } = await api.get<MailgunTrackingStatus>(`${apiBaseUrl}mailgun-domains/${domainName}/tracking/`);
+  return data;
+};
+
+export const enableMailgunTracking = async (domainName: string): Promise<MailgunTrackingStatus> => {
+  const { data } = await api.put<MailgunTrackingStatus>(`${apiBaseUrl}mailgun-domains/${domainName}/tracking/enable/`);
+  return data;
+};
+
+export const deleteMailgunDomain = async (domainName: string): Promise<unknown> => {
   const { data } = await api.delete(`${apiBaseUrl}mailgun-domains/${domainName}/`);
   return data;
 };
@@ -78,6 +151,39 @@ export const getMailgunDomainStats = async (
   return data;
 };
 
+export const getMailgunEmailAnalytics = async (
+  domainName: string,
+  params: {
+    range?: MailgunStatsRange;
+    audience?: EmailAudience;
+    status?: string;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  }
+): Promise<EmailAnalyticsResponse> => {
+  const { data } = await api.get(`${apiBaseUrl}mailgun-domains/${domainName}/email-analytics/`, {
+    params,
+  });
+  return data;
+};
+
+export const getMailgunEmailLogDetail = async (
+  domainName: string,
+  logId: string
+): Promise<EmailLogDetail> => {
+  const { data } = await api.get(`${apiBaseUrl}mailgun-domains/${domainName}/email-logs/${logId}/`);
+  return data;
+};
+
+export const retryMailgunEmailLog = async (
+  domainName: string,
+  logId: string
+): Promise<{ status: string; event_id: string }> => {
+  const { data } = await api.post(`${apiBaseUrl}mailgun-domains/${domainName}/email-logs/${logId}/retry/`);
+  return data;
+};
+
 // --- Existing App SMTP API ---
 export interface ClientEmailConfiguration {
   id?: number;
@@ -85,6 +191,9 @@ export interface ClientEmailConfiguration {
   email_host_user: string;
   email_host_password: string;
   default_from_email: string;
+  smtp_domain_name?: string;
+  from_name?: string;
+  is_default_domain?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -96,6 +205,13 @@ export interface ClientEmailConfigurationResponse extends ClientEmailConfigurati
   updated_at: string;
 }
 
+export interface ClientEmailConfigurationListResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ClientEmailConfigurationResponse[];
+}
+
 const ENDPOINT = '/client-email-configurations/';
 
 /**
@@ -103,9 +219,9 @@ const ENDPOINT = '/client-email-configurations/';
  * - Staff/Superuser: returns all
  * - Normal users: returns only their own config
  */
-export const fetchEmailConfigurations = async (): Promise<ClientEmailConfigurationResponse[]> => {
+export const fetchEmailConfigurations = async (): Promise<ClientEmailConfigurationListResponse> => {
   try {
-    const { data } = await api.get<ClientEmailConfigurationResponse[]>(ENDPOINT);
+    const { data } = await api.get<ClientEmailConfigurationListResponse>(ENDPOINT);
     return data;
   } catch (error) {
     console.error('Failed to fetch email configurations:', error);
@@ -226,8 +342,13 @@ export const smtpApi = {
   createMailgunDomain,
   getMailgunDomain,
   verifyMailgunDomain,
+  getMailgunTrackingStatus,
+  enableMailgunTracking,
   deleteMailgunDomain,
   createMailgunCredentials,
   deleteMailgunCredentials,
-  getMailgunDomainStats
+  getMailgunDomainStats,
+  getMailgunEmailAnalytics,
+  getMailgunEmailLogDetail,
+  retryMailgunEmailLog
 };

@@ -299,21 +299,18 @@ export default function Messages() {
     const masterId = activeConvSummary?.master_id;
     if (tab !== "support" || !masterId) return;
 
-    let cancelled = false;
-
     const fetchBeluga = async () => {
       try {
-        await selectConversation(masterId);
+        await refreshBeluga(masterId);
       } catch { }
     };
 
     fetchBeluga();
     const interval = setInterval(fetchBeluga, 5000);
     return () => {
-      cancelled = true;
       clearInterval(interval);
     };
-  }, [tab, activeConvSummary?.master_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tab, activeConvSummary?.master_id, refreshBeluga]);
 
   // ---------- TAB-AWARE PREVIEW HELPERS (left list uses these) ----------
   const isBeluga = (m: Message) =>
@@ -617,7 +614,7 @@ export default function Messages() {
       try {
         sendInFlightRef.current = true;
         setSending(true);
-        await messageService.sendMessage({
+        const result = await messageService.sendMessage({
           master_id: activeConvSummary.master_id,
           content: text,
           to: "beluga_support",
@@ -627,9 +624,17 @@ export default function Messages() {
         await refreshBeluga(activeConvSummary.master_id);
 
         setNewMessage("");
+        if (result.beluga_status === "failed") {
+          setSendError(
+            result.beluga_error
+              ? `Saved locally, but Beluga did not create the support thread: ${result.beluga_error}`
+              : "Saved locally, but Beluga did not create the support thread."
+          );
+        }
         requestAnimationFrame(() => scrollToBottom(true));
       } catch (err) {
         console.error("Failed to send beluga message", err);
+        setSendError("Failed to save or send the Beluga support message.");
       } finally {
         setSending(false);
         sendInFlightRef.current = false;
@@ -1003,6 +1008,11 @@ export default function Messages() {
                             const fileName = m.media_file_name || m.content || "attachment";
                             const imageLike = isImageMime(mime) || looksLikeImageUrl(mediaUrl);
 
+                            const belugaSendFailed =
+                              tab === "support" &&
+                              m.message_type === "client_to_beluga_support" &&
+                              m.beluga_status === "failed";
+
                             return (
                               <div key={m.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"} ${isLastInGroup ? "mb-4" : "mb-0.5"}`}>
                                 {!isSent && isFirstInGroup && (
@@ -1048,7 +1058,17 @@ export default function Messages() {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })}
+                                  {belugaSendFailed && (
+                                    <span className="ml-1 text-destructive font-medium">
+                                      Not sent to Beluga
+                                    </span>
+                                  )}
                                 </div>
+                                {belugaSendFailed && m.beluga_error && (
+                                  <div className="mt-1 max-w-[75%] lg:max-w-[65%] text-[11px] text-destructive px-1">
+                                    {m.beluga_error}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}

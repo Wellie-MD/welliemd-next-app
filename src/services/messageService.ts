@@ -33,6 +33,8 @@ export interface Message {
   media_url?: string;
   media_mime_type?: string;
   media_file_name?: string;
+  beluga_status?: "pending" | "sent" | "failed" | "n/a" | string;
+  beluga_error?: string;
 }
 
 /** Lightweight conversation summary returned by /messages/conversations/ */
@@ -186,6 +188,8 @@ export const messageService = {
         media_url,
         media_mime_type: m.media_mime_type,
         media_file_name: m.media_file_name,
+        beluga_status: m.beluga_status,
+        beluga_error: m.beluga_error,
       };
       return normalized;
     });
@@ -245,7 +249,13 @@ export const messageService = {
     media_url?: string;
     media_mime_type?: string;
     media_file_name?: string;
-  }): Promise<{ sent: boolean; id: number }> {
+  }): Promise<{
+    sent: boolean;
+    id: number;
+    beluga_status?: string;
+    beluga_error?: string;
+    forwarded_to_beluga?: boolean;
+  }> {
     const { data } = await api.post("/messages/send/", payload);
     return data;
   },

@@ -78,19 +78,21 @@ export function ChangeProductModal({
 
   const fetchProducts = useCallback(async () => {
     try {
-      // Pass the treatment type as a query param so the backend filters server-side.
-      // This is far more reliable than fetching all products and filtering client-side,
-      // because client-side filtering breaks when the product list is paginated and
-      // the current order's product isn't in the fetched page.
-      const treatmentFilter = (order.treatment || "").trim().toLowerCase()
-      const params: Record<string, unknown> = { page_size: 1000, is_active: true }
-      if (treatmentFilter) {
-        params.treatment = treatmentFilter
+      // Keep treatment matching in this component. Older tenant APIs do not
+      // consistently accept the treatment query parameter, and sanitize its
+      // validation error as a generic 400 response.
+      let resp: unknown
+      try {
+        resp = await productApi.listProducts({ page_size: 1000, is_active: true })
+      } catch (firstError) {
+        // Some older deployments still enforce the legacy page-size limit.
+        console.warn("Retrying product lookup with the legacy page size", firstError)
+        resp = await productApi.listProducts({ page_size: 100, is_active: true })
       }
-      const resp: unknown = await productApi.listProducts(params)
+
       const data = resp as { results?: Product[] } | Product[]
       const items = Array.isArray(data) ? data : (data.results || [])
-      setProducts(Array.isArray(items) ? items : [])
+      setProducts(Array.isArray(items) ? items.filter((product) => product.is_active !== false) : [])
     } catch (err) {
       console.error(err)
       toast({
@@ -99,7 +101,7 @@ export function ChangeProductModal({
         variant: "destructive",
       })
     }
-  }, [toast, order.treatment])
+  }, [toast])
 
   useEffect(() => {
     if (open) {
@@ -190,7 +192,7 @@ export function ChangeProductModal({
               <SelectContent>
                 {availableProducts.map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>
-                    {p.name}
+                    {p.pharmacy_name ? `${p.name} - ${p.pharmacy_name}` : p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
