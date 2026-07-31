@@ -21,6 +21,15 @@ import {
   Archive,
   ShieldCheck,
   Activity,      // <- used for Sense insights
+  CheckCircle2,
+  LayoutGrid,
+  SlidersHorizontal,
+  Sliders,
+  Heart,
+  RefreshCw,
+  FlaskConical,
+  BookOpen,
+  Pill,
 } from "lucide-react"
 
 import {
@@ -63,8 +72,8 @@ const menuSections = [
         title: "Orders",
         icon: ShoppingBag,
         children: [
-          { title: "Rx Orders", url: "/dashboard/orders" },
-          { title: "Lab Orders", url: "/dashboard/orders/labs" },
+          { title: "Rx Orders", url: "/dashboard/orders", icon: Pill },
+          { title: "Lab Orders", url: "/dashboard/orders/labs", icon: FlaskConical },
         ],
       },
       { title: "Payments", url: "/dashboard/payments", icon: CreditCard },
@@ -73,7 +82,7 @@ const menuSections = [
         title: "Analytics",
         icon: TrendingUp,
         children: [
-          { title: "Client Performance", url: "/dashboard/analytics/performance" },
+          { title: "Client Performance", url: "/dashboard/analytics/performance", icon: BarChart3 },
         ]
       },
       // { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText } // --- Removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
@@ -86,11 +95,11 @@ const menuSections = [
         title: "Treatments",
         icon: Stethoscope,
         children: [
-          { title: "Custom Programs", url: "/dashboard/treatments/custom-programs" },
-          { title: "Programs", url: "/dashboard/treatments/programs" },
-          { title: "Sections", url: "/dashboard/treatments/sections" },
-          { title: "Consents", url: "/dashboard/treatments/consents" },
-          { title: "Treatment Types", url: "/dashboard/treatments/treatment-types" },
+          { title: "Custom Programs", url: "/dashboard/treatments/custom-programs", icon: FileText },
+          { title: "Programs", url: "/dashboard/treatments/programs", icon: CheckCircle2 },
+          { title: "Sections", url: "/dashboard/treatments/sections", icon: LayoutGrid },
+          { title: "Consents", url: "/dashboard/treatments/consents", icon: ScrollText },
+          { title: "Treatment Types", url: "/dashboard/treatments/treatment-types", icon: SlidersHorizontal },
         ]
       },
       { title: "Questionnaires", url: "/dashboard/questionnaires", icon: FileText },
@@ -103,12 +112,12 @@ const menuSections = [
         title: "Products",
         icon: Package,
         children: [
-          { title: "Medicine", url: "/dashboard/products" },
-          { title: "Supplies", url: "/dashboard/products/supplies" },
-          { title: "Labs", url: "/dashboard/products/labs" },
-          { title: "Test Catalog", url: "/dashboard/products/labs/catalog" },
-          { title: "Junction Settings", url: "/dashboard/products/labs/settings" },
-          { title: "Configuration", url: "/dashboard/products/config" }
+          { title: "Medicine", url: "/dashboard/products", icon: Heart },
+          { title: "Supplies", url: "/dashboard/products/supplies", icon: RefreshCw },
+          { title: "Labs", url: "/dashboard/products/labs", icon: FlaskConical },
+          { title: "Test Catalog", url: "/dashboard/products/labs/catalog", icon: BookOpen },
+          { title: "Junction Settings", url: "/dashboard/products/labs/settings", icon: Sliders },
+          { title: "Configuration", url: "/dashboard/products/config", icon: Wrench }
         ]
       },
       
@@ -155,6 +164,7 @@ const menuSections = [
 type SidebarChildItem = {
   title: string;
   url: string;
+  icon?: React.ComponentType<{ className?: string }>;
 };
 
 type SidebarItem = {
@@ -296,23 +306,36 @@ export function AppSidebar() {
                             </CollapsibleTrigger>
                             {!collapsed && (
                               <CollapsibleContent className="transition-all duration-300 ease-in-out">
-                                <div className="ml-6 mt-2 space-y-1 border-l border-white/[0.08] pl-4">
-                                  {item.children.map((child) => (
-                                    <SidebarMenuButton key={child.title} asChild>
-                                      <NavLink
-                                        to={child.url}
-                                        className={`
-                                          flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                          ${currentPath === child.url || currentPath.startsWith(`${child.url}/`)
-                                            ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
-                                            : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
-                                          }
-                                        `}
-                                      >
-                                        <span className="text-sm">{child.title}</span>
-                                      </NavLink>
-                                    </SidebarMenuButton>
-                                  ))}
+                                <div className="ml-6 mt-2 space-y-1 border-l border-white/[0.08]">
+                                  {item.children.map((child) => {
+                                    const isChildActive =
+                                      currentPath === child.url || currentPath.startsWith(`${child.url}/`);
+                                    return (
+                                      <SidebarMenuButton key={child.title} asChild>
+                                        <NavLink
+                                          to={child.url}
+                                          className={`
+                                            group flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
+                                            ${isChildActive
+                                              ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
+                                              : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
+                                            }
+                                          `}
+                                        >
+                                          {child.icon && (
+                                            <child.icon
+                                              className={`h-4 w-4 flex-shrink-0 ${
+                                                isChildActive
+                                                  ? "text-blue-400"
+                                                  : "text-slate-400 group-hover:text-slate-300"
+                                              }`}
+                                            />
+                                          )}
+                                          <span className="text-sm truncate">{child.title}</span>
+                                        </NavLink>
+                                      </SidebarMenuButton>
+                                    );
+                                  })}
                                 </div>
                               </CollapsibleContent>
                             )}
