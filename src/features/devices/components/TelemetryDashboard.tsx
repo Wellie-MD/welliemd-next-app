@@ -180,8 +180,15 @@ export function WeightTrendCard({
   bottomAction?: { label: string; onClick: () => void };
 }) {
   const cur = weight.series[weight.series.length - 1] ?? weight.start;
-  const chg = cur != null && weight.start != null ? Math.abs(+(cur - weight.start).toFixed(1)) : null;
-  const pct = cur != null && weight.start ? Math.abs(((cur - weight.start) / weight.start) * 100) : null;
+  const start = weight.series[0] ?? weight.start;
+  const rawDiff = cur != null && start != null ? +(cur - start).toFixed(1) : null;
+  const rawPct = cur != null && start && start > 0 ? (rawDiff! / start) * 100 : null;
+
+  const isDecrease = rawDiff != null && rawDiff < 0;
+  const isIncrease = rawDiff != null && rawDiff > 0;
+  const changeColor = isDecrease ? 'var(--km-re)' : isIncrease ? 'var(--km-gr)' : 'var(--km-tm)';
+  const formattedChg = rawDiff != null ? (isIncrease ? `+${rawDiff}` : `${rawDiff}`) : null;
+  const formattedPct = rawPct != null ? (isIncrease ? `+${rawPct.toFixed(1)}%` : `${rawPct.toFixed(1)}%`) : null;
   const bmi = weight.latestBmi;
   const bmiCat = weight.latestBmiCategory;
 
@@ -237,9 +244,9 @@ export function WeightTrendCard({
         >
           {cur != null ? cur : 'Unavailable'} <span style={{ fontSize: 14, color: 'var(--km-tm)' }}>{cur != null ? 'lb' : ''}</span>
         </span>
-        {chg != null && pct != null && (
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--km-gr)' }}>
-            Change {chg} lb · {pct.toFixed(1)}%
+        {formattedChg != null && formattedPct != null && (
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: changeColor }}>
+            Change {formattedChg} lb · {formattedPct}
           </span>
         )}
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--km-tm)' }}>
