@@ -530,7 +530,7 @@ function OrderDetailInner() {
   }
 
   const status = order.orderStatus || order.status || "created"
-  const canonicalStatus = String(order.status || "").toLowerCase()
+  const canonicalStatus = String(order.status || order.orderStatus || "").toLowerCase()
   const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
   const statusDisplay = statusLabels[status] || status
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
@@ -568,7 +568,7 @@ function OrderDetailInner() {
     !paymentCaptured && (isPaymentFailure || isSettlementRetryable || isOrderPaymentPending)
   const isPreCheckoutProductChange = status === "created" || status === "payment_pending"
   const isSubmittedVisitProductChange =
-    ["processing", "visit_pending", "consult_scheduled", "consult_rescheduled"].includes(status) &&
+    ["processing", "visit_pending", "consult_scheduled", "consult_rescheduled", "prescribed"].includes(canonicalStatus) &&
     Boolean(String(order.visitStatus || order.mrn || "").trim())
   const isAllowedStatus = isPreCheckoutProductChange || isSubmittedVisitProductChange
   const canChangeProduct = isAllowedStatus && (!isLocked || isSubmittedVisitProductChange)
@@ -602,7 +602,7 @@ function OrderDetailInner() {
   const changeProductTooltip =
     isSubmittedVisitProductChange
       ? "Product change will resend the updated prescription to the submitted visit."
-      : "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
+      : "Product change is available before payment authorization or for eligible submitted visits before fulfillment is shipped."
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
@@ -640,7 +640,7 @@ function OrderDetailInner() {
     if (!order?.id || !pendingProductChange) return
     if (!canChangeProduct) {
       toast({
-        title: "Product change is locked once payment is authorized or order is no longer Created.",
+        title: "Product change is available before payment authorization or for eligible submitted visits before fulfillment is shipped.",
         variant: "destructive",
       })
       return
