@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { profileService, useProfile } from '@/features/profile';
+import { profileService, useProfile, type PatientProfile } from '@/features/profile';
 import { MEDICAL, SUCCESS_MESSAGES, ERROR_MESSAGES, LOADING_MESSAGES } from '@/config/constants';
 import { Eye, EyeOff, ShieldOff } from 'lucide-react';
 import { useAuth } from '@/features/auth';
@@ -537,11 +537,8 @@ function bmiCategory(bmi: number): string {
 }
 
 interface VitalsCardProps {
-  latestVitals?: {
-    height_inches?: number | null;
-    weight_lbs?: string | null;
-  } | null;
-  onSaved: () => Promise<void>;
+  latestVitals?: PatientProfile['latest_vitals'];
+  onSaved?: () => Promise<void>;
 }
 
 // Bounds match the input's own min/max (ft 3-8, in 0-11, weight >= 50lb) - HTML
@@ -601,18 +598,30 @@ function VitalsCard({ latestVitals, onSaved }: VitalsCardProps) {
         height_inches: Math.round(totalHeightIn),
         weight_lbs: weightNum,
       });
-      // The write response is authoritative. Refresh separately so a profile-read
-      // problem cannot turn a successful vitals write into a false error toast.
-      void onSaved().catch(error => {
-        console.error('Vitals saved, but profile refresh failed:', error);
-      });
+      
+      // Isolate profile refresh so read errors cannot trigger vitals error toasts
+      if (onSaved) {
+        void onSaved().catch(error => {
+          console.error('Vitals saved, but profile refresh failed:', error);
+        });
+      }
+      
       toast.success('Vitals saved successfully.');
     } catch (error: any) {
-      toast.error(error?.response?.data?.detail || error?.response?.data?.error || 'Failed to save vitals.');
+      const errorMsg =
+        typeof error?.error === 'string'
+          ? error.error
+          : error?.error?.message ||
+            error?.response?.data?.detail ||
+            error?.response?.data?.error ||
+            error?.message ||
+            'Failed to save vitals.';
+      toast.error(errorMsg);
     } finally {
       setSaving(false);
     }
   };
+
 
   return (
     <div className="km-profile-card km-fade">

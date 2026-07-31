@@ -34,6 +34,8 @@ export const useProfile = () => {
     patientProfile,
     isLoading,
     error,
+    fetchUserProfile,
+    fetchPatientProfile,
     updateUserProfile,
     updatePatientProfile,
     clearError,
