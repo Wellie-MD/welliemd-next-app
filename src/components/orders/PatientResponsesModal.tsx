@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { IntakeResponseSummary, PatientResponses, QuestionnairePhoto, updateOrderQuestionnaireImages } from "@/api/ordersApi"
+import { IntakeResponseSummary, PatientResponses, QuestionnaireDocument, QuestionnairePhoto, updateOrderQuestionnaireImages } from "@/api/ordersApi"
 import { User, FileText, Pill, AlertCircle, Link2, Copy, Image as ImageIcon, Upload, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useEffect, useRef, useState } from "react"
@@ -32,6 +32,7 @@ export function PatientResponsesModal({
 }: PatientResponsesModalProps) {
   const { toast } = useToast()
   const [imageItems, setImageItems] = useState<QuestionnairePhoto[]>([])
+  const [documentItems, setDocumentItems] = useState<QuestionnaireDocument[]>([])
   const [isSavingImages, setIsSavingImages] = useState(false)
   const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
@@ -79,6 +80,12 @@ export function PatientResponsesModal({
     }
 
     setImageItems(nextItems)
+    const nextDocuments = Array.isArray(patientResponses?.documents)
+      ? patientResponses.documents.filter(
+          (item): item is QuestionnaireDocument => Boolean(item && typeof item === "object"),
+        )
+      : []
+    setDocumentItems(nextDocuments)
   }, [open, patientResponses])
 
   const hasImageChanges = (() => {
@@ -625,6 +632,60 @@ export function PatientResponsesModal({
             ) : (
               <p className="text-sm text-muted-foreground italic">
                 No uploaded images available.
+              </p>
+            )}
+          </div>
+
+          <Separator className="my-6" />
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-lg">Uploaded Documents</h3>
+            </div>
+
+            {documentItems.length > 0 ? (
+              <div className="space-y-3">
+                {documentItems.map((item, idx) => {
+                  const hasDocument = Boolean(item.data)
+                  const href = hasDocument
+                    ? `data:${item.mime || "application/pdf"};base64,${item.data}`
+                    : undefined
+
+                  return (
+                    <div
+                      key={`${item.question_id || item.question || "document"}-${idx}`}
+                      className="flex items-center justify-between gap-4 rounded-lg border border-border/50 bg-muted/30 p-4"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {item.question || `Uploaded document ${idx + 1}`}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {item.filename || item.upload_type || item.mime || "Document"}
+                        </p>
+                      </div>
+                      {href ? (
+                        <a
+                          className="shrink-0 text-sm font-medium text-primary underline"
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open document
+                        </a>
+                      ) : (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          File data unavailable
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                No uploaded documents available.
               </p>
             )}
           </div>

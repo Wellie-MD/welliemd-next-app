@@ -41,6 +41,7 @@ export interface PatientResponses {
   questionnaireItems?: QuestionnaireItem[] | Record<string, unknown>
   medications?: unknown[]
   photos?: unknown[]
+  documents?: QuestionnaireDocument[]
   [key: string]: unknown
 }
 
@@ -48,6 +49,15 @@ export interface QuestionnairePhoto {
   question?: string
   question_id?: string
   mime?: string
+  data?: string
+}
+
+export interface QuestionnaireDocument {
+  question?: string
+  question_id?: string
+  mime?: string
+  filename?: string
+  upload_type?: string
   data?: string
 }
 
