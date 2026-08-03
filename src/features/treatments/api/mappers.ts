@@ -90,12 +90,6 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
     record.product_role ||
     PROGRAM_PRODUCT_ROLE.primaryChoice
   ) as ProgramCheckoutProduct["productRole"],
-  allowedQuantities: Array.isArray(record.allowed_quantities ?? record.allowedQuantities)
-    ? (record.allowed_quantities ?? record.allowedQuantities as unknown[])
-        .map(Number)
-        .filter((value: number) => Number.isInteger(value) && value > 0)
-    : undefined,
-  defaultQuantity: Number(record.default_quantity ?? record.defaultQuantity) || undefined,
   choiceGroup: record.choiceGroup || record.choice_group
     ? String(record.choiceGroup ?? record.choice_group)
     : undefined,

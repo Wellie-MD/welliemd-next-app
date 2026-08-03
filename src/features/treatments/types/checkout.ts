@@ -25,10 +25,6 @@ export interface ProgramCheckoutProduct {
   /** Patient price snapshot shown during authoring. Backend recalculates it at runtime. */
   price?: number;
   productRole: ProgramProductRole;
-  /** Enumerated quantities a patient may select. One entry means fixed. */
-  allowedQuantities?: number[];
-  /** Pre-selected quantity; must be one of allowedQuantities. */
-  defaultQuantity?: number;
   choiceGroup?: string;
   /** Display name shared by exact Products grouped as supply options. */
   patientLabel?: string;

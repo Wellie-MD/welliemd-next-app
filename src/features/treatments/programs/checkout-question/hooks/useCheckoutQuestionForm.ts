@@ -43,8 +43,6 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           productRole: product.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
           choiceGroup: product.choiceGroup,
           patientLabel: product.patientLabel,
-          allowedQuantities: product.allowedQuantities,
-          defaultQuantity: product.defaultQuantity,
           visibilityRules: product.visibilityRules,
         }))
       );
