@@ -174,22 +174,22 @@ export default function ProgramsPage() {
 
   const handleSaveProgram = async (
     programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">
-  ): Promise<boolean> => {
+  ): Promise<Program | boolean> => {
     if (editingProgram) {
-      const updatedProgram = {
-        id: editingProgram.id,
+      const updatedProgram: Program = {
+        ...editingProgram,
         ...programData,
       };
 
       try {
-        await saveProgramMutation.mutateAsync(updatedProgram);
+        const saved = await saveProgramMutation.mutateAsync(updatedProgram);
         toast({
           title: "Program Updated",
           description: `Saved changes to ${programData.name}`,
         });
         setEditingProgram(null);
         setIsCreateOpen(false);
-        return true;
+        return saved || updatedProgram;
       } catch (error) {
         if (isDuplicateSlugError(error)) {
           showDuplicateSlugToast();
@@ -222,13 +222,13 @@ export default function ProgramsPage() {
     };
 
     try {
-      await saveProgramMutation.mutateAsync(newProg);
+      const created = await saveProgramMutation.mutateAsync(newProg);
       toast({
         title: "Program Created",
         description: `Successfully created program: ${programData.name}`,
       });
       setIsCreateOpen(false);
-      return true;
+      return created || newProg;
     } catch (error) {
       if (isDuplicateSlugError(error)) {
         showDuplicateSlugToast();

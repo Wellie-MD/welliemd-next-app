@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, ChevronDown } from "lucide-react";
 import type { TreatmentType, ProgramStage, Program } from "@/features/treatments/types";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 const STATE_CODES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"];
 
@@ -13,7 +15,7 @@ interface CreateProgramModalProps {
   treatmentTypes: TreatmentType[];
   onSave: (
     programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">
-  ) => Promise<boolean> | boolean;
+  ) => Promise<Program | boolean> | Program | boolean;
   prefillTreatmentTypeKey?: string;
   prefillStage?: ProgramStage;
   initialProgram?: Program | null;
@@ -30,6 +32,7 @@ export function CreateProgramModal({
   initialProgram,
   mode = "create",
 }: CreateProgramModalProps) {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [stage, setStage] = useState<ProgramStage>("intake");
   const [treatmentTypeKey, setTreatmentTypeKey] = useState("");
@@ -140,6 +143,13 @@ export function CreateProgramModal({
       });
       if (saved) {
         onOpenChange(false);
+        const programId =
+          typeof saved === "object" && saved !== null && "id" in saved
+            ? (saved as { id: string }).id
+            : initialProgram?.id;
+        if (programId) {
+          navigate(ADMIN_TREATMENT_ROUTES.programQuestions(programId));
+        }
       }
     } finally {
       setIsSaving(false);
