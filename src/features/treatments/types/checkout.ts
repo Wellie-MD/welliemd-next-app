@@ -42,10 +42,7 @@ export interface ProgramCheckoutQuestion {
   text: string;
   products: ProgramCheckoutProduct[];
   visibilityRules: VisibilityRuleGroup;
-  /** Authored on the question, never inferred from the roles present. */
   required?: boolean;
-  minSelections?: number | null;
-  maxSelections?: number | null;
 }
 
 export interface CheckoutProductOption {

@@ -23,12 +23,6 @@ interface CheckoutProductsSectionProps {
   onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
   onCompatibilityChange?: (incompatibleProductNames: string[]) => void;
-  isRequired: boolean;
-  onRequiredChange: (value: boolean) => void;
-  minSelections: number | null;
-  onMinSelectionsChange: (value: number | null) => void;
-  maxSelections: number | null;
-  onMaxSelectionsChange: (value: number | null) => void;
 }
 
 export function CheckoutProductsSection({
@@ -41,12 +35,6 @@ export function CheckoutProductsSection({
   onProductPriceChange,
   onProductVisibilityChange,
   onCompatibilityChange,
-  isRequired,
-  onRequiredChange,
-  minSelections,
-  onMinSelectionsChange,
-  maxSelections,
-  onMaxSelectionsChange,
 }: CheckoutProductsSectionProps) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [titrationCategories, setTitrationCategories] = useState<TitrationCategory[]>([]);
@@ -195,52 +183,6 @@ export function CheckoutProductsSection({
       </div>
       <div className="text-[11.5px] leading-normal text-slate-400">
         Add one or more products the patient can choose from. Each product is a structured Category / Regimen / Dose combination sourced from the Django product catalog. Use per-product visibility rules to show different products based on the patient&apos;s earlier answers.
-      </div>
-      <div className="rounded-lg border border-slate-200 bg-white p-3">
-        <div className="text-[12px] font-bold text-slate-800">Selection rules</div>
-        <p className="mt-0.5 text-[10.5px] leading-normal text-slate-500">
-          The server enforces these before any charge. Leave a limit blank to
-          keep it unconstrained.
-        </p>
-        <label className="mt-3 flex items-center gap-2 text-[11.5px] font-medium text-slate-700">
-          <input
-            type="checkbox"
-            checked={isRequired}
-            onChange={(event) => onRequiredChange(event.target.checked)}
-          />
-          Patient must choose from this question
-        </label>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <label className="flex-1 text-[10.5px] font-medium text-slate-500">
-            Minimum selections
-            <input
-              type="number"
-              min={0}
-              value={minSelections ?? ""}
-              onChange={(event) => onMinSelectionsChange(
-                event.target.value === "" ? null : Number(event.target.value),
-              )}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] outline-none focus:border-blue-500"
-            />
-          </label>
-          <label className="flex-1 text-[10.5px] font-medium text-slate-500">
-            Maximum selections
-            <input
-              type="number"
-              min={1}
-              value={maxSelections ?? ""}
-              onChange={(event) => onMaxSelectionsChange(
-                event.target.value === "" ? null : Number(event.target.value),
-              )}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] outline-none focus:border-blue-500"
-            />
-          </label>
-        </div>
-        {minSelections !== null && maxSelections !== null && minSelections > maxSelections && (
-          <p className="mt-2 text-[10.5px] font-semibold text-red-600" role="alert">
-            Minimum cannot be greater than maximum.
-          </p>
-        )}
       </div>
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
         <div className="flex items-start gap-2">

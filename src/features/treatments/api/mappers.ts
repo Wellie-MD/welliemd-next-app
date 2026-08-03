@@ -114,16 +114,7 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
     visibilityRules: checkoutVisibilityGroup(
       record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule ?? record.conditional_logic,
     ) ?? { mode: "simple", rules: [], subgroups: [] },
-    // Authored on the question. The legacy role inference is only a fallback
-    // for releases saved before the field existed.
-    required: Boolean(
-      record.required
-      ?? record.is_required
-      ?? checkoutConfig?.is_required
-      ?? isCheckoutQuestionRequired(rawProducts.map(checkoutProductFromRecord)),
-    ),
-    minSelections: (record.min_selections ?? checkoutConfig?.min_selections ?? null) as number | null,
-    maxSelections: (record.max_selections ?? checkoutConfig?.max_selections ?? null) as number | null,
+    required: Boolean(record.required ?? record.is_required ?? isCheckoutQuestionRequired(rawProducts.map(checkoutProductFromRecord))),
   };
 };
 

@@ -128,12 +128,6 @@ export function CheckoutEditor({
               onProductFieldChange={form.handleProductFieldChange}
               onProductPriceChange={form.handleProductPriceChange}
               onProductVisibilityChange={form.handleProductVisibilityChange}
-              isRequired={form.isRequired}
-              onRequiredChange={form.setIsRequired}
-              minSelections={form.minSelections}
-              onMinSelectionsChange={form.setMinSelections}
-              maxSelections={form.maxSelections}
-              onMaxSelectionsChange={form.setMaxSelections}
             />
             <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}

@@ -80,12 +80,6 @@ export function CheckoutQuestionModal({
               onProductPriceChange={form.handleProductPriceChange}
               onProductVisibilityChange={form.handleProductVisibilityChange}
               onCompatibilityChange={setIncompatibleProducts}
-              isRequired={form.isRequired}
-              onRequiredChange={form.setIsRequired}
-              minSelections={form.minSelections}
-              onMinSelectionsChange={form.setMinSelections}
-              maxSelections={form.maxSelections}
-              onMaxSelectionsChange={form.setMaxSelections}
             />
             <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}

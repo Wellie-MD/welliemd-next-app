@@ -8,10 +8,9 @@ export const PROGRAM_PRODUCT_ROLE = {
   informational: "informational",
 } as const satisfies Record<string, ProgramProductRole>;
 
-// LEGACY FALLBACK ONLY. "Required" is now authored on the checkout question
-// itself (ProgramCheckoutQuestion.is_required) rather than inferred from the
-// roles present, which made an all-optional question impossible to express.
-// This remains solely to interpret releases saved before that field existed.
+// Mirrors the backend's is_req computation (program_checkout_configuration.py):
+// a checkout question is only "required" if the patient must choose one of its
+// primary-choice products — Optional/Informational/Clinician-only roles never force a selection.
 export const isCheckoutQuestionRequired = (products: ProgramCheckoutProduct[] = []) =>
   products.some(
     (product) =>
