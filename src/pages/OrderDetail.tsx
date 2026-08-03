@@ -34,7 +34,7 @@ class GlobalErrorBoundary extends Component<{ children: ReactNode }, { hasError:
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Order, ordersApi } from "@/api/ordersApi"
+import { Order, ordersApi, PrescriptionHistoryEvent, PrescriptionHistoryMedication } from "@/api/ordersApi"
 import { paymentGatewayApi } from "@/api/paymentGatewayApi"
 import { patientPaymentMethodsApi, PatientPaymentMethod, PatientPaymentGateway } from "@/api/patientPaymentMethodsApi"
 import { PatientResponsesModal } from "@/components/orders/PatientResponsesModal"
@@ -92,6 +92,7 @@ import { Permissions } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useClientMessages } from "@/contexts/MessagesContext"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
 const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600",
@@ -197,6 +198,17 @@ function OrderDetailInner() {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
   const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
   const [sendCheckoutLinkLoading, setSendCheckoutLinkLoading] = useState(false)
+  const [resendReceiptLoading, setResendReceiptLoading] = useState(false)
+  const [downloadReceiptLoading, setDownloadReceiptLoading] = useState(false)
+  const [showPrescriptionHistory, setShowPrescriptionHistory] = useState(false)
+  const [prescriptionHistory, setPrescriptionHistory] = useState<{
+    patient_name?: string | null
+    prescription_event_count: number
+    revision_count: number
+    events: PrescriptionHistoryEvent[]
+  } | null>(null)
+  const [prescriptionHistoryLoading, setPrescriptionHistoryLoading] = useState(false)
+  const [prescriptionHistoryError, setPrescriptionHistoryError] = useState<string | null>(null)
   const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
@@ -206,6 +218,21 @@ function OrderDetailInner() {
   const hasExistingThread = Boolean(
     orderThreadMasterId && conversations.some((c) => c.master_id === orderThreadMasterId)
   )
+
+  const openPrescriptionHistory = async () => {
+    if (!order) return
+    setShowPrescriptionHistory(true)
+    setPrescriptionHistoryLoading(true)
+    setPrescriptionHistoryError(null)
+    try {
+      const history = await ordersApi.fetchPrescriptionHistory(order.id)
+      setPrescriptionHistory(history)
+    } catch (err: any) {
+      setPrescriptionHistoryError(err?.response?.data?.detail || "Unable to load prescription history.")
+    } finally {
+      setPrescriptionHistoryLoading(false)
+    }
+  }
 
   const isUuid = (s: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
@@ -1497,6 +1524,60 @@ function OrderDetailInner() {
     order.booking_location ||
     "—"
 
+  const renderHistoryMedication = (med: PrescriptionHistoryMedication, index: number) => (
+    <div key={`${med.med_id || med.product_name || "med"}-${index}`} className="border-t border-slate-200 pt-3 mt-3 first:border-t-0 first:pt-0 first:mt-0">
+      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+        {med.product_name || med.medication || "Prescription"}
+      </span>
+      <div className="mt-2 space-y-1.5 text-xs">
+        <div className="flex justify-between gap-4"><span className="text-slate-400">Medication</span><span className="text-right text-slate-700">{med.medication || "—"}</span></div>
+        <div className="flex justify-between gap-4"><span className="text-slate-400">Pharmacy</span><span className="text-right text-slate-700">{med.pharmacy_name || "—"}</span></div>
+        <div className="flex justify-between gap-4"><span className="text-slate-400">Qty / Refills / Strength</span><span className="text-right text-slate-700">{[med.quantity, med.refills, med.strength].filter(Boolean).join(" · ") || "—"}</span></div>
+        <div className="flex justify-between gap-4"><span className="text-slate-400">RX ID</span><span className="text-right font-mono text-[11px] text-slate-700">{med.rx_id || "—"}</span></div>
+        <div className="flex justify-between gap-4"><span className="text-slate-400">Med ID</span><span className="max-w-[65%] break-all text-right font-mono text-[11px] text-slate-700">{med.med_id || "—"}</span></div>
+      </div>
+    </div>
+  )
+
+  const renderHistoryEvent = (event: PrescriptionHistoryEvent, index: number) => {
+    const requested = event.kind === "requested_at_checkout"
+    const badgeClass = requested
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : event.label === "Initial Prescription"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : "border-blue-200 bg-blue-50 text-blue-700"
+    return (
+      <div key={`${event.event_id || event.kind}-${index}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}>{event.label}</span>
+          <span className="text-[11px] text-slate-400 whitespace-nowrap">{formatDateTime(event.occurred_at)}</span>
+        </div>
+        <div className="mt-3 flex items-center gap-2 border-b border-slate-200 pb-3">
+          <Avatar className="h-6 w-6"><AvatarFallback className={requested ? "bg-violet-100 text-violet-700 text-[10px]" : "bg-cyan-100 text-cyan-700 text-[10px]"}>{(event.actor_name || "P").slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+          <span className="text-sm font-semibold text-slate-900">{event.actor_name || (requested ? "Patient" : "Provider")}</span>
+          <span className="text-xs text-slate-400">{event.actor_role || (requested ? "Patient" : "Provider")}</span>
+        </div>
+        {requested ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {event.medications.map((med, medIndex) => (
+              <span key={`${med.product_name || "product"}-${medIndex}`} className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                {med.product_name || med.medication || "Prescription"}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3">{event.medications.map(renderHistoryMedication)}</div>
+        )}
+        {!requested && event.event_id && (
+          <div className="mt-3 flex justify-between gap-4 border-t border-slate-200 pt-3 text-xs">
+            <span className="text-slate-400">Event ID</span>
+            <span className="break-all text-right font-mono text-[11px] text-slate-700">{event.event_id}</span>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const previewOriginalUnitPrice = pendingProductChange != null
     ? pendingProductChange.unitPrice
     : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
@@ -1939,10 +2020,17 @@ function OrderDetailInner() {
         <div className="lg:col-span-4 space-y-6">
           {/* Prescription & Fulfillment */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-slate-400" />
-              Prescription & Fulfillment
-            </h3>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <FileText className="h-4 w-4 text-slate-400" />
+                Prescription & Fulfillment
+              </h3>
+              {order.visitStatus && (
+                <button type="button" onClick={openPrescriptionHistory} className="text-xs font-medium text-blue-600 hover:underline whitespace-nowrap">
+                  View Change History
+                </button>
+              )}
+            </div>
             {status === 'processing' || status === 'created' || status === 'payment_pending' ? (
               <div className="bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 text-xs font-semibold py-1.5 px-3 rounded-lg mb-4 text-center">
                 Consult scheduled — not yet fulfilled
@@ -2546,6 +2634,34 @@ function OrderDetailInner() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={showPrescriptionHistory} onOpenChange={setShowPrescriptionHistory}>
+        <SheetContent side="right" className="w-full sm:max-w-[560px] p-0 bg-slate-50">
+          <SheetHeader className="border-b bg-white px-6 py-5 text-left">
+            <SheetTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Prescription Change History</SheetTitle>
+            <SheetDescription className="space-y-1 text-left">
+              <span className="block text-base font-semibold text-slate-900">Order {orderTitle}</span>
+              <span className="block text-xs text-slate-400">
+                {order.name || prescriptionHistory?.patient_name || "Patient"} · {prescriptionHistory?.prescription_event_count || 0} prescription events · {prescriptionHistory?.revision_count || 0} revisions
+              </span>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="h-[calc(100vh-118px)] overflow-y-auto px-4 py-4">
+            {prescriptionHistoryLoading && (
+              <div className="flex items-center justify-center py-16 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading history...</div>
+            )}
+            {!prescriptionHistoryLoading && prescriptionHistoryError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{prescriptionHistoryError}</div>
+            )}
+            {!prescriptionHistoryLoading && !prescriptionHistoryError && prescriptionHistory && prescriptionHistory.events.length === 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">No persisted prescription history is available for this order.</div>
+            )}
+            {!prescriptionHistoryLoading && !prescriptionHistoryError && prescriptionHistory && prescriptionHistory.events.length > 0 && (
+              <div className="space-y-3">{prescriptionHistory.events.map(renderHistoryEvent)}</div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <PatientResponsesModal
         open={showPatientResponses}
