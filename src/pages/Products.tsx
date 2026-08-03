@@ -207,7 +207,7 @@ function ProductChangeHistoryDialog({
           <div className="flex-1 text-left">
             <h3 className="text-lg font-semibold text-slate-800">Change History</h3>
             <p className="mt-0.5 text-[13px] font-normal text-slate-400">
-              Audit trail of every change made to this {recordType}.
+              Audit trail of every change made to this product.
             </p>
           </div>
           <DialogClose className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 outline-none transition-colors hover:bg-slate-100 hover:text-slate-600">
