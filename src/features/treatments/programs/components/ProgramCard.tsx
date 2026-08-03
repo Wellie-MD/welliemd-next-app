@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Archive, Copy, Eye, HelpCircle, CheckSquare, FileText,
-  MoreHorizontal, Pencil, Check, X,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +25,6 @@ interface ProgramCardProps {
   onEdit: (program: Program) => void;
   onDuplicate: (program: Program) => void;
   onArchive: (program: Program) => void;
-  onSaveSlug: (programId: string, newSlug: string) => void;
   onToggleStatus?: (program: Program, status: ProgramStatus) => void | Promise<void>;
   duplicatingProgramId?: string | null;
   archivingProgramId?: string | null;
@@ -41,33 +39,15 @@ export function ProgramCard({
   onEdit,
   onDuplicate,
   onArchive,
-  onSaveSlug,
   onToggleStatus,
   duplicatingProgramId,
   archivingProgramId,
 }: ProgramCardProps) {
   const screeningQuestionCount = program.questionCount || 0;
   const isPublished = program.status === "published";
-  const [isEditingSlug, setIsEditingSlug] = useState(false);
-  const [tempSlug, setTempSlug] = useState(program.slug);
-
-  useEffect(() => {
-    setTempSlug(program.slug);
-  }, [program.slug]);
-
-  const handleSaveSlug = () => {
-    const formatted = tempSlug
-      .toLowerCase()
-      .replace(/[^a-z0-9-_]/g, "")
-      .trim();
-    if (formatted) {
-      onSaveSlug(program.id, formatted);
-    }
-    setIsEditingSlug(false);
-  };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col min-h-[300px] group">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col group">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 border-blue-200">
@@ -98,9 +78,11 @@ export function ProgramCard({
           <Switch
             checked={isPublished}
             disabled={program.status === "archived"}
-            onCheckedChange={(checked) =>
-              onToggleStatus?.(program, checked ? "published" : "draft")
-            }
+            onCheckedChange={(checked) => {
+              if (onToggleStatus) {
+                void onToggleStatus(program, checked ? "published" : "draft");
+              }
+            }}
             className="disabled:opacity-100 data-[state=checked]:bg-[#5b4dff] data-[state=unchecked]:bg-slate-300"
           />
           <DropdownMenu>
@@ -108,22 +90,28 @@ export function ProgramCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-8 w-8 text-slate-400 hover:text-slate-600"
               >
-                <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => onPreview(program)}>
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(program)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
+                <FileText className="h-4 w-4 mr-2" />
+                Edit Program
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => onDuplicate(program)}
                 disabled={duplicatingProgramId === program.id}
               >
                 <Copy className="h-4 w-4 mr-2" />
-                Duplicate
+                {duplicatingProgramId === program.id
+                  ? "Duplicating..."
+                  : "Duplicate"}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => onArchive(program)}
@@ -143,55 +131,6 @@ export function ProgramCard({
       <h3 className="text-sm font-bold text-slate-900 leading-tight mb-1">
         {program.name}
       </h3>
-      <div className="mt-1 mb-2">
-        {isEditingSlug ? (
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md p-1 shadow-sm h-7">
-            <span className="text-[10px] text-slate-400 px-1">Slug:</span>
-            <input
-              value={tempSlug}
-              onChange={(e) => setTempSlug(e.target.value)}
-              className="w-28 text-[11px] font-bold text-slate-800 focus:outline-none"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSaveSlug();
-                if (e.key === "Escape") setIsEditingSlug(false);
-              }}
-            />
-            <button
-              onClick={handleSaveSlug}
-              className="p-1 hover:bg-slate-50 text-green-600 rounded"
-              aria-label="Save slug"
-              type="button"
-            >
-              <Check className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setIsEditingSlug(false)}
-              className="p-1 hover:bg-slate-50 text-slate-400 rounded"
-              aria-label="Cancel slug edit"
-              type="button"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            <span className="truncate">
-              <span className="text-slate-400">Slug: </span>
-              <span className="text-slate-700 font-semibold">{program.slug}</span>
-            </span>
-            <button
-              onClick={() => setIsEditingSlug(true)}
-              className="p-1 rounded hover:bg-slate-100 text-slate-400"
-              aria-label="Edit slug"
-              type="button"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="flex-1" />
 
       <div className="h-px bg-slate-100 my-3" />
 
