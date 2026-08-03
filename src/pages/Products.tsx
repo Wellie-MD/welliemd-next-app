@@ -408,11 +408,14 @@ export default function Products() {
                   <ProductTableHead className="w-[35%]">Name</ProductTableHead>
                   <ProductTableHead>Category</ProductTableHead>
                   <ProductTableHead>Pharmacy</ProductTableHead>
-                  <ProductTableHead>Drug Form</ProductTableHead>
+                  <ProductTableHead className="whitespace-nowrap">Drug Form</ProductTableHead>
                   <ProductTableHead>Status</ProductTableHead>
-                  <ProductTableHead>Purchase Type</ProductTableHead>
-                  <ProductTableHead>Treatment Type / Routing (New)</ProductTableHead>
-                  <ProductTableHead>Created At</ProductTableHead>
+                  <ProductTableHead className="whitespace-nowrap">Purchase Type</ProductTableHead>
+                  <ProductTableHead>
+                    <span className="whitespace-nowrap">Treatment Type</span> /{" "}
+                    <span className="whitespace-nowrap">Routing (New)</span>
+                  </ProductTableHead>
+                  <ProductTableHead className="whitespace-nowrap">Created At</ProductTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
