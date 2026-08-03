@@ -1,9 +1,11 @@
 import axiosInstance from "./axiosInstance";
-import { DashboardMetrics, ChartDataPoint } from "@/types/dashboard";
+import { DashboardMetrics, DashboardChartResponse } from "@/types/dashboard";
 
 export interface DashboardFilters {
   start_date?: string;
   end_date?: string;
+  comparison_start_date?: string;
+  comparison_end_date?: string;
 }
 
 export const fetchDashboardMetrics = async (
@@ -16,12 +18,11 @@ export const fetchDashboardMetrics = async (
 export const fetchDashboardCharts = async (
   year?: number,
   params?: DashboardFilters,
-): Promise<ChartDataPoint[]> => {
+): Promise<DashboardChartResponse> => {
   const queryParams = {
     ...(year ? { year } : {}),
     ...(params || {}),
   };
   const response = await axiosInstance.get("dashboard/charts/", { params: queryParams });
-  console.log({ chartData: response.data });
   return response.data;
 };

@@ -530,7 +530,7 @@ function OrderDetailInner() {
   }
 
   const status = order.orderStatus || order.status || "created"
-  const canonicalStatus = String(order.status || "").toLowerCase()
+  const canonicalStatus = String(order.status || order.orderStatus || "").toLowerCase()
   const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
   const statusDisplay = statusLabels[status] || status
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
@@ -566,8 +566,12 @@ function OrderDetailInner() {
   const isOrderPaymentPending = status === "payment_pending"
   const baseRetryEligibility =
     !paymentCaptured && (isPaymentFailure || isSettlementRetryable || isOrderPaymentPending)
-  const isAllowedStatus = status === "created" || status === "payment_pending"
-  const canChangeProduct = isAllowedStatus && !isLocked
+  const isPreCheckoutProductChange = status === "created" || status === "payment_pending"
+  const isSubmittedVisitProductChange =
+    ["processing", "visit_pending", "consult_scheduled", "consult_rescheduled", "prescribed"].includes(canonicalStatus) &&
+    Boolean(String(order.visitStatus || order.mrn || "").trim())
+  const isAllowedStatus = isPreCheckoutProductChange || isSubmittedVisitProductChange
+  const canChangeProduct = isAllowedStatus && (!isLocked || isSubmittedVisitProductChange)
   const canRefundOrVoid = isAuthorized || isRefundable
   const canUseReceipt = ["captured", "approved", "succeeded", "refunded"].includes(paymentStatus) || paymentCaptured
 
@@ -596,7 +600,9 @@ function OrderDetailInner() {
   const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
   const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
   const changeProductTooltip =
-    "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
+    isSubmittedVisitProductChange
+      ? "Product change will resend the updated prescription to the submitted visit."
+      : "Product change is available before payment authorization or for eligible submitted visits before fulfillment is shipped."
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
@@ -634,7 +640,7 @@ function OrderDetailInner() {
     if (!order?.id || !pendingProductChange) return
     if (!canChangeProduct) {
       toast({
-        title: "Product change is locked once payment is authorized or order is no longer Created.",
+        title: "Product change is available before payment authorization or for eligible submitted visits before fulfillment is shipped.",
         variant: "destructive",
       })
       return
@@ -2040,6 +2046,10 @@ function OrderDetailInner() {
                 order.prescription_medications.map((med, idx) => (
                   <React.Fragment key={idx}>
                     <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Medication</span>
+                      <span className="text-slate-900 dark:text-white font-medium text-right">{med.prescribed_name || med.name || "—"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
                       <span className="text-slate-500">Strength</span>
                       <span className="text-slate-900 dark:text-white font-medium">{med.strength || "None"}</span>
                     </div>
@@ -2189,7 +2199,7 @@ function OrderDetailInner() {
                 <span className="text-slate-900 dark:text-white font-medium">{formatDate(paymentDisplayDate) || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Provider</span>
+                <span className="text-slate-500">Gateway</span>
                 <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor || "—"}</span>
               </div>
               <div className="flex justify-between">
@@ -2607,9 +2617,9 @@ function OrderDetailInner() {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(statusLabels).map(([value, label]) => (
+                  {(["shipped", "canceled"] as const).map((value) => (
                     <SelectItem key={value} value={value}>
-                      {label}
+                      {statusLabels[value] || value}
                     </SelectItem>
                   ))}
                 </SelectContent>

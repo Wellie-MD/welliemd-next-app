@@ -30,4 +30,27 @@ interface Column {
     link.click()
     document.body.removeChild(link)
   }
+
+export interface PaginatedResponse<T> {
+  next: string | null
+  results: T[]
+}
+
+export const fetchAllPaginatedResults = async <T>(
+  fetchPage: (page: number, pageSize: number) => Promise<PaginatedResponse<T>>,
+  pageSize = 500
+): Promise<T[]> => {
+  const allResults: T[] = []
+  let page = 1
+  let hasNext = true
+
+  while (hasNext) {
+    const response = await fetchPage(page, pageSize)
+    allResults.push(...response.results)
+    hasNext = Boolean(response.next)
+    page += 1
+  }
+
+  return allResults
+}
   

@@ -54,6 +54,7 @@ export interface QuestionnairePhoto {
 // Prescribed medication from RX_WRITTEN webhook (PrescriptionEvent.medications)
 export interface PrescriptionMedication {
   name?: string
+  prescribed_name?: string
   strength?: string
   price?: string | number | null
   refills?: string
@@ -165,6 +166,8 @@ export interface Order {
   tracking_number?: string | null
   patient_responses?: PatientResponses | null
   checkout_url?: string | null
+  is_archived?: boolean
+  archived_at?: string | null
   provider_network?: string | null
   notes?: string | null
   // Detail page: from PrescriptionEvent / Visit
@@ -327,6 +330,26 @@ export const updateOrder = async (id: string, payload: Partial<Order>): Promise<
   }
 }
 
+export const archiveOrder = async (id: string): Promise<Order> => {
+  try {
+    const { data } = await api.post<Order>(`${ENDPOINT}${id}/archive/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to archive order ${id}:`, error)
+    throw error
+  }
+}
+
+export const unarchiveOrder = async (id: string): Promise<Order> => {
+  try {
+    const { data } = await api.post<Order>(`${ENDPOINT}${id}/unarchive/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to unarchive order ${id}:`, error)
+    throw error
+  }
+}
+
 export const deleteOrder = async (id: string): Promise<void> => {
   try {
     await api.delete(`${ENDPOINT}${id}/`)
@@ -466,6 +489,8 @@ export const ordersApi = {
   fetchOrderByOrderId,
   createOrder,
   updateOrder,
+  archiveOrder,
+  unarchiveOrder,
   deleteOrder,
   searchOrders,
   refundOrder,

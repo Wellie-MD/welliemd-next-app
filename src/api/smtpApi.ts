@@ -17,6 +17,22 @@ export interface MailgunDomainResponse {
   [key: string]: unknown;
 }
 
+export interface MailgunTrackingStatus {
+  domain: string;
+  tracking_hostname: string;
+  dns_ready: boolean;
+  dns_record?: Record<string, unknown> | null;
+  click_tracking: boolean;
+  open_tracking: boolean;
+  unsubscribe_tracking: boolean;
+  tracking_scheme: "http" | "https" | null;
+  certificate_status: "active" | "processing" | "expired" | "error" | "not_configured" | "unknown";
+  certificate_error?: string | null;
+  error?: string;
+  errors?: Array<{ feature: string; message: string }>;
+  certificate_location?: string;
+}
+
 export type MailgunStatsRange = "today" | "week" | "month" | "year" | "all";
 
 export interface MailgunStatsReason {
@@ -100,6 +116,16 @@ export const verifyMailgunDomain = async (domainName: string): Promise<MailgunDo
   return data;
 };
 
+export const getMailgunTrackingStatus = async (domainName: string): Promise<MailgunTrackingStatus> => {
+  const { data } = await api.get<MailgunTrackingStatus>(`${apiBaseUrl}mailgun-domains/${domainName}/tracking/`);
+  return data;
+};
+
+export const enableMailgunTracking = async (domainName: string): Promise<MailgunTrackingStatus> => {
+  const { data } = await api.put<MailgunTrackingStatus>(`${apiBaseUrl}mailgun-domains/${domainName}/tracking/enable/`);
+  return data;
+};
+
 export const deleteMailgunDomain = async (domainName: string): Promise<unknown> => {
   const { data } = await api.delete(`${apiBaseUrl}mailgun-domains/${domainName}/`);
   return data;
@@ -165,6 +191,9 @@ export interface ClientEmailConfiguration {
   email_host_user: string;
   email_host_password: string;
   default_from_email: string;
+  smtp_domain_name?: string;
+  from_name?: string;
+  is_default_domain?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -176,6 +205,13 @@ export interface ClientEmailConfigurationResponse extends ClientEmailConfigurati
   updated_at: string;
 }
 
+export interface ClientEmailConfigurationListResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ClientEmailConfigurationResponse[];
+}
+
 const ENDPOINT = '/client-email-configurations/';
 
 /**
@@ -183,9 +219,9 @@ const ENDPOINT = '/client-email-configurations/';
  * - Staff/Superuser: returns all
  * - Normal users: returns only their own config
  */
-export const fetchEmailConfigurations = async (): Promise<ClientEmailConfigurationResponse[]> => {
+export const fetchEmailConfigurations = async (): Promise<ClientEmailConfigurationListResponse> => {
   try {
-    const { data } = await api.get<ClientEmailConfigurationResponse[]>(ENDPOINT);
+    const { data } = await api.get<ClientEmailConfigurationListResponse>(ENDPOINT);
     return data;
   } catch (error) {
     console.error('Failed to fetch email configurations:', error);
@@ -306,6 +342,8 @@ export const smtpApi = {
   createMailgunDomain,
   getMailgunDomain,
   verifyMailgunDomain,
+  getMailgunTrackingStatus,
+  enableMailgunTracking,
   deleteMailgunDomain,
   createMailgunCredentials,
   deleteMailgunCredentials,

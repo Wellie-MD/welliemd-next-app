@@ -29,6 +29,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.ORDER_VIEW,
         Permissions.ORDER_UPDATE,
         Permissions.ORDER_DELETE,
+        Permissions.ORDER_ARCHIVE,
 
         // Patients
         Permissions.USER_UPDATE,
@@ -74,6 +75,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.ORDER_VIEW,
         Permissions.ORDER_UPDATE,
         Permissions.ORDER_DELETE,
+        Permissions.ORDER_ARCHIVE,
 
         // Patients
         Permissions.USER_UPDATE,
