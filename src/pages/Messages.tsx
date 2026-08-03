@@ -984,6 +984,8 @@ export default function Messages() {
                             else if (m.senderType === "beluga_support") displayName = "Beluga Support";
                             else displayName = m.sender_name;
 
+                            const isStaffMessage = m.senderType !== "patient";
+
                             const bubbleColor = isSent
                               ? "bg-gradient-to-r from-[hsl(199,85%,48%)] to-[hsl(215,85%,55%)] text-white shadow-sm"
                               : "bg-[hsl(220,14%,96%)] dark:bg-slate-800 text-foreground";
@@ -1015,8 +1017,8 @@ export default function Messages() {
 
                             return (
                               <div key={m.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"} ${isLastInGroup ? "mb-4" : "mb-0.5"}`}>
-                                {!isSent && isFirstInGroup && (
-                                  <div className="text-[11px] font-medium text-muted-foreground mb-1 ml-1">
+                                {isStaffMessage && isFirstInGroup && (
+                                  <div className={`text-[11px] font-medium text-muted-foreground mb-1 ${isSent ? "mr-1" : "ml-1"}`}>
                                     {displayName}
                                   </div>
                                 )}
