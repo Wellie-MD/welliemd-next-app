@@ -335,7 +335,7 @@ export default function ProgramsPage() {
     });
   };
 
-  // Filtered & sorted programs for program-level card view
+  // Filtered & sorted programs for both card view and list view
   const missingFollowUpTreatmentKeys = useMemo(() => {
     return new Set(
       treatmentTypes
@@ -345,45 +345,6 @@ export default function ProgramsPage() {
   }, [treatmentTypes, activePrograms]);
 
   const filteredPrograms = useMemo(() => {
-    let result = [...activePrograms];
-
-    if (activeTab === "intake") {
-      result = result.filter(p => p.stage === "intake");
-    } else if (activeTab === "follow_up") {
-      result = result.filter(p => p.stage === "follow_up");
-    } else if (activeTab === "missing_follow_up") {
-      result = result.filter(p => missingFollowUpTreatmentKeys.has(p.treatmentTypeKey));
-    }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.description && p.description.toLowerCase().includes(q)) ||
-          p.treatmentTypeKey.toLowerCase().includes(q)
-      );
-    }
-
-    if (selectedStatus !== "all") {
-      result = result.filter(p => p.status === selectedStatus);
-    }
-
-    if (selectedTreatment !== "all") {
-      result = result.filter(p => p.treatmentTypeKey === selectedTreatment);
-    }
-
-    if (sortBy === "alpha") {
-      result.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    }
-
-    return result;
-  }, [activePrograms, activeTab, missingFollowUpTreatmentKeys, searchQuery, selectedStatus, selectedTreatment, sortBy]);
-
-  // Flat program list for the list view (search-filtered, sorted)
-  const listViewPrograms = useMemo(() => {
     let result = [...activePrograms];
 
     if (activeTab === "intake") {
@@ -421,7 +382,7 @@ export default function ProgramsPage() {
     return result;
   }, [activePrograms, activeTab, missingFollowUpTreatmentKeys, searchQuery, selectedStatus, selectedTreatment, sortBy]);
 
-  const displayedPrograms = viewMode === "list" ? listViewPrograms : filteredPrograms;
+  const displayedPrograms = filteredPrograms;
   const totalPages = Math.max(1, Math.ceil(displayedPrograms.length / pageSize));
   const pagedPrograms = useMemo(
     () => displayedPrograms.slice((page - 1) * pageSize, page * pageSize),
@@ -512,6 +473,8 @@ export default function ProgramsPage() {
         <div
           onClick={() => {
             setActiveTab("missing_follow_up");
+            setSelectedStatus("all");
+            setSelectedTreatment("all");
           }}
           className={`flex-1 px-4 py-3.5 cursor-pointer transition-colors hover:bg-slate-50/80 ${
             activeTab === "missing_follow_up" ? "bg-blue-50/70" : ""
@@ -521,6 +484,8 @@ export default function ProgramsPage() {
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               setActiveTab("missing_follow_up");
+              setSelectedStatus("all");
+              setSelectedTreatment("all");
             }
           }}
         >
@@ -549,9 +514,21 @@ export default function ProgramsPage() {
         onTreatmentChange={setSelectedTreatment}
         onViewModeChange={setViewMode}
       />
+
+      {activeTab === "missing_follow_up" && (
+        <div className="mb-5 p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-amber-800">Filter Info:</span>
+            <span>
+              Showing programs for the <strong>{missingFollowUp} treatment type{missingFollowUp === 1 ? "" : "s"}</strong> that lack a Follow-up stage program.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Content: Card view or List view */}
       {viewMode === "list" ? (
-        listViewPrograms.length === 0 ? (
+        displayedPrograms.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
             <p className="text-sm text-slate-500">No programs found matching your criteria.</p>
           </div>
