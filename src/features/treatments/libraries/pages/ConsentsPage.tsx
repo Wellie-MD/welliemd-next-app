@@ -11,7 +11,7 @@ import { DeleteConfirmDialog, TreatmentPageHeader } from "@/features/treatments/
 import { useConsents, useDeleteConsent, useArchiveConsent } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { ConsentEditModal } from "@/features/treatments/libraries/consents/components/ConsentEditModal";
 import { ConsentDetailModal } from "@/features/treatments/libraries/consents/components/ConsentDetailModal";
-import { ConsentPatientPreviewModal } from "@/features/treatments/libraries/consents/components/ConsentPatientPreviewModal";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { formatScope } from "@/features/treatments/utils/labels";
 import { exportToCSV } from "@/utils/exportUtils";
 import { toast } from "@/components/ui/use-toast";
@@ -205,11 +205,19 @@ export default function ConsentsPage() {
         onEdit={handleEdit}
       />
 
-      <ConsentPatientPreviewModal
-        open={isPreviewModalOpen}
-        onOpenChange={setIsPreviewModalOpen}
-        consent={activePreviewConsent}
-      />
+      {activePreviewConsent ? (
+        <QuestionnairePreviewDialog
+          open={isPreviewModalOpen}
+          onOpenChange={setIsPreviewModalOpen}
+          previewContext={{
+            type: "consent",
+            id: activePreviewConsent.id,
+            slug: activePreviewConsent.id,
+            name: activePreviewConsent.name,
+          }}
+          subtitle={`Rendering and rule harness for consent “${activePreviewConsent.name}”`}
+        />
+      ) : null}
 
       <DeleteConfirmDialog
         open={Boolean(deleteConsentId)}

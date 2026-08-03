@@ -133,10 +133,10 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
             </>}
           </section>
           <aside className="overflow-auto bg-[#111c34] p-4 text-white">
-            <div className="flex items-center justify-between"><div className="text-[9px] font-bold uppercase tracking-wider text-slate-300">{previewMode ? "Sample patient" : "Patient preview"}</div><button className="text-[9px] font-semibold text-blue-300" onClick={() => setPreviewMode((value) => !value)}>{previewMode ? "View result" : "Test answers"}</button></div>
+            <div className="flex items-center justify-between"><div className="text-[9px] font-bold uppercase tracking-wider text-slate-300">{previewMode ? "Sample rule inputs" : "Rule authoring harness"}</div><button className="text-[9px] font-semibold text-blue-300" onClick={() => setPreviewMode((value) => !value)}>{previewMode ? "View harness result" : "Test rule inputs"}</button></div>
             {previewMode && <div className="mt-4 space-y-2 rounded bg-white p-3 text-slate-900">
               {[{ id: "service_state", label: "State" }, { id: "age", label: "Age" }, { id: "bmi", label: "BMI" }, { id: "sex", label: "Sex" }, ...matchingQuestions.map((item) => ({ id: item.sourceId || item.id, label: item.title }))].map((field) => <label key={field.id} className="block text-[9px] font-semibold text-slate-600">{field.label}<Input className="mt-1 h-7 text-[10px]" value={previewAnswers[field.id] || ""} onChange={(event) => setPreviewAnswers((current) => ({ ...current, [field.id]: event.target.value }))} /></label>)}
-              <p className="text-[9px] text-slate-400">For multiple answers, enter comma-separated values.</p>
+              <p className="text-[9px] text-slate-400">For multiple answers, enter comma-separated values. This checks draft rule shape only; use Patient Preview for authoritative eligibility.</p>
             </div>}
             <div className="mt-5 rounded bg-white p-4 text-slate-900">
               <h4 className="text-xs font-bold">Based on what you shared, you seem eligible for:</h4>
