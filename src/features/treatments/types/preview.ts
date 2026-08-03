@@ -8,4 +8,5 @@ export type PreviewContext =
       visitType?: string;
       templateId?: string | null;
     }
-  | { type: "section"; id: string; slug?: string; name?: string; apiBaseUrl?: string };
+  | { type: "section"; id: string; slug?: string; name?: string; apiBaseUrl?: string }
+  | { type: "consent"; id: string; slug?: string; name?: string; apiBaseUrl?: string };

@@ -85,6 +85,9 @@ export function QuestionnairePreviewDialog({
   const [reportedHeight, setReportedHeight] = useState<number | undefined>();
   const [reportedPath, setReportedPath] = useState<string | undefined>();
   const [capability, setCapability] = useState<PreviewCapability | null>(null);
+  const isContextualHarness = ["section", "consent"].includes(
+    previewContext.type,
+  );
   const previewApiBaseUrl =
     "apiBaseUrl" in previewContext
       ? previewContext.apiBaseUrl
@@ -414,6 +417,15 @@ export function QuestionnairePreviewDialog({
             </button>
           </div>
         </div>
+
+        {isContextualHarness ? (
+          <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-xs text-amber-900">
+            <span className="font-semibold">Contextual preview harness:</span>{" "}
+            this validates rendering and local rules only. Program matching,
+            eligibility, product availability, and checkout require a containing
+            Program or Custom Program preview.
+          </div>
+        ) : null}
 
         <div className="min-h-0 flex-1 bg-background p-3">
           <div className="relative h-full overflow-hidden rounded-lg border border-border bg-white">
