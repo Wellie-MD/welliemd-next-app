@@ -16,6 +16,7 @@ import {
   OPERATION_STATUS,
   RETRYABLE_OPERATION_STATUSES,
   TERMINAL_OPERATION_STATUSES,
+  assignmentOperationDetailMessage,
   assignmentOperationErrorMessage,
 } from "@/features/treatments/assignment/constants";
 import { AssignmentIssueList } from "@/features/treatments/assignment/components/AssignmentIssueList";
@@ -214,10 +215,11 @@ export function AssignmentPairCard(props: {
           ) : (
             (operation.last_error_detail || operation.status === OPERATION_STATUS.failed) && (
               <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">
-                {assignmentOperationErrorMessage(
-                  operation.last_error_code,
-                  failedStep?.key || operation.current_step
-                )}
+                {assignmentOperationDetailMessage(operation.last_error_detail) ||
+                  assignmentOperationErrorMessage(
+                    operation.last_error_code,
+                    failedStep?.key || operation.current_step
+                  )}
               </p>
             )
           )}

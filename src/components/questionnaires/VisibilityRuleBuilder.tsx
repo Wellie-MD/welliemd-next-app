@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
+  SelectGroup,
+  SelectLabel,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -152,7 +154,10 @@ function getQuestionChoices(question: QuestionOption | undefined): string[] {
 }
 
 function formatQuestionLabel(question: QuestionOption): string {
-  return question.order_index ? `${question.order_index}. ${question.question_text}` : question.question_text;
+  const isProfileSource = question.id.startsWith("__patient_profile_");
+  return isProfileSource || !question.order_index
+    ? question.question_text
+    : `${question.order_index}. ${question.question_text}`;
 }
 
 function ConditionEditor({
@@ -169,6 +174,7 @@ function ConditionEditor({
   onRemove: (path: number[]) => void;
 }) {
   const selectedQuestion = questions.find((question) => question.id === node.question_id);
+  const isPatientProfileSource = node.question_id.startsWith("__patient_profile_");
   const choiceOptions = getQuestionChoices(selectedQuestion);
   const isMultiValue = ["in", "not_in"].includes(node.operator);
   const isBetween = node.operator === "between";
@@ -212,31 +218,58 @@ function ConditionEditor({
               }));
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className="min-w-0 text-left">
               <SelectValue placeholder="Select question" />
             </SelectTrigger>
-            <SelectContent>
-              {questions.map((question) => (
-                <SelectItem key={question.id} value={question.id}>
-                  {formatQuestionLabel(question)}
-                </SelectItem>
-              ))}
+            <SelectContent className="w-[min(32rem,calc(100vw-2rem))]">
+              <SelectGroup>
+                <SelectLabel>Earlier questions</SelectLabel>
+                {questions.filter((question) => !question.id.startsWith("__patient_profile_")).map((question) => (
+                  <SelectItem
+                    key={question.id}
+                    value={question.id}
+                    className="whitespace-normal py-2 leading-5"
+                  >
+                    {formatQuestionLabel(question)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              {questions.some((question) => question.id.startsWith("__patient_profile_")) && (
+                <SelectGroup>
+                  <SelectLabel>Patient profile</SelectLabel>
+                  {questions.filter((question) => question.id.startsWith("__patient_profile_")).map((question) => (
+                    <SelectItem
+                      key={question.id}
+                      value={question.id}
+                      className="whitespace-normal py-2 leading-5"
+                    >
+                      {formatQuestionLabel(question)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs">Field (optional)</Label>
-          <Input
-            value={node.field || ""}
-            onChange={(event) =>
-              onChange(path, (current) => ({
-                ...current,
-                field: event.target.value || undefined,
-              }))
-            }
-            placeholder="medication.code or dose.dose_mapping_id"
-          />
+          {isPatientProfileSource ? (
+            <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
+              Uses the selected profile field
+            </div>
+          ) : (
+            <Input
+              value={node.field || ""}
+              onChange={(event) =>
+                onChange(path, (current) => ({
+                  ...current,
+                  field: event.target.value || undefined,
+                }))
+              }
+              placeholder="medication.code or dose.dose_mapping_id"
+            />
+          )}
         </div>
       </div>
 
