@@ -9,7 +9,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
-import type { ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSectionField, ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
@@ -55,6 +55,10 @@ import { QuestionListHeader } from "@/features/treatments/common/components/Ques
 import { QuestionListTable } from "@/features/treatments/common/components/QuestionListTable";
 import { DeleteElementDialog } from "@/features/treatments/common/components/DeleteElementDialog";
 import { countQuestionTypes, filterQuestions } from "@/features/treatments/common/utils/questionList";
+import {
+  applyPersistedSectionField,
+  buildSectionFieldConfiguration,
+} from "@/features/treatments/common/utils/sectionFieldConfiguration";
 
 import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 import {
@@ -526,25 +530,24 @@ export function SharedQuestionsList({
           label: updatedQuestion.text,
           kind: updatedQuestion.kind,
           required: updatedQuestion.required,
-          configuration: {
-            choices: updatedQuestion.choices || [],
-            dqChoices: updatedQuestion.dqChoices || [],
-            visibilityRuleGroup: updatedQuestion.visibilityRuleGroup || {},
-            includeInQa: updatedQuestion.includeInQa,
-            hiddenFromPatient: updatedQuestion.hiddenFromPatient,
-            prefillFromPrevious: updatedQuestion.prefillFromPrevious,
-            ...(updatedQuestion.elementConfig || {}),
-          },
+          configuration: buildSectionFieldConfiguration(updatedQuestion),
         }
       : updatedQuestion;
 
     try {
-      await mutation.mutateAsync(payload as never);
+      const saved = await mutation.mutateAsync(payload as never);
+      const persistedQuestion = entityType === "section"
+        ? applyPersistedSectionField(
+            updatedQuestion,
+            saved as CommonSectionField,
+          )
+        : updatedQuestion;
       setQuestions((prev) => {
         if (isEditing) {
-          return prev.map((q) => (q.id === updatedQuestion.id ? updatedQuestion : q));
+          return prev.map((q) =>
+            q.id === updatedQuestion.id ? persistedQuestion : q);
         }
-        return [...prev, updatedQuestion];
+        return [...prev, persistedQuestion];
       });
       toast({ title: isEditing ? "Question Updated" : "Question Added" });
     } catch (error) {
@@ -568,26 +571,19 @@ export function SharedQuestionsList({
           label: element.text,
           kind: element.kind,
           required: element.required,
-          configuration: {
-            choices: element.choices || [],
-            dqChoices: element.dqChoices || [],
-            consentText: element.consentText,
-            checkoutProductIds: element.checkoutProductIds || [],
-            checkoutProducts: element.checkoutProducts || [],
-            visibilityRuleGroup: element.visibilityRuleGroup || {},
-            includeInQa: element.includeInQa,
-            hiddenFromPatient: element.hiddenFromPatient,
-            prefillFromPrevious: element.prefillFromPrevious,
-            ...(element.elementConfig || {}),
-          },
+          configuration: buildSectionFieldConfiguration(element),
         }
       : element;
 
     mutation.mutate(payload as never, {
-      onSuccess: () => {
+      onSuccess: (saved) => {
+        const persistedElement = entityType === "section"
+          ? applyPersistedSectionField(element, saved as CommonSectionField)
+          : element;
         setQuestions((previous) => isEditing
-          ? previous.map((question) => question.id === element.id ? element : question)
-          : [...previous, element]);
+          ? previous.map((question) =>
+              question.id === element.id ? persistedElement : question)
+          : [...previous, persistedElement]);
         toast({ title: successTitle });
       },
       onError: (error) => {
@@ -707,10 +703,17 @@ export function SharedQuestionsList({
           }
         : newQuestion;
       mutation.mutate(payload as never, {
-        onSuccess: () => {
+        onSuccess: (saved) => {
+          const persistedQuestion = entityType === "section"
+            ? applyPersistedSectionField(
+                newQuestion,
+                saved as CommonSectionField,
+              )
+            : newQuestion;
           setQuestions((previous) => isEditing
-            ? previous.map((question) => question.id === newQuestion.id ? newQuestion : question)
-            : [...previous, newQuestion]);
+            ? previous.map((question) =>
+                question.id === newQuestion.id ? persistedQuestion : question)
+            : [...previous, persistedQuestion]);
           toast({ title: isEditing ? "Checkout Options Saved" : "Checkout Options Added" });
           resolve();
         },

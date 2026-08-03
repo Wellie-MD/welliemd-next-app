@@ -85,7 +85,9 @@ export const treatmentsApi = {
     if (index >= 0) updated[index] = field;
     else updated.push(field);
     const saved = await sectionsApi.saveFields(sectionId, updated);
-    return saved.find((item) => item.order === field.order && item.label === field.label) || field;
+    return saved.find((item) => item.id === field.id)
+      || saved.find((item) => item.order === field.order && item.label === field.label)
+      || field;
   },
 
   deleteSectionField: async (sectionId: string, fieldId: string): Promise<void> => {

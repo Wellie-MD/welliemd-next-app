@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import type { CommonSection, ProgramQuestion } from "@/features/treatments/types";
 import { useSectionFields } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
+import {
+  sectionEditorChoices,
+  sectionEditorDqChoices,
+} from "@/features/treatments/common/utils/sectionFieldConfiguration";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 
 interface SectionFieldsViewProps {
@@ -28,8 +32,8 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
       kind: field.kind,
       section: section.name,
       required: field.required,
-      choices: Array.isArray(configuration.choices) ? configuration.choices as string[] : undefined,
-      dqChoices: Array.isArray(configuration.dqChoices) ? configuration.dqChoices as string[] : undefined,
+      choices: sectionEditorChoices(configuration),
+      dqChoices: sectionEditorDqChoices(configuration),
       consentText: typeof configuration.consentText === "string" ? configuration.consentText : undefined,
       checkoutProductIds: Array.isArray(configuration.checkoutProductIds)
         ? configuration.checkoutProductIds as string[]
