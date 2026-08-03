@@ -1279,24 +1279,26 @@ export default function Products() {
                   Category
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Pharmacy / Manufacturer
+                  <span className="whitespace-nowrap">Pharmacy</span> /{" "}
+                  <span className="whitespace-nowrap">Manufacturer</span>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Drug Form
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Purchase Type
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Treatment Type / Derived Routing (New)
+                  <span className="whitespace-nowrap">Treatment Type</span> /{" "}
+                  <span className="whitespace-nowrap">Derived Routing (New)</span>
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Restrictions (Legacy)
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Created At
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-[100px]">
