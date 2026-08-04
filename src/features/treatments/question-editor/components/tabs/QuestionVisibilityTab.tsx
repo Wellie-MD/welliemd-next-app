@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
+import { useQueries } from "@tanstack/react-query";
 import {
   DERIVED_BMI_ID,
   VisibilityRuleBuilder,
@@ -15,6 +16,9 @@ import {
   toBuilderGroup,
 } from "@/features/treatments/utils/visibilityBuilderAdapters";
 import type { ProgramQuestion, VisibilityRule, VisibilityRuleGroup } from "@/features/treatments/types";
+import { treatmentConfigurationApi } from "@/features/treatments/api/configurationApi";
+import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { isPersistedUuid } from "@/features/treatments/api/mappers";
 
 interface QuestionVisibilityTabProps {
   visibilityRuleGroup: VisibilityRuleGroup | undefined;
@@ -47,19 +51,55 @@ export function QuestionVisibilityTab({
   const eligibleQuestions = questions.filter((question) => (
     question.id !== currentQuestionId && question.order < currentQuestionOrder
   ));
+  const sectionQuestions = eligibleQuestions.filter((question) => question.kind === "section");
+  const sectionFieldQueries = useQueries({
+    queries: sectionQuestions.map((question) => {
+      const sectionId = String(
+        question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || "",
+      );
+      return {
+        queryKey: treatmentQueryKeys.sectionFields(sectionId),
+        queryFn: () => treatmentConfigurationApi.listSectionFields(sectionId),
+        enabled: isPersistedUuid(sectionId),
+        staleTime: 60_000,
+      };
+    }),
+  });
 
   const hasBmiQuestion = eligibleQuestions.some(
     (q) => q.kind === "height_weight" || q.kind === "bmi"
   );
 
   const builderQuestions = eligibleQuestions
-    .filter((q) => q.kind !== "height_weight" && q.kind !== "bmi")
+    .filter((q) => q.kind !== "height_weight" && q.kind !== "bmi" && q.kind !== "section")
     .map((question) => ({
       id: question.id,
       question_text: question.text,
       order_index: question.order,
       answer_choices: question.choices,
     }));
+
+  sectionQuestions.forEach((sectionQuestion, index) => {
+    const fields = sectionFieldQueries[index]?.data || [];
+    fields
+      .filter((field) => field.kind !== "checkout")
+      .forEach((field) => {
+        const configuredChoices = field.configuration?.choices;
+        const answerChoices = Array.isArray(configuredChoices)
+          ? configuredChoices.map((choice) => (
+              typeof choice === "string"
+                ? choice
+                : String((choice as Record<string, unknown>).label || (choice as Record<string, unknown>).value || "")
+            )).filter(Boolean)
+          : [];
+        builderQuestions.push({
+          id: field.sourceFieldId,
+          question_text: `${sectionQuestion.text} — ${field.label}`,
+          order_index: sectionQuestion.order,
+          answer_choices: answerChoices,
+        });
+      });
+  });
 
   if (hasBmiQuestion) {
     const bmiQuestion = eligibleQuestions.find(

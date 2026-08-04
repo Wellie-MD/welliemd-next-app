@@ -195,6 +195,7 @@ export const sectionToRecord = (section: CommonSection) => ({
 
 export const sectionFieldFromRecord = (record: SectionFieldRecord): CommonSectionField => ({
   id: record.id,
+  sourceFieldId: record.source_field_id || record.id,
   sectionId: record.section,
   order: record.order,
   label: record.label,
