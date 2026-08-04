@@ -147,7 +147,7 @@ export function CreateProgramModal({
           typeof saved === "object" && saved !== null && "id" in saved
             ? (saved as { id: string }).id
             : initialProgram?.id;
-        if (programId) {
+        if (mode === "create" && programId) {
           navigate(ADMIN_TREATMENT_ROUTES.programQuestions(programId));
         }
       }
