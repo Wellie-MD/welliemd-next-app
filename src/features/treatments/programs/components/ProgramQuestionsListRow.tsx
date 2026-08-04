@@ -68,7 +68,7 @@ export function ProgramQuestionsListRow({
   const secondaryText = isAuth
     ? PROGRAM_AUTHORING_COPY.authDescription
     : isCheckout
-      ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen} Regimen` : "", product.rxDaysSupply ? `${product.rxDaysSupply}-day supply` : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
+      ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen}` : "", product.rxDaysSupply ? `${product.rxDaysSupply}-day supply` : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
       : question.elementConfig?.description;
 
   const navigateToSection = () => {
