@@ -264,8 +264,8 @@ export function AppSidebar() {
                             <CollapsibleTrigger asChild>
                               <SidebarMenuButton
                                 className={`
-                                  group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                  ${collapsed ? "p-2 justify-center" : "px-3 py-2.5 justify-between"}
+                                  group flex w-full text-sm rounded-lg transition-all duration-200 ease-in-out
+                                  ${collapsed ? "items-center p-2 justify-center" : "h-auto min-h-10 items-start overflow-visible px-3 py-2.5 justify-between"}
                                   ${isActive
                                     ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
                                     : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
@@ -276,7 +276,7 @@ export function AppSidebar() {
                                   <item.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-[#12517A]" : "text-gray-500 group-hover:text-[#12517A]"
                                     }`} />
                                   {!collapsed && (
-                                    <span className="ml-3 font-medium truncate">
+                                    <span className="ml-3 min-w-0 whitespace-normal break-words font-medium leading-tight">
                                       {item.title}
                                     </span>
                                   )}
@@ -300,14 +300,14 @@ export function AppSidebar() {
                                       <NavLink
                                         to={child.url}
                                         className={`
-                                          flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
+                                          flex h-auto min-h-8 w-full items-start overflow-visible px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
                                           ${currentPath === child.url
                                             ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px]"
                                             : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
                                           }
                                         `}
                                       >
-                                        <span className="text-sm">{child.title}</span>
+                                        <span className="min-w-0 whitespace-normal break-words text-sm leading-tight">{child.title}</span>
                                       </NavLink>
                                     </SidebarMenuButton>
                                   ))}
@@ -323,8 +323,8 @@ export function AppSidebar() {
                               to={item.url}
                               end
                               className={`
-                                group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                ${collapsed ? "p-2 justify-center" : "px-3 py-2.5"}
+                                group flex w-full text-sm rounded-lg transition-all duration-200 ease-in-out
+                                ${collapsed ? "items-center p-2 justify-center" : "h-auto min-h-10 items-start overflow-visible px-3 py-2.5"}
                                 ${currentPath === item.url
                                   ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
                                   : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
@@ -338,7 +338,7 @@ export function AppSidebar() {
                                   }`}
                               />
                               {!collapsed && (
-                                <span className="ml-3 font-medium truncate">
+                                <span className="ml-3 min-w-0 whitespace-normal break-words font-medium leading-tight">
                                   {item.title}
                                 </span>
                               )}
