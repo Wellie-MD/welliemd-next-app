@@ -361,7 +361,7 @@ interface PillProps {
 function Pill({ children, solid }: PillProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
+      className={`inline-flex max-w-full items-center rounded-md px-2 py-1 text-[11px] font-semibold leading-tight whitespace-normal break-words xl:text-xs ${
         solid
           ? "bg-sky-400 text-white"
           : "bg-sky-50 text-sky-700 border border-sky-100"
@@ -1120,7 +1120,7 @@ export default function Products() {
 
   return (
     <div
-      className="px-8 py-7 min-h-screen bg-slate-50/30"
+      className="px-4 py-6 min-h-screen bg-slate-50/30 xl:px-8 xl:py-7"
       style={{
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
       }}
@@ -1292,38 +1292,49 @@ export default function Products() {
 
       {/* Products Table Card */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full table-fixed border-collapse text-[11px] xl:text-sm">
+          <colgroup>
+            <col className="w-[34px] xl:w-[50px]" />
+            <col className="w-[15%]" />
+            <col className="w-[13%]" />
+            <col className="w-[16%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[11%]" />
+            <col className="w-[9%]" />
+            <col className="w-[88px] xl:w-[100px]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50">
-              <th className="px-5 py-3 text-left w-[50px]">
+              <th className="px-2 py-3 text-left xl:px-5">
                 <CustomCheckbox
                   checked={allChecked}
                   indeterminate={someChecked}
                   onChange={toggleAllProducts}
                 />
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
                 Name
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
                 Category
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
                 Pharmacy / Manufacturer
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
                 Drug Form
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
                 Status
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
                 Purchase Type
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
                 Created At
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-[100px]">
+              <th className="px-1 py-3 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-500 xl:px-4 xl:text-xs">
                 
               </th>
             </tr>
@@ -1357,15 +1368,15 @@ export default function Products() {
                     }}
                     onClick={() => toggleProduct(product)}
                   >
-                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-2 py-4 xl:px-5" onClick={(e) => e.stopPropagation()}>
                       <CustomCheckbox
                         checked={isSelected}
                         onChange={() => toggleProduct(product)}
                       />
                     </td>
-                    <td className="px-4 py-4 font-semibold text-slate-800">
+                    <td className="px-2 py-4 font-semibold text-slate-800 break-words xl:px-4">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span>{product.name}</span>
+                        <span className="min-w-0 max-w-full break-words">{product.name}</span>
                         {product.is_modified_need_to_re_assigned && (
                           <TooltipProvider>
                             <Tooltip>
@@ -1389,47 +1400,47 @@ export default function Products() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-2 py-4 xl:px-4">
                       <Pill>{product.category_name || "-"}</Pill>
                     </td>
-                    <td className="px-4 py-4 text-slate-500">
+                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
                       {product.pharmacy_name || "-"}
                       {product.manufacturer_name && (
-                        <span className="block text-xs mt-0.5 text-slate-400">
+                        <span className="block text-xs mt-0.5 text-slate-400 break-words">
                           {product.manufacturer_name}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-4 text-slate-500">
+                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
                       {product.rx_drug_form || "-"}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-2 py-4 xl:px-4">
                       <Badge
                         variant={product.is_active ? "default" : "secondary"}
                         className={
                           product.is_active
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50"
-                            : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-100"
+                            ? "max-w-full whitespace-normal break-words rounded-md bg-emerald-50 text-[11px] text-emerald-700 border border-emerald-100 hover:bg-emerald-50 xl:text-xs"
+                            : "max-w-full whitespace-normal break-words rounded-md bg-slate-100 text-[11px] text-slate-600 border border-slate-200 hover:bg-slate-100 xl:text-xs"
                         }
                       >
                         {product.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-2 py-4 xl:px-4">
                       {product.purchase_type ? (
                         <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
                       ) : (
                         "-"
                       )}
                     </td>
-                    <td className="px-4 py-4 text-slate-500">
+                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
                       {formatDate(product.created_at)}
                     </td>
-                    <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-3">
+                    <td className="px-1 py-4 text-right xl:px-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1 whitespace-nowrap xl:gap-3">
                         <button
                           type="button"
-                          className="hover:opacity-70 text-slate-400 outline-none"
+                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-slate-400 outline-none"
                           title="View change history"
                           onClick={() => openChangeHistory(product)}
                         >
@@ -1437,14 +1448,14 @@ export default function Products() {
                         </button>
                         <button
 	                          type="button"
-	                          className="hover:opacity-70 text-slate-400 outline-none"
+	                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-slate-400 outline-none"
 	                          onClick={() => openEditProduct(product)}
 	                        >
                           <Pencil className="h-4.5 w-4.5" />
                         </button>
                         <button
                           type="button"
-                          className="hover:opacity-70 text-red-400 outline-none"
+                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-red-400 outline-none"
                           onClick={() => handleDelete(product)}
                         >
                           <Trash2 className="h-4.5 w-4.5" />
