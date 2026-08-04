@@ -10,6 +10,7 @@ import { ProgramLabsSection } from "./ProgramLabsSection";
 import { PROGRAM_AUTHORING_COPY } from "@/features/treatments/programs/programAuthoringConstants";
 import { projectAuthoredFlow } from "@/features/treatments/programs/programSystemBoundary";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
+import { formatCheckoutQuestionText } from "@/features/treatments/programs/checkout-question/utils/checkoutTitleUtils";
 
 interface ProgramQuestionsListProps {
   program: Program;
@@ -30,7 +31,7 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
       const checkoutQuestions = (program.checkoutQuestions || []).map((checkout, index): ProgramQuestion => ({
         id: checkout.id,
         order: flowQuestions.length + index + 1,
-        text: checkout.text,
+        text: formatCheckoutQuestionText(checkout.products, checkout.text),
         kind: "checkout",
         section: PROGRAM_AUTHORING_COPY.checkoutSection,
         required: checkout.required ?? isCheckoutQuestionRequired(checkout.products),

@@ -10,6 +10,7 @@ import {
   PROGRAM_ELEMENT_TONES,
   PROGRAM_QUESTION_KIND_LABELS,
 } from "@/features/treatments/programs/programAuthoringConstants";
+import { formatCheckoutQuestionText } from "@/features/treatments/programs/checkout-question/utils/checkoutTitleUtils";
 
 interface ProgramQuestionsListRowProps {
   question: ProgramQuestion;
@@ -61,10 +62,13 @@ export function ProgramQuestionsListRow({
           ? PROGRAM_ELEMENT_TONES.section
           : PROGRAM_ELEMENT_TONES.question;
   const ElementIcon = isAuth ? LockKeyhole : isCheckout ? ShoppingCart : isConsent ? FileCheck : isSection ? Layers3 : null;
+  const primaryText = isCheckout
+    ? formatCheckoutQuestionText(question.checkoutProducts, question.text)
+    : question.text;
   const secondaryText = isAuth
     ? PROGRAM_AUTHORING_COPY.authDescription
     : isCheckout
-      ? question.checkoutProducts?.map((product) => product.doseLabel || product.category).filter(Boolean).join(", ")
+      ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen} Regimen` : "", product.rxDaysSupply ? `${product.rxDaysSupply}-day supply` : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
       : question.elementConfig?.description;
 
   const navigateToSection = () => {
@@ -129,7 +133,7 @@ export function ProgramQuestionsListRow({
           </span>
         )}
         <div className="min-w-0">
-          <div className="truncate text-[11.5px] font-semibold leading-4 text-slate-900">{question.text}</div>
+          <div className="truncate text-[11.5px] font-semibold leading-4 text-slate-900">{primaryText}</div>
           {typeof secondaryText === "string" && secondaryText && (
             <div className="truncate text-[9.5px] leading-3.5 text-slate-500">{secondaryText}</div>
           )}
