@@ -258,8 +258,8 @@ export default function Products() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7">
+        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
+          <div className="grid min-w-0 flex-1 gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 2xl:grid-cols-7">
             <FilterSelect
               label="Category"
               value={category}
@@ -345,7 +345,7 @@ export default function Products() {
             )}
           </div>
 
-          <div className="pb-1 sm:pb-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400 2xl:text-right whitespace-nowrap">
+          <div className="shrink-0 self-start pb-1 text-xs text-slate-500 dark:text-slate-400 sm:pb-3 sm:text-sm 2xl:self-end 2xl:text-right">
             Showing {showingStart}-{showingEnd} of {totalCount}
           </div>
         </div>
