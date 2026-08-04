@@ -7,6 +7,7 @@
     "dev": "vite --force",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "test:release-identity": "npm run build && node scripts/verify-release-identity.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit --pretty false",
@@ -16,6 +17,7 @@
     "test:preview-identity-switch": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/preview-identity-switch-tests.ts",
     "test:program-authentication": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/program-authentication-boundary-tests.ts",
     "test:program-edit-save": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/program-edit-save-tests.ts",
+    "test:visibility-rules": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/visibility-rule-validation-tests.ts",
     "test:assignment-navigation": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/assignment-navigation-tests.ts"
   },
   "dependencies": {

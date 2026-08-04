@@ -70,6 +70,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
           type: "custom_program",
           id: customProgram.id,
           slug: customProgram.slug,
+          name: customProgram.name,
           apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
         }}
       />

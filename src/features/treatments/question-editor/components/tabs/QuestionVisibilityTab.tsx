@@ -5,6 +5,10 @@ import {
   VisibilityRuleBuilder,
 } from "@/components/questionnaires/VisibilityRuleBuilder";
 import {
+  visibilityPathLabel,
+  type VisibilityValidationIssue,
+} from "@/components/questionnaires/visibilityRuleValidation";
+import {
   fromBuilderGroup,
   PATIENT_PROFILE_AGE_ID,
   PATIENT_PROFILE_SEX_ID,
@@ -17,6 +21,7 @@ interface QuestionVisibilityTabProps {
   setVisibilityRuleGroup: (val: VisibilityRuleGroup | undefined) => void;
   questions: ProgramQuestion[];
   currentQuestionId: string;
+  validationIssues?: VisibilityValidationIssue[];
 }
 
 const createEmptyRule = (): VisibilityRule => ({
@@ -36,6 +41,7 @@ export function QuestionVisibilityTab({
   setVisibilityRuleGroup,
   questions,
   currentQuestionId,
+  validationIssues = [],
 }: QuestionVisibilityTabProps) {
   const currentQuestionOrder = questions.find((question) => question.id === currentQuestionId)?.order || 999;
   const eligibleQuestions = questions.filter((question) => (
@@ -86,7 +92,7 @@ export function QuestionVisibilityTab({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-visibility-section>
       <div className="mb-3 flex items-center gap-2">
         <div className="flex h-5 w-5 items-center justify-center rounded bg-green-100 text-green-600">
           <Eye className="h-3 w-3" />
@@ -99,6 +105,26 @@ export function QuestionVisibilityTab({
       <div className="mb-4 text-xs leading-relaxed text-slate-500">
         By default, every question shows to every patient. Add rules below to limit when this question appears - e.g., only show it when an earlier question has a specific answer. Combine conditions with AND / OR groups.
       </div>
+
+      {validationIssues.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+          data-testid="visibility-validation-summary"
+        >
+          <p className="font-semibold">Visibility is incomplete.</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-xs">
+            {validationIssues.map((issue) => (
+              <li key={`${issue.path.join("-")}-${issue.field}`}>
+                {issue.field === "group"
+                  ? `Group ${visibilityPathLabel(issue.path)}`
+                  : `Condition ${visibilityPathLabel(issue.path)}`}
+                {`: ${issue.message}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {!hasRules ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-xs text-slate-400">
@@ -121,6 +147,7 @@ export function QuestionVisibilityTab({
             value={toBuilderGroup(visibilityRuleGroup)}
             onChange={(nextGroup) => setVisibilityRuleGroup(fromBuilderGroup(nextGroup))}
             questions={builderQuestions}
+            validationIssues={validationIssues}
           />
           <div className="mt-3 flex justify-end">
             <Button

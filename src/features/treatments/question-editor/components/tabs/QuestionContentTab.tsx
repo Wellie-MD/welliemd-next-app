@@ -204,7 +204,7 @@ export function QuestionContentTab({
           <fieldset>
             <legend className="mb-2 text-sm font-semibold text-slate-700">Allowed file types</legend>
             <div className="grid gap-2 sm:grid-cols-3">
-              {[".jpg", ".jpeg", ".png", ".pdf", ".heic"].map((extension) => (
+              {[".jpg", ".jpeg", ".png", ".pdf"].map((extension) => (
                 <label key={extension} className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
                   <Checkbox
                     checked={uploadConfig.allowed_extensions.includes(extension)}

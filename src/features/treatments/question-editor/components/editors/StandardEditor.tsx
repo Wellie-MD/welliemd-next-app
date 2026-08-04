@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { QuestionEditorHeader } from "@/features/treatments/question-editor/components/shell/QuestionEditorHeader";
 import { QuestionSetupTab } from "@/features/treatments/question-editor/components/tabs/QuestionSetupTab";
 import { QuestionContentTab } from "@/features/treatments/question-editor/components/tabs/QuestionContentTab";
@@ -7,6 +7,11 @@ import { QuestionPreviewTab } from "@/features/treatments/question-editor/compon
 import { Switch } from "@/components/ui/switch";
 import { Activity, RefreshCcw } from "lucide-react";
 import type { ProgramQuestion, QuestionKind, VisibilityRuleGroup } from "@/features/treatments/types";
+import { toBuilderGroup } from "@/features/treatments/utils/visibilityBuilderAdapters";
+import {
+  validateVisibilityGroup,
+  type VisibilityValidationIssue,
+} from "@/components/questionnaires/visibilityRuleValidation";
 
 interface StandardEditorProps {
   activeQuestion?: ProgramQuestion;
@@ -17,6 +22,28 @@ interface StandardEditorProps {
   onClose: () => void;
   onTestFlow?: () => void;
 }
+
+const SUPPORTED_UPLOAD_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"];
+
+const focusVisibilityIssue = (issue: VisibilityValidationIssue) => {
+  if (typeof document === "undefined" || typeof window === "undefined") return;
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      const path = issue.path.join(".");
+      const selector = issue.field === "group"
+        ? `[data-visibility-group-path="${path}"]`
+        : `[data-visibility-condition-path="${path}"]`;
+      const issueContainer = document.querySelector<HTMLElement>(selector);
+      const focusTarget = issue.field === "group"
+        ? issueContainer?.querySelector<HTMLElement>("button")
+        : issueContainer?.querySelector<HTMLElement>(`[data-visibility-field="${issue.field}"]`);
+
+      issueContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
+      focusTarget?.focus({ preventScroll: true });
+    });
+  });
+};
 
 export function StandardEditor({
   activeQuestion,
@@ -43,13 +70,22 @@ export function StandardEditor({
   const [consentText, setConsentText] = useState("");
   const [uploadConfig, setUploadConfig] = useState({
     upload_type: "general",
-    max_file_size_mb: 10,
-    allowed_extensions: [".jpg", ".jpeg", ".png", ".heic", ".pdf"],
+    max_file_size_mb: 5,
+    allowed_extensions: SUPPORTED_UPLOAD_EXTENSIONS,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [visibilityValidationAttempted, setVisibilityValidationAttempted] = useState(false);
+
+  const visibilityValidationIssues = useMemo(
+    () => visibilityRuleGroup
+      ? validateVisibilityGroup(toBuilderGroup(visibilityRuleGroup))
+      : [],
+    [visibilityRuleGroup],
+  );
 
   useEffect(() => {
+    setVisibilityValidationAttempted(false);
     if (activeQuestion) {
       setQuestionText(activeQuestion.text || "");
       setQuestionType(activeQuestion.kind || "text");
@@ -67,15 +103,20 @@ export function StandardEditor({
       );
       if (configuredUpload && typeof configuredUpload === "object") {
         const config = configuredUpload as Record<string, unknown>;
+        const configuredExtensions = Array.isArray(config.allowed_extensions)
+          ? config.allowed_extensions
+            .map(String)
+            .filter((extension) => SUPPORTED_UPLOAD_EXTENSIONS.includes(extension))
+          : [];
         setUploadConfig({
           upload_type: String(config.upload_type || "general"),
-          max_file_size_mb: Number(config.max_file_size_mb || 10),
-          allowed_extensions: Array.isArray(config.allowed_extensions)
-            ? config.allowed_extensions.map(String)
-            : [".jpg", ".jpeg", ".png", ".heic", ".pdf"],
+          max_file_size_mb: Number(config.max_file_size_mb || 5),
+          allowed_extensions: configuredExtensions.length
+            ? configuredExtensions
+            : SUPPORTED_UPLOAD_EXTENSIONS,
         });
       } else {
-        setUploadConfig({ upload_type: "general", max_file_size_mb: 10, allowed_extensions: [".jpg", ".jpeg", ".png", ".heic", ".pdf"] });
+        setUploadConfig({ upload_type: "general", max_file_size_mb: 5, allowed_extensions: SUPPORTED_UPLOAD_EXTENSIONS });
       }
 
       if (activeQuestion.visibilityRuleGroup) {
@@ -100,7 +141,7 @@ export function StandardEditor({
       setChoices(["Option 1", "Option 2"]);
       setDqChoices([]);
       setConsentText("");
-      setUploadConfig({ upload_type: "general", max_file_size_mb: 10, allowed_extensions: [".jpg", ".jpeg", ".png", ".heic", ".pdf"] });
+      setUploadConfig({ upload_type: "general", max_file_size_mb: 5, allowed_extensions: SUPPORTED_UPLOAD_EXTENSIONS });
       setVisibilityRuleGroup(undefined);
       setRequired(true);
       setIncludeInQa(true);
@@ -146,6 +187,13 @@ export function StandardEditor({
   };
 
   const handleSaveClick = async () => {
+    if (visibilityValidationIssues.length > 0) {
+      setVisibilityValidationAttempted(true);
+      focusVisibilityIssue(visibilityValidationIssues[0]);
+      return;
+    }
+    setVisibilityValidationAttempted(false);
+
     const isChoiceType = questionType === "single_choice" || questionType === "multiple_choice";
     const updatedQuestion: ProgramQuestion = {
       // Preserve fields this editor doesn't surface (e.g. a Section's
@@ -227,6 +275,7 @@ export function StandardEditor({
               setVisibilityRuleGroup={setVisibilityRuleGroup}
               questions={questions}
               currentQuestionId={activeQuestion?.id || ""}
+              validationIssues={visibilityValidationAttempted ? visibilityValidationIssues : []}
             />
             <div className="h-px bg-slate-100 w-full" />
             <div className="space-y-6">
