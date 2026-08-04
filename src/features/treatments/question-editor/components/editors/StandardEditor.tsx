@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { QuestionEditorHeader } from "@/features/treatments/question-editor/components/shell/QuestionEditorHeader";
 import { QuestionSetupTab } from "@/features/treatments/question-editor/components/tabs/QuestionSetupTab";
 import { QuestionContentTab } from "@/features/treatments/question-editor/components/tabs/QuestionContentTab";
@@ -7,6 +7,11 @@ import { QuestionPreviewTab } from "@/features/treatments/question-editor/compon
 import { Switch } from "@/components/ui/switch";
 import { Activity, RefreshCcw } from "lucide-react";
 import type { ProgramQuestion, QuestionKind, VisibilityRuleGroup } from "@/features/treatments/types";
+import { toBuilderGroup } from "@/features/treatments/utils/visibilityBuilderAdapters";
+import {
+  validateVisibilityGroup,
+  type VisibilityValidationIssue,
+} from "@/components/questionnaires/visibilityRuleValidation";
 
 interface StandardEditorProps {
   activeQuestion?: ProgramQuestion;
@@ -19,6 +24,26 @@ interface StandardEditorProps {
 }
 
 const SUPPORTED_UPLOAD_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"];
+
+const focusVisibilityIssue = (issue: VisibilityValidationIssue) => {
+  if (typeof document === "undefined" || typeof window === "undefined") return;
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      const path = issue.path.join(".");
+      const selector = issue.field === "group"
+        ? `[data-visibility-group-path="${path}"]`
+        : `[data-visibility-condition-path="${path}"]`;
+      const issueContainer = document.querySelector<HTMLElement>(selector);
+      const focusTarget = issue.field === "group"
+        ? issueContainer?.querySelector<HTMLElement>("button")
+        : issueContainer?.querySelector<HTMLElement>(`[data-visibility-field="${issue.field}"]`);
+
+      issueContainer?.scrollIntoView({ behavior: "smooth", block: "center" });
+      focusTarget?.focus({ preventScroll: true });
+    });
+  });
+};
 
 export function StandardEditor({
   activeQuestion,
@@ -50,8 +75,17 @@ export function StandardEditor({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [visibilityValidationAttempted, setVisibilityValidationAttempted] = useState(false);
+
+  const visibilityValidationIssues = useMemo(
+    () => visibilityRuleGroup
+      ? validateVisibilityGroup(toBuilderGroup(visibilityRuleGroup))
+      : [],
+    [visibilityRuleGroup],
+  );
 
   useEffect(() => {
+    setVisibilityValidationAttempted(false);
     if (activeQuestion) {
       setQuestionText(activeQuestion.text || "");
       setQuestionType(activeQuestion.kind || "text");
@@ -153,6 +187,13 @@ export function StandardEditor({
   };
 
   const handleSaveClick = async () => {
+    if (visibilityValidationIssues.length > 0) {
+      setVisibilityValidationAttempted(true);
+      focusVisibilityIssue(visibilityValidationIssues[0]);
+      return;
+    }
+    setVisibilityValidationAttempted(false);
+
     const isChoiceType = questionType === "single_choice" || questionType === "multiple_choice";
     const updatedQuestion: ProgramQuestion = {
       // Preserve fields this editor doesn't surface (e.g. a Section's
@@ -234,6 +275,7 @@ export function StandardEditor({
               setVisibilityRuleGroup={setVisibilityRuleGroup}
               questions={questions}
               currentQuestionId={activeQuestion?.id || ""}
+              validationIssues={visibilityValidationAttempted ? visibilityValidationIssues : []}
             />
             <div className="h-px bg-slate-100 w-full" />
             <div className="space-y-6">
