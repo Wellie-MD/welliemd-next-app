@@ -557,6 +557,7 @@ function OrderDetailInner() {
   const status = order.orderStatus || order.status || "created"
   const canonicalStatus = String(order.status || order.orderStatus || "").toLowerCase()
   const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
+  const revisionCount = Math.max(0, Number(order.rx_revision_count || 0))
   const statusDisplay = statusLabels[status] || status
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
   const paymentRecoveryState = (order.payment_recovery_state || "").toLowerCase()
@@ -1951,6 +1952,17 @@ function OrderDetailInner() {
                       <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                         {prescribedMedicineDisplayName}
                       </span>
+                      {showFullSplitLayout && (
+                        <button
+                          type="button"
+                          onClick={openPrescriptionHistory}
+                          className="text-xs font-medium normal-case tracking-normal text-blue-600 hover:underline whitespace-nowrap"
+                        >
+                          {revisionCount > 0
+                            ? `${revisionCount} ${revisionCount === 1 ? "revision" : "revisions"} — view history`
+                            : "view history"}
+                        </button>
+                      )}
                     </div>
                     {order.billing_pending_reason === "prescription_mapping_unresolved" ? (
                       <>
