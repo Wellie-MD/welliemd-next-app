@@ -144,8 +144,40 @@ export default function DevicesPage() {
   const connectionsSyncTime = useRef<number>(0);
 
 
+  const fetchWeightData = useCallback(async () => {
+    try {
+      const [vitalsResult, goalResult, profileResult] = await Promise.allSettled([
+        getVitalsHistory(365),
+        getHealthGoal(),
+        profileService.getPatientProfile(),
+      ]);
+
+      setWeight(prev => {
+        let priorityList = ['questionnaire', 'patient_portal', 'wearable'];
+        if (profileResult.status === 'fulfilled' && profileResult.value) {
+          priorityList = profileResult.value.vitals_source_priority || priorityList;
+        }
+        const next = vitalsResult.status === 'fulfilled'
+          ? buildWeightData(vitalsResult.value, prev, priorityList)
+          : prev;
+        return {
+          ...next,
+          targetWeightLbs: goalResult.status === 'fulfilled' && goalResult.value.goal?.target_weight_lbs != null
+            ? Number(goalResult.value.goal.target_weight_lbs)
+            : next.targetWeightLbs,
+          targetBmi: goalResult.status === 'fulfilled' && goalResult.value.goal?.target_bmi != null
+            ? Number(goalResult.value.goal.target_bmi)
+            : next.targetBmi,
+        };
+      });
+    } catch (e) {
+      console.error('Failed to fetch weight data', e);
+    }
+  }, []);
+
   const fetchMasterDeviceData = useCallback(async () => {
     try {
+      fetchWeightData().catch(console.error);
       const data = await getDeviceData(365, true);
       if (data) {
         setMasterDeviceMetrics(prev => ({
@@ -157,14 +189,14 @@ export default function DevicesPage() {
           ...(data.readiness != null && { readiness: data.readiness }),
           ...(data.recovery != null && { recovery: data.recovery }),
           ...(data.sleepScore != null && { sleepScore: data.sleepScore }),
-          ...(data.stepsSeries && { stepsSeries: data.stepsSeries }),
-          ...(data.sleepSeries && { sleepSeries: data.sleepSeries }),
-          ...(data.readinessSeries && { readinessSeries: data.readinessSeries }),
+          stepsSeries: mergeSeries(prev.stepsSeries, data.stepsSeries),
+          sleepSeries: mergeSeries(prev.sleepSeries, data.sleepSeries),
+          readinessSeries: mergeSeries(prev.readinessSeries, data.readinessSeries),
+          workoutsSeries: mergeSeries(prev.workoutsSeries, data.workoutsSeries),
+          glucoseSeries: mergeSeries(prev.glucoseSeries, data.glucoseSeries),
           ...(data.sleepDetail && { sleepDetail: data.sleepDetail }),
           ...(data.workoutsCount !== undefined && { workoutsCount: data.workoutsCount }),
           ...(data.recentWorkouts && { recentWorkouts: data.recentWorkouts }),
-          ...(data.workoutsSeries && { workoutsSeries: data.workoutsSeries }),
-          ...(data.glucoseSeries && { glucoseSeries: data.glucoseSeries }),
           ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
           ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
           ...(data.customQueries && { customQueries: data.customQueries }),
@@ -173,7 +205,31 @@ export default function DevicesPage() {
     } catch (e) {
       console.error('Failed to fetch master device data', e);
     }
-  }, []);
+  }, [fetchWeightData]);
+
+  const filteredWeight = useMemo(() => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0] ?? '';
+
+    const points = weight.points.filter(p => {
+      const pDate = p.date.split('T')[0] ?? '';
+      return pDate >= cutoffStr;
+    });
+
+    const series = points.map(p => p.weight);
+    const checkins = points.map(p => ({
+      label: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      w: p.weight,
+    }));
+
+    return {
+      ...weight,
+      points,
+      series,
+      checkins,
+    };
+  }, [weight, timeRange]);
 
   const deviceMetrics = useMemo(() => {
     const cutoffDate = new Date();
@@ -252,24 +308,49 @@ export default function DevicesPage() {
     return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, []);
 
-  // Initial cached load + background live sync on mount
+  // Two-Tier Cache-First Load + Background Live Sync
   useEffect(() => {
-    toast.info('Fetching your extended historical data. This may take a moment...', {
-      duration: 4000,
-    });
-    
     const initializeData = async () => {
       try {
-        await fetchMasterDeviceData();
+        // Tier 1: Fast initial load from 30-day cache (<200ms)
+        const initialCached = await getDeviceData(30, true);
+        if (initialCached) {
+          setMasterDeviceMetrics(prev => ({
+            ...prev,
+            ...(initialCached.steps && { steps: initialCached.steps }),
+            ...(initialCached.sleep && { sleep: initialCached.sleep }),
+            ...(initialCached.restingHr && { restingHr: initialCached.restingHr }),
+            ...(initialCached.activeDays && { activeDays: initialCached.activeDays }),
+            ...(initialCached.readiness != null && { readiness: initialCached.readiness }),
+            ...(initialCached.recovery != null && { recovery: initialCached.recovery }),
+            ...(initialCached.sleepScore != null && { sleepScore: initialCached.sleepScore }),
+            stepsSeries: initialCached.stepsSeries ?? prev.stepsSeries,
+            sleepSeries: initialCached.sleepSeries ?? prev.sleepSeries,
+            readinessSeries: initialCached.readinessSeries ?? prev.readinessSeries,
+            workoutsSeries: initialCached.workoutsSeries ?? prev.workoutsSeries,
+            glucoseSeries: initialCached.glucoseSeries ?? prev.glucoseSeries,
+            ...(initialCached.sleepDetail && { sleepDetail: initialCached.sleepDetail }),
+            ...(initialCached.workoutsCount !== undefined && { workoutsCount: initialCached.workoutsCount }),
+            ...(initialCached.recentWorkouts && { recentWorkouts: initialCached.recentWorkouts }),
+            ...(initialCached.avgGlucose != null && { avgGlucose: initialCached.avgGlucose }),
+            ...(initialCached.latestGlucose != null && { latestGlucose: initialCached.latestGlucose }),
+            ...(initialCached.customQueries && { customQueries: initialCached.customQueries }),
+          }));
+        }
+
+        // Tier 2: Background load 365-day cached history to populate extended timelines
+        fetchMasterDeviceData().catch(console.error);
+
+        // Tier 3: Background live sync
         getDeviceData(30, false)
           .then((liveData) => {
+            fetchWeightData().catch(console.error);
             if (liveData) {
               setMasterDeviceMetrics(prev => ({
                 ...prev,
                 ...(liveData.steps && { steps: liveData.steps }),
                 ...(liveData.sleep && { sleep: liveData.sleep }),
                 ...(liveData.restingHr && { restingHr: liveData.restingHr }),
-                ...(liveData.activeDays && { activeDays: liveData.activeDays }),
                 ...(liveData.readiness != null && { readiness: liveData.readiness }),
                 ...(liveData.recovery != null && { recovery: liveData.recovery }),
                 ...(liveData.sleepScore != null && { sleepScore: liveData.sleepScore }),
@@ -468,6 +549,15 @@ export default function DevicesPage() {
 
   // Background polling for progressive real-time graph via isBackfilling
   const isFetching = connections.some(c => c.isBackfilling);
+  const prevIsFetchingRef = useRef(false);
+
+  useEffect(() => {
+    if (prevIsFetchingRef.current && !isFetching) {
+      // Backfill completed! Trigger a fresh 365-day fetch to pull full historical timeline
+      fetchMasterDeviceData().catch(console.error);
+    }
+    prevIsFetchingRef.current = isFetching;
+  }, [isFetching, fetchMasterDeviceData]);
 
   useEffect(() => {
     if (!isFetching) return;
@@ -925,7 +1015,7 @@ export default function DevicesPage() {
         )}
         <TelemetryDashboard 
           deviceMetrics={deviceMetrics} 
-          weight={weight} 
+          weight={filteredWeight} 
           onOpenGoalModal={handleOpenGoal}
           timeRange={timeRange}
           onTimeRangeChange={setTimeRange} 

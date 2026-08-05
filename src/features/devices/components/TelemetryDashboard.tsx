@@ -180,10 +180,11 @@ export function WeightTrendCard({
   syncedFrom?: string;
   bottomAction?: { label: string; onClick: () => void };
 }) {
-  const cur = weight.series[weight.series.length - 1] ?? weight.start;
-  const start = weight.series[0] ?? weight.start;
-  const rawDiff = cur != null && start != null ? +(cur - start).toFixed(1) : null;
-  const rawPct = cur != null && start && start > 0 ? (rawDiff! / start) * 100 : null;
+  const hasSeries = weight.series.length > 0;
+  const cur = hasSeries ? weight.series[weight.series.length - 1] : (weight.start ?? null);
+  const start = hasSeries ? weight.series[0] : (weight.start ?? null);
+  const rawDiff = weight.series.length > 1 && cur != null && start != null ? +(cur - start).toFixed(1) : null;
+  const rawPct = weight.series.length > 1 && cur != null && start && start > 0 ? (rawDiff! / start) * 100 : null;
 
   const isDecrease = rawDiff != null && rawDiff < 0;
   const isIncrease = rawDiff != null && rawDiff > 0;
@@ -223,7 +224,7 @@ export function WeightTrendCard({
           <span style={{ fontWeight: 700, fontSize: 14.5 }}>Weight progress</span>
         </div>
         <span style={{ fontSize: 11, color: 'var(--km-tm)' }}>
-          Last {weight.series.length} {weight.series.length === 1 ? 'entry' : 'entries'}
+          {hasSeries ? `Last ${weight.series.length} ${weight.series.length === 1 ? 'entry' : 'entries'}` : 'No entries in timeline'}
         </span>
       </div>
 

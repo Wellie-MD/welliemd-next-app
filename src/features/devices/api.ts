@@ -149,6 +149,6 @@ export function formatConnection(c: ConnectionResponse): {
     lastSync: formattedSync,
     status: c.status as any,
     ...(c.last_error ? { errorType: c.last_error } : {}),
-    ...(c.is_backfilling !== undefined ? { isBackfilling: isStuck ? false : Boolean(c.is_backfilling) } : {}),
+    isBackfilling: isStuck ? false : Boolean(c.is_backfilling),
   };
 }
