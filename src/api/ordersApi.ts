@@ -64,35 +64,6 @@ export interface PrescriptionMedication {
   shipping_fee?: string | number | null
 }
 
-export interface PrescriptionHistoryMedication {
-  product_name?: string
-  medication?: string
-  pharmacy_name?: string
-  quantity?: string
-  refills?: string
-  strength?: string
-  rx_id?: string
-  med_id?: string
-}
-
-export interface PrescriptionHistoryEvent {
-  kind: 'requested_at_checkout' | 'rx_written'
-  label: string
-  occurred_at?: string | null
-  actor_name?: string | null
-  actor_role?: string | null
-  medications: PrescriptionHistoryMedication[]
-  event_id?: string | null
-}
-
-export interface PrescriptionHistoryResponse {
-  order_id?: string | null
-  patient_name?: string | null
-  prescription_event_count: number
-  revision_count: number
-  events: PrescriptionHistoryEvent[]
-}
-
 export interface OrderPricingSupplyLineItem {
   id?: string | number
   name?: string
@@ -339,16 +310,6 @@ export const fetchOrderByOrderId = async (orderId: string, forceFresh = false): 
   }
 }
 
-export const fetchPrescriptionHistory = async (id: string): Promise<PrescriptionHistoryResponse> => {
-  try {
-    const { data } = await api.get<PrescriptionHistoryResponse>(`${ENDPOINT}${id}/prescription-history/`)
-    return data
-  } catch (error) {
-    console.error(`Failed to fetch prescription history for order ${id}:`, error)
-    throw error
-  }
-}
-
 export const createOrder = async (payload: Partial<Order>): Promise<Order> => {
   try {
     const { data } = await api.post<Order>(ENDPOINT, payload)
@@ -526,7 +487,6 @@ export const ordersApi = {
   fetchOrdersByPatient,
   fetchOrder,
   fetchOrderByOrderId,
-  fetchPrescriptionHistory,
   createOrder,
   updateOrder,
   archiveOrder,
