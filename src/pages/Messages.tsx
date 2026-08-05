@@ -967,15 +967,9 @@ export default function Messages() {
                           {dayMsgs.map((m, idx) => {
                             const isSent = m.side === "right";
                             const prevMsg = dayMsgs[idx - 1];
-                            const isFirstInGroup =
-                              !prevMsg ||
-                              prevMsg.senderType !== m.senderType ||
-                              (m.senderType === "patient" && prevMsg.message_type !== m.message_type);
+                            const isFirstInGroup = !prevMsg || prevMsg.senderType !== m.senderType;
                             const nextMsg = dayMsgs[idx + 1];
-                            const isLastInGroup =
-                              !nextMsg ||
-                              nextMsg.senderType !== m.senderType ||
-                              (m.senderType === "patient" && nextMsg.message_type !== m.message_type);
+                            const isLastInGroup = !nextMsg || nextMsg.senderType !== m.senderType;
 
                             let displayName: string;
                             if (m.senderType === "patient") {
@@ -989,12 +983,6 @@ export default function Messages() {
                             else if (m.senderType === "super_support") displayName = "Super Admin";
                             else if (m.senderType === "beluga_support") displayName = "Beluga Support";
                             else displayName = m.sender_name;
-
-                            const isStaffMessage = m.senderType !== "patient";
-                            const isPatientRecipientLabel =
-                              m.senderType === "patient" &&
-                              (m.message_type === "patient_to_doctor" ||
-                                m.message_type === "patient_to_support");
 
                             const bubbleColor = isSent
                               ? "bg-gradient-to-r from-[hsl(199,85%,48%)] to-[hsl(215,85%,55%)] text-white shadow-sm"
@@ -1027,8 +1015,8 @@ export default function Messages() {
 
                             return (
                               <div key={m.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"} ${isLastInGroup ? "mb-4" : "mb-0.5"}`}>
-                                {(isStaffMessage || isPatientRecipientLabel) && isFirstInGroup && (
-                                  <div className={`text-[11px] font-medium text-muted-foreground mb-1 ${isSent ? "mr-1" : "ml-1"}`}>
+                                {!isSent && isFirstInGroup && (
+                                  <div className="text-[11px] font-medium text-muted-foreground mb-1 ml-1">
                                     {displayName}
                                   </div>
                                 )}
