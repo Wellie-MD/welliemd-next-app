@@ -12,6 +12,7 @@ export interface CommonSection {
 
 export interface CommonSectionField {
   id: string;
+  sourceFieldId: string;
   sectionId: string;
   order: number;
   label: string;

@@ -36,6 +36,7 @@ export type SectionRecord = {
 
 export type SectionFieldRecord = {
   id: string;
+  source_field_id: string;
   section: string;
   order: number;
   label: string;
