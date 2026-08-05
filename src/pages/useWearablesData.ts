@@ -89,11 +89,12 @@ function relativeTime(iso: string | null): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-interface UseWearablesDataParams {
+export interface UseWearablesDataParams {
   page: number;
   pageSize: number;
   search: string;
   loadInsights?: boolean;
+  timeRange?: number;
 }
 
 const transformPatient = (patient: any): Patient => {
@@ -126,7 +127,7 @@ const transformPatient = (patient: any): Patient => {
 // server-side, but that touches per-patient Junction Sense fan-out
 // (lifecycle_data_service.py) which is unconfirmed against a live sandbox —
 // not something to change blind.
-async function fetchTelemetryBatch(patientIds: string[]): Promise<Record<string, PatientTelemetry>> {
+async function fetchTelemetryBatch(patientIds: string[], days: number = 30, cachedOnly: boolean = true): Promise<Record<string, PatientTelemetry>> {
   if (patientIds.length === 0) return {};
 
   const batchSize = 20;
@@ -139,7 +140,7 @@ async function fetchTelemetryBatch(patientIds: string[]): Promise<Record<string,
         batch.map(async (id) => {
           try {
             const res = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
-              params: { patient_id: id, days: 7 },
+              params: { patient_id: id, days, cached_only: cachedOnly },
             });
             return [id, res.data] as const;
           } catch {
@@ -166,8 +167,10 @@ let globalDataCache: {
   fetchedAt: number;
 } | null = null;
 
+
+
 export function useWearablesData(params: UseWearablesDataParams) {
-  const { page, pageSize, search, loadInsights = false } = params;
+  const { page, pageSize, search, loadInsights = false, timeRange = 30 } = params;
   const [patients, setPatients] = useState<Patient[]>([]);
   const [connections, setConnections] = useState<WearableConnection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,7 +239,7 @@ export function useWearablesData(params: UseWearablesDataParams) {
     };
   }, []);
 
-  // 2. Fetch global telemetry with batched requests (fix #1 & #3: batch + cache)
+  // 2. Fetch global telemetry based on active timeRange
   useEffect(() => {
     if (!loadInsights || allPatients.length === 0 || connections.length === 0) return;
 
@@ -247,8 +250,10 @@ export function useWearablesData(params: UseWearablesDataParams) {
         const connectedPatients = allPatients.filter((p) =>
           connections.some((c) => c.patient_id === p.mrn && c.status === 'connected')
         );
-        const newTelemetry = await fetchTelemetryBatch(connectedPatients.map((p) => p.mrn));
-        if (active) setAllTelemetry((prev) => ({ ...prev, ...newTelemetry }));
+        const patientIds = connectedPatients.map((p) => p.mrn);
+
+        const telemetryData = await fetchTelemetryBatch(patientIds, timeRange, true);
+        if (active) setAllTelemetry((prev) => ({ ...prev, ...telemetryData }));
       } catch (caught) {
         console.error('Failed to load global telemetry:', caught);
       } finally {
@@ -259,13 +264,9 @@ export function useWearablesData(params: UseWearablesDataParams) {
     return () => {
       active = false;
     };
-  }, [loadInsights, allPatients, connections]);
+  }, [loadInsights, allPatients, connections, timeRange]);
 
-  // 3. Paginate from global patients, fetch telemetry with batching (fix #2 & #3)
-  // ponytail: use `refreshing` (not `loading`) here so search/page changes don't
-  // unmount the whole roster view — only the initial mount shows the full spinner.
-  // Waits for `globalLoaded` (unless searching) so it doesn't slice an empty
-  // allPatients before effect #1 has resolved.
+  // 3. Paginate from global patients and fetch telemetry for active timeRange
   useEffect(() => {
     if (!search && !globalLoaded) return;
 
@@ -275,7 +276,6 @@ export function useWearablesData(params: UseWearablesDataParams) {
         setRefreshing(true);
         setError(null);
 
-        // Handle search: fetch paginated results if searching, otherwise slice from all patients
         let results: Patient[] = [];
         let count = 0;
 
@@ -288,7 +288,6 @@ export function useWearablesData(params: UseWearablesDataParams) {
           results = (response.results || []).map(transformPatient);
           count = response.count;
         } else {
-          // No search: slice from cached global patients (fix #2: no duplicate fetch)
           const start = (page - 1) * pageSize;
           const end = start + pageSize;
           results = allPatients.slice(start, end);
@@ -299,16 +298,17 @@ export function useWearablesData(params: UseWearablesDataParams) {
           setPatients(results);
           setTotalCount(count);
 
-          // Fetch telemetry for connected patients on this page with batching (fix #1)
           const activePageConnected = results.filter((p) =>
             connections.some((c) => c.patient_id === p.mrn && c.status === 'connected')
           );
+          const patientIds = activePageConnected.map((p) => p.mrn);
 
-          const newTelemetry = await fetchTelemetryBatch(activePageConnected.map((p) => p.mrn));
+          // Fetch telemetry for active timeRange window (30d default, 365d when 1Y selected)
+          const telemetryData = await fetchTelemetryBatch(patientIds, timeRange, true);
           if (active) {
             setTelemetry((prev) => ({
               ...prev,
-              ...newTelemetry,
+              ...telemetryData,
             }));
           }
         }
@@ -325,9 +325,16 @@ export function useWearablesData(params: UseWearablesDataParams) {
     return () => {
       active = false;
     };
-  }, [page, pageSize, search, allPatients, connections, globalLoaded]);
+  }, [page, pageSize, search, allPatients, connections, globalLoaded, timeRange]);
 
-  // Compute page rows
+  // Helper to slice weight series according to selected timeRange window
+  const sliceSeries = (series: number[]) => {
+    if (!series || series.length === 0) return [];
+    // slice last N items corresponding to timeRange sample size
+    return series.slice(-Math.min(series.length, timeRange));
+  };
+
+  // Compute page rows dynamically based on timeRange
   const allComputed = useMemo<WearableRow[]>(() => patients.map((patient, idx) => {
     const patientConnections = connections.filter(
       (connection) => connection.patient_id === patient.mrn && (connection.status === 'connected' || connection.status === 'authorized'),
@@ -336,15 +343,16 @@ export function useWearablesData(params: UseWearablesDataParams) {
     const primary = patientConnections[0];
     const provider = primary?.provider || null;
     const data = telemetry[patient.mrn] || {};
-    const series = data.weightSeries || [];
+    const fullSeries = data.weightSeries || [];
+    const series = sliceSeries(fullSeries);
     const cur = series.length ? series[series.length - 1] : null;
     const start = series.length ? series[0] : null;
     const chg = cur != null && start != null ? Number((cur - start).toFixed(1)) : null;
     const onTx = patient.status === 'Active' || patient.orders > 0;
     return { idx, p: patient, d: data, onTx, connected, provider, lastSync: primary?.last_sync_at ? relativeTime(primary.last_sync_at) : null, cur, chg, needs: onTx && !connected };
-  }), [patients, connections, telemetry]);
+  }), [patients, connections, telemetry, timeRange]);
 
-  // Compute global computed rows for stats and insights
+  // Compute global computed rows for stats and insights dynamically based on timeRange
   const globalComputed = useMemo<WearableRow[]>(() => allPatients.map((patient, idx) => {
     const patientConnections = connections.filter(
       (connection) => connection.patient_id === patient.mrn && (connection.status === 'connected' || connection.status === 'authorized'),
@@ -353,13 +361,14 @@ export function useWearablesData(params: UseWearablesDataParams) {
     const primary = patientConnections[0];
     const provider = primary?.provider || null;
     const data = allTelemetry[patient.mrn] || {};
-    const series = data.weightSeries || [];
+    const fullSeries = data.weightSeries || [];
+    const series = sliceSeries(fullSeries);
     const cur = series.length ? series[series.length - 1] : null;
     const start = series.length ? series[0] : null;
     const chg = cur != null && start != null ? Number((cur - start).toFixed(1)) : null;
     const onTx = patient.status === 'Active' || patient.orders > 0;
     return { idx, p: patient, d: data, onTx, connected, provider, lastSync: primary?.last_sync_at ? relativeTime(primary.last_sync_at) : null, cur, chg, needs: onTx && !connected };
-  }), [allPatients, connections, allTelemetry]);
+  }), [allPatients, connections, allTelemetry, timeRange]);
 
   const stats = useMemo(() => {
     const onTx = globalComputed.filter((row) => row.onTx).length;

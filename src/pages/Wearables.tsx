@@ -20,10 +20,18 @@ const FILTER_TABS: Array<{ id: 'all' | 'connected' | 'not' | 'attention'; label:
   { id: 'attention', label: 'Needs attention' },
 ];
 
+const TIME_RANGE_TABS: Array<{ id: number; label: string }> = [
+  { id: 7, label: '1W' },
+  { id: 30, label: '1M' },
+  { id: 90, label: '3M' },
+  { id: 365, label: '1Y' },
+];
+
 export default function Wearables() {
   const navigate = useNavigate();
   const [view, setView] = useState<'roster' | 'insights'>('roster');
   const [filter, setFilter] = useState<'all' | 'connected' | 'not' | 'attention'>('all');
+  const [timeRange, setTimeRange] = useState<number>(30);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -45,6 +53,7 @@ export default function Wearables() {
     pageSize,
     search: debouncedSearch,
     loadInsights: view === 'insights',
+    timeRange,
   });
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -229,8 +238,8 @@ export default function Wearables() {
         </div>
       ) : (
         <>
-          {/* Main Controls & Segmented Roster / Insights switcher */}
-          <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+          {/* Main Controls & Segmented Roster / Insights switcher + Time Range selector */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
             <div
               style={{
                 display: 'inline-flex',
@@ -270,6 +279,36 @@ export default function Wearables() {
               >
                 Insights
               </div>
+            </div>
+
+            {/* Time Range Selector */}
+            <div
+              style={{
+                display: 'inline-flex',
+                background: 'var(--km-s2)',
+                borderRadius: 8,
+                padding: 3,
+                border: '1px solid var(--km-b)'
+              }}
+            >
+              {TIME_RANGE_TABS.map((t) => (
+                <div
+                  key={t.id}
+                  onClick={() => setTimeRange(t.id)}
+                  style={{
+                    fontSize: 11.5,
+                    padding: '5px 12px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontWeight: timeRange === t.id ? 700 : 500,
+                    background: timeRange === t.id ? 'var(--km-s1)' : 'transparent',
+                    color: timeRange === t.id ? 'var(--km-t)' : 'var(--km-tm)',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {t.label}
+                </div>
+              ))}
             </div>
           </div>
 

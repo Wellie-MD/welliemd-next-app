@@ -417,8 +417,8 @@ export default function PatientDetailPage() {
         const hasConnected = conns.length > 0;
         if (hasConnected) {
           const [dataRes, vitalsRes] = await Promise.all([
-            api.get("/wearables/device-data/", { params: { patient_id: patientId, days: 365 } }),
-            api.get("/medical/vitals/", { params: { patient_id: patientId, days: 365 } }).catch(() => ({ data: [] })),
+            api.get("/wearables/device-data/", { params: { patient_id: patientId, days: timeRange, cached_only: true } }),
+            api.get("/medical/vitals/", { params: { patient_id: patientId, days: timeRange } }).catch(() => ({ data: [] })),
           ]);
           if (active) {
             setMasterWearableData(dataRes.data || null);
@@ -438,7 +438,7 @@ export default function PatientDetailPage() {
     return () => {
       active = false;
     };
-  }, [patientId]);
+  }, [patientId, timeRange]);
 
   useEffect(() => {
     let active = true;
