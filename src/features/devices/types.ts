@@ -20,6 +20,7 @@ export interface Connection {
   lastSync: string;
   status?: 'error' | 'pending' | 'connected' | 'disconnected';
   errorType?: string;
+  isBackfilling?: boolean;
 }
 
 export interface DeviceState {
@@ -81,27 +82,28 @@ export interface WorkoutItem {
 
 export interface DeviceMetrics {
   steps: string;
-  sleep: string;
+  sleep: string | null;
   restingHr: string;
   activeDays: string;
-  readiness: number;
+  readiness: number | string;
   recovery: number;
   sleepScore: number;
-  stepsSeries?: { date: string; val: number }[];
-  sleepSeries?: { date: string; val: number }[];
-  sleepDetail?: SleepDetail;
-  workoutsCount?: number;
-  recentWorkouts?: WorkoutItem[];
-  workoutsSeries?: { date: string; val: number }[];
-  glucoseSeries?: { date: string; val: number }[];
-  avgGlucose?: number;
-  latestGlucose?: number;
+  stepsSeries?: { date: string; val: number }[] | undefined;
+  sleepSeries?: { date: string; val: number }[] | undefined;
+  readinessSeries?: { date: string; val: number }[] | undefined;
+  sleepDetail?: SleepDetail | undefined;
+  workoutsCount?: number | undefined;
+  recentWorkouts?: WorkoutItem[] | undefined;
+  workoutsSeries?: { date: string; val: number }[] | undefined;
+  glucoseSeries?: { date: string; val: number }[] | undefined;
+  avgGlucose?: number | null | undefined;
+  latestGlucose?: number | null | undefined;
   customQueries?: {
     id: string;
     name: string;
     metrics: string[];
     series: any[];
-  }[];
+  }[] | undefined;
 }
 
 export interface WeightData {
@@ -145,6 +147,7 @@ export interface DeviceDataResponse {
   sleepScore?: number;
   stepsSeries?: { date: string; val: number }[];
   sleepSeries?: { date: string; val: number }[];
+  readinessSeries?: { date: string; val: number }[];
   sleepDetail?: SleepDetail;
   workoutsCount?: number;
   recentWorkouts?: WorkoutItem[];
@@ -173,3 +176,5 @@ export interface ConnectionResponse {
   is_backfilling?: boolean;
   updated_at: string;
 }
+
+export type RawConnection = ConnectionResponse;

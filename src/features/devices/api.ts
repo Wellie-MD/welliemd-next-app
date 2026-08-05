@@ -140,13 +140,15 @@ export function formatConnection(c: ConnectionResponse): {
 
   const isStuck = c.is_backfilling && c.updated_at && (Date.now() - new Date(c.updated_at).getTime() > 300000);
 
+  const providerName = c.provider ? (c.provider.charAt(0).toUpperCase() + c.provider.slice(1)) : 'Unknown';
+
   return {
     id: c.id,
-    provider: c.provider,
-    name: c.provider.charAt(0).toUpperCase() + c.provider.slice(1),
+    provider: c.provider || '',
+    name: providerName,
     lastSync: formattedSync,
     status: c.status as any,
     ...(c.last_error ? { errorType: c.last_error } : {}),
-    isBackfilling: isStuck ? false : c.is_backfilling,
+    ...(c.is_backfilling !== undefined ? { isBackfilling: isStuck ? false : Boolean(c.is_backfilling) } : {}),
   };
 }

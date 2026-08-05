@@ -63,7 +63,8 @@ export default function TelemetryDashboard({
 
 /* ─── Today's readiness card ─── */
 export function ReadinessCard({ deviceMetrics }: { deviceMetrics: DeviceMetrics }) {
-  if (deviceMetrics.readiness === undefined || deviceMetrics.readiness <= 0) return null;
+  const readinessNum = Number(deviceMetrics.readiness);
+  if (!readinessNum || readinessNum <= 0) return null;
 
   return (
     <div style={CARD}>
@@ -87,9 +88,9 @@ export function ReadinessCard({ deviceMetrics }: { deviceMetrics: DeviceMetrics 
               fontSize: 36,
               lineHeight: 1,
               color:
-                deviceMetrics.readiness >= 75
+                readinessNum >= 75
                   ? 'var(--km-gr)'
-                  : deviceMetrics.readiness >= 55
+                  : readinessNum >= 55
                   ? 'var(--km-am)'
                   : 'var(--km-re)',
             }}
@@ -101,18 +102,18 @@ export function ReadinessCard({ deviceMetrics }: { deviceMetrics: DeviceMetrics 
               fontWeight: 700,
               fontSize: 13,
               color:
-                deviceMetrics.readiness >= 75
+                readinessNum >= 75
                   ? 'var(--km-gr)'
-                  : deviceMetrics.readiness >= 55
+                  : readinessNum >= 55
                   ? 'var(--km-am)'
                   : 'var(--km-re)',
             }}
           >
-            {deviceMetrics.readiness >= 85
+            {readinessNum >= 85
               ? 'Optimal'
-              : deviceMetrics.readiness >= 75
+              : readinessNum >= 75
               ? 'Good'
-              : deviceMetrics.readiness >= 55
+              : readinessNum >= 55
               ? 'Fair'
               : 'Low'}
           </span>

@@ -240,8 +240,8 @@ function DataSection({
   if (trend && trend.series && trend.series.length > 0) {
     const seriesArr = trend.series;
     const seriesLen = seriesArr.length;
-    const last = seriesArr[seriesLen - 1]!.val;
-    const first = seriesArr[0]!.val;
+    const last = seriesArr[seriesLen - 1]?.val ?? 0;
+    const first = seriesArr[0]?.val ?? 0;
     const delta = Number((last - first).toFixed(trend.dec || 0));
     const better = trend.lowerBetter ? delta < 0 : delta > 0;
     const col = delta === 0 ? 'var(--km-tm)' : better ? 'var(--km-gr)' : 'var(--km-am)';
@@ -360,7 +360,7 @@ interface HealthTabsProps {
 
 import { CustomInsightsModal } from './CustomInsightsModal';
 
-export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }: HealthTabsProps) {
+export default function HealthTabs({ weightData: _weightData, deviceMetrics, timeRange = 30 }: HealthTabsProps) {
   const [activeTab, setActiveTab] = useState('sleep');
   const [insightsOpen, setInsightsOpen] = useState(false);
 

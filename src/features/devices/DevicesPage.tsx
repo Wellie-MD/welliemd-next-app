@@ -159,9 +159,11 @@ export default function DevicesPage() {
           ...(data.sleepScore != null && { sleepScore: data.sleepScore }),
           ...(data.stepsSeries && { stepsSeries: data.stepsSeries }),
           ...(data.sleepSeries && { sleepSeries: data.sleepSeries }),
+          ...(data.readinessSeries && { readinessSeries: data.readinessSeries }),
           ...(data.sleepDetail && { sleepDetail: data.sleepDetail }),
           ...(data.workoutsCount !== undefined && { workoutsCount: data.workoutsCount }),
           ...(data.recentWorkouts && { recentWorkouts: data.recentWorkouts }),
+          ...(data.workoutsSeries && { workoutsSeries: data.workoutsSeries }),
           ...(data.glucoseSeries && { glucoseSeries: data.glucoseSeries }),
           ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
           ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
@@ -176,7 +178,7 @@ export default function DevicesPage() {
   const deviceMetrics = useMemo(() => {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - timeRange);
-    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+    const cutoffStr = cutoffDate.toISOString().split('T')[0] ?? '';
 
     const filterSeries = <T extends { date: string }>(series?: T[]) => {
       if (!series) return [];
@@ -200,13 +202,14 @@ export default function DevicesPage() {
     const avgGlucose = glucoseSeries.length 
       ? Math.round((glucoseSeries.reduce((sum, g) => sum + g.val, 0) / glucoseSeries.length) * 10) / 10 
       : null;
-    const latestGlucose = glucoseSeries.length ? glucoseSeries[glucoseSeries.length - 1].val : null;
+    const latestGlucose = glucoseSeries.length ? (glucoseSeries[glucoseSeries.length - 1]?.val ?? null) : null;
 
-    const steps = stepsSeries.length ? String(stepsSeries[stepsSeries.length - 1].val) : masterDeviceMetrics.steps;
+    const lastStep = stepsSeries.length ? stepsSeries[stepsSeries.length - 1]?.val : undefined;
+    const steps = lastStep !== undefined ? String(lastStep) : masterDeviceMetrics.steps;
     
-    let sleep = masterDeviceMetrics.sleep;
+    let sleep: string | null = masterDeviceMetrics.sleep;
     if (sleepSeries.length) {
-      const val = sleepSeries[sleepSeries.length - 1].val;
+      const val = sleepSeries[sleepSeries.length - 1]?.val ?? 0;
       const hrs = Math.floor(val);
       const mins = Math.round((val - hrs) * 60);
       sleep = `${hrs}h ${mins}m`;
@@ -214,7 +217,8 @@ export default function DevicesPage() {
       sleep = null;
     }
 
-    const readiness = readinessSeries.length ? String(readinessSeries[readinessSeries.length - 1].val) : masterDeviceMetrics.readiness;
+    const lastReadiness = readinessSeries.length ? readinessSeries[readinessSeries.length - 1]?.val : undefined;
+    const readiness = lastReadiness !== undefined ? String(lastReadiness) : masterDeviceMetrics.readiness;
     
     return {
       ...masterDeviceMetrics,
@@ -235,7 +239,20 @@ export default function DevicesPage() {
     };
   }, [masterDeviceMetrics, timeRange]);
 
-  // Initial live sync on mount (background)
+  const mergeSeries = useCallback(<T extends { date: string }>(prevSeries?: T[], newSeries?: T[]) => {
+    if (!newSeries?.length) return prevSeries;
+    if (!prevSeries?.length) return newSeries;
+    const map = new Map<string, T>();
+    for (const item of prevSeries) {
+      map.set(item.date, item);
+    }
+    for (const item of newSeries) {
+      map.set(item.date, item);
+    }
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, []);
+
+  // Initial cached load + background live sync on mount
   useEffect(() => {
     toast.info('Fetching your extended historical data. This may take a moment...', {
       duration: 4000,
@@ -243,29 +260,34 @@ export default function DevicesPage() {
     
     const initializeData = async () => {
       try {
-        const liveData = await getDeviceData(30, false);
-        if (liveData) {
-          setMasterDeviceMetrics(prev => ({
-            ...prev,
-            ...(liveData.steps && { steps: liveData.steps }),
-            ...(liveData.sleep && { sleep: liveData.sleep }),
-            ...(liveData.restingHr && { restingHr: liveData.restingHr }),
-            ...(liveData.activeDays && { activeDays: liveData.activeDays }),
-            ...(liveData.readiness != null && { readiness: liveData.readiness }),
-            ...(liveData.recovery != null && { recovery: liveData.recovery }),
-            ...(liveData.sleepScore != null && { sleepScore: liveData.sleepScore }),
-            ...(liveData.stepsSeries && { stepsSeries: liveData.stepsSeries }),
-            ...(liveData.sleepSeries && { sleepSeries: liveData.sleepSeries }),
-            ...(liveData.sleepDetail && { sleepDetail: liveData.sleepDetail }),
-            ...(liveData.workoutsCount !== undefined && { workoutsCount: liveData.workoutsCount }),
-            ...(liveData.recentWorkouts && { recentWorkouts: liveData.recentWorkouts }),
-            ...(liveData.glucoseSeries && { glucoseSeries: liveData.glucoseSeries }),
-            ...(liveData.avgGlucose != null && { avgGlucose: liveData.avgGlucose }),
-            ...(liveData.latestGlucose != null && { latestGlucose: liveData.latestGlucose }),
-            ...(liveData.customQueries && { customQueries: liveData.customQueries }),
-          }));
-        }
         await fetchMasterDeviceData();
+        getDeviceData(30, false)
+          .then((liveData) => {
+            if (liveData) {
+              setMasterDeviceMetrics(prev => ({
+                ...prev,
+                ...(liveData.steps && { steps: liveData.steps }),
+                ...(liveData.sleep && { sleep: liveData.sleep }),
+                ...(liveData.restingHr && { restingHr: liveData.restingHr }),
+                ...(liveData.activeDays && { activeDays: liveData.activeDays }),
+                ...(liveData.readiness != null && { readiness: liveData.readiness }),
+                ...(liveData.recovery != null && { recovery: liveData.recovery }),
+                ...(liveData.sleepScore != null && { sleepScore: liveData.sleepScore }),
+                stepsSeries: mergeSeries(prev.stepsSeries, liveData.stepsSeries),
+                sleepSeries: mergeSeries(prev.sleepSeries, liveData.sleepSeries),
+                readinessSeries: mergeSeries(prev.readinessSeries, liveData.readinessSeries),
+                workoutsSeries: mergeSeries(prev.workoutsSeries, liveData.workoutsSeries),
+                glucoseSeries: mergeSeries(prev.glucoseSeries, liveData.glucoseSeries),
+                ...(liveData.sleepDetail && { sleepDetail: liveData.sleepDetail }),
+                ...(liveData.workoutsCount !== undefined && { workoutsCount: liveData.workoutsCount }),
+                ...(liveData.recentWorkouts && { recentWorkouts: liveData.recentWorkouts }),
+                ...(liveData.avgGlucose != null && { avgGlucose: liveData.avgGlucose }),
+                ...(liveData.latestGlucose != null && { latestGlucose: liveData.latestGlucose }),
+                ...(liveData.customQueries && { customQueries: liveData.customQueries }),
+              }));
+            }
+          })
+          .catch(console.error);
       } catch (err) {
         console.error(err);
       }
@@ -281,7 +303,7 @@ export default function DevicesPage() {
     try {
       const [connectionsResult, vitalsResult, goalResult, profileResult] = await Promise.allSettled([
         getConnections(),
-        getVitalsHistory(timeRange),
+        getVitalsHistory(365),
         getHealthGoal(),
         profileService.getPatientProfile(),
       ]);
@@ -316,7 +338,22 @@ export default function DevicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange]);
+  }, []);
+
+  const fetchOnlyConnections = useCallback(async () => {
+    const reqTime = Date.now();
+    try {
+      const connectionsList = await getConnections();
+      if (connectionsList !== null && reqTime >= connectionsSyncTime.current) {
+        connectionsSyncTime.current = reqTime;
+        const formatted = connectionsList.map(formatConnection);
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
+      }
+    } catch (e) {
+      console.error('Failed to fetch connections', e);
+    }
+  }, []);
 
   useEffect(() => {
     fetchConnectionsList().finally(() => setInitialLoading(false));
@@ -437,11 +474,11 @@ export default function DevicesPage() {
 
     const interval = setInterval(() => {
       fetchMasterDeviceData().catch(console.error);
-      fetchConnectionsList().catch(console.error);
+      fetchOnlyConnections().catch(console.error);
     }, 10000); // 10 seconds
 
     return () => clearInterval(interval);
-  }, [isFetching, fetchMasterDeviceData, fetchConnectionsList]);
+  }, [isFetching, fetchMasterDeviceData, fetchOnlyConnections]);
 
   useEffect(() => {
     async function loadConsent() {
@@ -658,9 +695,18 @@ export default function DevicesPage() {
 
   /* ─── Goal Modal ─── */
   const handleOpenGoal = useCallback(() => {
-    setGoalInput(weight.targetWeightLbs ? String(weight.targetWeightLbs) : (weight.targetBmi ? String(weight.targetBmi) : ''));
+    let initialInput = '';
+    if (weight.targetWeightLbs != null && weight.targetWeightLbs >= 40 && weight.targetWeightLbs <= 800) {
+      initialInput = String(weight.targetWeightLbs);
+    } else if (weight.targetBmi != null && weight.heightIn != null) {
+      const computedWeight = Math.round((weight.targetBmi * weight.heightIn * weight.heightIn) / 703);
+      if (computedWeight >= 40 && computedWeight <= 800) {
+        initialInput = String(computedWeight);
+      }
+    }
+    setGoalInput(initialInput);
     setGoalModalOpen(true);
-  }, [weight.targetWeightLbs, weight.targetBmi]);
+  }, [weight.targetWeightLbs, weight.targetBmi, weight.heightIn]);
 
   const handleSaveGoal = useCallback(() => {
     const v = Number(goalInput);
