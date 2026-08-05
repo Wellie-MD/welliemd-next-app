@@ -955,9 +955,7 @@ export default function PatientDetailPage() {
                           const {
                             sleep: sleepMetrics,
                             activity: activityMetrics,
-                            heart: heartMetrics,
                             workouts: workoutsMetrics,
-                            glucose: glucoseMetrics,
                           } = buildWearableMetrics(wearableData, timeRange);
                           const healthTabs: { id: "sleep" | "activity" | "workouts"; label: string; metrics: MetricItem[] }[] = [
                             { id: "sleep", label: "Sleep", metrics: sleepMetrics },
