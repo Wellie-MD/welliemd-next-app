@@ -127,7 +127,7 @@ const transformPatient = (patient: any): Patient => {
 // server-side, but that touches per-patient Junction Sense fan-out
 // (lifecycle_data_service.py) which is unconfirmed against a live sandbox —
 // not something to change blind.
-async function fetchTelemetryBatch(patientIds: string[], days: number = 30, cachedOnly: boolean = true): Promise<Record<string, PatientTelemetry>> {
+async function fetchTelemetryBatch(patientIds: string[], days: number = 30, skipLiveSync: boolean = true): Promise<Record<string, PatientTelemetry>> {
   if (patientIds.length === 0) return {};
 
   const batchSize = 20;
@@ -140,7 +140,7 @@ async function fetchTelemetryBatch(patientIds: string[], days: number = 30, cach
         batch.map(async (id) => {
           try {
             const res = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
-              params: { patient_id: id, days, cached_only: cachedOnly },
+              params: { patient_id: id, days, skip_live_sync: skipLiveSync },
             });
             return [id, res.data] as const;
           } catch {
