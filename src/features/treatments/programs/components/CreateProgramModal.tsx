@@ -44,6 +44,7 @@ export function CreateProgramModal({
   const [maxBmi, setMaxBmi] = useState<string>("");
   const [serviceStatesAll, setServiceStatesAll] = useState(true);
   const [serviceStates, setServiceStates] = useState<string[]>([]);
+  const [shippingDestinationPolicy, setShippingDestinationPolicy] = useState<"service_location_only" | "separate_verified_allowed">("service_location_only");
   const [stateSearch, setStateSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -62,6 +63,7 @@ export function CreateProgramModal({
         setMaxBmi(initialProgram.maxBmi != null ? String(initialProgram.maxBmi) : "");
         setServiceStatesAll(initialProgram.serviceStatesAll ?? true);
         setServiceStates(initialProgram.serviceStates || []);
+        setShippingDestinationPolicy(initialProgram.shippingDestinationPolicy || "service_location_only");
       } else if (prefillTreatmentTypeKey) {
         setTreatmentTypeKey(prefillTreatmentTypeKey);
         const treatment = treatmentTypes.find((t) => t.key === prefillTreatmentTypeKey);
@@ -85,6 +87,7 @@ export function CreateProgramModal({
         setMaxBmi("");
         setServiceStatesAll(true);
         setServiceStates([]);
+        setShippingDestinationPolicy("service_location_only");
       }
     }
   }, [open, prefillTreatmentTypeKey, prefillStage, treatmentTypes, initialProgram, mode]);
@@ -140,6 +143,7 @@ export function CreateProgramModal({
         maxBmi: maxBmi ? parseFloat(maxBmi) : null,
         serviceStatesAll,
         serviceStates: serviceStatesAll ? [] : serviceStates,
+        shippingDestinationPolicy,
       });
       if (saved) {
         onOpenChange(false);
@@ -286,6 +290,24 @@ export function CreateProgramModal({
               </>
             )}
             <p className="text-[10px] text-slate-400">At checkout, Program states are intersected with the selected Product's effective service states.</p>
+          </div>
+
+          <div className="space-y-1.5 rounded-lg border border-slate-200 p-3">
+            <label className="text-xs font-bold text-slate-800" htmlFor="shipping-destination-policy">
+              Shipping destination policy
+            </label>
+            <select
+              id="shipping-destination-policy"
+              value={shippingDestinationPolicy}
+              onChange={(event) => setShippingDestinationPolicy(event.target.value as "service_location_only" | "separate_verified_allowed")}
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800"
+            >
+              <option value="service_location_only">Verified service address only</option>
+              <option value="separate_verified_allowed">Allow a separately verified shipping address</option>
+            </select>
+            <p className="text-[10px] text-slate-400">
+              Combined checkout allows a different destination only when every selected Program permits it.
+            </p>
           </div>
 
           {/* Program slug */}

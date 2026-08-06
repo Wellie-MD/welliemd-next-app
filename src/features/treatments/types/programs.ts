@@ -48,6 +48,7 @@ export interface Program {
   maxBmi?: number | null;
   serviceStatesAll?: boolean;
   serviceStates?: string[];
+  shippingDestinationPolicy?: "service_location_only" | "separate_verified_allowed";
   labRequirements?: ProgramLabRequirement[];
   assignmentRuntimeState?: string;
   runtimeReadyAt?: string | null;

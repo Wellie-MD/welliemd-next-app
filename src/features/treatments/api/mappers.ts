@@ -330,6 +330,7 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
   maxBmi: record.max_bmi ?? null,
   serviceStatesAll: record.service_states_all ?? true,
   serviceStates: record.service_states || [],
+  shippingDestinationPolicy: record.shipping_destination_policy || "service_location_only",
   labRequirements: (record.lab_requirements || []).map((requirement) => ({
     id: requirement.id,
     panelId: requirement.panel_id,
@@ -415,6 +416,9 @@ export const programToRecord = (program: Partial<Program>, treatmentTypes: Treat
   }
   if (program.serviceStates !== undefined) {
     payload.service_states = program.serviceStatesAll === false ? (program.serviceStates || []) : [];
+  }
+  if (program.shippingDestinationPolicy !== undefined) {
+    payload.shipping_destination_policy = program.shippingDestinationPolicy;
   }
   if (program.labRequirements !== undefined) {
     payload.lab_requirements = (program.labRequirements || []).map((requirement, index) => ({
