@@ -793,6 +793,29 @@ export const fetchPharmacies = async (): Promise<FilterOption[]> => {
   }
 }
 
+// A checkout attempt still under investigation -- an open
+// apps.orders.domain_models.selection.TreatmentCheckoutRecoveryCase, staff
+// projection (R6 G11/G16).
+export interface ReconciliationWorklistItem {
+  id: string
+  reference: string
+  submission_id: string
+  patient_id: string
+  patient_name: string
+  checkout_state: string
+  failure_code: string
+  status: string
+  created_at: string
+  age_seconds: number | null
+}
+
+export const fetchReconciliationWorklist = async (): Promise<ReconciliationWorklistItem[]> => {
+  const { data } = await api.get<
+    ReconciliationWorklistItem[] | { results: ReconciliationWorklistItem[] }
+  >('/orders/reconciliation-worklist/')
+  return Array.isArray(data) ? data : data.results || []
+}
+
 export const ordersApi = {
   fetchOrders,
   fetchOrdersByPatient,
@@ -811,4 +834,5 @@ export const ordersApi = {
   updateOrderQuestionnaireImages,
   fetchCategories,
   fetchPharmacies,
+  fetchReconciliationWorklist,
 }

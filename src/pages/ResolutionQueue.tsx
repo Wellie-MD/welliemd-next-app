@@ -1,21 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { DataTable } from "@/components/ui/data-table"
-import { Button } from "@/components/ui/button"
 import { DateRange } from "react-day-picker"
 import { exportToCSV } from "@/utils/exportUtils"
-
-interface RecoveryCase {
-  id: string
-  reference: string
-  submission_id: string
-  patient_id: string
-  patient_name: string
-  checkout_state: string
-  failure_code: string
-  status: string
-  created_at: string
-  age_seconds: number | null
-}
+import { fetchReconciliationWorklist, type ReconciliationWorklistItem } from "@/api/ordersApi"
 
 const resolutionColumns = [
   { key: "reference", label: "Reference" },
@@ -28,22 +15,25 @@ const resolutionColumns = [
 ]
 
 export default function ResolutionQueue() {
-  const [data, setData] = useState<RecoveryCase[]>([])
+  const [data, setData] = useState<ReconciliationWorklistItem[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [date, setDate] = useState<DateRange | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
 
   const fetchWorklist = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
-      const res = await fetch("/api/v1/orders/reconciliation-worklist/")
-      if (res.ok) {
-        const result = await res.json()
-        setData(Array.isArray(result) ? result : result.results || [])
-      }
+      const result = await fetchReconciliationWorklist()
+      setData(result)
     } catch (err) {
+      // A silently-empty queue is the one failure mode this page cannot
+      // afford: staff must be able to tell "nothing is stuck" apart from
+      // "the request failed and we don't actually know."
       console.error("Failed to fetch reconciliation worklist:", err)
+      setError("Could not load the reconciliation worklist. Try refreshing.")
     } finally {
       setLoading(false)
     }
@@ -89,6 +79,12 @@ export default function ResolutionQueue() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       <DataTable
         data={filteredQueue}

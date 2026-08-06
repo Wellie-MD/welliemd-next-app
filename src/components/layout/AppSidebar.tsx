@@ -66,6 +66,7 @@ const menuSections = [
         children: [
           { title: "Rx Orders", url: "/dashboard/orders" },
           { title: "Lab Orders", url: "/dashboard/orders/labs" },
+          { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" },
         ],
       },
       {

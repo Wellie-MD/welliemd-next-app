@@ -27,6 +27,7 @@ const Affiliates = lazy(() => import("@/pages/Affiliates"));
 const Orders = lazy(() => import("@/pages/Orders"));
 const OrderDetail = lazy(() => import("@/pages/OrderDetail"));
 const Payments = lazy(() => import("@/pages/Payments"));
+const ResolutionQueue = lazy(() => import("@/pages/ResolutionQueue"));
 const AnalyticsCohorts = lazy(() => import("@/pages/AnalyticsCohorts"));
 const AnalyticsReports = lazy(() => import("@/pages/AnalyticsReports"));
 const CouponInsights = lazy(() => import("@/pages/CouponInsights"));
@@ -199,6 +200,14 @@ export default function DashboardFrame() {
               <Route path="/orders/labs/:orderId" element={<ProtectedRoute><LabOrderDetail /></ProtectedRoute>} />
               <Route path="/orders/details/:orderId" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
               <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+              <Route
+                path="/orders/resolution-queue"
+                element={
+                  <ProtectedRoute requiredPermission={Permissions.ORDER_LIST}>
+                    <ResolutionQueue />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
               <Route path="/products/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
               <Route path="/products/supplies" element={<ProtectedRoute><Products /></ProtectedRoute>} />
