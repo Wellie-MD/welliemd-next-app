@@ -400,3 +400,34 @@ export async function getRecentlyUpdatedOrders(
 
     return response.data;
 }
+
+/**
+ * A checkout that failed part-way and is still being resolved -- the
+ * patient's own view of apps.orders.domain_models.selection
+ * .TreatmentCheckoutRecoveryCase. Never exposes gateway or allocation
+ * internals, only enough for the "needs attention" card to explain that
+ * something is being worked on and no payment should be resubmitted.
+ */
+export interface CheckoutRecoveryCase {
+    reference: string;
+    status: string;
+    checkout_state: string;
+    created_at: string;
+}
+
+/**
+ * Get this patient's own open combined-checkout recovery cases.
+ * Surfaces a checkout stuck under reconciliation after the patient left
+ * the questionnaire, so they are never left with no way to find out what
+ * happened (R6 G17).
+ */
+export async function getCheckoutRecoveryCases(): Promise<CheckoutRecoveryCase[]> {
+    const response = await withRetry(() =>
+        apiClient.get<CheckoutRecoveryCase[] | { results: CheckoutRecoveryCase[] }>(
+            '/patient/checkout-recovery/'
+        )
+    );
+
+    const data = response.data;
+    return Array.isArray(data) ? data : data.results || [];
+}

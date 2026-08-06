@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CreditCard, ClipboardList, CalendarDays } from "lucide-react";
-import { getOrdersByStatus, type PatientOrder, type PaginatedOrdersResponse } from "@/shared/api/ordersApi";
+import { CreditCard, ClipboardList, CalendarDays, RefreshCw } from "lucide-react";
+import {
+  getOrdersByStatus,
+  getCheckoutRecoveryCases,
+  type PatientOrder,
+  type PaginatedOrdersResponse,
+  type CheckoutRecoveryCase,
+} from "@/shared/api/ordersApi";
 import { getPatientFollowUps, type FollowUp } from "@/features/followups/api";
 import { getStandaloneLabSubmissions, type StandaloneLabSubmission } from "@/features/labs/api/index";
 
@@ -25,16 +31,18 @@ export default function NeedsAttentionCard() {
   const [pendingOrders, setPendingOrders] = useState<PatientOrder[]>([]);
   const [pendingFollowUps, setPendingFollowUps] = useState<FollowUp[]>([]);
   const [pendingLab, setPendingLab] = useState<StandaloneLabSubmission | null>(null);
+  const [pendingRecovery, setPendingRecovery] = useState<CheckoutRecoveryCase[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       const emptyOrders: PaginatedOrdersResponse = { count: 0, next: null, previous: null, results: [] };
-      const [ordersRes, followUps, labSubmissions] = await Promise.all([
+      const [ordersRes, followUps, labSubmissions, recoveryCases] = await Promise.all([
         getOrdersByStatus("payment_pending").catch(() => emptyOrders),
         getPatientFollowUps(),
         getStandaloneLabSubmissions(),
+        getCheckoutRecoveryCases().catch(() => [] as CheckoutRecoveryCase[]),
       ]);
       if (cancelled) return;
 
@@ -45,6 +53,7 @@ export default function NeedsAttentionCard() {
         )
       );
       setPendingLab((labSubmissions || []).find(isLabAwaitingBooking) || null);
+      setPendingRecovery(recoveryCases || []);
       setLoading(false);
     };
 
@@ -59,8 +68,9 @@ export default function NeedsAttentionCard() {
   const hasOrders = pendingOrders.length > 0;
   const hasFollowUps = pendingFollowUps.length > 0;
   const hasLab = Boolean(pendingLab);
+  const hasRecovery = pendingRecovery.length > 0;
 
-  if (!hasOrders && !hasFollowUps && !hasLab) return null;
+  if (!hasOrders && !hasFollowUps && !hasLab && !hasRecovery) return null;
 
   const totalDue = pendingOrders.reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
   const orderNames = Array.from(new Set(pendingOrders.map((o) => o.product_name).filter(Boolean)));
@@ -116,7 +126,7 @@ export default function NeedsAttentionCard() {
                 </button>
               </div>
             </div>
-            {(hasFollowUps || hasLab) && <div className="km-attn-divider" />}
+            {(hasFollowUps || hasLab || hasRecovery) && <div className="km-attn-divider" />}
           </>
         )}
 
@@ -142,11 +152,12 @@ export default function NeedsAttentionCard() {
                 </button>
               </div>
             </div>
-            {hasLab && <div className="km-attn-divider" />}
+            {(hasLab || hasRecovery) && <div className="km-attn-divider" />}
           </>
         )}
 
         {hasLab && pendingLab && (
+          <>
           <div className="km-attn-item">
             <div className="km-attn-icon purple">
               <CalendarDays size={17} strokeWidth={2} />
@@ -162,6 +173,30 @@ export default function NeedsAttentionCard() {
               <button className="km-btn km-btn-outline" style={{ fontSize: 11, padding: "6px 12px" }} onClick={handleBookLab}>
                 Book Appointment
               </button>
+            </div>
+          </div>
+          {hasRecovery && <div className="km-attn-divider" />}
+          </>
+        )}
+
+        {hasRecovery && (
+          <div className="km-attn-item">
+            <div className="km-attn-icon blue">
+              <RefreshCw size={17} strokeWidth={2} />
+            </div>
+            <div className="km-attn-body">
+              <div className="km-attn-title">
+                {pendingRecovery.length > 1
+                  ? "Checkouts being reconciled"
+                  : "Checkout being reconciled"}
+              </div>
+              <div className="km-attn-sub">
+                We are confirming a recent payment. Do not pay again --
+                we will let you know as soon as this is resolved.
+                {pendingRecovery[0]?.reference
+                  ? ` Reference: ${pendingRecovery[0].reference}`
+                  : ""}
+              </div>
             </div>
           </div>
         )}
