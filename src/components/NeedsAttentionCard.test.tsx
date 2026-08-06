@@ -99,4 +99,35 @@ describe("NeedsAttentionCard", () => {
     // presence of a stuck checkout for a *different* attempt.
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
+
+  it("shows the notice with no reference when the patient never contacted support", async () => {
+    // The backend now surfaces a stuck checkout unconditionally, driven by
+    // checkout_state -- reference is null until a support case actually
+    // exists. This must not crash the card or hide the notice.
+    vi.mocked(ordersApi.getOrdersByStatus).mockResolvedValue({
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    });
+    vi.mocked(ordersApi.getCheckoutRecoveryCases).mockResolvedValue([
+      {
+        reference: null,
+        status: "pending",
+        checkout_state: "reconciliation_required",
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    vi.mocked(followUpsApi.getPatientFollowUps).mockResolvedValue([]);
+    vi.mocked(labsApi.getStandaloneLabSubmissions).mockResolvedValue([]);
+
+    renderCard();
+
+    expect(
+      await screen.findByText(/checkout being reconciled/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/do not pay again/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Reference:/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 });

@@ -402,24 +402,25 @@ export async function getRecentlyUpdatedOrders(
 }
 
 /**
- * A checkout that failed part-way and is still being resolved -- the
- * patient's own view of apps.orders.domain_models.selection
- * .TreatmentCheckoutRecoveryCase. Never exposes gateway or allocation
- * internals, only enough for the "needs attention" card to explain that
- * something is being worked on and no payment should be resubmitted.
+ * A checkout that failed part-way and is still being resolved -- driven
+ * directly by CombinedProgramSubmission.checkout_state, not by whether the
+ * patient ever clicked "Contact support" on the recovery panel. `reference`
+ * is only present once a support case actually exists for it; its absence
+ * does not mean the checkout is fine, only that the card has no ticket
+ * number to show yet. Never exposes gateway or allocation internals.
  */
 export interface CheckoutRecoveryCase {
-    reference: string;
+    reference: string | null;
     status: string;
     checkout_state: string;
     created_at: string;
 }
 
 /**
- * Get this patient's own open combined-checkout recovery cases.
- * Surfaces a checkout stuck under reconciliation after the patient left
- * the questionnaire, so they are never left with no way to find out what
- * happened (R6 G17).
+ * Get this patient's own combined checkouts still sitting in an unresolved
+ * checkout_state. Surfaces a checkout stuck under reconciliation after the
+ * patient left the questionnaire -- unconditionally, and self-clearing the
+ * moment checkout_state resolves (R6 acceptance criterion #8 / G17).
  */
 export async function getCheckoutRecoveryCases(): Promise<CheckoutRecoveryCase[]> {
     const response = await withRetry(() =>
