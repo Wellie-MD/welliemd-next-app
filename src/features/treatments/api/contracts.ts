@@ -130,6 +130,7 @@ export type ProgramRecord = {
   max_bmi?: number | null;
   service_states_all?: boolean;
   service_states?: string[];
+  shipping_destination_policy?: Program["shippingDestinationPolicy"];
   lab_requirements?: Array<{
     id?: string;
     panel_id: string;

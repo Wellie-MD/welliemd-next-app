@@ -59,9 +59,17 @@ export const productCenterX = (branchDepth = 2) =>
 export const collectVisibilityRules = (group?: VisibilityRuleGroup): VisibilityEdgeRule[] => {
   if (!group) return [];
 
-  const ownRules = (group.rules || [])
-    .filter((rule) => rule.questionId && rule.value)
-    .map((rule) => ({ questionId: rule.questionId, operator: rule.operator, value: rule.value }));
+  const ownRules = (group.rules || []).flatMap((rule) => {
+    if (!rule.questionId) return [];
+    const values = Array.isArray(rule.value) ? rule.value : [rule.value];
+    return values
+      .filter((value): value is string => Boolean(value))
+      .map((value) => ({
+        questionId: rule.questionId,
+        operator: rule.operator,
+        value,
+      }));
+  });
 
   const subgroupRules = (group.subgroups || []).flatMap(collectVisibilityRules);
   return [...ownRules, ...subgroupRules];
