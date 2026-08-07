@@ -145,9 +145,6 @@ export interface Order {
   patient?: OrderPatientSummary | null
   amount?: string
   status?: string
-  prescribed_at?: string | null
-  rx_sent_at?: string | null
-  shipped_at?: string | null
   paymentProcessor?: string | null
   paymentTransactionId?: string | null
   paymentProcessorTransactionId?: string | null
