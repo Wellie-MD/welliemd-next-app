@@ -803,7 +803,16 @@ function OrderDetailInner() {
 
   // Build timeline from order dates (newest first for display, then we reverse to show chronological)
   const timelineItems: TimelineItem[] = []
-  if (order.datePrintedShipped) {
+  const timelineStatus = String(order.orderStatus || order.status || "").toLowerCase()
+  const hasRxSentMilestone = Boolean(order.rx_sent_at) || [
+    "rx_sent",
+    "shipped",
+    "in_transit",
+    "out_for_delivery",
+    "delivered",
+    "delivery_failed",
+  ].includes(timelineStatus)
+  if (order.datePrintedShipped && hasRxSentMilestone) {
     timelineItems.push({
       title: "Rx Sent",
       date: formatDateTime(order.datePrintedShipped),
