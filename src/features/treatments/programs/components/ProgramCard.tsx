@@ -36,7 +36,7 @@ export function ProgramCard({
 }: ProgramCardProps) {
   const isPublished = program.status === "published";
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col min-h-[300px] group dark:border-slate-700 dark:bg-[#171b27]">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col group dark:border-slate-700 dark:bg-[#171b27]">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
@@ -106,22 +106,6 @@ export function ProgramCard({
       <h3 className="text-sm font-bold text-slate-900 leading-tight mb-1 dark:text-slate-100">
         {program.name}
       </h3>
-      <div className="mt-1 mb-2">
-        <div className="flex items-center gap-2 text-[11px] text-slate-500">
-          <span className="truncate">
-            <span className="text-slate-400">Slug: </span>
-            <span className="text-slate-700 font-semibold dark:text-slate-200">{program.slug}</span>
-          </span>
-          <button
-            onClick={() => onEditSlug(program)}
-            className="p-1 rounded hover:bg-slate-100 text-slate-400 dark:hover:bg-slate-800"
-            aria-label={`Edit ${program.name} slug`}
-            type="button"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
 
       <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-[#0f1117] dark:text-slate-400 w-fit">
         <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -133,9 +117,7 @@ export function ProgramCard({
             : program.serviceStates.join(", ")
         }
       </span>
-
-      <div className="flex-1" />
-
+      
       <div className="h-px bg-slate-100 my-3 dark:bg-slate-700" />
 
       <div className="mb-3">
