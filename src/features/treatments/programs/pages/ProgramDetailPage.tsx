@@ -19,7 +19,7 @@ import { ArrowLeft, ArrowUpDown, GitBranch, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { showFloatingToast } from "@/components/ui/floating-toast";
-import { PatientPreviewDialog, SharedQuestionDialog, type SharedQuestionInput } from "@/features/treatments/common/components";
+import { SharedQuestionDialog, type SharedQuestionInput } from "@/features/treatments/common/components";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { normalizeSharedQuestionDraft } from "@/features/treatments/common/utils/sharedQuestionDraft";
 import {
@@ -33,6 +33,7 @@ import type { ProgramQuestion } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
 import { cn } from "@/lib/utils";
 import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
+import { ProgramQuestionDetailModal } from "@/features/treatments/programs/components/ProgramQuestionDetailModal";
 import {
   AuthRow,
   HIDDEN_SYSTEM_QUESTION_KINDS,
@@ -84,6 +85,7 @@ export default function ProgramDetailPage() {
 
   useEffect(() => {
     setQuestions(storedQuestions);
+    console.log("[ProgramDetailPage] Questions Loaded:", storedQuestions);
   }, [storedQuestions]);
 
   const authQuestion = useMemo(() => questions.find(isAuthQuestion), [questions]);
@@ -188,10 +190,11 @@ export default function ProgramDetailPage() {
     () => normalQuestions.find((question) => question.id === editingQuestionId) ?? null,
     [editingQuestionId, normalQuestions]
   );
-  const previewQuestionUrl = useMemo(
-    () => (foundProgram && previewQuestion ? buildQuestionPreviewUrl(foundProgram, previewQuestion) : ""),
-    [foundProgram, previewQuestion]
-  );
+  const previewQuestionNumber = useMemo(() => {
+    if (!previewQuestion) return undefined;
+    const idx = filteredNormalRows.findIndex((row) => row.question?.id === previewQuestion.id);
+    return idx >= 0 ? idx + 1 : undefined;
+  }, [filteredNormalRows, previewQuestion]);
 
   useEffect(() => {
     if (isReorderActive && clientQuestions.length < 2) {
@@ -214,7 +217,7 @@ export default function ProgramDetailPage() {
   };
 
   const handlePreviewLockedQuestion = (question: ProgramQuestion) => {
-    if (!isLockedProgramQuestion(question) || isClientCreatedQuestion(question)) return;
+    console.log("[ProgramDetailPage] Previewing Question:", question);
     setPreviewQuestion(question);
   };
 
@@ -547,23 +550,24 @@ export default function ProgramDetailPage() {
             ? {
                 questionText: editingQuestion.text,
                 questionType: editingQuestion.kind,
-                answerOptions: editingQuestion.choices ?? [],
+                answerOptions: (editingQuestion.choices ?? []).map((choice) =>
+                  typeof choice === "string" ? choice : (choice.label || choice.text || choice.title || choice.id || "")
+                ),
                 required: editingQuestion.required,
               }
             : null
         }
       />
 
-      {previewQuestion && previewQuestionUrl ? (
-        <PatientPreviewDialog
+      {previewQuestion ? (
+        <ProgramQuestionDetailModal
           open={Boolean(previewQuestion)}
           onOpenChange={(open) => {
             if (!open) setPreviewQuestion(null);
           }}
-          previewUrl={previewQuestionUrl}
-          previewTitle="Question Preview"
-          subtitle={`${foundProgram.name} · ${previewQuestion.text}`}
-          iframeTitle={`${previewQuestion.text} patient preview`}
+          question={previewQuestion}
+          questionNumber={previewQuestionNumber}
+          programName={foundProgram.name}
         />
       ) : null}
 

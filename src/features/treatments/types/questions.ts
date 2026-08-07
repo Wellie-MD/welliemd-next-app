@@ -13,6 +13,7 @@ export type QuestionKind =
   | "yes_no"
   | "height_weight"
   | "consent"
+  | "consent_form"
   | "file_upload"
   | "state_routing"
   | "medication_dose"
@@ -48,6 +49,15 @@ export interface VisibilityRuleGroup {
   subgroups?: VisibilityRuleGroup[];
 }
 
+export type ProgramQuestionChoiceObject = {
+  id?: string;
+  label?: string;
+  text?: string;
+  title?: string;
+  value?: string;
+};
+export type ProgramQuestionChoice = string | ProgramQuestionChoiceObject;
+
 export interface ProgramQuestion {
   id: string;
   order: number;
@@ -63,9 +73,14 @@ export interface ProgramQuestion {
   is_read_only?: boolean;
   answerCount?: number;
   flags?: Array<"conditional" | "disqualifying" | "consent">;
-  choices?: string[];
+  choices?: ProgramQuestionChoice[];
   dqChoices?: string[];
   consentText?: string;
+  consent_form?: {
+    consent_text?: string;
+    text?: string;
+    name?: string;
+  };
   checkoutProductIds?: string[];
   checkoutProducts?: ProgramCheckoutProduct[];
   visibilityRule?: {
