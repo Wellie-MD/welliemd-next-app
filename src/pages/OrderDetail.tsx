@@ -1277,6 +1277,17 @@ function OrderDetailInner() {
       const parseDate = (d: string) => new Date(d.replace(" • ", " ")).getTime();
       const timeDiff = parseDate(a.date) - parseDate(b.date);
       if (timeDiff !== 0 && !Number.isNaN(timeDiff)) return timeDiff;
+
+      const aTitle = a.title.toLowerCase()
+      const bTitle = b.title.toLowerCase()
+      const isRxRevisionPair = (
+        (aTitle === "prescription revised" && bTitle.includes("rx sent"))
+        || (aTitle.includes("rx sent") && bTitle === "prescription revised")
+      )
+      if (isRxRevisionPair) {
+        return aTitle === "prescription revised" ? -1 : 1
+      }
+
       return orderScore(a.title) - orderScore(b.title);
     })
   }
