@@ -33,6 +33,9 @@ import { Metric } from "@/types/dashboard";
 import type { B2BInvoice } from "@/types/b2bBilling";
 import { clientApi } from "@/api/clientApi";
 import mockData from "@/data/mockData.json";
+import { Link } from "react-router-dom";
+import { Building2, ArrowRight } from "lucide-react";
+import { isCorporatePlatformPreview } from "@/features/corporate/config";
 
 interface DateRange {
   from: Date;
@@ -416,6 +419,18 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {isCorporatePlatformPreview && (
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardContent className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-blue-600 p-2 text-white"><Building2 className="h-5 w-5" /></div>
+              <div><p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Pilot preview</p><h2 className="text-lg font-semibold text-slate-900">Corporate workspace</h2><p className="text-sm text-slate-600">Review operator and employer launch readiness.</p></div>
+            </div>
+            <Button asChild><Link to="/dashboard/corporate">Open Corporate <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPI Cards - Horizontally Scrollable */}
       <div className="relative">

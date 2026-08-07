@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
+import type { LucideIcon } from "lucide-react"
 import {
   BarChart3,
   Users,
@@ -21,7 +22,9 @@ import {
   Archive,
   ShieldCheck,
   Activity,      // <- used for Sense insights
+  Building2,
 } from "lucide-react"
+import { isCorporatePlatformPreview } from "@/features/corporate/config"
 
 import {
   Sidebar,
@@ -60,7 +63,12 @@ type MenuSection = {
   items: MenuItem[]
 }
 
-const menuSections: MenuSection[] = [
+  ...(isCorporatePlatformPreview ? [{
+    label: "CORPORATE",
+    items: [
+      { title: "Corporate", url: "/dashboard/corporate", icon: Building2 },
+    ],
+  }] : []),
   {
     label: "MANAGEMENT",
     items: [

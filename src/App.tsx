@@ -16,6 +16,7 @@ import SignIn from "./pages/auth/SignIn";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import RegisterInvitation from "./pages/auth/RegisterInvitation";
+import { CorporateRouteGuard } from "./features/corporate/CorporateRouteGuard";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clients = lazy(() => import("./pages/Clients"));
@@ -70,6 +71,8 @@ const CustomProgramAssignmentHistory = lazy(() => import("./pages/CustomProgramA
 const SectionsPage = lazy(() => import("./features/treatments/libraries/pages/SectionsPage"));
 const TreatmentTypeDetailPage = lazy(() => import("./features/treatments/libraries/pages/TreatmentTypeDetailPage"));
 const TreatmentTypesPage = lazy(() => import("./features/treatments/libraries/pages/TreatmentTypesPage"));
+const CorporateOverview = lazy(() => import("./features/corporate/CorporateOverview"));
+const CorporateOperators = lazy(() => import("./features/corporate/CorporateOperators"));
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -161,6 +164,8 @@ const App = () => {
                   <Routes>
                     <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                     <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+                    <Route path="/corporate" element={<ProtectedRoute><CorporateRouteGuard><CorporateOverview /></CorporateRouteGuard></ProtectedRoute>} />
+                    <Route path="/corporate/operators" element={<ProtectedRoute><CorporateRouteGuard><CorporateOperators /></CorporateRouteGuard></ProtectedRoute>} />
                     <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
                     <Route path="/clients/create" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
                     <Route path="/clients/edit/:id" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
