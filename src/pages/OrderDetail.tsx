@@ -989,8 +989,22 @@ function OrderDetailInner() {
   })
   timelineItems.reverse()
 
-  const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
-    ? order.activity_events.map((evt) => {
+  const orderedActivityEvents = Array.isArray(order.activity_events)
+    ? [...order.activity_events].sort((a, b) => {
+      const aType = (a.event_type || "").toLowerCase()
+      const bType = (b.event_type || "").toLowerCase()
+      const isRxRevisionPair = (
+        (aType === "rx_revision" && bType === "status.rx_sent")
+        || (aType === "status.rx_sent" && bType === "rx_revision")
+      )
+      if (isRxRevisionPair && formatDateTime(a.occurred_at) === formatDateTime(b.occurred_at)) {
+        return aType === "rx_revision" ? -1 : 1
+      }
+      return 0
+    })
+    : []
+
+  const eventTimelineItems: TimelineItem[] = orderedActivityEvents.map((evt) => {
       const payload = (evt.payload && typeof evt.payload === "object") ? evt.payload as Record<string, unknown> : {}
       const status = (evt.status || "").toLowerCase()
       const eventType = (evt.event_type || "").toLowerCase()
@@ -1232,7 +1246,6 @@ function OrderDetailInner() {
         actions,
       }
     })
-    : []
 
   const deduplicatedTimelineItems = eventTimelineItems.reduce((acc, current) => {
     if (acc.length === 0) return [current]
@@ -1328,6 +1341,17 @@ function OrderDetailInner() {
       const parseDate = (d: string) => new Date(d.replace(" • ", " ")).getTime();
       const timeDiff = parseDate(a.date) - parseDate(b.date);
       if (timeDiff !== 0 && !Number.isNaN(timeDiff)) return timeDiff;
+
+      const aTitle = a.title.toLowerCase()
+      const bTitle = b.title.toLowerCase()
+      const isRxRevisionPair = (
+        (aTitle === "prescription revised" && bTitle.includes("rx sent"))
+        || (aTitle.includes("rx sent") && bTitle === "prescription revised")
+      )
+      if (isRxRevisionPair) {
+        return aTitle === "prescription revised" ? -1 : 1
+      }
+
       return orderScore(a.title) - orderScore(b.title);
     })
   }
