@@ -925,8 +925,22 @@ function OrderDetailInner() {
   })
   timelineItems.reverse()
 
-  const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
-    ? order.activity_events.map((evt) => {
+  const orderedActivityEvents = Array.isArray(order.activity_events)
+    ? [...order.activity_events].sort((a, b) => {
+      const aType = (a.event_type || "").toLowerCase()
+      const bType = (b.event_type || "").toLowerCase()
+      const isRxRevisionPair = (
+        (aType === "rx_revision" && bType === "status.rx_sent")
+        || (aType === "status.rx_sent" && bType === "rx_revision")
+      )
+      if (isRxRevisionPair && formatDateTime(a.occurred_at) === formatDateTime(b.occurred_at)) {
+        return aType === "rx_revision" ? -1 : 1
+      }
+      return 0
+    })
+    : []
+
+  const eventTimelineItems: TimelineItem[] = orderedActivityEvents.map((evt) => {
       const payload = (evt.payload && typeof evt.payload === "object") ? evt.payload as Record<string, unknown> : {}
       const status = (evt.status || "").toLowerCase()
       const eventType = (evt.event_type || "").toLowerCase()
@@ -1168,7 +1182,6 @@ function OrderDetailInner() {
         actions,
       }
     })
-    : []
 
   const deduplicatedTimelineItems = eventTimelineItems.reduce((acc, current) => {
     if (acc.length === 0) return [current]
