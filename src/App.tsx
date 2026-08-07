@@ -10,6 +10,7 @@ import { BrandingProvider } from "@/contexts/BrandingContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
 import { IntercomBannersProvider } from "@/features/announcements/IntercomBannersContext";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { isCorporateClientPreview } from "./features/corporate/config";
 
 // pages
 const DashboardFrame = lazyWithRetry(() => import("./components/layout/DashboardFrame"));
@@ -22,6 +23,9 @@ const AcceptInvitation = lazyWithRetry(() => import("./pages/AcceptInvitation"))
 const RegisterInvitation = lazyWithRetry(() => import("./pages/auth/RegisterInvitation"));
 const Forbidden = lazyWithRetry(() => import("./pages/Forbidden"));
 const SuperAdminAccessLaunch = lazyWithRetry(() => import("./pages/SuperAdminAccessLaunch"));
+const CorporateFrame = lazyWithRetry(() => import("./features/corporate/CorporateFrame"));
+const CorporateAccessLaunch = lazyWithRetry(() => import("./features/corporate/CorporateAccessLaunch"));
+const CorporateUnavailable = lazyWithRetry(() => import("./features/corporate/CorporateUnavailable"));
 
 const RouteLoadingFallback = () => (
   <div className="flex min-h-screen items-center justify-center bg-background">
@@ -29,17 +33,22 @@ const RouteLoadingFallback = () => (
   </div>
 );
 
-const DashboardRouteProviders = () => (
-  <ProtectedRoute>
-    <BrandingProvider>
-      <MessagesProvider pollIntervalMs={30000}>
-        <IntercomBannersProvider>
-          <Outlet />
-        </IntercomBannersProvider>
-      </MessagesProvider>
-    </BrandingProvider>
-  </ProtectedRoute>
-);
+const DashboardRouteProviders = () => {
+  if (isCorporateClientPreview()) {
+    return <ProtectedRoute><Outlet /></ProtectedRoute>;
+  }
+  return (
+    <ProtectedRoute>
+      <BrandingProvider>
+        <MessagesProvider pollIntervalMs={30000}>
+          <IntercomBannersProvider>
+            <Outlet />
+          </IntercomBannersProvider>
+        </MessagesProvider>
+      </BrandingProvider>
+    </ProtectedRoute>
+  );
+};
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -77,7 +86,7 @@ const App = () => {
       <Toaster />
       <Suspense fallback={<RouteLoadingFallback />}>
       <Routes>
-        <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
+        <Route path="/" element={<ProtectedRoute><Navigate to={isCorporateClientPreview() ? "/dashboard/corporate" : "/dashboard"} replace /></ProtectedRoute>} />
 
         {/* Auth routes */}
         <Route path="/auth/signin" element={<SignIn />} />
@@ -86,14 +95,18 @@ const App = () => {
         <Route path="/register" element={<RegisterInvitation />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
         <Route path="/superadmin-access/launch" element={<SuperAdminAccessLaunch />} />
+        <Route path="/corporate-access/launch" element={<CorporateAccessLaunch />} />
 
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
 
-        {/* Keep shared dashboard providers mounted across dashboard/settings navigation. */}
+        {/* Corporate deployments intentionally avoid DTC data providers and polling. */}
+        <Route path="/dashboard/corporate/*" element={<ProtectedRoute><CorporateFrame /></ProtectedRoute>} />
+
+        {/* Keep shared DTC dashboard providers mounted across dashboard/settings navigation. */}
         <Route element={<DashboardRouteProviders />}>
-          <Route path="/dashboard/settings/*" element={<SettingsFrame />} />
-          <Route path="/dashboard/*" element={<DashboardFrame />} />
+          <Route path="/dashboard/settings/*" element={isCorporateClientPreview() ? <CorporateUnavailable /> : <SettingsFrame />} />
+          <Route path="/dashboard/*" element={isCorporateClientPreview() ? <CorporateUnavailable /> : <DashboardFrame />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
