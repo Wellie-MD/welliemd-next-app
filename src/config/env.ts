@@ -16,6 +16,8 @@ const envSchema = z.object({
   VITE_APP_NAME: z.string().default('WellieMD'),
   VITE_MOCK_API: z.coerce.boolean().default(false),
   VITE_DEBUG_MODE: z.coerce.boolean().default(false),
+  VITE_PORTAL_MODE: z.enum(['dtc', 'corporate_employee']).default('dtc'),
+  VITE_CORPORATE_PILOT_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 });
 
 // Parse and validate environment variables
@@ -47,4 +49,3 @@ export const debugLog = (...args: unknown[]) => {
     console.log('[DEBUG]', ...args);
   }
 };
-

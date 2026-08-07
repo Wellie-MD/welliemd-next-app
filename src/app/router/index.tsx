@@ -5,6 +5,10 @@ import { ProtectedRoute } from './protected-route';
 import { LoadingSkeleton } from '@/components/common/loading-skeleton';
 import DashboardLayout from '@/layouts/dashboard-layout';
 import Dashboard from '@/components/Dashboard';
+import CorporateEmployeeLayout from '@/features/corporate/CorporateEmployeeLayout';
+import MyProgram from '@/features/corporate/MyProgram';
+import CorporateConfigurationError from '@/features/corporate/CorporateConfigurationError';
+import { isCorporateEmployeePreview, isInvalidCorporateConfiguration } from '@/features/corporate/config';
 
 const SignIn = React.lazy(() => import('@/pages/auth/SignIn'));
 const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
@@ -40,6 +44,34 @@ const PageLoader = () => (
 );
 
 export const AppRouter: React.FC = () => {
+  if (isInvalidCorporateConfiguration) {
+    return <CorporateConfigurationError />;
+  }
+
+  if (isCorporateEmployeePreview) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/auth/signin" element={<SignIn />} />
+            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+            <Route path="/auth/reset-password" element={<ResetPassword />} />
+            <Route path="/superadmin-access/launch" element={<SuperAdminAccessLaunch />} />
+            <Route path="/dashboard" element={<ProtectedRoute><CorporateEmployeeLayout /></ProtectedRoute>}>
+              <Route index element={<Navigate to="my-program" replace />} />
+              <Route path="my-program" element={<MyProgram />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="help" element={<Help />} />
+              <Route path="*" element={<Navigate to="/dashboard/my-program" replace />} />
+            </Route>
+            <Route path="/" element={<Navigate to="/dashboard/my-program" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard/my-program" replace />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
