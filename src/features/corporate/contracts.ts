@@ -1,18 +1,17 @@
-export type CorporateMode = "platform" | "operator" | "employer" | "employee";
-
 export interface CorporateOperatorSummary {
   id: string;
   name: string;
-  accountType: "Corporate Operator";
-  status: "Ready" | "Configuration pending";
-  employerCount: number;
+  account_type: "Corporate Operator";
+  status: "Ready" | "Paused";
+  employer_count: number;
 }
 
 export interface CorporatePilotContext {
   enabled: true;
-  source: "demo";
-  mode: CorporateMode;
-  operatorCount: number;
-  employerCount: number;
+  source: "backend";
+  mode: "platform";
+  operator_count: number;
+  employer_count: number;
   operators: CorporateOperatorSummary[];
+  checkpoints: { navigation: string; handoff: string; rbac_audit: string };
 }
