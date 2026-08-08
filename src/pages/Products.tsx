@@ -1647,25 +1647,6 @@ export default function Products() {
           </tbody>
         </table>
 
-        {/* Load More Trigger */}
-        {hasMoreProducts && (
-          <div className="px-6 py-4 border-t border-slate-100 flex justify-center bg-slate-50/50">
-            <button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="min-w-[200px] border border-slate-200 bg-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50"
-            >
-              {loadingMore ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading...
-                </span>
-              ) : (
-                `Load More (${products.length} of ${totalProducts})`
-              )}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Products Data Container (Mobile Cards + Desktop Table) */}
