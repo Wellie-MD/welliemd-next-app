@@ -1,22 +1,35 @@
+import { useAuthStore } from "@/store/useAuthStore";
 import type { HandoffPreparationResult } from "./contracts";
 import { corporatePilotConfig } from "./config";
-import { corporatePilotFixture } from "./fixtures";
+import { createEmployerHandoff, exchangeEmployerHandoff } from "./corporateApi";
 
 export async function prepareEmployerHandoff(employerId: string): Promise<HandoffPreparationResult> {
-  if (!corporatePilotConfig.enabled) return { status: "backend_unavailable" };
-  const belongsToOperator = corporatePilotFixture.availableEmployers.some((item) => item.id === employerId);
-  if (!belongsToOperator) return { status: "forbidden" };
-  return {
-    status: "preview_ready",
-    launchUrl: `/corporate-access/launch?preview_handoff=${encodeURIComponent(employerId)}`,
-  };
+  if (!corporatePilotConfig.enabled || !employerId) return { status: "invalid_context" };
+  try {
+    const result = await createEmployerHandoff(employerId);
+    return { status: "handoff_ready", launchUrl: result.launch_url, expiresAt: result.expires_at };
+  } catch (error: any) {
+    if (error?.response?.status === 403) return { status: "forbidden" };
+    return { status: "backend_unavailable" };
+  }
 }
 
-export function consumePreviewHandoff(employerId: string): HandoffPreparationResult {
-  if (!corporatePilotConfig.enabled) return { status: "backend_unavailable" };
-  const belongsToOperator = corporatePilotFixture.availableEmployers.some((item) => item.id === employerId);
-  if (!belongsToOperator) return { status: "forbidden" };
-  window.sessionStorage.setItem("corp-preview-context", "employer");
-  window.sessionStorage.setItem("corp-preview-employer", employerId);
-  return { status: "preview_ready", launchUrl: "/dashboard/corporate/employer" };
+export async function consumeEmployerHandoff(handoffCode: string): Promise<string> {
+  const auth = useAuthStore.getState();
+  if (!handoffCode) throw new Error("The employer handoff code is missing.");
+  if (auth.accessToken) window.sessionStorage.setItem("corp-operator-access-token", auth.accessToken);
+  const result = await exchangeEmployerHandoff(handoffCode);
+  auth.setAccessToken(result.access);
+  auth.setUser(result.user);
+  window.sessionStorage.setItem("corp-employer-context", JSON.stringify(result.context));
+  return result.redirect;
+}
+
+export function restoreOperatorContext(): boolean {
+  const token = window.sessionStorage.getItem("corp-operator-access-token");
+  if (!token) return false;
+  useAuthStore.getState().setAccessToken(token);
+  window.sessionStorage.removeItem("corp-operator-access-token");
+  window.sessionStorage.removeItem("corp-employer-context");
+  return true;
 }

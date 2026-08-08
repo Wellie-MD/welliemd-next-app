@@ -12,8 +12,12 @@ export function CorporateSidebar() {
   const activeLabel = mode === "employer" ? "Employer dashboard" : "Corporate workspace";
   const activeIcon = mode === "employer" ? Building2 : BarChart3;
   const ActiveIcon = activeIcon;
+  const employerItems = [
+    { label: "Employees", path: "/dashboard/corporate/employer/roster", icon: Users },
+    { label: "Assigned program", path: "/dashboard/corporate/employer/program", icon: FileText },
+  ];
   const placeholders = mode === "employer"
-    ? [{ label: "Employees", icon: Users }, { label: "Assigned program", icon: FileText }, { label: "Billing", icon: CreditCard }, { label: "Administration", icon: Settings }]
+    ? [{ label: "Billing", icon: CreditCard }, { label: "Administration", icon: Settings }]
     : [{ label: "Programs", icon: FileText }, { label: "Billing", icon: CreditCard }, { label: "Reporting", icon: BarChart3 }];
 
   return (
@@ -30,10 +34,17 @@ export function CorporateSidebar() {
               <NavLink to={activePath}><ActiveIcon className="h-5 w-5" />{!collapsed && <span>{activeLabel}</span>}</NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {mode === "employer" && employerItems.map(({ label, path, icon: Icon }) => (
+            <SidebarMenuItem key={path}>
+              <SidebarMenuButton asChild isActive={pathname === path}>
+                <NavLink to={path}><Icon className="h-5 w-5" />{!collapsed && <span>{label}</span>}</NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
           {placeholders.map(({ label, icon: Icon }) => (
             <SidebarMenuItem key={label}>
-              <SidebarMenuButton disabled aria-disabled="true" title={`${label} — Day 2`} className="opacity-50">
-                <Icon className="h-5 w-5" />{!collapsed && <span>{label} <span className="ml-1 text-[10px]">Day 2</span></span>}
+              <SidebarMenuButton disabled aria-disabled="true" title={`${label} — deferred`} className="opacity-50">
+                <Icon className="h-5 w-5" />{!collapsed && <span>{label} <span className="ml-1 text-[10px]">Later</span></span>}
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

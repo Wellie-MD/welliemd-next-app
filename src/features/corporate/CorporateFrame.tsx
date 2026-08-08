@@ -9,6 +9,8 @@ import { CorporateSidebar } from "./CorporateSidebar";
 import { getCorporateClientMode } from "./config";
 import CorporateWorkspace from "./CorporateWorkspace";
 import CorporateEmployerDashboard from "./CorporateEmployerDashboard";
+import CorporateEmployerRoster from "./CorporateEmployerRoster";
+import CorporateEmployerProgram from "./CorporateEmployerProgram";
 import CorporateUnavailable from "./CorporateUnavailable";
 
 export default function CorporateFrame() {
@@ -32,6 +34,8 @@ export default function CorporateFrame() {
                 <Route index element={<Navigate to={home} replace />} />
                 <Route path="workspace" element={mode === "operator" ? <CorporateWorkspace /> : <Navigate to="/dashboard/corporate/unavailable" replace />} />
                 <Route path="employer" element={mode === "employer" ? <CorporateEmployerDashboard /> : <Navigate to="/dashboard/corporate/unavailable" replace />} />
+                <Route path="employer/roster" element={mode === "employer" ? <CorporateEmployerRoster /> : <Navigate to="/dashboard/corporate/unavailable" replace />} />
+                <Route path="employer/program" element={mode === "employer" ? <CorporateEmployerProgram /> : <Navigate to="/dashboard/corporate/unavailable" replace />} />
                 <Route path="unavailable" element={<CorporateUnavailable />} />
                 <Route path="*" element={<Navigate to="/dashboard/corporate/unavailable" replace />} />
               </Routes>
