@@ -8,6 +8,7 @@ import Dashboard from '@/components/Dashboard';
 import CorporateEmployeeLayout from '@/features/corporate/CorporateEmployeeLayout';
 import MyProgram from '@/features/corporate/MyProgram';
 import CorporateConfigurationError from '@/features/corporate/CorporateConfigurationError';
+import CorporateEmployeeProfile from '@/features/corporate/CorporateEmployeeProfile';
 import { isCorporateEmployeePreview, isInvalidCorporateConfiguration } from '@/features/corporate/config';
 
 const SignIn = React.lazy(() => import('@/pages/auth/SignIn'));
@@ -60,7 +61,7 @@ export const AppRouter: React.FC = () => {
             <Route path="/dashboard" element={<ProtectedRoute><CorporateEmployeeLayout /></ProtectedRoute>}>
               <Route index element={<Navigate to="my-program" replace />} />
               <Route path="my-program" element={<MyProgram />} />
-              <Route path="profile" element={<Profile />} />
+              <Route path="profile" element={<CorporateEmployeeProfile />} />
               <Route path="help" element={<Help />} />
               <Route path="*" element={<Navigate to="/dashboard/my-program" replace />} />
             </Route>

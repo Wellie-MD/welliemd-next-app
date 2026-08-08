@@ -1,0 +1,11 @@
+import { LockKeyhole, ShieldCheck, UserRound } from "lucide-react";
+import { useViewerIdentity } from "@/features/auth/hooks/use-viewer-identity";
+
+export default function CorporateEmployeeProfile() {
+  const viewer = useViewerIdentity();
+  return <div className="space-y-6">
+    <div><div className="mb-2 flex items-center gap-2"><span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Corporate account</span><span className="rounded-full border px-2.5 py-1 text-xs text-slate-600">Non-clinical</span></div><h1 className="text-3xl font-semibold tracking-tight">Profile</h1><p className="mt-1 text-sm text-slate-500">Your corporate program account identity.</p></div>
+    <section className="rounded-2xl border bg-white p-6 shadow-sm"><div className="flex items-center gap-4"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-700"><UserRound className="h-6 w-6" /></span><div><p className="text-lg font-semibold">{viewer.fullName || "Corporate employee"}</p><p className="text-sm text-slate-500">{viewer.email}</p></div></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><div className="rounded-xl border p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Account type</p><p className="mt-1 font-medium">Employer-sponsored employee</p></div><div className="rounded-xl border p-4"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Program access</p><p className="mt-1 font-medium">Assigned program only</p></div></div></section>
+    <section className="grid gap-4 sm:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><ShieldCheck className="h-5 w-5 text-emerald-600" /><h2 className="mt-3 font-semibold">Private by design</h2><p className="mt-1 text-sm leading-6 text-slate-500">Your employer sees aggregate program counts, not your health details or questionnaire answers.</p></div><div className="rounded-2xl border bg-white p-5"><LockKeyhole className="h-5 w-5 text-slate-500" /><h2 className="mt-3 font-semibold">Clinical profile locked</h2><p className="mt-1 text-sm leading-6 text-slate-500">Medical conditions, medications, vitals, labs, and records remain outside this surface until Gate 2 enables care access.</p></div></section>
+  </div>;
+}
