@@ -10,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Eye, RotateCcw } from "lucide-react"
+import { Archive, ArchiveRestore, Eye, Loader2, RotateCcw } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { ordersApi, Order, FilterOption } from "@/api/ordersApi"
 import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
+import { usePermissions } from "@/hooks/usePermissions"
+import { Permissions } from "@/constants/permissions"
 
 const ORDER_STATUS_OPTIONS = [
   { label: "All", value: "all" },
@@ -44,6 +46,12 @@ const PAYMENT_STATUS_OPTIONS = [
   { label: "Pending", value: "pending" },
   { label: "Failed", value: "failed" },
   { label: "Refunded", value: "refunded" },
+] as const
+
+const ARCHIVE_VIEW_OPTIONS = [
+  { label: "Active Orders", value: "active" },
+  { label: "Archived Orders", value: "archived" },
+  { label: "All Orders", value: "all" },
 ] as const
 
 const orderColumns = [
@@ -222,6 +230,7 @@ export default function Orders() {
   const [pharmacies, setPharmacies] = useState<FilterOption[]>([])
   const [filterOptionsLoading, setFilterOptionsLoading] = useState(true)
   const [date, setDate] = useState<DateRange | undefined>()
+  const [archiveView, setArchiveView] = useState<"active" | "archived" | "all">("active")
   /** Remount DataTable so toolbar search input clears when filters reset */
   const [dataTableKey, setDataTableKey] = useState(0)
   const [orders, setOrders] = useState<Order[]>([])
@@ -231,9 +240,12 @@ export default function Orders() {
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null)
 
   // Order Details Sheet state
   const navigate = useNavigate()
+  const { hasPermission } = usePermissions()
+  const canArchiveOrders = hasPermission(Permissions.ORDER_ARCHIVE)
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -265,7 +277,8 @@ export default function Orders() {
     categoryId !== "all" ||
     pharmacyId !== "all" ||
     searchTerm ||
-    date?.from
+    date?.from ||
+    archiveView !== "active"
   )
 
   const handleResetFilters = useCallback(() => {
@@ -276,6 +289,7 @@ export default function Orders() {
     setDate(undefined)
     setSearchTerm("")
     setDebouncedSearchTerm("")
+    setArchiveView("active")
     setCurrentPage(1)
     setDataTableKey((k) => k + 1)
   }, [])
@@ -284,6 +298,7 @@ export default function Orders() {
     const params: Record<string, string | number> = {
       page,
       page_size: requestedPageSize,
+      archive_status: archiveView,
     }
     if (debouncedSearchTerm) params.search = debouncedSearchTerm
     if (activeOrderStatusFilter !== "all") params.status = activeOrderStatusFilter
@@ -300,6 +315,7 @@ export default function Orders() {
     categoryId,
     pharmacyId,
     date,
+    archiveView,
   ])
 
   const loadOrders = useCallback(async () => {
@@ -327,11 +343,29 @@ export default function Orders() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, categoryId, pharmacyId, date])
+  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, categoryId, pharmacyId, date, archiveView])
 
   const handleRefresh = useCallback(() => {
     loadOrders()
   }, [loadOrders])
+
+  const handleArchiveToggle = async (order: Order) => {
+    if (!canArchiveOrders) return
+    setBusyOrderId(order.id)
+    setError(null)
+    try {
+      if (order.is_archived) {
+        await ordersApi.unarchiveOrder(order.id)
+      } else {
+        await ordersApi.archiveOrder(order.id)
+      }
+      await loadOrders()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update order archive state")
+    } finally {
+      setBusyOrderId(null)
+    }
+  }
 
   const handleExport = useCallback(async () => {
     setIsExporting(true)
@@ -424,6 +458,20 @@ export default function Orders() {
           </Select>
         </div>
 
+        <div className="flex flex-col gap-1.5 min-w-[150px]">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order View</label>
+          <Select value={archiveView} onValueChange={(value) => { setArchiveView(value as "active" | "archived" | "all"); setCurrentPage(1) }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Active Orders" />
+            </SelectTrigger>
+            <SelectContent>
+              {ARCHIVE_VIEW_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {hasActiveFilters && (
           <Button variant="outline" size="sm" onClick={handleResetFilters} className="gap-1">
             <RotateCcw className="h-3 w-3" />
@@ -497,6 +545,25 @@ export default function Orders() {
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
+                    {canArchiveOrders && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        aria-label={row.is_archived ? `Unarchive order ${row.order_number}` : `Archive order ${row.order_number}`}
+                        title={row.is_archived ? "Unarchive order" : "Archive order"}
+                        onClick={() => handleArchiveToggle(row)}
+                        disabled={busyOrderId === row.id}
+                      >
+                        {busyOrderId === row.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : row.is_archived ? (
+                          <ArchiveRestore className="h-4 w-4" />
+                        ) : (
+                          <Archive className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                   </div>
                 )
               },

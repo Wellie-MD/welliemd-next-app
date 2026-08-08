@@ -45,13 +45,13 @@ const ProgramDetailPage = lazy(() => import("@/features/treatments/programs/page
 const CustomProgramsPage = lazy(() => import("@/features/treatments/custom-programs/pages/CustomProgramsPage"));
 const CustomProgramBuilderPage = lazy(() => import("@/features/treatments/custom-programs/pages/CustomProgramBuilderPage"));
 const EmailAnalytics = lazy(() => import("@/pages/EmailAnalytics"));
+const SmsAnalytics = lazy(() => import("@/pages/SmsAnalytics"));
 
 function PageLoadingFallback() {
   return <div className="flex min-h-[calc(100vh-58px)] items-center justify-center bg-background" role="status" aria-label="Loading page">
     <Loader2 className="h-7 w-7 animate-spin text-primary" />
   </div>;
 }
-
 const LS_KEY = "msg_last_seen";
 
 
@@ -223,6 +223,7 @@ export default function DashboardFrame() {
               />
               <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
               <Route path="/analytics/email" element={<ProtectedRoute><EmailAnalytics /></ProtectedRoute>} />
+              <Route path="/analytics/sms" element={<ProtectedRoute><SmsAnalytics /></ProtectedRoute>} />
               <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
               <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
               <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />

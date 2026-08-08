@@ -102,6 +102,34 @@ export interface ShippingAddressSnapshot {
   country?: string
   formatted?: string
   source: "checkout_snapshot"
+
+export interface PrescriptionHistoryMedication {
+  product_name?: string
+  medication?: string
+  pharmacy_name?: string
+  quantity?: string
+  refills?: string
+  strength?: string
+  rx_id?: string
+  med_id?: string
+}
+
+export interface PrescriptionHistoryEvent {
+  kind: 'requested_at_checkout' | 'rx_written'
+  label: string
+  occurred_at?: string | null
+  actor_name?: string | null
+  actor_role?: string | null
+  medications: PrescriptionHistoryMedication[]
+  event_id?: string | null
+}
+
+export interface PrescriptionHistoryResponse {
+  order_id?: string | null
+  patient_name?: string | null
+  prescription_event_count: number
+  revision_count: number
+  events: PrescriptionHistoryEvent[]
 }
 
 export interface OrderPricingSupplyLineItem {
@@ -384,6 +412,9 @@ export interface Order {
   patient?: OrderPatientSummary | null
   amount?: string
   status?: string
+  prescribed_at?: string | null
+  rx_sent_at?: string | null
+  shipped_at?: string | null
   paymentProcessor?: string | null
   paymentTransactionId?: string | null
   paymentProcessorTransactionId?: string | null
@@ -406,6 +437,7 @@ export interface Order {
   refundableAmount?: string | null
   baseRefundableAmount?: string | null
   supplementalRefundableAmount?: string | null
+  rx_revision_count?: number | null
   rx_revision_tag?: string | null
   rx_revision_refund_required_amount?: string | null
   created_at?: string
@@ -439,6 +471,8 @@ export interface Order {
   intake_response_summary?: IntakeResponseSummary | null
   shipping_address_snapshot?: ShippingAddressSnapshot | null
   checkout_url?: string | null
+  is_archived?: boolean
+  archived_at?: string | null
   provider_network?: string | null
   notes?: string | null
   // Detail page: from PrescriptionEvent / Visit
@@ -635,6 +669,16 @@ export const fetchOrderByOrderId = async (orderId: string, forceFresh = false): 
   }
 }
 
+export const fetchPrescriptionHistory = async (id: string): Promise<PrescriptionHistoryResponse> => {
+  try {
+    const { data } = await api.get<PrescriptionHistoryResponse>(`${ENDPOINT}${id}/prescription-history/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to fetch prescription history for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const createOrder = async (payload: Partial<Order>): Promise<Order> => {
   try {
     const { data } = await api.post<Order>(ENDPOINT, payload)
@@ -651,6 +695,26 @@ export const updateOrder = async (id: string, payload: Partial<Order>): Promise<
     return data
   } catch (error) {
     console.error(`Failed to update order ${id}:`, error)
+    throw error
+  }
+}
+
+export const archiveOrder = async (id: string): Promise<Order> => {
+  try {
+    const { data } = await api.post<Order>(`${ENDPOINT}${id}/archive/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to archive order ${id}:`, error)
+    throw error
+  }
+}
+
+export const unarchiveOrder = async (id: string): Promise<Order> => {
+  try {
+    const { data } = await api.post<Order>(`${ENDPOINT}${id}/unarchive/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to unarchive order ${id}:`, error)
     throw error
   }
 }
@@ -821,8 +885,11 @@ export const ordersApi = {
   fetchOrdersByPatient,
   fetchOrder,
   fetchOrderByOrderId,
+  fetchPrescriptionHistory,
   createOrder,
   updateOrder,
+  archiveOrder,
+  unarchiveOrder,
   deleteOrder,
   searchOrders,
   refundOrder,
