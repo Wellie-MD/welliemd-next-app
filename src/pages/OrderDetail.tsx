@@ -6,7 +6,33 @@ import { paymentGatewayApi } from "@/api/paymentGatewayApi"
 import { patientPaymentMethodsApi, PatientPaymentMethod, PatientPaymentGateway } from "@/api/patientPaymentMethodsApi"
 import { useToast } from "@/hooks/use-toast"
 import { useClientMessages } from "@/contexts/MessagesContext"
-import { Loader2 } from "lucide-react"
+import {
+  Calendar,
+  CreditCard,
+  FileText,
+  Stethoscope,
+  Truck,
+  Loader2,
+} from "lucide-react"
+import { format } from "date-fns"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
 // Import Sub-Components
@@ -37,6 +63,47 @@ const normalizeGateway = (value?: string | null): PatientPaymentGateway | null =
   return null
 }
 
+const statusLabels: Record<string, string> = {
+  created: "Created",
+  processing: "Processing",
+  visit_failed: "Visit Failed",
+  payment_pending: "Payment Pending",
+  visit_pending: "Visit Pending",
+  consult_scheduled: "Consult Scheduled",
+  consult_rescheduled: "Consult Rescheduled",
+  consult_canceled: "Consult Canceled",
+  no_show: "No Show",
+  referred: "Referred",
+  prescribed: "Prescribed",
+  billing_pending: "Billing Pending",
+  rx_sent: "Rx Sent",
+  shipped: "Shipped",
+  in_transit: "In Transit",
+  out_for_delivery: "Out for Delivery",
+  delivered: "Delivered",
+  delivery_failed: "Delivery Failed",
+  canceled: "Canceled",
+}
+
+const recoveryStatusLabels: Record<string, string> = {
+  recovery_pending: "Recovery Pending",
+}
+
+const gatewayLabel = (gateway: PatientPaymentGateway | null) => {
+  if (gateway === "authorize_net") return "Authorize.Net"
+  if (gateway === "nmi") return "NMI"
+  if (gateway === "stripe") return "Stripe"
+  return "payment gateway"
+}
+
+type TimelineItem = {
+  title: string
+  date: string
+  description?: string
+  icon: "schedule" | "payments" | "prescriptions" | "medical_services" | "local_shipping" | "event" | "credit_card" | "description"
+  iconBg: string
+}
+
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
@@ -48,10 +115,18 @@ export default function OrderDetail() {
   // Modals state
   const [showPatientResponses, setShowPatientResponses] = useState(false)
   const [showRefundDialog, setShowRefundDialog] = useState(false)
+  const [refundAmount, setRefundAmount] = useState("")
+  const [refundTarget, setRefundTarget] = useState<"auto" | "base" | "supplemental">("auto")
+  const [refundReason, setRefundReason] = useState("customer_request")
+  const [refundReasonDescription, setRefundReasonDescription] = useState("")
+  const [refundNotes, setRefundNotes] = useState("")
   const [refundLoading, setRefundLoading] = useState(false)
   const [showChangeProductModal, setShowChangeProductModal] = useState(false)
   const [pendingProductChange, setPendingProductChange] = useState<PendingProductChange | null>(null)
+  const [updateOrderLoading, setUpdateOrderLoading] = useState(false)
   const [showStatusDialog, setShowStatusDialog] = useState(false)
+  const [newStatus, setNewStatus] = useState("")
+  const [statusTrackingNumber, setStatusTrackingNumber] = useState("")
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
   const [showRetryPaymentDialog, setShowRetryPaymentDialog] = useState(false)
 
@@ -59,6 +134,7 @@ export default function OrderDetail() {
   const [paymentMethods, setPaymentMethods] = useState<PatientPaymentMethod[]>([])
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false)
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null)
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
   const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const retrySingleFlightRef = useRef(false)
@@ -386,6 +462,15 @@ export default function OrderDetail() {
     )
   }
 
+  const formatDateTime = (dateString?: string | null) => {
+    if (!dateString) return "—"
+    try {
+      return format(new Date(dateString), "MMM dd, yyyy • h:mm a")
+    } catch {
+      return dateString
+    }
+  }
+
   // Calculated values
   const status = order.orderStatus || order.status || "created"
   const canonicalStatus = String(order.status || order.orderStatus || "").toLowerCase()
@@ -398,6 +483,12 @@ export default function OrderDetail() {
     ? (recoveryStatusLabels[paymentRecoveryState] || paymentRecoveryState)
     : null
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const terminalPaymentDateStatuses = new Set(["voided", "refunded", "canceled", "cancelled"])
+  const paymentDisplayDate = terminalPaymentDateStatuses.has(paymentStatus)
+    ? (order.paymentUpdatedAt || order.paymentDate)
+    : order.paymentDate
+  const paymentAuthorizationDate = order.paymentDate || paymentDisplayDate
+  const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const remainingRefundable = order?.refundableAmount ? parseFloat(order.refundableAmount) || 0 : 0
   const baseRemainingRefundable = order?.baseRefundableAmount ? parseFloat(order.baseRefundableAmount) || 0 : 0
   const supplementalRemainingRefundable = order?.supplementalRefundableAmount ? parseFloat(order.supplementalRefundableAmount) || 0 : 0
@@ -434,6 +525,60 @@ export default function OrderDetail() {
     isSubmittedVisitProductChange
       ? "Product change will resend the updated prescription to the submitted visit."
       : "Product change is available before payment authorization or for eligible submitted visits before fulfillment is shipped."
+
+  const parseTimelineAmount = (value: unknown): number | null => {
+    if (value === null || value === undefined || value === "") return null
+    const parsed = Number.parseFloat(String(value))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  const initialRequestedPrice =
+    parseTimelineAmount(order.requested_medicines?.[0]?.price) ??
+    parseTimelineAmount(order.pricing?.subtotal_before_discount ?? order.original_price) ??
+    0
+  const initialRequestedShipping = parseTimelineAmount(order.requested_medicines?.[0]?.shipping_fee) ?? 0
+  const initialRequestedDiscount =
+    parseTimelineAmount(order.pricing?.discount_total ?? order.discount_amount) ?? 0
+  let trueAuthAmount = parseTimelineAmount(
+    (order as Order & { base_authorization_amount?: string | number | null }).base_authorization_amount,
+  )
+  if (trueAuthAmount == null) {
+    trueAuthAmount = Math.max(0, initialRequestedPrice - initialRequestedDiscount) + initialRequestedShipping
+  }
+  const timelineCapturedStatuses = new Set(["captured", "approved", "succeeded"])
+  const timelineSettlementTransactions = Array.isArray(order.payment_settlement_transactions)
+    ? order.payment_settlement_transactions
+    : []
+  const timelineCapturedFromTransactions = timelineSettlementTransactions.reduce((total, transaction) => {
+    const transactionStatus = String(transaction.status || "").toLowerCase()
+    if (!timelineCapturedStatuses.has(transactionStatus)) return total
+    return total + (parseTimelineAmount(transaction.amount) ?? 0)
+  }, 0)
+  const timelineCapturedFromFields =
+    (parseTimelineAmount(order.base_captured_amount) ?? 0) +
+    (parseTimelineAmount(order.supplemental_captured_amount) ?? 0)
+  const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
+  const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
+
+  const appliedCouponCodes = (() => {
+    const data = order as unknown as Record<string, unknown>
+    const codes = new Set<string>()
+    const addCode = (value: unknown) => {
+      if (typeof value === "string" && value.trim()) codes.add(value.trim())
+    }
+
+    addCode(data.coupon_code)
+    if (data.coupon && typeof data.coupon === "object") {
+      addCode((data.coupon as { code?: unknown }).code)
+    }
+    if (Array.isArray(data.coupon_codes)) data.coupon_codes.forEach(addCode)
+    if (Array.isArray(data.applied_coupons)) {
+      data.applied_coupons.forEach((coupon) => {
+        if (typeof coupon === "string") addCode(coupon)
+        else if (coupon && typeof coupon === "object") addCode((coupon as { code?: unknown }).code)
+      })
+    }
+    return Array.from(codes).join(", ")
+  })()
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
