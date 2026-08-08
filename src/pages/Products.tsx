@@ -14,6 +14,7 @@ import {
   Check,
   Pencil,
   Trash2,
+  History,
   FileDown,
   AlertTriangle,
 } from "lucide-react";
@@ -25,7 +26,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { productApi, Product } from "@/api/products";
+import {
+  productApi,
+  Product,
+  ProductChangeAction,
+  ProductChangeHistoryResponse,
+} from "@/api/products";
 import { clientApi, Client } from "@/api/clientApi";
 import axiosInstance from "@/api/axiosInstance";
 import { productCategoryApi, ProductCategory } from "@/api/productCategories";
@@ -61,6 +67,13 @@ interface ProductForAssignment {
   rx_drug_form?: string;
   purchase_type?: "one_time" | "subscription";
   created_at?: string;
+  product_type?: "single" | "bundle" | "supply";
+  treatment_type_name?: string | null;
+  treatment_type_is_active?: boolean | null;
+  derived_intake_visit_type?: string | null;
+  derived_followup_visit_type?: string | null;
+  restrict_visit_types?: boolean;
+  allowed_visit_types?: string[];
 }
 
 interface PaginatedProductsResponse {
@@ -87,6 +100,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 type AssignmentOperation = "assign" | "reassign";
 type BulkProgressStatus = "idle" | "running" | "completed" | "partial" | "stopped";
+type ChangeHistoryFilter = "all" | ProductChangeAction;
 
 interface BulkProgress {
   status: BulkProgressStatus;
@@ -111,6 +125,201 @@ const emptyProgress: BulkProgress = {
   currentBatch: 0,
   totalBatches: 0,
 };
+
+const changeHistoryFilters: Array<{ value: ChangeHistoryFilter; label: string }> = [
+  { value: "all", label: "All activity" },
+  { value: "created", label: "Created" },
+  { value: "updated", label: "Field updates" },
+  { value: "status", label: "Status changes" },
+];
+
+function formatHistoryDate(isoString?: string) {
+  if (!isoString) return "-";
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "-";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const hour = date.getHours() % 12 || 12;
+    const meridiem = date.getHours() >= 12 ? "PM" : "AM";
+    return `${year}-${month}-${day} ${hour}:${minutes} ${meridiem}`;
+  } catch {
+    return "-";
+  }
+}
+
+function historyActionLabel(entry: ProductChangeLog) {
+  if (entry.action === "created") return "Record created";
+  if (entry.action === "status") return "Status changed";
+  if (entry.action === "deleted") return "Record deleted";
+  return `Updated ${entry.field_label || "field"}`;
+}
+
+const currencyHistoryFields = new Set([
+  "base_price",
+  "cost_to_client",
+  "cost_to_welliemd",
+  "shipping_cost_to_client",
+  "shipping_cost_to_welliemd",
+  "shipping_fee_patient",
+  "discounted_price",
+]);
+
+function formatHistoryValue(entry: ProductChangeLog, value: string) {
+  if (!value || !currencyHistoryFields.has(entry.field_name)) return value;
+  if (value.trim().startsWith("$")) return value;
+
+  const amount = Number(value.replace(/,/g, ""));
+  return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : value;
+}
+
+function HistoryActionIcon({ action }: { action: ProductChangeAction }) {
+  const Icon =
+    action === "created"
+      ? Plus
+      : action === "status"
+        ? Check
+        : action === "deleted"
+          ? Trash2
+          : Pencil;
+  return <Icon className="h-2.5 w-2.5" strokeWidth={2.5} />;
+}
+
+function ProductChangeHistoryDialog({
+  open,
+  onOpenChange,
+  history,
+  loading,
+  error,
+  filter,
+  onFilterChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  history: ProductChangeHistoryResponse | null;
+  loading: boolean;
+  error: string | null;
+  filter: ChangeHistoryFilter;
+  onFilterChange: (filter: ChangeHistoryFilter) => void;
+}) {
+  const entries = history?.results || [];
+  const recordType = history?.record.type === "Product" ? "product" : history?.record.type || "record";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        overlayClassName="!bg-black/40"
+        showClose={false}
+        className="max-w-[760px] max-h-[calc(100vh-24px)] overflow-y-auto gap-0 rounded-lg border-none p-0 shadow-[0_10px_25px_rgba(0,0,0,0.2)] bg-white"
+        style={{ fontFamily: "'DM Sans', sans-serif" }}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div className="flex-1 text-left">
+            <h3 className="text-lg font-semibold text-slate-800">Change History</h3>
+            <p className="mt-0.5 text-[13px] font-normal text-slate-400">
+              Audit trail of every change made to this {recordType}.
+            </p>
+          </div>
+          <DialogClose className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 outline-none transition-colors hover:bg-slate-100 hover:text-slate-600">
+            <X className="h-[18px] w-[18px]" />
+          </DialogClose>
+        </div>
+
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
+          <div className="mb-[18px] flex flex-wrap items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+            <span className="text-[11.5px] text-slate-400">
+              Record: <b className="font-semibold text-slate-700">{history?.record.name || "-"}</b>
+            </span>
+            <span className="text-[11.5px] text-slate-400">
+              Type: <b className="font-semibold text-slate-700">
+                {history?.record.type === "Product" ? "Medicine / Product" : history?.record.type || "-"}
+              </b>
+            </span>
+            <span className="text-[11.5px] text-slate-400">
+              Total changes: <b className="font-semibold text-slate-700">{history?.total_changes ?? 0}</b>
+            </span>
+          </div>
+
+          <div className="mb-4 flex flex-col items-stretch gap-2">
+            <label className="text-[11px] font-semibold tracking-[0.03em] text-slate-400">FILTER</label>
+            <select
+              value={filter}
+              onChange={(event) => onFilterChange(event.target.value as ChangeHistoryFilter)}
+              className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+            >
+              {changeHistoryFilters.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-10 text-sm text-slate-500">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin text-sky-500" />
+              Loading change history...
+            </div>
+          ) : error ? (
+            <div className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="py-10 text-center text-slate-400">
+              <History className="mx-auto mb-2 h-[34px] w-[34px]" />
+              <div className="text-[13px] font-medium">No changes match this filter</div>
+            </div>
+          ) : (
+            <div className="relative pl-[26px] before:absolute before:bottom-1.5 before:left-2 before:top-1.5 before:w-0.5 before:bg-slate-200">
+              {entries.map((entry) => (
+                <div key={entry.id} className="relative pb-5 last:pb-0">
+                  <span
+                    className={`absolute -left-[26px] top-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 bg-white ${
+                      entry.action === "created"
+                        ? "border-green-600 text-green-600"
+                        : entry.action === "status"
+                          ? "border-amber-600 text-amber-600"
+                          : entry.action === "deleted"
+                            ? "border-red-600 text-red-600"
+                            : "border-blue-700 text-blue-700"
+                    }`}
+                  >
+                    <HistoryActionIcon action={entry.action} />
+                  </span>
+                  <div className="mb-1 flex items-baseline justify-between gap-3">
+                    <span className="text-[13px] font-semibold text-slate-800">{historyActionLabel(entry)}</span>
+                    <span className="whitespace-nowrap font-mono text-[11.5px] text-slate-400">
+                      {formatHistoryDate(entry.changed_at)}
+                    </span>
+                  </div>
+                  <div className="mb-1.5 text-[11.5px] text-slate-400">
+                    by <b className="font-semibold text-slate-700">{entry.changed_by_name || "System"}</b>
+                    {entry.changed_by_role ? ` · ${entry.changed_by_role}` : ""}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
+                    <span className="min-w-[110px] font-semibold text-slate-700">{entry.field_label}</span>
+                    {entry.old_display ? (
+                      <>
+                        <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-800">
+                          {formatHistoryValue(entry, entry.old_display)}
+                        </span>
+                        <span className="text-slate-400">→</span>
+                      </>
+                    ) : null}
+                    <span className="rounded bg-green-50 px-1.5 py-0.5 text-green-800">
+                      {formatHistoryValue(entry, entry.new_display || "-")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 /* Custom checkbox matching the portal's design standard */
 interface CustomCheckboxProps {
@@ -164,7 +373,7 @@ interface PillProps {
 function Pill({ children, solid }: PillProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
+      className={`inline-flex max-w-full items-center rounded-md px-2 py-1 text-[11px] font-semibold leading-tight whitespace-normal break-words xl:text-xs ${
         solid
           ? "bg-sky-400 text-white"
           : "bg-sky-50 text-sky-700 border border-sky-100"
@@ -321,6 +530,14 @@ export default function Products() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
+  const [historyProduct, setHistoryProduct] = useState<ProductForAssignment | null>(null);
+  const [changeHistory, setChangeHistory] =
+    useState<ProductChangeHistoryResponse | null>(null);
+  const [changeHistoryFilter, setChangeHistoryFilter] =
+    useState<ChangeHistoryFilter>("all");
+  const [changeHistoryLoading, setChangeHistoryLoading] = useState(false);
+  const [changeHistoryError, setChangeHistoryError] = useState<string | null>(null);
   const [isProgressDialogOpen, setIsProgressDialogOpen] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<BulkProgress>(emptyProgress);
   const [failedAssignments, setFailedAssignments] = useState<AssignmentPair[]>([]);
@@ -638,6 +855,38 @@ export default function Products() {
     setSearchParams,
     targetProductReference,
   ]);
+
+  const fetchChangeHistory = useCallback(
+    async (product: ProductForAssignment, filter: ChangeHistoryFilter) => {
+      try {
+        setChangeHistoryLoading(true);
+        setChangeHistoryError(null);
+        const data = await productApi.getChangeHistory(product.id, filter);
+        setChangeHistory(data);
+      } catch (error) {
+        console.error("Failed to load product change history:", error);
+        setChangeHistoryError("Failed to load change history.");
+      } finally {
+        setChangeHistoryLoading(false);
+      }
+    },
+    []
+  );
+
+  const openChangeHistory = (product: ProductForAssignment) => {
+    setHistoryProduct(product);
+    setChangeHistory(null);
+    setChangeHistoryFilter("all");
+    setIsChangeHistoryOpen(true);
+    fetchChangeHistory(product, "all");
+  };
+
+  const handleChangeHistoryFilter = (filter: ChangeHistoryFilter) => {
+    setChangeHistoryFilter(filter);
+    if (historyProduct) {
+      fetchChangeHistory(historyProduct, filter);
+    }
+  };
 
   // Delete handler
   const handleDelete = async (product: ProductForAssignment) => {
@@ -959,7 +1208,7 @@ export default function Products() {
 
   return (
     <div
-      className="px-4 py-5 sm:px-8 sm:py-7 min-h-screen bg-slate-50/30"
+      className="px-4 py-6 min-h-screen bg-slate-50/30 xl:px-8 xl:py-7"
       style={{
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
       }}
@@ -1158,12 +1407,262 @@ export default function Products() {
           statusFilter !== "all" ||
           treatmentTypeFilter !== "all" ||
           productSearch !== "") && (
-          <div className="col-span-full xl:col-auto">
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
+          >
+            <RotateCcw className="h-3.5 w-3.5 text-slate-600" /> Reset Filters
+          </button>
+        )}
+
+        <span className="ml-auto pb-2.5 text-sm font-medium text-slate-500">
+          Showing {products.length} of {totalProducts}
+        </span>
+      </div>
+
+      {/* Products Table Card */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full table-fixed border-collapse text-[11px] xl:text-sm">
+          <colgroup>
+            <col className="w-[34px] xl:w-[50px]" />
+            <col className="w-[15%]" />
+            <col className="w-[13%]" />
+            <col className="w-[16%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[9%]" />
+            <col className="w-[13%]" />
+            <col className="w-[11%]" />
+            <col className="w-[9%]" />
+            <col className="w-[88px] xl:w-[100px]" />
+          </colgroup>
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/50">
+              <th className="px-2 py-3 text-left xl:px-5">
+                <CustomCheckbox
+                  checked={allChecked}
+                  indeterminate={someChecked}
+                  onChange={toggleAllProducts}
+                />
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Name
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Category
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Pharmacy / Manufacturer
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Drug Form
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Status
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Purchase Type
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Treatment Type / Routing
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Restrictions
+              </th>
+              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
+                Created At
+              </th>
+              <th className="px-1 py-3 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-500 xl:px-4 xl:text-xs"></th>
+            </tr>
+          </thead>
+          <tbody className="bg-white">
+            {displayedProducts.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={11}
+                  className="px-4 py-12 text-center text-sm text-slate-400"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 animate-spin mr-2 text-sky-500" />
+                      Fetching products...
+                    </div>
+                  ) : (
+                    "No products match these filters."
+                  )}
+                </td>
+              </tr>
+            ) : (
+              displayedProducts.map((product) => {
+                const isSelected = selectedProducts.has(product.id);
+                return (
+                  <tr
+                    key={product.id}
+                    className="transition-colors cursor-pointer border-b border-slate-100"
+                    style={{
+                      background: isSelected ? "#e3f3fb" : "#fff",
+                    }}
+                    onClick={() => toggleProduct(product)}
+                  >
+                    <td className="px-2 py-4 xl:px-5" onClick={(e) => e.stopPropagation()}>
+                      <CustomCheckbox
+                        checked={isSelected}
+                        onChange={() => toggleProduct(product)}
+                      />
+                    </td>
+                    <td className="px-2 py-4 font-semibold text-slate-800 break-words xl:px-4">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="min-w-0 max-w-full break-words">{product.name}</span>
+                        {product.is_modified_need_to_re_assigned && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge
+                                  variant="destructive"
+                                  className="text-[10px] h-4 px-1.5 font-bold"
+                                >
+                                  UPDATED
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>You have updated this product.</p>
+                                <p>
+                                  You need to re-assign it to clients to push
+                                  the updates.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-4 xl:px-4">
+                      <Pill>{product.category_name || "-"}</Pill>
+                    </td>
+                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
+                      {product.pharmacy_name || "-"}
+                      {product.manufacturer_name && (
+                        <span className="block text-xs mt-0.5 text-slate-400 break-words">
+                          {product.manufacturer_name}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
+                      {product.rx_drug_form || "-"}
+                    </td>
+                    <td className="px-2 py-4 xl:px-4">
+                      <Badge
+                        variant={product.is_active ? "default" : "secondary"}
+                        className={
+                          product.is_active
+                            ? "max-w-full whitespace-normal break-words rounded-md bg-emerald-50 text-[11px] text-emerald-700 border border-emerald-100 hover:bg-emerald-50 xl:text-xs"
+                            : "max-w-full whitespace-normal break-words rounded-md bg-slate-100 text-[11px] text-slate-600 border border-slate-200 hover:bg-slate-100 xl:text-xs"
+                        }
+                      >
+                        {product.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </td>
+                    <td className="px-2 py-4 xl:px-4">
+                      {product.purchase_type ? (
+                        <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-2 py-4 xl:px-4">
+                      {product.product_type === "supply" ? (
+                        <span className="text-xs text-slate-400">Not applicable</span>
+                      ) : product.treatment_type_name ? (
+                        <div className="space-y-1">
+                          <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                            {product.treatment_type_name}
+                          </Badge>
+                          {product.treatment_type_is_active === false && (
+                            <Badge variant="outline" className="ml-1 border-amber-200 bg-amber-50 text-amber-700">
+                              Inactive
+                            </Badge>
+                          )}
+                          <div className="text-[10px] text-slate-500">
+                            Intake: {product.derived_intake_visit_type || "Not configured"}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Follow-up: {product.derived_followup_visit_type || "Not configured"}
+                          </div>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+                          Unassigned
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="px-2 py-4 xl:px-4">
+                      {product.restrict_visit_types ? (
+                        <div className="flex flex-wrap gap-1">
+                          {(product.allowed_visit_types || []).map((visitType) => (
+                            <Badge key={visitType} variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                              {visitType}
+                            </Badge>
+                          ))}
+                          {(product.allowed_visit_types || []).length === 0 && (
+                            <span className="text-xs text-amber-600 font-medium">None</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-xs">Unrestricted</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
+                      {formatDate(product.created_at)}
+                    </td>
+                    <td className="px-1 py-4 text-right xl:px-4" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1 whitespace-nowrap xl:gap-3">
+                        <button
+                          type="button"
+                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-slate-400 outline-none"
+                          title="View change history"
+                          onClick={() => openChangeHistory(product)}
+                        >
+                          <History className="h-4.5 w-4.5" />
+                        </button>
+                        <button
+	                          type="button"
+	                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-slate-400 outline-none"
+	                          onClick={() => openEditProduct(product)}
+	                        >
+                          <Pencil className="h-4.5 w-4.5" />
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-red-400 outline-none"
+                          onClick={() => handleDelete(product)}
+                        >
+                          <Trash2 className="h-4.5 w-4.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+
+        {/* Load More Trigger */}
+        {hasMoreProducts && (
+          <div className="px-6 py-4 border-t border-slate-100 flex justify-center bg-slate-50/50">
             <button
-              onClick={resetFilters}
-              className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="min-w-[200px] border border-slate-200 bg-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50"
             >
-              <RotateCcw className="h-3.5 w-3.5 text-slate-600" /> Reset Filters
+              {loadingMore ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                `Load More (${products.length} of ${totalProducts})`
+              )}
             </button>
           </div>
         )}
@@ -1574,6 +2073,16 @@ export default function Products() {
           setSelectedProduct(null);
           fetchProducts(1, pageSize); // reload page 1
         }}
+      />
+
+      <ProductChangeHistoryDialog
+        open={isChangeHistoryOpen}
+        onOpenChange={setIsChangeHistoryOpen}
+        history={changeHistory}
+        loading={changeHistoryLoading}
+        error={changeHistoryError}
+        filter={changeHistoryFilter}
+        onFilterChange={handleChangeHistoryFilter}
       />
 
       {/* Assign Dialog */}

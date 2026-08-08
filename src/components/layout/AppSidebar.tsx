@@ -43,7 +43,24 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const menuSections = [
+type MenuChild = {
+  title: string
+  url: string
+}
+
+type MenuItem = {
+  title: string
+  url?: string
+  icon: LucideIcon
+  children?: MenuChild[]
+}
+
+type MenuSection = {
+  label: string
+  items: MenuItem[]
+}
+
+const menuSections: MenuSection[] = [
   {
     label: "MANAGEMENT",
     items: [
@@ -95,8 +112,14 @@ const menuSections = [
       },
       { title: "Questionnaires", url: "/dashboard/questionnaires", icon: FileText },
 
-      // ✅ NEW: Pharmacies top-level item
-      { title: "Pharmacies", url: "/dashboard/pharmacies", icon: MapPin },
+      {
+        title: "Pharmacies",
+        icon: MapPin,
+        children: [
+          { title: "Pharmacies", url: "/dashboard/pharmacies" },
+          { title: "Find Beluga Pharmacies", url: "/dashboard/pharmacies/beluga-lookup" },
+        ]
+      },
 
       
       {
@@ -112,7 +135,15 @@ const menuSections = [
         ]
       },
       
-      { title: "Archive", url: "/dashboard/archive", icon: Archive },
+      {
+        title: "Archive",
+        icon: Archive,
+        children: [
+          { title: "Archive", url: "/dashboard/archive" },
+          { title: "Archive Products", url: "/dashboard/products/archive" },
+          { title: "Archive Templates", url: "/dashboard/questionnaires/archive" },
+        ],
+      },
       { title: "Sense", url: "/dashboard/tools/sense", icon: Activity },
     ]
   },
@@ -266,8 +297,8 @@ export function AppSidebar() {
                             <CollapsibleTrigger asChild>
                               <SidebarMenuButton
                                 className={`
-                                  group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                  ${collapsed ? "p-2 justify-center" : "px-3 py-2.5 justify-between"}
+                                  group flex w-full text-sm rounded-lg transition-all duration-200 ease-in-out
+                                  ${collapsed ? "items-center p-2 justify-center" : "h-auto min-h-10 items-start overflow-visible px-3 py-2.5 justify-between"}
                                   ${isActive
                                     ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
                                     : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
@@ -278,7 +309,7 @@ export function AppSidebar() {
                                   <item.icon className={`h-[15px] w-[15px] flex-shrink-0 ${isActive ? "text-blue-400" : "text-slate-400 group-hover:text-slate-300"
                                     }`} />
                                   {!collapsed && (
-                                    <span className="ml-3 font-medium truncate">
+                                    <span className="ml-3 min-w-0 whitespace-normal break-words font-medium leading-tight">
                                       {item.title}
                                     </span>
                                   )}
@@ -309,7 +340,7 @@ export function AppSidebar() {
                                           }
                                         `}
                                       >
-                                        <span className="text-sm">{child.title}</span>
+                                        <span className="min-w-0 whitespace-normal break-words text-sm leading-tight">{child.title}</span>
                                       </NavLink>
                                     </SidebarMenuButton>
                                   ))}
@@ -325,8 +356,8 @@ export function AppSidebar() {
                               to={item.url}
                               end
                               className={`
-                                group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                ${collapsed ? "p-2 justify-center" : "px-3 py-2.5"}
+                                group flex w-full text-sm rounded-lg transition-all duration-200 ease-in-out
+                                ${collapsed ? "items-center p-2 justify-center" : "h-auto min-h-10 items-start overflow-visible px-3 py-2.5"}
                                 ${currentPath === item.url
                                   ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
                                   : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
@@ -340,7 +371,7 @@ export function AppSidebar() {
                                   }`}
                               />
                               {!collapsed && (
-                                <span className="ml-3 font-medium truncate">
+                                <span className="ml-3 min-w-0 whitespace-normal break-words font-medium leading-tight">
                                   {item.title}
                                 </span>
                               )}

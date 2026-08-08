@@ -288,7 +288,7 @@ export default function Orders() {
         product__category__id: categoryId !== "all" ? categoryId : undefined,
         pharmacy__id: pharmacyId !== "all" ? pharmacyId : undefined,
         client_id: clientId || undefined,
-        search: searchTerm || undefined,
+        search: searchTerm?.trim() || undefined,
         date_from: date?.from ? format(date.from, 'yyyy-MM-dd') : undefined,
         date_to: date?.to ? format(date.to, 'yyyy-MM-dd') : undefined,
       })
