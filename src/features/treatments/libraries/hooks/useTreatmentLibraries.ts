@@ -358,6 +358,10 @@ export const useSaveConsent = () => {
     mutationFn: (consent: ConsentForm) => treatmentsApi.saveConsent(consent),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.consents() });
+      // Attached consent questions project their current library content.
+      // Refresh program queries after a rename or content/options edit so the
+      // program table and preview do not retain the old snapshot.
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
   });
