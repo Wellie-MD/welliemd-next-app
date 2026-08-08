@@ -430,8 +430,6 @@ export default function OrderDetail() {
   const canChangeProduct = isAllowedStatus && (!isLocked || isSubmittedVisitProductChange)
   const canRefundOrVoid = isAuthorized || isRefundable
   const canUseReceipt = ["captured", "approved", "succeeded", "refunded"].includes(paymentStatus)
-  const canRetryPayment = !isRefundable && status === "payment_pending"
-
   const changeProductTooltip =
     isSubmittedVisitProductChange
       ? "Product change will resend the updated prescription to the submitted visit."
@@ -446,28 +444,6 @@ export default function OrderDetail() {
     { value: "service_not_rendered", label: "Service Not Rendered" },
     { value: "other", label: "Other" },
   ]
-
-  const refetchOrder = async (forceFresh = true): Promise<void> => {
-    if (!orderId) return
-    const fetchFn = isUuid(orderId)
-      ? ordersApi.fetchOrder(orderId, forceFresh)
-      : ordersApi.fetchOrderByOrderId(orderId, forceFresh)
-    try {
-      const fresh = await fetchFn
-      setOrder(fresh)
-    } catch {
-      // no-op: best-effort refresh
-    }
-  }
-
-  const refetchOrderWithRetries = async (): Promise<void> => {
-    await refetchOrder(true)
-    const delays = [800, 1800, 3200]
-    for (const delayMs of delays) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
-      await refetchOrder(true)
-    }
-  }
 
   const handleUpdateOrder = async () => {
     if (!order?.id || !pendingProductChange) return
@@ -525,61 +501,6 @@ export default function OrderDetail() {
       toast({ title: message, variant: "destructive" })
     } finally {
       setStatusUpdateLoading(false)
-    }
-  }
-
-  const handleRefundSubmit = async () => {
-    if (!order?.id) return
-    if (!refundReason) {
-      toast({ title: "Refund reason required", variant: "destructive" })
-      return
-    }
-    if (isRefundable) {
-      if (!refundAmount) {
-        toast({ title: "Refund amount required", variant: "destructive" })
-        return
-      }
-      const amountNum = parseFloat(refundAmount)
-      if (Number.isNaN(amountNum) || amountNum <= 0) {
-        toast({ title: "Enter a valid refund amount", variant: "destructive" })
-        return
-      }
-      if (amountNum > remainingRefundable) {
-        toast({ title: "Refund amount exceeds remaining refundable amount", variant: "destructive" })
-        return
-      }
-      if (refundTarget === "base" && amountNum > baseRemainingRefundable) {
-        toast({ title: "Refund amount exceeds base refundable amount", variant: "destructive" })
-        return
-      }
-      if (refundTarget === "supplemental" && amountNum > supplementalRemainingRefundable) {
-        toast({ title: "Refund amount exceeds supplemental refundable amount", variant: "destructive" })
-        return
-      }
-    }
-    try {
-      setRefundLoading(true)
-      await ordersApi.refundOrder(order.id, {
-        amount: isRefundable ? refundAmount : undefined,
-        refund_target: refundTarget,
-        reason: refundReason,
-        reason_description: refundReasonDescription,
-        notes: refundNotes,
-      })
-      setShowRefundDialog(false)
-      setRefundAmount("")
-      setRefundTarget("auto")
-      setRefundReasonDescription("")
-      setRefundNotes("")
-      toast({ title: isAuthorized ? "Authorization voided" : "Refund processed" })
-      await refetchOrderWithRetries()
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "Failed to process refund"
-      toast({ title: message, variant: "destructive" })
-    } finally {
-      setRefundLoading(false)
     }
   }
 
@@ -1765,6 +1686,7 @@ export default function OrderDetail() {
           />
         </div>
       </div>
+      </div>
 
       {/* Modals & Dialogs */}
       <RefundVoidModal
@@ -1798,81 +1720,6 @@ export default function OrderDetail() {
         retryLoading={retryPaymentLoading}
         retryAmount={remainingRefundable || parseFloat(order.amount || "0")}
       />
-
-            {paymentMethodsLoading && (
-              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading saved payment methods...
-              </div>
-            )}
-
-            {!paymentMethodsLoading && paymentMethodsError && (
-              <p className="text-sm text-destructive">{paymentMethodsError}</p>
-            )}
-
-            {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                No saved payment methods found for this patient.
-              </p>
-            )}
-
-            {retryGatewayMismatch && (
-              <p className="text-sm text-amber-700 dark:text-amber-300">
-                Retry is disabled until client gateway matches the order processor ({orderProcessorGatewayLabel}).
-              </p>
-            )}
-
-            {!paymentMethodsLoading && paymentMethods.length > 0 && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Saved payment method</label>
-                <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a card" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((method) => {
-                      const brand = method.card_brand ? method.card_brand.toUpperCase() : "CARD"
-                      const last4 = method.masked_card_number ? method.masked_card_number.slice(-4) : "----"
-                      const expMonth = method.card_expiry_month ? String(method.card_expiry_month).padStart(2, "0") : ""
-                      const expYear = method.card_expiry_year ? String(method.card_expiry_year) : ""
-                      const expLabel = expMonth && expYear ? `exp ${expMonth}/${expYear}` : ""
-                      const defaultLabel = method.is_default ? " • default" : ""
-                      return (
-                        <SelectItem key={method.id} value={method.id}>
-                          {brand} •••• {last4}{expLabel ? ` (${expLabel})` : ""}{defaultLabel}
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowRetryPaymentDialog(false)}
-                disabled={retryPaymentLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleRetryPayment}
-                disabled={
-                  retryPaymentLoading ||
-                  paymentMethodsLoading ||
-                  retryGatewayMismatch ||
-                  Boolean(paymentMethodsError) ||
-                  !selectedPaymentMethodId
-                }
-              >
-                {retryPaymentLoading ? "Retrying..." : "Retry Payment"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Refund / Void Dialog */}
       <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
@@ -2067,10 +1914,9 @@ export default function OrderDetail() {
                 photos,
               },
             }
-          }}
+          })
+        }}
         />
-      )}
-
       {showChangeProductModal && (
         <ChangeProductModal
           open={showChangeProductModal}
