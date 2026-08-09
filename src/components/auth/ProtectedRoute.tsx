@@ -11,6 +11,8 @@ const CLIENT_PORTAL_ROLES = new Set<string>([
   RoleNames.ADMIN,
   RoleNames.CUSTOMER_SERVICE,
   RoleNames.SUPER_ADMIN,
+  'Corporate Operator Admin',
+  'Corporate Employer Admin',
 ]);
 
 const hasClientPortalRole = (user: { primary_role?: string; roles?: string[] } | null): boolean => {
