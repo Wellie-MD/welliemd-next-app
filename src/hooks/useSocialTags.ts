@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { socialTagsApi } from '@/api/socialTagsApi';
 import { useAuthStore } from '@/store/useAuthStore';
+import { isCorporateClientPreview } from '@/features/corporate/config';
 
 /**
  * Helper function to inject HTML content into head, properly handling script tags
@@ -82,8 +83,16 @@ function removeInjectedTag(containerId: string): void {
 export function useSocialTags() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const injectedRef = useRef(false);
+  const corporatePreview = isCorporateClientPreview();
 
   useEffect(() => {
+    // Corporate operator/employer contexts are intentionally blocked from
+    // DTC tracking configuration APIs; do not issue a noisy optional request.
+    if (corporatePreview) {
+      removeInjectedTag('custom-global-js-container');
+      injectedRef.current = false;
+      return;
+    }
     // Only try to inject tags if user is authenticated
     if (!isAuthenticated) {
       return;
@@ -120,10 +129,11 @@ export function useSocialTags() {
       removeInjectedTag('custom-global-js-container');
       injectedRef.current = false;
     };
-  }, [isAuthenticated]); // Re-run when authentication state changes
+  }, [isAuthenticated, corporatePreview]); // Re-run when authentication state changes
 
   // Function to refresh tracking JS (can be called after saving)
   const refreshTags = async () => {
+    if (corporatePreview) return;
     try {
       const tags = await socialTagsApi.getCurrent();
       removeInjectedTag('custom-global-js-container');
@@ -140,4 +150,3 @@ export function useSocialTags() {
 
   return { refreshTags };
 }
-
