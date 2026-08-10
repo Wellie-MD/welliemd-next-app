@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import api from '../api/axiosInstance';
 import { useAuthStore } from '../store/useAuthStore';
-import { API_REQUEST_TIMEOUT_MS } from '../api/constants';
+import { API_REQUEST_TIMEOUT_MS, AUTH_REQUEST_TIMEOUT_MS } from '../api/constants';
 
 interface LoginCredentials {
   email: string;
@@ -64,6 +64,8 @@ export const authService = {
         email: normalizeEmail(credentials.email),
         password: credentials.password,
         portal: 'client'
+      }, {
+        timeout: AUTH_REQUEST_TIMEOUT_MS,
       });
       const { access: accessToken, user } = data;
 
