@@ -6,7 +6,7 @@ export async function fetchAssignedProgram(): Promise<EmployeeCorporateContext> 
   return data;
 }
 
-export async function advanceToGateOne(): Promise<{ current_gate: 0 | 1 | 2 }> {
-  const { data } = await apiClient.post<{ current_gate: 0 | 1 | 2 }>("/corporate/employee/program/advance/");
+export async function setPilotGate(targetGate: 0 | 1): Promise<{ current_gate: 0 | 1 | 2 }> {
+  const { data } = await apiClient.post<{ current_gate: 0 | 1 | 2 }>("/corporate/employee/program/advance/", { target_gate: targetGate });
   return data;
 }
