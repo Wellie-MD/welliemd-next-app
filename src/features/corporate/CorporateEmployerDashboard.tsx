@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CorporateEmployerDashboardPayload } from "./contracts";
 import { fetchEmployerDashboard } from "./corporateApi";
-import { corporatePilotConfig } from "./config";
+import { corporatePilotConfig, getCorporateClientMode } from "./config";
 import { restoreOperatorContext } from "./handoffAdapter";
 
 const activityLabel = (action: string) => ({ tenant_switch_issued: "Secure handoff issued", tenant_switch_consumed: "Employer context established", pilot_seed_ready: "Pilot data prepared" }[action] || action.replaceAll("_", " "));
@@ -16,7 +16,9 @@ export default function CorporateEmployerDashboard() {
   const [loading, setLoading] = useState(true);
   const load = async () => { setLoading(true); setError(""); try { setDashboard(await fetchEmployerDashboard()); } catch (reason: any) { setError(reason?.response?.data?.error || "Employer dashboard data could not be loaded."); } finally { setLoading(false); } };
   useEffect(() => { void load(); }, []);
-  const returnToOperator = corporatePilotConfig.declaredMode === "corporate_operator";
+  // Direct employer accounts must not be offered an operator escape hatch.
+  // Only a handoff-issued employer session can return to the operator surface.
+  const returnToOperator = corporatePilotConfig.declaredMode === "corporate_operator" && getCorporateClientMode() === "employer" && Boolean(window.sessionStorage.getItem("corp-operator-access-token"));
   const exitEmployer = () => { if (restoreOperatorContext()) window.location.replace("/dashboard/corporate/workspace"); else window.location.replace("/auth/signin"); };
   if (loading) return <div className="flex min-h-[55vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>;
   if (!dashboard) return <div className="p-8"><Card className="border-destructive/30"><CardContent className="p-6"><p className="font-semibold">Employer context unavailable</p><p className="mt-1 text-sm text-muted-foreground">{error}</p><div className="mt-4 flex gap-2">{returnToOperator && <Button variant="outline" onClick={exitEmployer}><ArrowLeft className="mr-2 h-4 w-4" />Return to operator</Button>}<Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" />Retry</Button></div></CardContent></Card></div>;

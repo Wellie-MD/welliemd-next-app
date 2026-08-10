@@ -88,20 +88,32 @@ const useAuthStore = create<AuthState>()(
         }),
 
       logout: () =>
-        set({
-          accessToken: null,
-          superAdminApiBaseUrl: null,
-          user: null,
-          isAuthenticated: false,
+        set(() => {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.removeItem("corp-employer-context");
+            window.sessionStorage.removeItem("corp-operator-access-token");
+          }
+          return {
+            accessToken: null,
+            superAdminApiBaseUrl: null,
+            user: null,
+            isAuthenticated: false,
+          };
         }),
 
       clearExpiredSession: () =>
-        set({
-          accessToken: null,
-          superAdminApiBaseUrl: null,
-          user: null,
-          isAuthenticated: false,
-          isLoading: true,
+        set(() => {
+          if (typeof window !== "undefined") {
+            window.sessionStorage.removeItem("corp-employer-context");
+            window.sessionStorage.removeItem("corp-operator-access-token");
+          }
+          return {
+            accessToken: null,
+            superAdminApiBaseUrl: null,
+            user: null,
+            isAuthenticated: false,
+            isLoading: true,
+          };
         }),
 
       setUser: (user) =>

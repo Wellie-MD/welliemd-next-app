@@ -52,4 +52,11 @@ export function isCorporateClientPreview(): boolean {
 
 export function clearEmployerPreview(): void {
   window.sessionStorage.removeItem("corp-employer-context");
+  window.sessionStorage.removeItem("corp-operator-access-token");
+}
+
+/** Remove transient cross-portal state when a session ends or is replaced. */
+export function clearCorporateSession(): void {
+  if (typeof window === "undefined") return;
+  clearEmployerPreview();
 }
