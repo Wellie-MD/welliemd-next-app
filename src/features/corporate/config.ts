@@ -40,10 +40,14 @@ export type CorporateClientMode = "operator" | "employer";
 
 export function getCorporateClientMode(): CorporateClientMode | null {
   if (!corporatePilotConfig.enabled || !corporatePilotConfig.isKnownMode) return null;
-  if (corporatePilotConfig.declaredMode === "corporate_employer") return "employer";
+  const role = accessTokenClaims().corporate_role;
+  if (corporatePilotConfig.declaredMode === "corporate_employer") {
+    return role === "employer_admin" ? "employer" : null;
+  }
   if (corporatePilotConfig.declaredMode !== "corporate_operator") return null;
-  if (accessTokenClaims().corporate_role === "employer_admin") return "employer";
-  return "operator";
+  if (role === "employer_admin") return "employer";
+  if (role === "operator_admin") return "operator";
+  return null;
 }
 
 export function isCorporateClientPreview(): boolean {

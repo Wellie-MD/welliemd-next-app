@@ -23,7 +23,6 @@ const AcceptInvitation = lazyWithRetry(() => import("./pages/AcceptInvitation"))
 const RegisterInvitation = lazyWithRetry(() => import("./pages/auth/RegisterInvitation"));
 const Forbidden = lazyWithRetry(() => import("./pages/Forbidden"));
 const SuperAdminAccessLaunch = lazyWithRetry(() => import("./pages/SuperAdminAccessLaunch"));
-const CorporateFrame = lazyWithRetry(() => import("./features/corporate/CorporateFrame"));
 const CorporateAccessLaunch = lazyWithRetry(() => import("./features/corporate/CorporateAccessLaunch"));
 const CorporateUnavailable = lazyWithRetry(() => import("./features/corporate/CorporateUnavailable"));
 
@@ -34,16 +33,13 @@ const RouteLoadingFallback = () => (
 );
 
 const DashboardRouteProviders = () => {
-  if (isCorporateClientPreview()) {
-    return <ProtectedRoute><Outlet /></ProtectedRoute>;
-  }
+  const corporatePreview = isCorporateClientPreview();
+  const content = <Outlet />;
   return (
     <ProtectedRoute>
       <BrandingProvider>
-        <MessagesProvider pollIntervalMs={30000}>
-          <IntercomBannersProvider>
-            <Outlet />
-          </IntercomBannersProvider>
+        <MessagesProvider pollIntervalMs={30000} disabled={corporatePreview}>
+          {corporatePreview ? content : <IntercomBannersProvider>{content}</IntercomBannersProvider>}
         </MessagesProvider>
       </BrandingProvider>
     </ProtectedRoute>
@@ -100,13 +96,10 @@ const App = () => {
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
 
-        {/* Corporate deployments intentionally avoid DTC data providers and polling. */}
-        <Route path="/dashboard/corporate/*" element={<ProtectedRoute><CorporateFrame /></ProtectedRoute>} />
-
-        {/* Keep shared DTC dashboard providers mounted across dashboard/settings navigation. */}
+        {/* DTC and corporate modes share the staging-v2 shell; route ownership remains role-scoped. */}
         <Route element={<DashboardRouteProviders />}>
           <Route path="/dashboard/settings/*" element={isCorporateClientPreview() ? <CorporateUnavailable /> : <SettingsFrame />} />
-          <Route path="/dashboard/*" element={isCorporateClientPreview() ? <CorporateUnavailable /> : <DashboardFrame />} />
+          <Route path="/dashboard/*" element={<DashboardFrame />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

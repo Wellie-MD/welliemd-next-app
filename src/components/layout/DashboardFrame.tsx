@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
@@ -12,6 +12,12 @@ import { IntercomWidget } from "@/features/integrations/IntercomWidget";
 import { IntercomCardBanner, IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { Loader2 } from "lucide-react";
 import { ProgramLegacyRouteRedirect } from "@/features/treatments/navigation/ProgramLegacyRouteRedirect";
+import { getCorporateClientMode } from "@/features/corporate/config";
+import CorporateWorkspace from "@/features/corporate/CorporateWorkspace";
+import CorporateEmployerDashboard from "@/features/corporate/CorporateEmployerDashboard";
+import CorporateEmployerRoster from "@/features/corporate/CorporateEmployerRoster";
+import CorporateEmployerProgram from "@/features/corporate/CorporateEmployerProgram";
+import CorporateUnavailable from "@/features/corporate/CorporateUnavailable";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Patients = lazy(() => import("@/pages/Patients"));
@@ -148,6 +154,8 @@ function MessageChime({ conversations }: { conversations: ConversationSummary[] 
 
 export default function DashboardFrame() {
   const { conversations } = useClientMessages();
+  const corporateMode = getCorporateClientMode();
+  const corporateHome = corporateMode === "employer" ? "/dashboard/corporate/employer" : "/dashboard/corporate/workspace";
 
   const [lsTick, setLsTick] = useState(0);
   useEffect(() => {
@@ -177,20 +185,31 @@ export default function DashboardFrame() {
         <AppSidebar unseenCount={unseenCount} />
 
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-          <MessageChime conversations={conversations} />
+          {!corporateMode && <MessageChime conversations={conversations} />}
 
           <Header />
 
-          <BillingSuspendedBanner />
+          {!corporateMode && <BillingSuspendedBanner />}
 
-          <IntercomWidget />
+          {!corporateMode && <IntercomWidget />}
 
-          <IntercomCardBanner />
+          {!corporateMode && <IntercomCardBanner />}
 
           <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
-            <IntercomInlineBanner />
+            {!corporateMode && <IntercomInlineBanner />}
             <Suspense fallback={<PageLoadingFallback />}>
             <Routes>
+              {corporateMode ? <>
+              <Route path="/" element={<Navigate to={corporateHome} replace />} />
+              <Route path="/corporate" element={<Navigate to={corporateHome} replace />} />
+              <Route path="/corporate/workspace" element={corporateMode === "operator" ? <CorporateWorkspace /> : <Navigate to={corporateHome} replace />} />
+              <Route path="/corporate/employer" element={corporateMode === "employer" ? <CorporateEmployerDashboard /> : <Navigate to={corporateHome} replace />} />
+              <Route path="/corporate/employer/roster" element={corporateMode === "employer" ? <CorporateEmployerRoster /> : <Navigate to={corporateHome} replace />} />
+              <Route path="/corporate/employer/program" element={corporateMode === "employer" ? <CorporateEmployerProgram /> : <Navigate to={corporateHome} replace />} />
+              <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
+              <Route path="/corporate/unavailable" element={<CorporateUnavailable />} />
+              <Route path="*" element={<Navigate to={corporateHome} replace />} />
+              </> : <>
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
               <Route path="/patients/:patientId" element={<ProtectedRoute><PatientDetailPage /></ProtectedRoute>} />
@@ -235,6 +254,7 @@ export default function DashboardFrame() {
               <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
               <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
               <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
+              </>}
             </Routes>
             </Suspense>
           </main>

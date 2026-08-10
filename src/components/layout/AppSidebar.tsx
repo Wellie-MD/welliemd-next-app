@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useMemo, Fragment, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   ChartLine,
@@ -16,6 +16,8 @@ import {
   MapPin,
   ChevronDown,
   Smartphone,
+  Building2,
+  BriefcaseBusiness,
 } from "lucide-react";
 
 import {
@@ -45,6 +47,7 @@ import { PermissionGate } from "@/components/auth/PermissionGate";
 import { Permissions } from "@/constants/permissions";
 import { useBranding } from "@/contexts/BrandingContext";
 import { DEFAULT_CLIENT_LOGO_PATH } from "@/constants/branding";
+import { getCorporateClientMode } from "@/features/corporate/config";
 
 type Props = { unseenCount?: number };
 
@@ -182,11 +185,30 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
   const currentPath = location.pathname;
   const [openSections, setOpenSections] = useState<string[]>([]);
   const collapsed = state === "collapsed";
+  const corporateMode = getCorporateClientMode();
+  const navigationSections = useMemo(() => corporateMode
+    ? [
+        {
+          label: "CORPORATE",
+          items: corporateMode === "operator"
+            ? [{ title: "Corporate Workspace", url: "/dashboard/corporate/workspace", icon: BriefcaseBusiness }]
+            : [
+                { title: "Employer Dashboard", url: "/dashboard/corporate/employer", icon: Building2 },
+                { title: "Employees", url: "/dashboard/corporate/employer/roster", icon: Users },
+                { title: "Assigned Program", url: "/dashboard/corporate/employer/program", icon: FileText },
+              ],
+        },
+        {
+          label: "ACCOUNT",
+          items: [{ title: "Manage Account", url: "/dashboard/manage-account", icon: Settings }],
+        },
+      ]
+    : menuSections, [corporateMode]);
 
   // Auto-open sections when a child is active
   useEffect(() => {
     const activeParents: string[] = [];
-    menuSections.forEach((section) => {
+    navigationSections.forEach((section) => {
       section.items.forEach((item) => {
         if (item.children?.some((child) => currentPath.startsWith(child.url))) {
           activeParents.push(item.title);
@@ -194,7 +216,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
       });
     });
     setOpenSections((prev) => [...new Set([...prev, ...activeParents])]);
-  }, [currentPath]);
+  }, [currentPath, navigationSections]);
 
   const toggleSection = (title: string) => {
     if (collapsed) return;
@@ -272,7 +294,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex flex-col h-full">
-          {menuSections.map((section, sectionIndex) => (
+          {navigationSections.map((section, sectionIndex) => (
             <Fragment key={section.label}>
               {!collapsed && (
                 <div className="px-3 pt-4 pb-2 first:pt-2">

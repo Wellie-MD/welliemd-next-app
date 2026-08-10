@@ -21,6 +21,7 @@ import { DEFAULT_CLIENT_LOGO_PATH } from "@/constants/branding"
 import { useTheme } from "next-themes"
 import { useClientMessages } from "@/contexts/MessagesContext"
 import api from "@/api/axiosInstance"
+import { isCorporateClientPreview } from "@/features/corporate/config"
 // import { SidebarTrigger } from "../ui/sidebar"
 
 const formatNotificationTime = (raw: string): string => {
@@ -33,6 +34,7 @@ const formatNotificationTime = (raw: string): string => {
 }
 
 export function Header() {
+  const corporatePreview = isCorporateClientPreview()
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const { state } = useSidebar()
@@ -55,6 +57,11 @@ export function Header() {
   const notifErrorStreakRef = useRef(0)
 
   const loadNotifications = useCallback(async () => {
+    if (corporatePreview) {
+      setNotifications([])
+      setUnreadCount(0)
+      return
+    }
     if (notifInFlightRef.current) return
     notifInFlightRef.current = true
     try {
@@ -82,9 +89,10 @@ export function Header() {
     } finally {
       notifInFlightRef.current = false
     }
-  }, [reload])
+  }, [reload, corporatePreview])
 
   useEffect(() => {
+    if (corporatePreview) return
     let cancelled = false
     const load = async () => {
       try {
@@ -106,9 +114,10 @@ export function Header() {
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onFocus)
     }
-  }, [loadNotifications])
+  }, [loadNotifications, corporatePreview])
 
   useEffect(() => {
+    if (corporatePreview) return
     let timer = 0
     const getDelay = () => {
       const hiddenFactor = typeof document !== "undefined" && document.hidden ? 3 : 1
@@ -127,7 +136,7 @@ export function Header() {
     }
     timer = window.setTimeout(tick, getDelay())
     return () => window.clearTimeout(timer)
-  }, [loadNotifications])
+  }, [loadNotifications, corporatePreview])
 
   useEffect(() => {
     const onRefetch = () => {
@@ -206,6 +215,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
+        {!corporatePreview && (
         <DropdownMenu onOpenChange={(open) => { if (open) void loadNotifications() }}>
           <DropdownMenuTrigger asChild>
             <Button size="icon" variant="ghost" className="relative text-gray-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800">
@@ -287,6 +297,7 @@ export function Header() {
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
         <Button
           size="icon"
           variant="ghost"
@@ -316,10 +327,10 @@ export function Header() {
               <User className="mr-2 h-4 w-4" />
               <span>Manage account</span>
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            {!corporatePreview && <DropdownMenuItem>
               <Store className="mr-2 h-4 w-4" />
               <span>Stores</span>
-            </DropdownMenuItem>
+            </DropdownMenuItem>}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />

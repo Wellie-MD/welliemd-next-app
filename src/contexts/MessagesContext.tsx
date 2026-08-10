@@ -54,12 +54,14 @@ const MessagesContext = createContext<ClientMessagesContextValue | null>(null);
 
 export function MessagesProvider({
   children,
+  pollIntervalMs = 30000,
+  disabled = false,
 }: {
   children: ReactNode;
   pollIntervalMs?: number;
+  disabled?: boolean;
 }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const pollIntervalMs = 30000;
 
   // ── Conversations ──────────────────────────────────────────────
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -113,7 +115,7 @@ export function MessagesProvider({
   // ── Fetch conversations ────────────────────────────────────────
   const fetchConversations = useCallback(
     async (reset: boolean) => {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || disabled) return;
       if (conversationsInFlightRef.current) return;
 
       const nextPage = reset ? 1 : conversationsPageRef.current + 1;
@@ -163,7 +165,7 @@ export function MessagesProvider({
         }
       }
     },
-    [isAuthenticated]
+    [isAuthenticated, disabled]
   );
 
   // ── Load more conversations (infinite scroll) ──────────────────
@@ -267,7 +269,7 @@ export function MessagesProvider({
 
   // ── Polling for conversations ──────────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || disabled) return;
 
     const poll = () => {
       pollTimerRef.current = setTimeout(async () => {
@@ -308,7 +310,7 @@ export function MessagesProvider({
     return () => {
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, disabled, pollIntervalMs]);
 
   // ── Polling for Beluga messages (when active conversation is beluga) ──
   useEffect(() => {
@@ -322,7 +324,7 @@ export function MessagesProvider({
 
   // ── Initial load ───────────────────────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || disabled) {
       resetConversations();
       resetActiveMessages();
       setLoading(false);
@@ -333,7 +335,7 @@ export function MessagesProvider({
       initialLoadDoneRef.current = true;
       void fetchConversations(true);
     }
-  }, [isAuthenticated, fetchConversations, resetConversations, resetActiveMessages]);
+  }, [isAuthenticated, disabled, fetchConversations, resetConversations, resetActiveMessages]);
 
   // ── Handle search / type changes ───────────────────────────────
   useEffect(() => {
@@ -341,12 +343,13 @@ export function MessagesProvider({
   }, [searchQuery]);
 
   useEffect(() => {
+    if (disabled) return;
     conversationTypeRef.current = conversationType;
     resetConversations();
     resetActiveMessages();
     setActiveConversationId(null);
     void fetchConversations(true);
-  }, [conversationType, resetConversations, resetActiveMessages, fetchConversations]);
+  }, [conversationType, disabled, resetConversations, resetActiveMessages, fetchConversations]);
 
   // ── Debounced search ───────────────────────────────────────────
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
