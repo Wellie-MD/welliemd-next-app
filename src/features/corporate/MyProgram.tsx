@@ -2,24 +2,24 @@ import { useEffect, useState } from "react";
 import { BookOpen, Check, Clock3, Loader2, LockKeyhole, PlayCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import type { EmployeeCorporateContext } from "./contracts";
-import { fetchAssignedProgram, setPilotGate } from "./corporateApi";
+import { fetchAssignedProgram, getCachedAssignedProgram, setPilotGate } from "./corporateApi";
 
 const gateIcon = (number: number) => number === 0 ? BookOpen : number === 1 ? Clock3 : ShieldCheck;
 
 export default function MyProgram() {
   const location = useLocation();
-  const [context, setContext] = useState<EmployeeCorporateContext | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [context, setContext] = useState<EmployeeCorporateContext | null>(() => getCachedAssignedProgram());
+  const [loading, setLoading] = useState(() => !getCachedAssignedProgram());
   const [error, setError] = useState("");
   const [advancing, setAdvancing] = useState(false);
-  const load = async () => { setLoading(true); setError(""); try { setContext(await fetchAssignedProgram()); } catch (reason: any) { setError(reason?.response?.data?.message || reason?.response?.data?.detail || reason?.message || "Your assigned program could not be loaded."); } finally { setLoading(false); } };
-  useEffect(() => { void load(); }, []);
+  const load = async (force = false) => { if (!context) setLoading(true); setError(""); try { setContext(await fetchAssignedProgram({ force })); } catch (reason: any) { setError(reason?.response?.data?.message || reason?.response?.data?.detail || reason?.message || (typeof reason?.error === "string" ? reason.error : reason?.error?.message) || "Your assigned program could not be loaded."); } finally { setLoading(false); } };
+  useEffect(() => { void load(true); }, []);
   useEffect(() => {
     if (context && location.hash === "#orientation-modules") {
       requestAnimationFrame(() => document.getElementById("orientation-modules")?.scrollIntoView({ behavior: "smooth" }));
     }
   }, [context, location.hash]);
-  const switchGate = async (targetGate: 0 | 1) => { setAdvancing(true); setError(""); try { await setPilotGate(targetGate); await load(); } catch (reason: any) { setError(reason?.response?.data?.error || reason?.message || "The pilot gate could not be changed."); } finally { setAdvancing(false); } };
+  const switchGate = async (targetGate: 0 | 1) => { setAdvancing(true); setError(""); try { await setPilotGate(targetGate); await load(true); } catch (reason: any) { setError(reason?.response?.data?.error || reason?.message || "The pilot gate could not be changed."); } finally { setAdvancing(false); } };
   if (loading) return <div className="flex min-h-[55vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-blue-700" /></div>;
   if (!context) return <section className="mx-auto mt-12 max-w-xl rounded-2xl border bg-white p-8 text-center shadow-sm"><LockKeyhole className="mx-auto h-8 w-8 text-slate-400" /><h1 className="mt-4 text-xl font-semibold">Assigned program unavailable</h1><p className="mt-2 text-sm text-slate-500">{error}</p><button onClick={() => void load()} className="mt-5 inline-flex items-center rounded-lg border px-4 py-2 text-sm font-semibold"><RefreshCw className="mr-2 h-4 w-4" />Retry</button></section>;
   const { program, employer, enrollment, assigned_questionnaire } = context;
