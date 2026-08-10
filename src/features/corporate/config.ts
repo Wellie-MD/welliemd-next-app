@@ -31,7 +31,8 @@ function accessTokenClaims(): Record<string, unknown> {
 }
 
 export const corporatePilotConfig = {
-  enabled: String(import.meta.env.VITE_CORPORATE_PILOT_ENABLED || "false") === "true",
+  // Corporate availability is an authenticated role capability, not a build flag.
+  enabled: true,
   declaredMode,
   isKnownMode: allowedModes.includes(declaredMode),
 };
@@ -39,12 +40,7 @@ export const corporatePilotConfig = {
 export type CorporateClientMode = "operator" | "employer";
 
 export function getCorporateClientMode(): CorporateClientMode | null {
-  if (!corporatePilotConfig.enabled || !corporatePilotConfig.isKnownMode) return null;
   const role = accessTokenClaims().corporate_role;
-  if (corporatePilotConfig.declaredMode === "corporate_employer") {
-    return role === "employer_admin" ? "employer" : null;
-  }
-  if (corporatePilotConfig.declaredMode !== "corporate_operator") return null;
   if (role === "employer_admin") return "employer";
   if (role === "operator_admin") return "operator";
   return null;

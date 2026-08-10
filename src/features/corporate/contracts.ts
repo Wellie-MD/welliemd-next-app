@@ -1,3 +1,14 @@
+export interface CorporateProgramSummary {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  status: string;
+  status_label: string;
+  gates: GateSummary[];
+  orientation_modules: OrientationModule[];
+}
+
 export interface CorporateEmployerSummary {
   id: string;
   name: string;
@@ -9,6 +20,7 @@ export interface CorporateEmployerSummary {
   utilization_percent: number;
   monthly_fee_summary: string;
   branding?: Record<string, unknown>;
+  assigned_programs: CorporateProgramSummary[];
 }
 
 export interface CorporateOperatorSummary {
@@ -25,6 +37,7 @@ export interface CorporatePilotContext {
   mode: "operator";
   operator: CorporateOperatorSummary;
   available_employers: CorporateEmployerSummary[];
+  program_catalog: CorporateProgramSummary[];
   recent_activity: Array<{ id: string; action: string; outcome: string; created_at: string }>;
 }
 
@@ -41,15 +54,8 @@ export interface CorporateEmployerDashboardPayload {
     assigned_programs: number;
     billing_snapshot: string;
   };
-  program: null | {
-    id: string;
-    name: string;
-    description: string;
-    status: string;
-    status_label: string;
-    gates: GateSummary[];
-    orientation_modules: OrientationModule[];
-  };
+  program: CorporateProgramSummary | null;
+  programs: CorporateProgramSummary[];
   gate_snapshot: GateSummary[];
   activity: Array<{ id: string; action: string; outcome: string; created_at: string }>;
   privacy: string;

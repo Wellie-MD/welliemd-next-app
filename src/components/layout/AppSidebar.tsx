@@ -186,9 +186,9 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
   const [openSections, setOpenSections] = useState<string[]>([]);
   const collapsed = state === "collapsed";
   const corporateMode = getCorporateClientMode();
-  const navigationSections = useMemo(() => corporateMode
-    ? [
-        {
+  const navigationSections = useMemo<any[]>(() => {
+    if (!corporateMode) return menuSections;
+    const corporateSection = {
           label: "CORPORATE",
           items: corporateMode === "operator"
             ? [{ title: "Corporate Workspace", url: "/dashboard/corporate/workspace", icon: BriefcaseBusiness }]
@@ -197,13 +197,32 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                 { title: "Employees", url: "/dashboard/corporate/employer/roster", icon: Users },
                 { title: "Assigned Program", url: "/dashboard/corporate/employer/program", icon: FileText },
               ],
-        },
-        {
+        };
+    const accountSection = {
           label: "ACCOUNT",
           items: [{ title: "Manage Account", url: "/dashboard/manage-account", icon: Settings }],
-        },
-      ]
-    : menuSections, [corporateMode]);
+        };
+    if (corporateMode === "operator") {
+      const operatorLegacy = menuSections.map((section) => ({
+        ...section,
+        label: `${section.label} · EXISTING PORTAL`,
+        // Render the established IA in full. Each API still enforces its own
+        // permission contract for this corporate operator account.
+        items: section.items.map((item) => ({ ...item, permission: undefined })),
+      }));
+      return [corporateSection, ...operatorLegacy];
+    }
+    const restrictedLegacy = menuSections.map((section) => ({
+      ...section,
+      label: `${section.label} · EXISTING PORTAL`,
+      items: section.items.map((item) => ({
+        ...item,
+        disabled: true,
+        disabledReason: "Unavailable in employer context",
+      })),
+    }));
+    return [corporateSection, ...restrictedLegacy, accountSection];
+  }, [corporateMode]);
 
   // Auto-open sections when a child is active
   useEffect(() => {
@@ -227,9 +246,9 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
     );
   };
 
-  const isItemActive = (item: unknown) => {
+  const isItemActive = (item: any) => {
     if (item.children) {
-      return item.children.some((child: unknown) =>
+      return item.children.some((child: any) =>
         currentPath.startsWith(child.url)
       );
     }
@@ -321,7 +340,19 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
 
                       return (
                         <SidebarMenuItem key={item.title}>
-                          {item.permission ? (
+                          {item.disabled ? (
+                            <MenuItemWrapper title={`${item.title} — ${item.disabledReason}`}>
+                              <SidebarMenuButton
+                                disabled
+                                aria-disabled="true"
+                                title={item.disabledReason}
+                                className={`cursor-not-allowed opacity-45 ${collapsed ? "mx-auto h-10 w-10 justify-center p-2" : "px-3 py-2.5"}`}
+                              >
+                                <item.icon className="h-5 w-5 shrink-0" />
+                                {!collapsed && <span className="ml-3 truncate font-medium">{item.title}</span>}
+                              </SidebarMenuButton>
+                            </MenuItemWrapper>
+                          ) : item.permission ? (
                             <PermissionGate permission={item.permission}>
                               {item.children ? (
                                 <MenuItemWrapper title={item.title}>

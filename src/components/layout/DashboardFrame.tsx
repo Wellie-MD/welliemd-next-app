@@ -155,6 +155,7 @@ function MessageChime({ conversations }: { conversations: ConversationSummary[] 
 export default function DashboardFrame() {
   const { conversations } = useClientMessages();
   const corporateMode = getCorporateClientMode();
+  const employerContext = corporateMode === "employer";
   const corporateHome = corporateMode === "employer" ? "/dashboard/corporate/employer" : "/dashboard/corporate/workspace";
 
   const [lsTick, setLsTick] = useState(0);
@@ -185,21 +186,21 @@ export default function DashboardFrame() {
         <AppSidebar unseenCount={unseenCount} />
 
         <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-          {!corporateMode && <MessageChime conversations={conversations} />}
+          {!employerContext && <MessageChime conversations={conversations} />}
 
           <Header />
 
-          {!corporateMode && <BillingSuspendedBanner />}
+          {!employerContext && <BillingSuspendedBanner />}
 
-          {!corporateMode && <IntercomWidget />}
+          {!employerContext && <IntercomWidget />}
 
-          {!corporateMode && <IntercomCardBanner />}
+          {!employerContext && <IntercomCardBanner />}
 
           <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
-            {!corporateMode && <IntercomInlineBanner />}
+            {!employerContext && <IntercomInlineBanner />}
             <Suspense fallback={<PageLoadingFallback />}>
             <Routes>
-              {corporateMode ? <>
+              {employerContext ? <>
               <Route path="/" element={<Navigate to={corporateHome} replace />} />
               <Route path="/corporate" element={<Navigate to={corporateHome} replace />} />
               <Route path="/corporate/workspace" element={corporateMode === "operator" ? <CorporateWorkspace /> : <Navigate to={corporateHome} replace />} />
@@ -210,7 +211,11 @@ export default function DashboardFrame() {
               <Route path="/corporate/unavailable" element={<CorporateUnavailable />} />
               <Route path="*" element={<Navigate to={corporateHome} replace />} />
               </> : <>
-              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/" element={corporateMode === "operator" ? <Navigate to={corporateHome} replace /> : <ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/corporate" element={corporateMode === "operator" ? <Navigate to={corporateHome} replace /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/corporate/workspace" element={corporateMode === "operator" ? <CorporateWorkspace /> : <Navigate to="/dashboard" replace />} />
+              <Route path="/corporate/employer" element={<Navigate to={corporateMode === "operator" ? corporateHome : "/dashboard"} replace />} />
+              <Route path="/corporate/unavailable" element={<CorporateUnavailable />} />
               <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
               <Route path="/patients/:patientId" element={<ProtectedRoute><PatientDetailPage /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />

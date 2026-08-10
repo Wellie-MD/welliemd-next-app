@@ -21,7 +21,7 @@ import { DEFAULT_CLIENT_LOGO_PATH } from "@/constants/branding"
 import { useTheme } from "next-themes"
 import { useClientMessages } from "@/contexts/MessagesContext"
 import api from "@/api/axiosInstance"
-import { isCorporateClientPreview } from "@/features/corporate/config"
+import { getCorporateClientMode } from "@/features/corporate/config"
 // import { SidebarTrigger } from "../ui/sidebar"
 
 const formatNotificationTime = (raw: string): string => {
@@ -34,7 +34,7 @@ const formatNotificationTime = (raw: string): string => {
 }
 
 export function Header() {
-  const corporatePreview = isCorporateClientPreview()
+  const employerContext = getCorporateClientMode() === "employer"
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const { state } = useSidebar()
@@ -57,7 +57,7 @@ export function Header() {
   const notifErrorStreakRef = useRef(0)
 
   const loadNotifications = useCallback(async () => {
-    if (corporatePreview) {
+    if (employerContext) {
       setNotifications([])
       setUnreadCount(0)
       return
@@ -89,10 +89,10 @@ export function Header() {
     } finally {
       notifInFlightRef.current = false
     }
-  }, [reload, corporatePreview])
+  }, [reload, employerContext])
 
   useEffect(() => {
-    if (corporatePreview) return
+    if (employerContext) return
     let cancelled = false
     const load = async () => {
       try {
@@ -114,10 +114,10 @@ export function Header() {
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onFocus)
     }
-  }, [loadNotifications, corporatePreview])
+  }, [loadNotifications, employerContext])
 
   useEffect(() => {
-    if (corporatePreview) return
+    if (employerContext) return
     let timer = 0
     const getDelay = () => {
       const hiddenFactor = typeof document !== "undefined" && document.hidden ? 3 : 1
@@ -136,7 +136,7 @@ export function Header() {
     }
     timer = window.setTimeout(tick, getDelay())
     return () => window.clearTimeout(timer)
-  }, [loadNotifications, corporatePreview])
+  }, [loadNotifications, employerContext])
 
   useEffect(() => {
     const onRefetch = () => {
@@ -215,7 +215,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
-        {!corporatePreview && (
+        {!employerContext && (
         <DropdownMenu onOpenChange={(open) => { if (open) void loadNotifications() }}>
           <DropdownMenuTrigger asChild>
             <Button size="icon" variant="ghost" className="relative text-gray-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800">
@@ -327,7 +327,7 @@ export function Header() {
               <User className="mr-2 h-4 w-4" />
               <span>Manage account</span>
             </DropdownMenuItem>
-            {!corporatePreview && <DropdownMenuItem>
+            {!employerContext && <DropdownMenuItem>
               <Store className="mr-2 h-4 w-4" />
               <span>Stores</span>
             </DropdownMenuItem>}

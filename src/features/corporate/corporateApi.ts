@@ -1,5 +1,5 @@
 import api from "@/api/axiosInstance";
-import type { CorporateEmployerDashboardPayload, CorporateHandoffUser, CorporatePilotContext } from "./contracts";
+import type { CorporateEmployerDashboardPayload, CorporateHandoffUser, CorporatePilotContext, CorporateProgramSummary } from "./contracts";
 
 export async function fetchOperatorContext(): Promise<CorporatePilotContext> {
   const { data } = await api.get<CorporatePilotContext>("/corporate/operator/context/");
@@ -23,5 +23,17 @@ export async function exchangeEmployerHandoff(handoffCode: string): Promise<{
 
 export async function fetchEmployerDashboard(): Promise<CorporateEmployerDashboardPayload> {
   const { data } = await api.get<CorporateEmployerDashboardPayload>("/corporate/employer/dashboard/");
+  return data;
+}
+
+export async function assignProgramToEmployer(tenantId: string, programCode: string): Promise<{
+  tenant: CorporatePilotContext["available_employers"][number];
+  program: CorporateProgramSummary;
+  created: boolean;
+}> {
+  const { data } = await api.post("/corporate/operator/programs/assign/", {
+    tenant_id: tenantId,
+    program_code: programCode,
+  });
   return data;
 }

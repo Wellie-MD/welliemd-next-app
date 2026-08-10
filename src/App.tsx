@@ -10,7 +10,7 @@ import { BrandingProvider } from "@/contexts/BrandingContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
 import { IntercomBannersProvider } from "@/features/announcements/IntercomBannersContext";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
-import { isCorporateClientPreview } from "./features/corporate/config";
+import { getCorporateClientMode, isCorporateClientPreview } from "./features/corporate/config";
 
 // pages
 const DashboardFrame = lazyWithRetry(() => import("./components/layout/DashboardFrame"));
@@ -33,13 +33,13 @@ const RouteLoadingFallback = () => (
 );
 
 const DashboardRouteProviders = () => {
-  const corporatePreview = isCorporateClientPreview();
+  const employerContext = getCorporateClientMode() === "employer";
   const content = <Outlet />;
   return (
     <ProtectedRoute>
       <BrandingProvider>
-        <MessagesProvider pollIntervalMs={30000} disabled={corporatePreview}>
-          {corporatePreview ? content : <IntercomBannersProvider>{content}</IntercomBannersProvider>}
+        <MessagesProvider pollIntervalMs={30000} disabled={employerContext}>
+          {employerContext ? content : <IntercomBannersProvider>{content}</IntercomBannersProvider>}
         </MessagesProvider>
       </BrandingProvider>
     </ProtectedRoute>
@@ -98,7 +98,7 @@ const App = () => {
 
         {/* DTC and corporate modes share the staging-v2 shell; route ownership remains role-scoped. */}
         <Route element={<DashboardRouteProviders />}>
-          <Route path="/dashboard/settings/*" element={isCorporateClientPreview() ? <CorporateUnavailable /> : <SettingsFrame />} />
+          <Route path="/dashboard/settings/*" element={getCorporateClientMode() === "employer" ? <CorporateUnavailable /> : <SettingsFrame />} />
           <Route path="/dashboard/*" element={<DashboardFrame />} />
         </Route>
 
