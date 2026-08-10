@@ -37,4 +37,9 @@ export interface EmployeeCorporateContext {
   gates: EmployeeGateSummary[];
   allowed_routes: string[];
   clinical_access_enabled: boolean;
+  assigned_questionnaire: {
+    available: boolean;
+    url: string | null;
+    template_id: string | null;
+  };
 }
