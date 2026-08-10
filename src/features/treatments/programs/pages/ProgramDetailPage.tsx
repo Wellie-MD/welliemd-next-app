@@ -85,7 +85,6 @@ export default function ProgramDetailPage() {
 
   useEffect(() => {
     setQuestions(storedQuestions);
-    console.log("[ProgramDetailPage] Questions Loaded:", storedQuestions);
   }, [storedQuestions]);
 
   const authQuestion = useMemo(() => questions.find(isAuthQuestion), [questions]);
@@ -217,7 +216,6 @@ export default function ProgramDetailPage() {
   };
 
   const handlePreviewLockedQuestion = (question: ProgramQuestion) => {
-    console.log("[ProgramDetailPage] Previewing Question:", question);
     setPreviewQuestion(question);
   };
 
