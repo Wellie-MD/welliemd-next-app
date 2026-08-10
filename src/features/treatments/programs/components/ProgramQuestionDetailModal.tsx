@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -59,7 +60,30 @@ const getCleanConsentHtml = (question: ProgramQuestion) => {
   }
 
   body = body.trim();
-  return body || "<p>Please review the terms of this consent carefully.</p>";
+  const cleanedBody = body || "<p>Please review the terms of this consent carefully.</p>";
+
+  return DOMPurify.sanitize(cleanedBody, {
+    ALLOWED_TAGS: [
+      "p",
+      "br",
+      "strong",
+      "em",
+      "u",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "ul",
+      "ol",
+      "li",
+      "span",
+      "blockquote",
+    "a",
+    ],
+    ALLOWED_ATTR: ["href", "target", "rel", "class"],
+  });
 };
 
 const getChoiceLabel = (choice: unknown): string => {
