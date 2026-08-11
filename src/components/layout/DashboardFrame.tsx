@@ -201,7 +201,7 @@ export default function DashboardFrame() {
             <Suspense fallback={<PageLoadingFallback />}>
             <Routes>
               {employerContext ? <>
-              <Route path="/" element={<Navigate to={corporateHome} replace />} />
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/corporate" element={<Navigate to={corporateHome} replace />} />
               <Route path="/corporate/workspace" element={corporateMode === "operator" ? <CorporateWorkspace /> : <Navigate to={corporateHome} replace />} />
               <Route path="/corporate/employer" element={corporateMode === "employer" ? <CorporateEmployerDashboard /> : <Navigate to={corporateHome} replace />} />
@@ -209,6 +209,40 @@ export default function DashboardFrame() {
               <Route path="/corporate/employer/program" element={corporateMode === "employer" ? <CorporateEmployerProgram /> : <Navigate to={corporateHome} replace />} />
               <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
               <Route path="/corporate/unavailable" element={<CorporateUnavailable />} />
+              <Route path="/patients" element={<ProtectedRoute requiredPermission={Permissions.PORTAL_USER_LIST}><Patients /></ProtectedRoute>} />
+              <Route path="/patients/:patientId" element={<ProtectedRoute requiredPermission={Permissions.PORTAL_USER_LIST}><PatientDetailPage /></ProtectedRoute>} />
+              <Route path="/orders" element={<ProtectedRoute requiredPermission={Permissions.ORDER_LIST}><Orders /></ProtectedRoute>} />
+              <Route path="/orders/labs" element={<ProtectedRoute requiredPermission={Permissions.ORDER_LIST}><LabOrders /></ProtectedRoute>} />
+              <Route path="/orders/labs/:orderId" element={<ProtectedRoute requiredPermission={Permissions.ORDER_LIST}><LabOrderDetail /></ProtectedRoute>} />
+              <Route path="/orders/details/:orderId" element={<ProtectedRoute requiredPermission={Permissions.ORDER_LIST}><OrderDetail /></ProtectedRoute>} />
+              <Route path="/orders/payments" element={<ProtectedRoute requiredPermission={Permissions.ORDER_LIST}><Payments /></ProtectedRoute>} />
+              <Route path="/products" element={<ProtectedRoute requiredPermission={Permissions.PRODUCT_MANAGE}><Products /></ProtectedRoute>} />
+              <Route path="/products/labs" element={<ProtectedRoute requiredPermission={Permissions.PRODUCT_MANAGE}><Labs /></ProtectedRoute>} />
+              <Route path="/products/supplies" element={<ProtectedRoute requiredPermission={Permissions.PRODUCT_MANAGE}><Products /></ProtectedRoute>} />
+              <Route path="/products/routing" element={<ProtectedRoute requiredPermission={Permissions.PRODUCT_MANAGE}><ProductsRouting /></ProtectedRoute>} />
+              <Route path="/messages" element={<ProtectedRoute requiredPermission={Permissions.MESSAGE_LIST}><Messages /></ProtectedRoute>} />
+              <Route path="/billing" element={<ProtectedRoute requiredPermission={Permissions.BILLING_VIEW}><Billing /></ProtectedRoute>} />
+              <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+              <Route path="/analytics/email" element={<ProtectedRoute><EmailAnalytics /></ProtectedRoute>} />
+              <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
+              <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
+              <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+              <Route path="/coupon-codes/new" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
+              <Route path="/coupon-codes/:id/edit" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
+              <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
+              <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
+              <Route path="/affiliates" element={<ProtectedRoute requiredPermission={Permissions.PORTAL_USER_LIST}><Affiliates /></ProtectedRoute>} />
+              <Route path="/questionnaires" element={<ProtectedRoute requiredPermission={Permissions.TEMPLATE_MANAGE}><TemplateManagement /></ProtectedRoute>} />
+              <Route path="/templates" element={<ProtectedRoute requiredPermission={Permissions.TEMPLATE_MANAGE}><TemplateManagement /></ProtectedRoute>} />
+              <Route path="/templates/:templateId" element={<ProtectedRoute requiredPermission={Permissions.TEMPLATE_MANAGE}><TemplateQuestions /></ProtectedRoute>} />
+              <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute requiredPermission={Permissions.TEMPLATE_MANAGE}><FlowBuilder /></ProtectedRoute>} />
+              <Route path="/wearables" element={<ProtectedRoute><Wearables /></ProtectedRoute>} />
+              <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
+              <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
+              <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
+              <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
+              <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
+              <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to={corporateHome} replace />} />
               </> : <>
               <Route path="/" element={corporateMode === "operator" ? <Navigate to={corporateHome} replace /> : <ProtectedRoute><Dashboard /></ProtectedRoute>} />

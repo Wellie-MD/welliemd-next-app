@@ -212,16 +212,15 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
       }));
       return [corporateSection, ...operatorLegacy];
     }
-    const restrictedLegacy = menuSections.map((section) => ({
+    const employerLegacy = menuSections.map((section) => ({
       ...section,
       label: `${section.label} · EXISTING PORTAL`,
-      items: section.items.map((item) => ({
-        ...item,
-        disabled: true,
-        disabledReason: "Unavailable in employer context",
-      })),
+      // Keep the established staging-v2 IA visible in employer context. The
+      // route/API permission checks remain authoritative when a feature is
+      // opened, so visibility does not grant access to protected data.
+      items: section.items.map((item) => ({ ...item, permission: undefined })),
     }));
-    return [corporateSection, ...restrictedLegacy, accountSection];
+    return [corporateSection, ...employerLegacy, accountSection];
   }, [corporateMode]);
 
   // Auto-open sections when a child is active
