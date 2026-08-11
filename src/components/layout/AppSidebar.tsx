@@ -63,6 +63,7 @@ type MenuSection = {
   items: MenuItem[]
 }
 
+const menuSections: MenuSection[] = [
   ...(isCorporatePlatformPreview ? [{
     label: "CORPORATE",
     items: [
