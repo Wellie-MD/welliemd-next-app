@@ -338,7 +338,7 @@ export default function OrderDetail() {
   }
 
   // Handle Refund / Void
-  const handleRefundSubmit = async (data: {
+  const handleRefundModalSubmit = async (data: {
     amount?: string
     refundTarget: "auto" | "base" | "supplemental"
     reason: string
@@ -1829,6 +1829,7 @@ export default function OrderDetail() {
                 <span className="text-sm font-semibold text-slate-600">No tracking info</span>
               </div>
             )}
+          </div>
           {/* Patient Details Card */}
           <OrderPatientCard
             order={order}
@@ -1857,7 +1858,7 @@ export default function OrderDetail() {
         open={showRefundDialog}
         onOpenChange={setShowRefundDialog}
         order={order}
-        onSubmit={handleRefundSubmit}
+        onSubmit={handleRefundModalSubmit}
         loading={refundLoading}
         remainingRefundable={remainingRefundable}
         baseRemainingRefundable={baseRemainingRefundable}
