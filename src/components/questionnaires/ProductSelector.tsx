@@ -146,12 +146,22 @@ export function ProductSelector({
     !savedDoseLabel;
 
   useEffect(() => {
+    const hasRegimen = !!(value?.regimen_name || value?.regimen);
+    const hasDose = !!(selectedDoseMapping || savedDoseLabel);
     setDisplaySnapshot((previousSnapshot) => ({
-      category: selectedCategoryValue || previousSnapshot.category,
-      regimen: value?.regimen_name || value?.regimen || previousSnapshot.regimen,
-      dose: selectedDoseDisplayLabel || previousSnapshot.dose,
+      category: selectedCategoryValue || (savedCategoryName ? previousSnapshot.category : ""),
+      regimen: hasRegimen ? (value?.regimen_name || value?.regimen || "") : "",
+      dose: hasDose ? (selectedDoseDisplayLabel || "") : "",
     }));
-  }, [selectedCategoryValue, value?.regimen_name, value?.regimen, selectedDoseDisplayLabel]);
+  }, [
+    selectedCategoryValue,
+    savedCategoryName,
+    value?.regimen_name,
+    value?.regimen,
+    selectedDoseDisplayLabel,
+    selectedDoseMapping,
+    savedDoseLabel,
+  ]);
 
   useEffect(() => {
     fetchCategories();
@@ -229,16 +239,33 @@ export function ProductSelector({
     if (regimenCode === value?.regimen) return;
 
     const selectedRegimen = regimens.find((r) => r.code === regimenCode);
-    
+    const regimenName = selectedRegimen?.name || regimenCode;
+
+    setDisplaySnapshot((prev) => ({
+      ...prev,
+      regimen: regimenName,
+      dose: "",
+    }));
+
+    // Strip all dose-related fields to guarantee cascading reset of dose selection
+    const {
+      dose_mapping,
+      dose_mapping_id,
+      dose_mapping_name,
+      dose_mapping_label,
+      dose_level,
+      dose_level_id,
+      dose_label,
+      dose,
+      ...cleanValue
+    } = value || {};
+
     onChange({
-      ...value,
+      ...cleanValue,
       category: selectedCategory?.name || savedCategoryName,
       category_id: selectedCategory ? Number(selectedCategory.id) : value?.category_id,
       regimen: regimenCode,
-      regimen_name: selectedRegimen?.name,
-      // Reset dose_mapping when regimen changes
-      dose_mapping: undefined,
-      dose_mapping_label: undefined,
+      regimen_name: regimenName,
     });
   };
 
@@ -259,12 +286,18 @@ export function ProductSelector({
             if (!categoryName) return;
             // No-op: skip if same category already selected
             if (categoryName === selectedCategoryValue) return;
-            const selectedCategory = categories.find(c => c.name === categoryName);
+            const selectedCategory = categories.find((c) => c.name === categoryName);
+            const resolvedCategoryName = selectedCategory?.name || categoryName;
+            setDisplaySnapshot({
+              category: resolvedCategoryName,
+              regimen: "",
+              dose: "",
+            });
             onChange({
               category_id: selectedCategory ? Number(selectedCategory.id) : undefined,
-              category: selectedCategory?.name || "",
-              medication_base_name: selectedCategory?.name || "",
-              product_name: selectedCategory?.name || "",
+              category: resolvedCategoryName,
+              medication_base_name: resolvedCategoryName,
+              product_name: resolvedCategoryName,
               has_hierarchy: false,
             });
           }}
