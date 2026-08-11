@@ -96,15 +96,6 @@ export const OrderPaymentCard: React.FC<OrderPaymentCardProps> = ({
             </span>
           </div>
 
-          {/* Patient Charge Attempts Audit */}
-          {settlement && (settlement.patient_attempts ?? 0) > 0 && (
-            <div className="flex justify-between items-center text-muted-foreground pt-1 border-t border-border/40">
-              <span>Charge Attempts</span>
-              <span className="font-mono font-semibold text-slate-900 dark:text-white">
-                {settlement.patient_attempts} Attempt{settlement.patient_attempts! > 1 ? "s" : ""}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Support Recovery Warning Banner */}

@@ -13,8 +13,6 @@ import {
   LAB_GATE_STATUS_LABELS,
   PROVIDER_REVIEW_STATUS_LABELS,
   RECOLLECTION_ACTION_LABELS,
-  SUPPORT_OWNER_LABELS,
-  SUPPORT_PENDING_REASON_LABELS,
   TREATMENT_CLINICAL_STATUS_LABELS,
   TREATMENT_CLINICAL_STATUS_STYLES,
 } from "../constants"
@@ -127,11 +125,6 @@ export function TreatmentOrderAggregate({
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-100">
           This prescription needs clinical or support review. The patient is not
           required to accept or reject a medication change.
-          {aggregate.settlement.last_error_code && (
-            <span className="ml-1 font-mono text-[10.5px]">
-              ({aggregate.settlement.last_error_code})
-            </span>
-          )}
         </div>
       )}
 
@@ -211,17 +204,6 @@ export function TreatmentOrderAggregate({
           <span>{new Date(aggregate.settlement.settled_at).toLocaleString()}</span>
         )}
       </div>
-      {aggregate.support?.owner && (
-        <div className="space-y-1 border-t border-border px-4 py-3 text-xs text-muted-foreground">
-          <div><span className="font-semibold text-foreground">Support owner:</span> {SUPPORT_OWNER_LABELS[aggregate.support.owner] || aggregate.support.owner.replaceAll("_", " ")}</div>
-          {aggregate.support.pending_reason && <div><span className="font-semibold text-foreground">Pending reason:</span> {SUPPORT_PENDING_REASON_LABELS[aggregate.support.pending_reason] || aggregate.support.pending_reason.replaceAll("_", " ")}</div>}
-          {aggregate.support.last_error_code && <div className="font-mono text-[10.5px]">Error {aggregate.support.last_error_code}</div>}
-          {aggregate.support.last_error_detail && <div>{aggregate.support.last_error_detail}</div>}
-          <div className="break-all font-mono text-[10px]">Case {aggregate.treatment_case_id}{aggregate.reconciliation.source_event_id ? ` · event ${aggregate.reconciliation.source_event_id}` : ""}{aggregate.settlement.operation_id ? ` · operation ${aggregate.settlement.operation_id}` : ""}</div>
-          <div>Guarded retry: {aggregate.support.retry_allowed ? "Available to authorized support in Django Admin" : "Not currently allowed"}</div>
-        </div>
-      )}
-
       {aggregate.siblings.length > 1 && (
         <div className="border-t border-border px-4 py-3">
           <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.05em] text-[hsl(var(--text-tertiary))]">

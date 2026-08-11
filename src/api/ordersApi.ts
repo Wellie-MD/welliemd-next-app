@@ -385,6 +385,11 @@ export interface TreatmentOrderAggregate {
     last_error_code?: string
     last_error_detail?: string
   }
+  purchase_summary?: {
+    checkout_total: Record<string, unknown> | null
+    coupon_code?: string | null
+    discount_amount: string
+  }
   siblings: Array<{
     order_id: string
     order_display_id?: string | null
@@ -519,6 +524,7 @@ export interface Order {
   beluga_dispatch_attempt_count?: number | null
   treatment_aggregate?: TreatmentOrderAggregate | null
   transaction_id?: string | number | null
+  is_legacy?: boolean
 }
 
 export interface PaginatedOrdersResponse {

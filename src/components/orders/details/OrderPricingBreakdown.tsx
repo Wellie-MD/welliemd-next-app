@@ -140,13 +140,27 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
     return lineItemsList.reduce((sum, item) => sum + item.total, 0)
   }, [lineItemsList])
 
-  // Order level financial figures from canonical pricing payload
+  // Order level financial figures from canonical pricing payload. The
+  // aggregate's `purchase_summary` (R10 G3) is the one authoritative,
+  // server-computed source for the checkout-time grand total and discount --
+  // checked first, ahead of the older per-field fallback chain kept here for
+  // orders predating that field.
+  const purchaseSummary = order.treatment_aggregate?.purchase_summary
+  const checkoutTotalSnapshot = purchaseSummary?.checkout_total as
+    | { grand_total?: string | number }
+    | null
+    | undefined
+
   const shippingFee = parseMoney(order.pricing?.shipping_total ?? order.shipping_fee) ?? 0
-  const rawDiscount = parseMoney(order.pricing?.discount_total ?? order.discount_amount) ?? 0
+  const rawDiscount =
+    parseMoney(purchaseSummary?.discount_amount) ??
+    parseMoney(order.pricing?.discount_total ?? order.discount_amount) ??
+    0
   const taxAmount = parseMoney(order.pricing?.tax_total)
   const consultFee = parseMoney(order.pricing?.consult_fee)
   const grandTotal = parseMoney(
-    order.treatment_case_summary?.treatment_total ??
+    checkoutTotalSnapshot?.grand_total ??
+      order.treatment_case_summary?.treatment_total ??
       order.pricing?.grand_total ??
       order.grand_total ??
       order.payable_amount ??

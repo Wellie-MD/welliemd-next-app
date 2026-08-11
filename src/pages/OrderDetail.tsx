@@ -19,7 +19,6 @@ import { OrderPatientCard } from "@/components/orders/details/OrderPatientCard"
 import { OrderPaymentCard } from "@/components/orders/details/OrderPaymentCard"
 import { OrderTimelineCard } from "@/components/orders/details/OrderTimelineCard"
 import { OrderMetadataSection } from "@/components/orders/details/OrderMetadataSection"
-import { OrderSupportNotesSection } from "@/components/orders/details/OrderSupportNotesSection"
 import { OrderMedicalCard } from "@/components/orders/details/OrderMedicalCard"
 import { OrderPharmacyCard } from "@/components/orders/details/OrderPharmacyCard"
 import { RefundVoidModal } from "@/components/orders/details/RefundVoidModal"
@@ -1191,12 +1190,26 @@ export default function OrderDetail() {
   const hasSplitSettlement =
     supplementalDeltaAmount != null && supplementalDeltaAmount > 0
 
+  // Aggregate's `purchase_summary` (R10 G3) is the one authoritative,
+  // server-computed source for the checkout-time grand total and discount --
+  // checked first, ahead of the older per-field fallback chain kept here for
+  // orders predating that field.
+  const purchaseSummary = order.treatment_aggregate?.purchase_summary
+  const checkoutTotalSnapshot = purchaseSummary?.checkout_total as
+    | { grand_total?: string | number }
+    | null
+    | undefined
+
   const quantityRaw = Number.parseFloat(String(qty))
   const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1
   const originalPrice = parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price)
   const shippingFee = parseMoney(order.pricing?.shipping_total ?? order.shipping_fee)
-  const discountAmount = parseMoney(order.pricing?.discount_total ?? order.discount_amount) ?? 0
+  const discountAmount =
+    parseMoney(purchaseSummary?.discount_amount) ??
+    parseMoney(order.pricing?.discount_total ?? order.discount_amount) ??
+    0
   const totalAmount = parseMoney(
+    checkoutTotalSnapshot?.grand_total ??
     order.pricing?.grand_total ??
     order.grand_total ??
     order.payable_amount ??
@@ -1626,8 +1639,6 @@ export default function OrderDetail() {
           {/* Clinical & System Metadata */}
           <OrderMetadataSection order={order} />
 
-          {/* Support Notes & Audit Logs */}
-          <OrderSupportNotesSection order={order} />
               {/* Prescribed Block */}
               <div className="px-6 py-1 mt-1">
                 {!showFullSplitLayout ? (
