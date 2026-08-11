@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownAZ, ChevronLeft, ChevronRight, Clock3, Filter, Search, Check } from "lucide-react";
+import { ArrowDownAZ, ChevronLeft, ChevronRight, Clock3, Filter, Search, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +56,7 @@ const statusSegmentClassName = (active: boolean) =>
 
 export default function ProgramsPage() {
   const { brandSettings } = useBranding();
-  const { data: programs = [] } = usePrograms();
+  const { data: programs = [], isLoading } = usePrograms();
   const { currentClient } = useClients();
   const updateProgramSlug = useUpdateProgramSlug();
   const updateProgramStatus = useUpdateProgramStatus();
@@ -211,6 +211,17 @@ export default function ProgramsPage() {
       // quiet
     }
   };
+
+  if (isLoading && programs.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-6 w-6 animate-spin mr-2 text-slate-500" />
+          <p className="text-sm text-slate-600 dark:text-slate-400">Loading programs and page data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-[#f5f7fb] p-6 text-slate-950 dark:bg-[#0f1117] dark:text-slate-50 lg:p-8">

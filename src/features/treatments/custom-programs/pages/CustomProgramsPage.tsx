@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { TreatmentPageHeader } from "@/features/treatments/common/components";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
@@ -29,6 +30,17 @@ export default function CustomProgramsPage() {
     const base = currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url;
     return base ? base.replace(/\/+$/, "") : "";
   }, [currentClient]);
+
+  if (page.isLoading && page.customPrograms.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-6 w-6 animate-spin mr-2 text-slate-500" />
+          <p className="text-sm text-slate-600 dark:text-slate-400">Loading custom programs and page data...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleOpenBuilder = (program: CustomProgram) => {
     navigate(`/dashboard/treatments/custom-programs/${program.id}/builder`);
