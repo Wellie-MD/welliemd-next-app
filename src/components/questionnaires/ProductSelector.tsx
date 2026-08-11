@@ -293,7 +293,7 @@ export function ProductSelector({
             Select Titration Category / Regimen <span className="text-red-500">*</span>
           </Label>
           <Select
-            value={value.regimen || ""}
+            value={value?.regimen || ""}
             onValueChange={handleRegimenSelect}
             disabled={disabled || loadingRegimens}
           >

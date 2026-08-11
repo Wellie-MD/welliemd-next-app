@@ -398,7 +398,6 @@ export function QuestionForm({
   const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(
     null
   );
-  const [checkoutConfigs, setCheckoutConfigs] = useState<CheckoutConfig[]>([]);
 
   // State for grouped questions
   const [subQuestions, setSubQuestions] = useState<Omit<SubQuestion, "id">[]>(
@@ -610,22 +609,15 @@ export function QuestionForm({
         const existingCheckoutConfig = sanitizeCheckoutConfig(
           validationRules.checkout_config as CheckoutConfig
         );
-        // Always load into the list — single product or multi-product array
-        const loadedConfigs =
+        const initialConfig =
           existingCheckoutConfig &&
           Array.isArray(existingCheckoutConfig.products) &&
           existingCheckoutConfig.products.length > 0
-            ? existingCheckoutConfig.products
-                .map((config) => sanitizeCheckoutConfig(config))
-                .filter((config): config is CheckoutConfig => !!config)
-            : existingCheckoutConfig
-              ? [existingCheckoutConfig]
-              : [];
-        setCheckoutConfigs(loadedConfigs);
-        setCheckoutConfig(null); // staging form starts empty
+            ? sanitizeCheckoutConfig(existingCheckoutConfig.products[0])
+            : existingCheckoutConfig;
+        setCheckoutConfig(initialConfig || null);
       } else if (question.question_type === "checkout") {
         setCheckoutConfig(null);
-        setCheckoutConfigs([]);
       }
 
       // Extract medication config for medication_dose_selector questions
@@ -767,7 +759,6 @@ export function QuestionForm({
       setFollowUpMode("simple");
       setVisibilityRules(createDefaultVisibilityGroup());
       setCheckoutConfig(null);
-      setCheckoutConfigs([]);
       setSubQuestions([]);
       setEnableNumberValidation(false);
       setNumberValidationOperator("gt");
@@ -1058,21 +1049,16 @@ export function QuestionForm({
 
       // Validate checkout question type
       if (formData.question_type === "checkout") {
-        const configsToValidate = checkoutConfigs.length > 0 ? checkoutConfigs : checkoutConfig ? [checkoutConfig] : [];
-        if (configsToValidate.length === 0) {
-          toast({
-            title: "Validation Error",
-            description: "Product selection is required for checkout questions",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        if (configsToValidate.some((config) => !config.category || !config.regimen || !config.dose_mapping)) {
+        if (
+          !checkoutConfig ||
+          !checkoutConfig.category ||
+          !checkoutConfig.regimen ||
+          !checkoutConfig.dose_mapping
+        ) {
           toast({
             title: "Validation Error",
             description:
-              "Select medication category, regimen, and dose level for each checkout product",
+              "Select medication category, regimen, and dose level for the checkout product",
             variant: "destructive",
           });
           return;
@@ -1132,11 +1118,12 @@ export function QuestionForm({
           delete normalized.products;
           return normalized;
         };
-        const normalizedProducts = (checkoutConfigs.length > 0 ? checkoutConfigs : checkoutConfig ? [checkoutConfig] : [])
-          .map(normalizeConfig);
+        const normalizedSingleConfig = checkoutConfig
+          ? normalizeConfig(checkoutConfig)
+          : ({} as CheckoutConfig);
         const normalizedCheckoutConfig: CheckoutConfig = {
-          ...(normalizedProducts[0] || {}),
-          products: normalizedProducts,
+          ...normalizedSingleConfig,
+          products: [normalizedSingleConfig],
         };
         validationRules = {
           checkout_config: normalizedCheckoutConfig,
@@ -1397,33 +1384,6 @@ export function QuestionForm({
   const parentQuestionOptions = existingQuestions.filter(
     (q) => q.id !== question?.id
   );
-  const canAddCheckoutConfig =
-    !!checkoutConfig?.category &&
-    !!checkoutConfig?.regimen &&
-    !!checkoutConfig?.dose_mapping;
-
-  const handleAddCheckoutConfig = () => {
-    if (!canAddCheckoutConfig || !checkoutConfig) return;
-    const nextConfig = { ...checkoutConfig };
-    const signature = `${nextConfig.category}|${nextConfig.regimen}|${nextConfig.dose_mapping}`;
-    const isDuplicate = checkoutConfigs.some(
-      (config) => `${config.category}|${config.regimen}|${config.dose_mapping}` === signature
-    );
-    if (isDuplicate) {
-      toast({
-        title: "Duplicate product",
-        description: "This category / regimen / dose combination is already in the list.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setCheckoutConfigs((prev) => [...prev, nextConfig]);
-    setCheckoutConfig(null); // reset staging form
-  };
-
-  const handleRemoveCheckoutConfig = (index: number) => {
-    setCheckoutConfigs((prev) => prev.filter((_, i) => i !== index));
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1656,76 +1616,13 @@ export function QuestionForm({
             <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-sm">Checkout Configuration</h3>
-                <FieldHelp text="Pick the fixed product lane for this checkout question. Use questionnaire visibility rules to decide which checkout appears. Do not use checkout settings as the main branching engine." />
+                <FieldHelp text="Select the product category, regimen, and dose level for this checkout question." />
               </div>
 
-              {/* List of already-added products */}
-              {checkoutConfigs.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm">
-                    Products in this checkout ({checkoutConfigs.length})
-                  </Label>
-                  {checkoutConfigs.map((config, index) => (
-                    <div
-                      key={`${config.category}-${config.regimen}-${config.dose_mapping}-${index}`}
-                      className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 p-3 text-sm"
-                    >
-                      <div className="space-y-1">
-                        <div className="font-medium text-green-900">
-                          {index + 1}. {config.category}
-                        </div>
-                        <div className="text-xs text-green-700">
-                          Regimen: {config.regimen_name || config.regimen}
-                        </div>
-                        <div className="text-xs text-green-700">
-                          Dose: {config.dose_mapping_label}
-                        </div>
-                        <div className="text-xs text-green-600">✓ Patients will select duration at checkout</div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveCheckoutConfig(index)}
-                        aria-label="Remove product"
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Add-another product form */}
-              <div className="space-y-3 border rounded-md p-3 bg-background">
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm font-medium">
-                    {checkoutConfigs.length === 0
-                      ? <><span className="text-red-500">*</span> Select Product</>
-                      : "Add Another Product"}
-                  </Label>
-                  <FieldHelp text="Add one or more category, regimen, and dose mapping combinations. Each resolved product will appear as a selectable card in the questionnaire." />
-                </div>
-                <ProductSelector
-                  value={checkoutConfig}
-                  onChange={setCheckoutConfig}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddCheckoutConfig}
-                  disabled={!canAddCheckoutConfig}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  {checkoutConfigs.length === 0 ? "Add Product" : "Add Another Product"}
-                </Button>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                All added products will be displayed to the patient as selectable checkout cards. You must add at least one product before saving.
-              </p>
+              <ProductSelector
+                value={checkoutConfig}
+                onChange={setCheckoutConfig}
+              />
             </div>
           )}
 
