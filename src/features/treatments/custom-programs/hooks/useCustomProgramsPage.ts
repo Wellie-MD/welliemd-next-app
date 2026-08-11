@@ -16,7 +16,8 @@ export function isCustomProgramMulti(program: CustomProgram) {
 }
 
 export function useCustomProgramsPage() {
-  const { data: customPrograms = [] } = useCustomPrograms();
+  const customProgramsQuery = useCustomPrograms();
+  const customPrograms = customProgramsQuery.data ?? [];
 
   const [viewMode, setViewMode] = useState<CustomProgramsViewMode>("card");
   const [filter, setFilter] = useState<CustomProgramsFilter>("all");
@@ -58,6 +59,7 @@ export function useCustomProgramsPage() {
 
   return {
     customPrograms,
+    isLoading: customProgramsQuery.isLoading,
     filteredPrograms,
     groupedPrograms,
     multiCount,
