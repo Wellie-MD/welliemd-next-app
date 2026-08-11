@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { DeleteConfirmDialog, TreatmentPageHeader } from "@/features/treatments/common/components";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { CatalogConnectionsDialog } from "@/features/treatments/custom-programs/components/CatalogConnectionsDialog";
@@ -12,6 +13,17 @@ import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 export default function CustomProgramsPage() {
   const navigate = useNavigate();
   const page = useCustomProgramsPage();
+
+  if (page.isLoading && page.customPrograms.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-6 w-6 animate-spin mr-2 text-slate-500" />
+          <p className="text-sm text-slate-600">Loading custom programs and page data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
