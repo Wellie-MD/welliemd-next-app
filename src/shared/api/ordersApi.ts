@@ -90,7 +90,6 @@ export interface PatientTreatmentCaseSummary {
     visit_status?: string | null;
     beluga_dispatch_status?: string | null;
     treatment_total?: string;
-    reimbursement_total?: string;
 }
 
 export interface TreatmentAggregateProduct {
