@@ -23,7 +23,7 @@ export default function CorporateWorkspace() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
-  const [programCode, setProgramCode] = useState("");
+  const [programId, setProgramId] = useState("");
   const [assigning, setAssigning] = useState(false);
   const { toast } = useToast();
 
@@ -34,7 +34,7 @@ export default function CorporateWorkspace() {
       const data = await fetchOperatorContext();
       setContext(data);
       setEmployerId((current) => current || data.available_employers.find((item) => item.status === "ready")?.id || data.available_employers[0]?.id || "");
-      setProgramCode((current) => current || data.program_catalog[0]?.code || "");
+      setProgramId((current) => current || data.program_catalog[0]?.source_program_id || data.program_catalog[0]?.id || "");
     } catch (reason: any) {
       setError(reason?.response?.data?.error || "The corporate operator context could not be loaded.");
     } finally {
@@ -56,11 +56,11 @@ export default function CorporateWorkspace() {
   };
 
   const assignProgram = async () => {
-    if (!employerId || !programCode) return;
+    if (!employerId || !programId) return;
     setAssigning(true);
     setError("");
     try {
-      const result = await assignProgramToEmployer(employerId, programCode);
+      const result = await assignProgramToEmployer(employerId, programId);
       toast({ title: result.created ? "Program assigned" : "Program assignment updated", description: `${result.program.name} is available to ${result.tenant.name}.` });
       await load();
     } catch (reason: any) {
@@ -77,7 +77,7 @@ export default function CorporateWorkspace() {
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start"><div><div className="mb-2 flex items-center gap-2"><Badge>Corporate pilot</Badge><Badge variant="outline">Corporate Operator Admin</Badge></div><h1 className="text-2xl font-bold">Corporate Workspace</h1><p className="mt-1 text-sm text-muted-foreground">{context.operator.name} · authenticated employer portfolio</p></div><Badge variant="secondary" className="w-fit"><ShieldCheck className="mr-1 h-3.5 w-3.5" />Role and tenant scoped</Badge></div>
       <Card className="border-primary/20 bg-primary/5"><CardContent className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-end"><div className="min-w-0 flex-1"><p className="mb-2 text-sm font-medium">Employer tenant handoff</p><Select value={employerId} onValueChange={setEmployerId}><SelectTrigger className="max-w-md bg-background"><SelectValue placeholder="Choose an employer" /></SelectTrigger><SelectContent>{context.available_employers.map((employer) => <SelectItem key={employer.id} value={employer.id}>{employer.name} · {employer.status_label}</SelectItem>)}</SelectContent></Select><p className="mt-2 text-xs text-muted-foreground">The launch code expires in 60 seconds and can be consumed once.</p>{error && <p className="mt-2 text-sm text-destructive">{error}</p>}</div><Button onClick={() => void openEmployer()} disabled={!selected || selected.status !== "ready" || opening}>{opening ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}{opening ? "Preparing handoff" : "Open employer workspace"}<ChevronRight className="ml-2 h-4 w-4" /></Button></CardContent></Card>
-      <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4" />Assign a program to an employer</CardTitle></CardHeader><CardContent><div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end"><div><p className="mb-2 text-xs font-medium text-muted-foreground">Employer</p><Select value={employerId} onValueChange={setEmployerId}><SelectTrigger><SelectValue placeholder="Choose an employer" /></SelectTrigger><SelectContent>{context.available_employers.map((employer) => <SelectItem key={employer.id} value={employer.id}>{employer.name}</SelectItem>)}</SelectContent></Select></div><div><p className="mb-2 text-xs font-medium text-muted-foreground">Operator program catalog</p><Select value={programCode} onValueChange={setProgramCode}><SelectTrigger><SelectValue placeholder="Choose a program" /></SelectTrigger><SelectContent>{context.program_catalog.map((program) => <SelectItem key={program.code} value={program.code}>{program.name} · {program.status_label}</SelectItem>)}</SelectContent></Select></div><Button onClick={() => void assignProgram()} disabled={!employerId || !programCode || assigning}>{assigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{assigning ? "Assigning" : "Assign program"}</Button></div><p className="mt-3 text-xs text-muted-foreground">This changes employer-level program visibility only. Employee enrollment remains gate-controlled.</p></CardContent></Card>
+      <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4" />Assign a program to an employer</CardTitle></CardHeader><CardContent><div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto] lg:items-end"><div><p className="mb-2 text-xs font-medium text-muted-foreground">Employer</p><Select value={employerId} onValueChange={setEmployerId}><SelectTrigger><SelectValue placeholder="Choose an employer" /></SelectTrigger><SelectContent>{context.available_employers.map((employer) => <SelectItem key={employer.id} value={employer.id}>{employer.name}</SelectItem>)}</SelectContent></Select></div><div><p className="mb-2 text-xs font-medium text-muted-foreground">Existing staging-v2 program catalog</p><Select value={programId} onValueChange={setProgramId}><SelectTrigger><SelectValue placeholder="Choose a program" /></SelectTrigger><SelectContent>{context.program_catalog.map((program) => <SelectItem key={program.id} value={program.source_program_id || program.id}>{program.name} · {program.status_label}</SelectItem>)}</SelectContent></Select></div><Button onClick={() => void assignProgram()} disabled={!employerId || !programId || assigning}>{assigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{assigning ? "Assigning" : "Assign program"}</Button></div><p className="mt-3 text-xs text-muted-foreground">This assigns the existing staging-v2 Program record to the employer. Employee access remains gate-controlled.</p></CardContent></Card>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[{ label: "Employer tenants", value: context.operator.employer_count, detail: `${context.available_employers.filter((item) => item.status === "ready").length} ready`, icon: Building2 }, { label: "Active workforce", value: context.operator.active_employee_count, detail: "Across employer tenants", icon: Users }, { label: "Monthly fee view", value: context.operator.monthly_fee_summary, detail: "Aggregate pilot estimate", icon: DollarSign }, { label: "Tenant boundary", value: "Verified", detail: "No employer PHI", icon: ShieldCheck }].map(({ label, value, detail, icon: Icon }) => <Card key={label}><CardContent className="p-5"><div className="mb-4 flex items-start justify-between"><div className="rounded-lg bg-muted p-2.5"><Icon className="h-5 w-5 text-primary" /></div><Badge variant="outline" className="text-[10px]">Backend</Badge></div><p className="text-sm text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-bold">{value}</p><p className="mt-1 text-xs text-muted-foreground">{detail}</p></CardContent></Card>)}
       </div>

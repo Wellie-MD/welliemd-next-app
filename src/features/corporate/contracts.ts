@@ -1,5 +1,6 @@
 export interface CorporateProgramSummary {
   id: string;
+  source_program_id: string | null;
   code: string;
   name: string;
   description: string;

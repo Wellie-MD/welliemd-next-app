@@ -26,14 +26,14 @@ export async function fetchEmployerDashboard(): Promise<CorporateEmployerDashboa
   return data;
 }
 
-export async function assignProgramToEmployer(tenantId: string, programCode: string): Promise<{
+export async function assignProgramToEmployer(tenantId: string, programId: string): Promise<{
   tenant: CorporatePilotContext["available_employers"][number];
   program: CorporateProgramSummary;
   created: boolean;
 }> {
   const { data } = await api.post("/corporate/operator/programs/assign/", {
     tenant_id: tenantId,
-    program_code: programCode,
+    program_id: programId,
   });
   return data;
 }
