@@ -102,6 +102,7 @@ export interface ShippingAddressSnapshot {
   country?: string
   formatted?: string
   source: "checkout_snapshot"
+}
 
 export interface PrescriptionHistoryMedication {
   product_name?: string

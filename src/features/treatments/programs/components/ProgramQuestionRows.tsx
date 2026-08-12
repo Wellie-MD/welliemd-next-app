@@ -168,7 +168,7 @@ export function SortableQuestionRow({
   const isClientQuestion = isClientCreatedQuestion(row.question);
   const isLocked = isLockedProgramQuestion(row.question);
   const canOpenRowEditor = Boolean(row.question && isClientQuestion && !isLocked && !isReorderActive);
-  const canPreviewLockedQuestion = Boolean(row.question && isLocked && !isClientQuestion);
+  const canPreviewQuestion = Boolean(row.question && !canOpenRowEditor);
   const sortable = useSortable({
     id: row.id,
     disabled: !isReorderActive || !isClientQuestion || isLocked,
@@ -176,7 +176,7 @@ export function SortableQuestionRow({
   const handleRowClick = () => {
     if (!row.question) return;
     if (canOpenRowEditor) onEdit(row.question);
-    else if (canPreviewLockedQuestion) onPreviewLockedQuestion(row.question);
+    else onPreviewLockedQuestion(row.question);
   };
 
   return <div
@@ -190,7 +190,7 @@ export function SortableQuestionRow({
     onClick={handleRowClick}
     className={cn(
       "group grid min-h-[66px] grid-cols-[52px_minmax(0,1fr)_120px_170px_92px] items-center gap-4 border-b border-slate-100 bg-white px-4 transition-colors hover:bg-slate-50/70 dark:border-slate-800 dark:bg-[#11151f] dark:hover:bg-slate-800/40 md:px-8",
-      (canOpenRowEditor || canPreviewLockedQuestion) && "cursor-pointer",
+      Boolean(row.question) && "cursor-pointer",
       sortable.isDragging && "shadow-lg",
     )}
   >
@@ -214,14 +214,14 @@ export function SortableQuestionRow({
       {row.required ? <><Check className="h-3.5 w-3.5 stroke-[3]" />Required</> : <span className="text-slate-400">Optional</span>}
     </div>
     <div><span className="inline-flex rounded-md border bg-slate-50 px-2.5 py-1 text-xs font-medium">{formatQuestionKind(row.kind)}</span></div>
-    <div className={cn("flex items-center justify-start gap-1.5", isClientQuestion ? "opacity-0 transition-opacity group-hover:opacity-100" : "text-slate-200")}>
-      {row.question && isClientQuestion && !isLocked ? <>
+    <div className={cn("flex items-center justify-start gap-1.5", isClientQuestion && canOpenRowEditor ? "opacity-0 transition-opacity group-hover:opacity-100" : "text-slate-400")}>
+      {row.question && canOpenRowEditor ? <>
         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); onEdit(row.question!); }} className="h-8 w-8" title="Edit question"><Pencil className="h-4 w-4" /></Button>
         <Button type="button" variant="ghost" size="icon" onClick={(event) => { event.stopPropagation(); onDelete(row.question!.id); }} className="h-8 w-8" title="Delete question"><Trash2 className="h-4 w-4" /></Button>
-      </> : row.question && canPreviewLockedQuestion ? <div className="flex items-center gap-1.5">
-        <LockKeyhole className="h-3.5 w-3.5" />
-        <button type="button" onClick={(event) => { event.stopPropagation(); onPreviewLockedQuestion(row.question!); }} className="inline-flex h-8 w-8 items-center justify-center rounded-md opacity-0 group-hover:opacity-100" aria-label={`Preview ${row.text}`}><Eye className="h-4 w-4" /></button>
-      </div> : <div className="flex h-8 w-8 items-center justify-start"><LockKeyhole className="h-3.5 w-3.5" /></div>}
+      </> : row.question ? <div className="flex items-center gap-1.5">
+        <LockKeyhole className="h-3.5 w-3.5 text-slate-400" />
+        <button type="button" onClick={(event) => { event.stopPropagation(); onPreviewLockedQuestion(row.question!); }} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200" aria-label={`Preview ${row.text}`}><Eye className="h-4 w-4" /></button>
+      </div> : <div className="flex h-8 w-8 items-center justify-start"><LockKeyhole className="h-3.5 w-3.5 text-slate-400" /></div>}
     </div>
   </div>;
 }
