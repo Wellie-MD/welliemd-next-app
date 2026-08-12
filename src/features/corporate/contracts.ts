@@ -20,6 +20,7 @@ export interface EmployeeCorporateContext {
   employer: { id: string; name: string; branding: Record<string, unknown> };
   program: {
     id: string;
+    source_program_id: string | null;
     name: string;
     description: string;
     status: string;
@@ -27,6 +28,7 @@ export interface EmployeeCorporateContext {
     gates: EmployeeGateSummary[];
     orientation_modules: EmployeeOrientationModule[];
   };
+  programs: EmployeeProgramEnrollment[];
   enrollment: {
     id: string;
     status: string;
@@ -42,4 +44,12 @@ export interface EmployeeCorporateContext {
     url: string | null;
     template_id: string | null;
   };
+}
+
+export interface EmployeeProgramEnrollment {
+  program: EmployeeCorporateContext["program"];
+  enrollment: EmployeeCorporateContext["enrollment"];
+  gates: EmployeeGateSummary[];
+  clinical_access_enabled: boolean;
+  assigned_questionnaire: EmployeeCorporateContext["assigned_questionnaire"];
 }

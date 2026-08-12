@@ -77,7 +77,12 @@ export async function fetchAssignedProgram(
   return request;
 }
 
-export async function setPilotGate(targetGate: 0 | 1): Promise<{ current_gate: 0 | 1 | 2 }> {
-  const { data } = await apiClient.post<{ current_gate: 0 | 1 | 2 }>("/corporate/employee/program/advance/", { target_gate: targetGate });
+export async function setPilotGate(enrollmentId: string, targetGate: 0 | 1): Promise<{ current_gate: 0 | 1 | 2 }> {
+  const { data } = await apiClient.post<{ current_gate: 0 | 1 | 2 }>("/corporate/employee/program/advance/", { enrollment_id: enrollmentId, target_gate: targetGate });
+  return data;
+}
+
+export async function createQuestionnaireLaunch(enrollmentId: string): Promise<{ launch_url: string; expires_at: string }> {
+  const { data } = await apiClient.post<{ launch_url: string; expires_at: string }>("/corporate/employee/program/questionnaire-launch/", { enrollment_id: enrollmentId });
   return data;
 }
