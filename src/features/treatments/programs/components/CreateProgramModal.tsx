@@ -167,7 +167,7 @@ export function CreateProgramModal({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="max-w-[500px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
+      <DialogContent showClose={false} className="max-w-[500px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
         <DialogHeader className="px-6 py-4 border-b border-slate-100 flex flex-row items-center justify-between">
           <div>
             <DialogTitle className="text-base font-bold text-slate-900">
