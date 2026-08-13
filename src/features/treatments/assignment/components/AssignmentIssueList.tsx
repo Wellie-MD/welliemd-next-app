@@ -16,10 +16,13 @@ export function AssignmentIssueList(props: {
   issues: AssignmentIssue[];
   summary?: AssignmentIssueSummary;
   onRecheck?: () => void;
+  /** Called after a corrective action navigates away, so the modal can close
+   * instead of floating over the page it just navigated to. */
+  onNavigate?: () => void;
   /** Permissions used to authorize corrective actions. */
   permissions: ReadonlySet<string>;
 }) {
-  const { issues, summary, permissions } = props;
+  const { issues, summary, permissions, onNavigate } = props;
   if (!issues.length) return null;
 
   const canConfigureProduct = permissions.has(CONFIGURE_PRODUCT_PERMISSION);
@@ -37,6 +40,7 @@ export function AssignmentIssueList(props: {
             key={`${issue.code}:${index}`}
             issue={issue}
             canConfigureProduct={canConfigureProduct}
+            onNavigate={onNavigate}
           />
         ))}
       </ul>
@@ -56,6 +60,7 @@ export function AssignmentIssueList(props: {
 function AssignmentIssueRow(props: {
   issue: AssignmentIssue;
   canConfigureProduct: boolean;
+  onNavigate?: () => void;
 }) {
   const navigate = useNavigate();
   const { issue, canConfigureProduct } = props;
@@ -78,9 +83,11 @@ function AssignmentIssueRow(props: {
       {issue.action_route && !actionBlocked && (
         <button
           type="button"
-          onClick={() =>
-            navigateToAssignmentAction(navigate, issue.action_route)
-          }
+          onClick={() => {
+            if (navigateToAssignmentAction(navigate, issue.action_route)) {
+              props.onNavigate?.();
+            }
+          }}
           className="mt-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1 font-medium"
         >
           {ASSIGNMENT_ACTION_LABELS[issue.action] || issue.action}

@@ -127,7 +127,11 @@ export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): Pr
   required: Boolean(record.required ?? record.is_required ?? false),
   choices: record.choices ?? record.answer_choices ?? [],
   dqChoices: record.dqChoices ?? [],
-  consentText: record.consentText,
+  consentText: record.consentText
+    ?? record.consent_text
+    ?? (typeof record.elementConfig === "object" && record.elementConfig ? String((record.elementConfig as Record<string, unknown>).consent_text || "") : undefined)
+    ?? (typeof record.element_config === "object" && record.element_config ? String((record.element_config as Record<string, unknown>).consent_text || "") : undefined)
+    ?? (typeof record.consent_form === "object" && record.consent_form ? String((record.consent_form as Record<string, unknown>).consent_text || (record.consent_form as Record<string, unknown>).text || "") : undefined),
   checkoutProductIds: record.checkoutProductIds,
   checkoutProducts: record.checkoutProducts,
   visibilityRule: record.visibilityRule,
@@ -139,18 +143,25 @@ export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): Pr
     record.validation_rules?.element_config ?? record.validation?.element_config,
 });
 
-export const questionToRecord = (question: ProgramQuestion): ProgramQuestionRecord => ({
-  ...question,
-  order_index: question.order,
-  question_text: question.text,
-  question_type: question.kind,
-  is_required: question.required,
-  answer_choices: question.choices || [],
-  visibilityRules: question.visibilityRuleGroup,
-  visibility_rules: question.visibilityRuleGroup,
-  include_in_qa_section: question.includeInQa,
-  element_config: question.elementConfig,
-});
+export const questionToRecord = (question: ProgramQuestion): ProgramQuestionRecord => {
+  const elementConfig = {
+    ...(question.elementConfig || {}),
+    ...(question.kind === "consent" && question.consentText ? { consent_text: question.consentText } : {}),
+  };
+  return {
+    ...question,
+    order_index: question.order,
+    question_text: question.text,
+    question_type: question.kind,
+    is_required: question.required,
+    answer_choices: question.choices || [],
+    consent_text: question.kind === "consent" ? question.consentText : undefined,
+    visibilityRules: question.visibilityRuleGroup,
+    visibility_rules: question.visibilityRuleGroup,
+    include_in_qa_section: question.includeInQa,
+    element_config: elementConfig,
+  };
+};
 
 export const treatmentTypeFromRecord = (record: TreatmentTypeRecord): TreatmentType => ({
   id: record.id,
@@ -330,6 +341,7 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
   maxBmi: record.max_bmi ?? null,
   serviceStatesAll: record.service_states_all ?? true,
   serviceStates: record.service_states || [],
+  shippingDestinationPolicy: record.shipping_destination_policy || "service_location_only",
   labRequirements: (record.lab_requirements || []).map((requirement) => ({
     id: requirement.id,
     panelId: requirement.panel_id,
@@ -415,6 +427,9 @@ export const programToRecord = (program: Partial<Program>, treatmentTypes: Treat
   }
   if (program.serviceStates !== undefined) {
     payload.service_states = program.serviceStatesAll === false ? (program.serviceStates || []) : [];
+  }
+  if (program.shippingDestinationPolicy !== undefined) {
+    payload.shipping_destination_policy = program.shippingDestinationPolicy;
   }
   if (program.labRequirements !== undefined) {
     payload.lab_requirements = (program.labRequirements || []).map((requirement, index) => ({

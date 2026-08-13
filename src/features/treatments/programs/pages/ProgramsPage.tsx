@@ -6,6 +6,7 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
@@ -76,8 +77,8 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 
 export default function ProgramsPage() {
   const navigate = useNavigate();
-  const { data: programs = [], refetch: refetchPrograms } = usePrograms();
-  const { data: treatmentTypes = [] } = useTreatmentTypes();
+  const { data: programs = [], refetch: refetchPrograms, isLoading: isProgramsLoading } = usePrograms();
+  const { data: treatmentTypes = [], isLoading: isTreatmentTypesLoading } = useTreatmentTypes();
   const { data: allConsents = [] } = useConsents();
   const saveProgramMutation = useSaveProgram();
   const duplicateProgramMutation = useDuplicateProgram();
@@ -404,6 +405,17 @@ export default function ProgramsPage() {
       subtitle: p.treatmentTypeKey || undefined,
     }));
   }, [activePrograms]);
+
+  if ((isProgramsLoading || isTreatmentTypesLoading) && programs.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          <p className="text-muted-foreground">Loading programs and page data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto min-h-screen">

@@ -27,8 +27,8 @@ export function CheckoutPatientPreview({ validProducts, selectedPreviewIdx, visi
   const ruleCount = countRules(visibilityRuleGroup);
 
   return (
-    <aside className="flex flex-col overflow-y-auto bg-[#111827] p-5">
-      <div className="mb-4 flex items-center gap-2">
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-[#111827] p-5">
+      <div className="mb-4 flex shrink-0 items-center gap-2">
         <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
         <span className="block text-[10px] font-bold uppercase tracking-wider text-white">Patient Preview</span>
       </div>
@@ -39,7 +39,7 @@ export function CheckoutPatientPreview({ validProducts, selectedPreviewIdx, visi
           </div>
         </div>
       ) : (
-        <div className="mx-auto flex w-full max-w-sm flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div className="mx-auto flex w-full max-w-sm flex-1 min-h-0 flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
           <div className="flex shrink-0 items-center border-b border-slate-100 bg-slate-50/50 px-4 py-3">
             <div className="mr-4 flex gap-1.5">
               <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
@@ -54,11 +54,13 @@ export function CheckoutPatientPreview({ validProducts, selectedPreviewIdx, visi
             <div className="w-[42px]" />
           </div>
 
-          <div className="p-5">
-            <h2 className="text-[15px] font-extrabold leading-snug text-slate-950">Recommended treatment</h2>
-            <p className="mt-1 text-[11px] font-medium text-slate-500">Choose the available supply for each medication.</p>
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden p-5">
+            <div className="shrink-0">
+              <h2 className="text-[15px] font-extrabold leading-snug text-slate-950">Recommended treatment</h2>
+              <p className="mt-1 text-[11px] font-medium text-slate-500">Choose the available supply for each medication.</p>
+            </div>
 
-            <div className="mt-4 space-y-2.5">
+            <div className="mt-4 flex-1 min-h-0 space-y-2.5 overflow-y-auto pr-1">
               {groups.map((group) => {
                 const first = group[0];
                 return (
@@ -105,19 +107,21 @@ export function CheckoutPatientPreview({ validProducts, selectedPreviewIdx, visi
               })}
             </div>
 
-            <button
-              type="button"
-              className="mt-4 w-full rounded-md bg-emerald-600 px-4 py-2.5 text-center text-[12px] font-extrabold text-white transition-colors hover:bg-emerald-700"
-              data-testid="checkout-preview-continue"
-            >
-              Continue →
-            </button>
+            <div className="mt-4 shrink-0">
+              <button
+                type="button"
+                className="w-full rounded-md bg-emerald-600 px-4 py-2.5 text-center text-[12px] font-extrabold text-white transition-colors hover:bg-emerald-700"
+                data-testid="checkout-preview-continue"
+              >
+                Continue →
+              </button>
 
-            {ruleCount > 0 && (
-              <p className="mt-3 text-center text-[10px] font-medium text-slate-400">
-                Visibility rules decide when this product step appears.
-              </p>
-            )}
+              {ruleCount > 0 && (
+                <p className="mt-3 text-center text-[10px] font-medium text-slate-400">
+                  Visibility rules decide when this product step appears.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

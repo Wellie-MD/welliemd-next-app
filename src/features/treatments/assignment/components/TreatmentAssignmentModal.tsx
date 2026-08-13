@@ -363,7 +363,7 @@ export function TreatmentAssignmentModal({
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
+      <DialogContent showClose={false} className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-2xl sm:w-[calc(100vw-2rem)]">
         <DialogTitle className="sr-only">Dependency-aware assignment</DialogTitle>
         <header className="flex shrink-0 items-start justify-between border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center gap-3">
@@ -421,6 +421,7 @@ export function TreatmentAssignmentModal({
                   onRetry={() => retry(pair)}
                   onCancel={() => cancel(pair)}
                   onRecheck={() => recheckPair(pair)}
+                  onNavigate={() => changeOpen(false)}
                   permissions={permissions}
                 />
               ))

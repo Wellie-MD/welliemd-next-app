@@ -14,6 +14,7 @@ import {
   Check,
   Pencil,
   Trash2,
+  History,
   FileDown,
   AlertTriangle,
 } from "lucide-react";
@@ -25,7 +26,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { productApi, Product } from "@/api/products";
+import {
+  productApi,
+  Product,
+  ProductChangeAction,
+  ProductChangeHistoryResponse,
+} from "@/api/products";
 import { clientApi, Client } from "@/api/clientApi";
 import axiosInstance from "@/api/axiosInstance";
 import { productCategoryApi, ProductCategory } from "@/api/productCategories";
@@ -61,6 +67,13 @@ interface ProductForAssignment {
   rx_drug_form?: string;
   purchase_type?: "one_time" | "subscription";
   created_at?: string;
+  product_type?: "single" | "bundle" | "supply";
+  treatment_type_name?: string | null;
+  treatment_type_is_active?: boolean | null;
+  derived_intake_visit_type?: string | null;
+  derived_followup_visit_type?: string | null;
+  restrict_visit_types?: boolean;
+  allowed_visit_types?: string[];
 }
 
 interface PaginatedProductsResponse {
@@ -87,6 +100,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 type AssignmentOperation = "assign" | "reassign";
 type BulkProgressStatus = "idle" | "running" | "completed" | "partial" | "stopped";
+type ChangeHistoryFilter = "all" | ProductChangeAction;
 
 interface BulkProgress {
   status: BulkProgressStatus;
@@ -111,6 +125,201 @@ const emptyProgress: BulkProgress = {
   currentBatch: 0,
   totalBatches: 0,
 };
+
+const changeHistoryFilters: Array<{ value: ChangeHistoryFilter; label: string }> = [
+  { value: "all", label: "All activity" },
+  { value: "created", label: "Created" },
+  { value: "updated", label: "Field updates" },
+  { value: "status", label: "Status changes" },
+];
+
+function formatHistoryDate(isoString?: string) {
+  if (!isoString) return "-";
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "-";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const hour = date.getHours() % 12 || 12;
+    const meridiem = date.getHours() >= 12 ? "PM" : "AM";
+    return `${year}-${month}-${day} ${hour}:${minutes} ${meridiem}`;
+  } catch {
+    return "-";
+  }
+}
+
+function historyActionLabel(entry: ProductChangeLog) {
+  if (entry.action === "created") return "Record created";
+  if (entry.action === "status") return "Status changed";
+  if (entry.action === "deleted") return "Record deleted";
+  return `Updated ${entry.field_label || "field"}`;
+}
+
+const currencyHistoryFields = new Set([
+  "base_price",
+  "cost_to_client",
+  "cost_to_welliemd",
+  "shipping_cost_to_client",
+  "shipping_cost_to_welliemd",
+  "shipping_fee_patient",
+  "discounted_price",
+]);
+
+function formatHistoryValue(entry: ProductChangeLog, value: string) {
+  if (!value || !currencyHistoryFields.has(entry.field_name)) return value;
+  if (value.trim().startsWith("$")) return value;
+
+  const amount = Number(value.replace(/,/g, ""));
+  return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : value;
+}
+
+function HistoryActionIcon({ action }: { action: ProductChangeAction }) {
+  const Icon =
+    action === "created"
+      ? Plus
+      : action === "status"
+        ? Check
+        : action === "deleted"
+          ? Trash2
+          : Pencil;
+  return <Icon className="h-2.5 w-2.5" strokeWidth={2.5} />;
+}
+
+function ProductChangeHistoryDialog({
+  open,
+  onOpenChange,
+  history,
+  loading,
+  error,
+  filter,
+  onFilterChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  history: ProductChangeHistoryResponse | null;
+  loading: boolean;
+  error: string | null;
+  filter: ChangeHistoryFilter;
+  onFilterChange: (filter: ChangeHistoryFilter) => void;
+}) {
+  const entries = history?.results || [];
+  const recordType = history?.record.type === "Product" ? "product" : history?.record.type || "record";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        overlayClassName="!bg-black/40"
+        showClose={false}
+        className="max-w-[760px] max-h-[calc(100vh-24px)] overflow-y-auto gap-0 rounded-lg border-none p-0 shadow-[0_10px_25px_rgba(0,0,0,0.2)] bg-white"
+        style={{ fontFamily: "'DM Sans', sans-serif" }}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div className="flex-1 text-left">
+            <h3 className="text-lg font-semibold text-slate-800">Change History</h3>
+            <p className="mt-0.5 text-[13px] font-normal text-slate-400">
+              Audit trail of every change made to this {recordType}.
+            </p>
+          </div>
+          <DialogClose className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 outline-none transition-colors hover:bg-slate-100 hover:text-slate-600">
+            <X className="h-[18px] w-[18px]" />
+          </DialogClose>
+        </div>
+
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
+          <div className="mb-[18px] flex flex-wrap items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+            <span className="text-[11.5px] text-slate-400">
+              Record: <b className="font-semibold text-slate-700">{history?.record.name || "-"}</b>
+            </span>
+            <span className="text-[11.5px] text-slate-400">
+              Type: <b className="font-semibold text-slate-700">
+                {history?.record.type === "Product" ? "Medicine / Product" : history?.record.type || "-"}
+              </b>
+            </span>
+            <span className="text-[11.5px] text-slate-400">
+              Total changes: <b className="font-semibold text-slate-700">{history?.total_changes ?? 0}</b>
+            </span>
+          </div>
+
+          <div className="mb-4 flex flex-col items-stretch gap-2">
+            <label className="text-[11px] font-semibold tracking-[0.03em] text-slate-400">FILTER</label>
+            <select
+              value={filter}
+              onChange={(event) => onFilterChange(event.target.value as ChangeHistoryFilter)}
+              className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-800 outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
+            >
+              {changeHistoryFilters.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-10 text-sm text-slate-500">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin text-sky-500" />
+              Loading change history...
+            </div>
+          ) : error ? (
+            <div className="rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="py-10 text-center text-slate-400">
+              <History className="mx-auto mb-2 h-[34px] w-[34px]" />
+              <div className="text-[13px] font-medium">No changes match this filter</div>
+            </div>
+          ) : (
+            <div className="relative pl-[26px] before:absolute before:bottom-1.5 before:left-2 before:top-1.5 before:w-0.5 before:bg-slate-200">
+              {entries.map((entry) => (
+                <div key={entry.id} className="relative pb-5 last:pb-0">
+                  <span
+                    className={`absolute -left-[26px] top-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 bg-white ${
+                      entry.action === "created"
+                        ? "border-green-600 text-green-600"
+                        : entry.action === "status"
+                          ? "border-amber-600 text-amber-600"
+                          : entry.action === "deleted"
+                            ? "border-red-600 text-red-600"
+                            : "border-blue-700 text-blue-700"
+                    }`}
+                  >
+                    <HistoryActionIcon action={entry.action} />
+                  </span>
+                  <div className="mb-1 flex items-baseline justify-between gap-3">
+                    <span className="text-[13px] font-semibold text-slate-800">{historyActionLabel(entry)}</span>
+                    <span className="whitespace-nowrap font-mono text-[11.5px] text-slate-400">
+                      {formatHistoryDate(entry.changed_at)}
+                    </span>
+                  </div>
+                  <div className="mb-1.5 text-[11.5px] text-slate-400">
+                    by <b className="font-semibold text-slate-700">{entry.changed_by_name || "System"}</b>
+                    {entry.changed_by_role ? ` · ${entry.changed_by_role}` : ""}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
+                    <span className="min-w-[110px] font-semibold text-slate-700">{entry.field_label}</span>
+                    {entry.old_display ? (
+                      <>
+                        <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-800">
+                          {formatHistoryValue(entry, entry.old_display)}
+                        </span>
+                        <span className="text-slate-400">→</span>
+                      </>
+                    ) : null}
+                    <span className="rounded bg-green-50 px-1.5 py-0.5 text-green-800">
+                      {formatHistoryValue(entry, entry.new_display || "-")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 /* Custom checkbox matching the portal's design standard */
 interface CustomCheckboxProps {
@@ -164,7 +373,7 @@ interface PillProps {
 function Pill({ children, solid }: PillProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
+      className={`inline-flex max-w-full items-center rounded-md px-2 py-1 text-[11px] font-semibold leading-tight whitespace-normal break-words xl:text-xs ${
         solid
           ? "bg-sky-400 text-white"
           : "bg-sky-50 text-sky-700 border border-sky-100"
@@ -321,6 +530,14 @@ export default function Products() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
+  const [historyProduct, setHistoryProduct] = useState<ProductForAssignment | null>(null);
+  const [changeHistory, setChangeHistory] =
+    useState<ProductChangeHistoryResponse | null>(null);
+  const [changeHistoryFilter, setChangeHistoryFilter] =
+    useState<ChangeHistoryFilter>("all");
+  const [changeHistoryLoading, setChangeHistoryLoading] = useState(false);
+  const [changeHistoryError, setChangeHistoryError] = useState<string | null>(null);
   const [isProgressDialogOpen, setIsProgressDialogOpen] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<BulkProgress>(emptyProgress);
   const [failedAssignments, setFailedAssignments] = useState<AssignmentPair[]>([]);
@@ -638,6 +855,38 @@ export default function Products() {
     setSearchParams,
     targetProductReference,
   ]);
+
+  const fetchChangeHistory = useCallback(
+    async (product: ProductForAssignment, filter: ChangeHistoryFilter) => {
+      try {
+        setChangeHistoryLoading(true);
+        setChangeHistoryError(null);
+        const data = await productApi.getChangeHistory(product.id, filter);
+        setChangeHistory(data);
+      } catch (error) {
+        console.error("Failed to load product change history:", error);
+        setChangeHistoryError("Failed to load change history.");
+      } finally {
+        setChangeHistoryLoading(false);
+      }
+    },
+    []
+  );
+
+  const openChangeHistory = (product: ProductForAssignment) => {
+    setHistoryProduct(product);
+    setChangeHistory(null);
+    setChangeHistoryFilter("all");
+    setIsChangeHistoryOpen(true);
+    fetchChangeHistory(product, "all");
+  };
+
+  const handleChangeHistoryFilter = (filter: ChangeHistoryFilter) => {
+    setChangeHistoryFilter(filter);
+    if (historyProduct) {
+      fetchChangeHistory(historyProduct, filter);
+    }
+  };
 
   // Delete handler
   const handleDelete = async (product: ProductForAssignment) => {
@@ -959,7 +1208,7 @@ export default function Products() {
 
   return (
     <div
-      className="px-4 py-5 sm:px-8 sm:py-7 min-h-screen bg-slate-50/30"
+      className="px-4 py-6 min-h-screen bg-slate-50/30 xl:px-8 xl:py-7"
       style={{
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
       }}
@@ -1158,15 +1407,17 @@ export default function Products() {
           statusFilter !== "all" ||
           treatmentTypeFilter !== "all" ||
           productSearch !== "") && (
-          <div className="col-span-full xl:col-auto">
-            <button
-              onClick={resetFilters}
-              className="flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs sm:text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
-            >
-              <RotateCcw className="h-3.5 w-3.5 text-slate-600" /> Reset Filters
-            </button>
-          </div>
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
+          >
+            <RotateCcw className="h-3.5 w-3.5 text-slate-600" /> Reset Filters
+          </button>
         )}
+
+        <span className="ml-auto pb-2.5 text-sm font-medium text-slate-500">
+          Showing {products.length} of {totalProducts}
+        </span>
       </div>
 
       {/* Products Data Container (Mobile Cards + Desktop Table) */}
@@ -1574,6 +1825,16 @@ export default function Products() {
           setSelectedProduct(null);
           fetchProducts(1, pageSize); // reload page 1
         }}
+      />
+
+      <ProductChangeHistoryDialog
+        open={isChangeHistoryOpen}
+        onOpenChange={setIsChangeHistoryOpen}
+        history={changeHistory}
+        loading={changeHistoryLoading}
+        error={changeHistoryError}
+        filter={changeHistoryFilter}
+        onFilterChange={handleChangeHistoryFilter}
       />
 
       {/* Assign Dialog */}

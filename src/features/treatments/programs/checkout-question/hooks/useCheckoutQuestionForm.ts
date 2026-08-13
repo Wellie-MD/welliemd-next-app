@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { PROGRAM_PRODUCT_ROLE, isCheckoutQuestionRequired } from "../constants";
+import { formatCheckoutQuestionText } from "../utils/checkoutTitleUtils";
 import { toast } from "@/components/ui/use-toast";
 
 type ProductForm = ProgramCheckoutProduct;
@@ -195,7 +196,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     setFormError(null);
     try {
       await onSave({
-        text: validProducts.map((product) => product.doseLabel).join(" & ") || "Checkout Options",
+        text: formatCheckoutQuestionText(validProducts),
         products: validProducts.map((product) => ({
           ...normalizeProduct(product),
           visibilityRules: normalizeGroup(product.visibilityRules),
