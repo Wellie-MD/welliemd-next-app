@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Order, ordersApi, PrescriptionHistoryEvent, PrescriptionHistoryMedication } from "@/api/ordersApi"
+import { TREATMENT_CLINICAL_STATUS_LABELS } from "@/features/treatments/orders/constants"
 import { paymentGatewayApi } from "@/api/paymentGatewayApi"
 import { patientPaymentMethodsApi, PatientPaymentMethod, PatientPaymentGateway } from "@/api/patientPaymentMethodsApi"
 import { useToast } from "@/hooks/use-toast"
@@ -479,8 +480,12 @@ export default function OrderDetail() {
   // RX_WRITTEN deliveries are still accumulating and nothing has been
   // finalized yet: the order's old pre-visit status (e.g. "Visit Failed")
   // would be stale here, so show the in-progress prescription state instead.
-  const isPartiallyPrescribed = order.treatment_aggregate?.clinical_status === "partially_prescribed"
-  const statusDisplay = isPartiallyPrescribed ? "Partially Prescribed" : statusLabels[status] || status
+  const inProgressClinicalStatus = ["partially_prescribed", "fully_confirmed"].includes(
+    order.treatment_aggregate?.clinical_status || ""
+  )
+  const statusDisplay = inProgressClinicalStatus
+    ? TREATMENT_CLINICAL_STATUS_LABELS[order.treatment_aggregate!.clinical_status] || statusLabels[status] || status
+    : statusLabels[status] || status
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
   const paymentRecoveryState = (order.payment_recovery_state || "").toLowerCase()
   const paymentRecoveryLabel = isPrescribedStatus && paymentRecoveryState

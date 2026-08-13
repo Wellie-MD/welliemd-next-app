@@ -13,6 +13,7 @@ import {
 import { Archive, ArchiveRestore, Eye, Loader2, RotateCcw } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { ordersApi, Order, FilterOption } from "@/api/ordersApi"
+import { TREATMENT_CLINICAL_STATUS_LABELS } from "@/features/treatments/orders/constants"
 import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
 import { usePermissions } from "@/hooks/usePermissions"
 import { Permissions } from "@/constants/permissions"
@@ -594,12 +595,17 @@ export default function Orders() {
                 // RX_WRITTEN deliveries are still accumulating and nothing
                 // has been finalized yet: the order's old pre-visit status
                 // would be stale here, so show the in-progress state instead.
-                const isPartiallyPrescribed = row.treatment_aggregate?.clinical_status === "partially_prescribed"
+                const clinicalStatus = row.treatment_aggregate?.clinical_status || ""
+                const inProgressClinicalStatus = ["partially_prescribed", "fully_confirmed"].includes(
+                  clinicalStatus
+                )
 
                 return (
                   <div className="relative space-y-1">
                     <Badge variant="outline" className="max-w-full whitespace-normal text-left">
-                      {isPartiallyPrescribed ? "Partially Prescribed" : row.status_display || formatStatusLabel(currentStatus)}
+                      {inProgressClinicalStatus
+                        ? TREATMENT_CLINICAL_STATUS_LABELS[clinicalStatus] || formatStatusLabel(currentStatus)
+                        : row.status_display || formatStatusLabel(currentStatus)}
                     </Badge>
                     {hasRecoveryPending ? (
                       <Badge className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-100">
