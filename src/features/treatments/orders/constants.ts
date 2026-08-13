@@ -1,5 +1,6 @@
 export const TREATMENT_CLINICAL_STATUS_LABELS: Record<string, string> = {
   prescription_pending: "Awaiting prescription",
+  partially_prescribed: "Partially Prescribed",
   clinical_review_required: "Clinical review",
   settlement_pending: "Prescription settling",
   awaiting_prescription: "Awaiting prescription",
@@ -11,6 +12,8 @@ export const TREATMENT_CLINICAL_STATUS_LABELS: Record<string, string> = {
 export const TREATMENT_CLINICAL_STATUS_STYLES: Record<string, string> = {
   prescription_pending:
     "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200",
+  partially_prescribed:
+    "border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200",
   clinical_review_required:
     "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200",
   settlement_pending:

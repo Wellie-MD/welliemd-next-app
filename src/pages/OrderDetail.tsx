@@ -476,7 +476,11 @@ export default function OrderDetail() {
   const canonicalStatus = String(order.status || order.orderStatus || "").toLowerCase()
   const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
   const revisionCount = Math.max(0, Number(order.rx_revision_count || 0))
-  const statusDisplay = statusLabels[status] || status
+  // RX_WRITTEN deliveries are still accumulating and nothing has been
+  // finalized yet: the order's old pre-visit status (e.g. "Visit Failed")
+  // would be stale here, so show the in-progress prescription state instead.
+  const isPartiallyPrescribed = order.treatment_aggregate?.clinical_status === "partially_prescribed"
+  const statusDisplay = isPartiallyPrescribed ? "Partially Prescribed" : statusLabels[status] || status
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
   const paymentRecoveryState = (order.payment_recovery_state || "").toLowerCase()
   const paymentRecoveryLabel = isPrescribedStatus && paymentRecoveryState

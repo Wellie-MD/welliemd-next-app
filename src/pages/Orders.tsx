@@ -591,11 +591,15 @@ export default function Orders() {
                     recoveryState === "recovery_pending" ||
                     (remaining != null && remaining > 0)
                   )
+                // RX_WRITTEN deliveries are still accumulating and nothing
+                // has been finalized yet: the order's old pre-visit status
+                // would be stale here, so show the in-progress state instead.
+                const isPartiallyPrescribed = row.treatment_aggregate?.clinical_status === "partially_prescribed"
 
                 return (
                   <div className="relative space-y-1">
                     <Badge variant="outline" className="max-w-full whitespace-normal text-left">
-                      {row.status_display || formatStatusLabel(currentStatus)}
+                      {isPartiallyPrescribed ? "Partially Prescribed" : row.status_display || formatStatusLabel(currentStatus)}
                     </Badge>
                     {hasRecoveryPending ? (
                       <Badge className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-100">
