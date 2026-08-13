@@ -8,6 +8,10 @@ import { toast } from "@/components/ui/use-toast";
 type ProductForm = ProgramCheckoutProduct;
 type VisibilityRuleGroupForm = VisibilityRuleGroup;
 
+const isProductComplete = (product: ProductForm): boolean => Boolean(
+  product.category && product.regimen && product.doseLabel && product.productId,
+);
+
 interface UseCheckoutQuestionFormArgs {
   open: boolean;
   initialQuestion?: ProgramCheckoutQuestion | null;
@@ -67,7 +71,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
   }, [open, initialQuestion]);
 
   const validProducts = useMemo(
-    () => products.filter((product) => product.category && product.regimen && product.doseLabel && product.productId),
+    () => products.filter(isProductComplete),
     [products]
   );
 
@@ -122,6 +126,21 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
   };
 
   const handleSaveModal = async () => {
+    const incompleteRows = products
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => !isProductComplete(product));
+    if (incompleteRows.length > 0) {
+      const labels = incompleteRows.map(({ product, index }) => {
+        const label = [product.category, product.regimen, product.doseLabel]
+          .filter(Boolean)
+          .join(" / ");
+        return `Option ${index + 1}${label ? ` (${label})` : ""}`;
+      });
+      const message = `${labels.join(", ")} is incomplete. Complete Category, Regimen, Dose Level, and Catalog Product before saving.`;
+      setFormError(message);
+      toast({ title: "Incomplete Product option", description: message, variant: "destructive" });
+      return;
+    }
     if (validProducts.length === 0) {
       setFormError("Configure at least one complete option with Category, Regimen, Dose Level, and Catalog Product.");
       return;
