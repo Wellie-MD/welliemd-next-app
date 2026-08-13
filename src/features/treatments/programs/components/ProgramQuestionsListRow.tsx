@@ -71,6 +71,8 @@ export function ProgramQuestionsListRow({
       ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen}` : "", product.rxDaysSupply ? `${product.rxDaysSupply}-day supply` : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
       : question.elementConfig?.description;
 
+  const consentLibraryId = question.elementConfig?.sourceId;
+
   const navigateToSection = () => {
     const sectionId = question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId;
     if (sectionId) {
@@ -79,21 +81,27 @@ export function ProgramQuestionsListRow({
   };
 
   const navigateToConsent = () => {
-    const consentId = question.elementConfig?.sourceId;
-    if (consentId) {
-      navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentId}`);
+    if (consentLibraryId) {
+      navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentLibraryId}`);
+    }
+  };
+
+  // Linked consents are edited in the shared consent library. Inline consents
+  // are owned by the program and must use the normal question editor.
+  const hasLinkedConsent = isConsent && Boolean(question.elementConfig?.sourceId);
+  const handleEdit = () => {
+    if (isSection) {
+      navigateToSection();
+    } else if (hasLinkedConsent) {
+      navigateToConsent();
+    } else {
+      onEdit(question);
     }
   };
 
   const handleRowClick = () => {
     if (isReorderActive) return;
-    if (isSection) {
-      navigateToSection();
-    } else if (isConsent) {
-      navigateToConsent();
-    } else {
-      onEdit(question);
-    }
+    handleEdit();
   };
 
   return (
@@ -173,16 +181,10 @@ export function ProgramQuestionsListRow({
               size="icon"
               onClick={(event) => {
                 event.stopPropagation();
-                if (isSection) {
-                  navigateToSection();
-                } else if (isConsent) {
-                  navigateToConsent();
-                } else {
-                  onEdit(question);
-                }
+                handleEdit();
               }}
               className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-              title={isSection ? "Go to Section" : isConsent ? "Go to Consent" : "Edit Element"}
+              title={isSection ? "Go to Section" : hasLinkedConsent ? "Go to Consent" : "Edit Element"}
             >
               <Pencil className="h-3 w-3" />
             </Button>
