@@ -284,7 +284,7 @@ export default function CouponCodes() {
           "first_order": "First Order",
           "all_orders": "All Orders",
           "n_orders": "N Orders",
-          "first_payment": "First Payment"
+          "first_payment": "First Order"
         }
         return usageLabel[row.usage_type || "one_time"] || row.usage_type || "One Time"
       },

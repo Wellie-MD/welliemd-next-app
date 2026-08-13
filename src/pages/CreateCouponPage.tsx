@@ -185,6 +185,10 @@ export default function CreateCouponPage() {
       toast({ title: "Amount must be greater than 0", variant: "destructive" })
       return
     }
+    if (formData.type === "percent" && formData.value > 100) {
+      toast({ title: "Percentage discount cannot exceed 100%", variant: "destructive" })
+      return
+    }
 
     setSaving(true)
     try {
@@ -193,7 +197,7 @@ export default function CreateCouponPage() {
         code: formData.code.toUpperCase(),
         type: formData.type,
         value: formData.value,
-        max_discount_threshold: formData.max_threshold,
+        max_discount_threshold: formData.type === "fixed" ? null : formData.max_threshold,
         is_active: formData.is_active,
         expires_at: formData.expiration === "date" && formData.expires_at ? formData.expires_at : null,
         applicable_products: formData.applicable_products,
@@ -329,7 +333,13 @@ export default function CreateCouponPage() {
                   <select
                     className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
                     value={formData.type}
-                    onChange={(e) => handleInputChange("type", e.target.value)}
+                    onChange={(e) => {
+                      const newType = e.target.value;
+                      handleInputChange("type", newType);
+                      if (newType === "fixed") {
+                        handleInputChange("max_threshold", null);
+                      }
+                    }}
                   >
                     <option value="percent">Percentage</option>
                     <option value="fixed">Fixed Amount</option>
@@ -337,7 +347,7 @@ export default function CreateCouponPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Amount <span className="text-red-500">*</span>
+                    {formData.type === "percent" ? "Percent" : "Amount"} <span className="text-red-500">*</span>
                   </label>
                     <Input
                       type="number"
@@ -486,7 +496,6 @@ export default function CreateCouponPage() {
                   <option value="first_order">First Order</option>
                   <option value="all_orders">All Orders (Inc. Auto Refills)</option>
                   <option value="n_orders">Nº of Orders</option>
-                  <option value="first_payment">First Payment Only</option>
                 </select>
                 {formData.usage_type === "n_orders" && (
                   <Input
