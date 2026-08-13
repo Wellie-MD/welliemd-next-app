@@ -31,8 +31,9 @@ function accessTokenClaims(): Record<string, unknown> {
 }
 
 export const corporatePilotConfig = {
-  // Corporate availability is an authenticated role capability, not a build flag.
-  enabled: true,
+  // Corporate surfaces are opt-in so a staging-v2 deployment can keep the
+  // existing DTC shell and routes unchanged after this branch is merged.
+  enabled: String(import.meta.env.VITE_CORPORATE_PILOT_ENABLED || "false").toLowerCase() === "true",
   declaredMode,
   isKnownMode: allowedModes.includes(declaredMode),
 };
@@ -40,6 +41,7 @@ export const corporatePilotConfig = {
 export type CorporateClientMode = "operator" | "employer";
 
 export function getCorporateClientMode(): CorporateClientMode | null {
+  if (!corporatePilotConfig.enabled) return null;
   const role = accessTokenClaims().corporate_role;
   if (role === "employer_admin") return "employer";
   if (role === "operator_admin") return "operator";

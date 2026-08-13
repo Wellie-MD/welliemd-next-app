@@ -10,7 +10,7 @@ import { BrandingProvider } from "@/contexts/BrandingContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
 import { IntercomBannersProvider } from "@/features/announcements/IntercomBannersContext";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
-import { getCorporateClientMode, isCorporateClientPreview } from "./features/corporate/config";
+import { corporatePilotConfig, getCorporateClientMode, isCorporateClientPreview } from "./features/corporate/config";
 
 // pages
 const DashboardFrame = lazyWithRetry(() => import("./components/layout/DashboardFrame"));
@@ -53,7 +53,14 @@ const App = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      if (window.location.pathname.replace(/\/+$/, "") === "/superadmin-access/launch") {
+      const launchPath = window.location.pathname.replace(/\/+$/, "");
+      // Corporate handoffs are deliberately anonymous until the one-time
+      // exchange completes. Hydrating the old/stale portal session first can
+      // call refresh, clear auth state, and race the exchange into /signin.
+      if (
+        corporatePilotConfig.enabled &&
+        (launchPath === "/superadmin-access/launch" || launchPath === "/corporate-access/launch")
+      ) {
         setIsInitialized(true);
         return;
       }
@@ -91,7 +98,10 @@ const App = () => {
         <Route path="/register" element={<RegisterInvitation />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
         <Route path="/superadmin-access/launch" element={<SuperAdminAccessLaunch />} />
-        <Route path="/corporate-access/launch" element={<CorporateAccessLaunch />} />
+        <Route
+          path="/corporate-access/launch"
+          element={corporatePilotConfig.enabled ? <CorporateAccessLaunch /> : <Navigate to="/dashboard" replace />}
+        />
 
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
