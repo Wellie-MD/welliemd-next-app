@@ -359,8 +359,8 @@ export function SharedQuestionsList({
       const consentId = q.elementConfig?.sourceId;
       if (consentId) {
         navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentId}`);
+        return;
       }
-      return;
     }
     setActiveEditingQuestion(q);
     if (q.kind === "checkout" && entityType === "program") {
