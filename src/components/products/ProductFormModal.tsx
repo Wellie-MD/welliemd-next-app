@@ -841,6 +841,23 @@ export function ProductFormModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
+                <Label htmlFor="base_price">
+                  Patient Price ($)
+                </Label>
+                <Input
+                  id="base_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.base_price}
+                  onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The amount shown to and charged to the patient. For a billed-separately supply, this is its patient price.
+                </p>
+              </div>
+
+              <div>
                 <Label htmlFor="cost_to_client">Medication Cost to Client ($)</Label>
                 <Input
                   id="cost_to_client"
@@ -1093,7 +1110,8 @@ export function ProductFormModal({
                   const selectedSupply = supplyProducts.find(
                     (p) => Number(p.id) === Number(row.supply_product_id)
                   );
-                  const unitCost = Number(selectedSupply?.cost_to_client ?? selectedSupply?.base_price ?? 0);
+                  const patientPrice = Number(selectedSupply?.base_price ?? 0);
+                  const unitCost = Number(selectedSupply?.cost_to_client ?? 0);
                   const unitShipping = Number(selectedSupply?.shipping_cost_to_client ?? 0);
                   const qty = Number(row.quantity || 1);
                   const totalCharge = (unitCost + unitShipping) * qty;
@@ -1169,7 +1187,7 @@ export function ProductFormModal({
                         <div className="col-span-12 text-xs text-muted-foreground">
                           {row.is_included
                             ? `${selectedSupply.name} • Qty ${qty} • Included supply • No extra admin charge • No patient charge`
-                            : `${selectedSupply.name} • Qty ${qty} • Cost to Client $${unitCost.toFixed(2)} • Shipping $${unitShipping.toFixed(2)} • Admin charge: $${totalCharge.toFixed(2)} • Patient charge: billed separately`}
+                            : `${selectedSupply.name} • Qty ${qty} • Patient price $${patientPrice.toFixed(2)} • Cost to Client $${unitCost.toFixed(2)} • Shipping $${unitShipping.toFixed(2)} • Admin charge: $${totalCharge.toFixed(2)} • Patient charge: billed separately`}
                         </div>
                       )}
                     </div>
