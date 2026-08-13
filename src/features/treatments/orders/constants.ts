@@ -1,13 +1,13 @@
 export const TREATMENT_CLINICAL_STATUS_LABELS: Record<string, string> = {
   prescription_pending: "Awaiting prescription",
   partially_prescribed: "Partially Prescribed",
-  fully_confirmed: "Fully Prescribed (Confirming)",
+  fully_confirmed: "Prescribed",
   clinical_review_required: "Clinical review",
-  settlement_pending: "Prescription settling",
+  settlement_pending: "Prescribed",
   awaiting_prescription: "Awaiting prescription",
   clinical_review: "Clinical review",
-  prescription_settling: "Prescription settling",
-  prescription_settled: "Prescription settled",
+  prescription_settling: "Prescribed",
+  prescription_settled: "Prescribed",
 }
 
 export const TREATMENT_CLINICAL_STATUS_STYLES: Record<string, string> = {
