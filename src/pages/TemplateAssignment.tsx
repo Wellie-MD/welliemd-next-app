@@ -46,7 +46,7 @@ export default function TemplateAssignment() {
       try {
         setLoading(true);
         const [templatesData, clientsData] = await Promise.all([
-          templateApi.listTemplates(),
+          templateApi.listTemplates({ standaloneOnly: true }),
           clientApi.list(),
         ]);
 
@@ -335,7 +335,7 @@ export default function TemplateAssignment() {
         setSelectedClients(new Set());
         
         // Refresh templates list to get updated modification flags
-        const templatesData = await templateApi.listTemplates();
+        const templatesData = await templateApi.listTemplates({ standaloneOnly: true });
         let templatesList: QuestionnaireTemplate[] = [];
         if (Array.isArray(templatesData)) {
           templatesList = templatesData;
