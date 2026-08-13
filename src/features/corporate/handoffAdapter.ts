@@ -19,8 +19,9 @@ export async function consumeEmployerHandoff(handoffCode: string): Promise<strin
   if (!handoffCode) throw new Error("The employer handoff code is missing.");
   if (auth.accessToken) window.sessionStorage.setItem("corp-operator-access-token", auth.accessToken);
   const result = await exchangeEmployerHandoff(handoffCode);
-  auth.setAccessToken(result.access);
-  auth.setUser(result.user);
+  // Store the exchanged session atomically so the protected corporate route
+  // cannot render once with a user but without an authenticated token.
+  auth.login(result.access, result.user);
   window.sessionStorage.setItem("corp-employer-context", JSON.stringify(result.context));
   return result.redirect;
 }
