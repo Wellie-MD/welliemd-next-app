@@ -256,7 +256,7 @@ export default function SmsAnalytics() {
             <div className="flex shrink-0 items-center gap-3">{selectedDelivery?.status && <StatusBadge status={selectedDelivery.status} />}<DialogClose asChild><Button type="button" variant="outline" size="sm">Close</Button></DialogClose></div>
           </div>
           <div className="max-h-[70vh] overflow-y-auto bg-muted/30 p-5">
-            <div className="rounded-lg border border-border bg-card p-5"><div className="whitespace-pre-wrap text-sm text-foreground">{selectedDelivery?.message_body || selectedDelivery?.message_preview}</div>{selectedDelivery?.reason && <p className="mt-4 text-xs text-destructive">Provider reason: {selectedDelivery.reason}</p>}{selectedDelivery?.provider_message_sid && <p className="mt-3 break-all text-xs text-muted-foreground">Provider SID: {selectedDelivery.provider_message_sid}</p>}</div>
+            <div className="rounded-lg border border-border bg-card p-5"><div className="min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm text-foreground">{selectedDelivery?.message_body || selectedDelivery?.message_preview}</div>{selectedDelivery?.reason && <p className="mt-4 text-xs text-destructive">Provider reason: {selectedDelivery.reason}</p>}{selectedDelivery?.provider_message_sid && <p className="mt-3 break-all text-xs text-muted-foreground">Provider SID: {selectedDelivery.provider_message_sid}</p>}</div>
           </div>
         </DialogContent>
       </Dialog>
