@@ -180,7 +180,7 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
       setError(null)
       try {
         const [templateData, programData] = await Promise.all([
-          templateApi.listTemplates(),
+          templateApi.listTemplates({ standaloneOnly: true }),
           treatmentsApi.listPrograms(),
         ])
         const tResults = Array.isArray(templateData) ? templateData : (templateData as any)?.results ?? []

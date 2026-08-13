@@ -105,12 +105,20 @@ export interface CreateQuestionPayload {
   is_read_only?: boolean;
 }
 
+export interface ListTemplatesOptions {
+  standaloneOnly?: boolean;
+}
+
 // ==================== TEMPLATE API ====================
 
 export const templateApi = {
-  listTemplates: async (): Promise<QuestionnaireTemplate[]> => {
+  listTemplates: async (
+    options: ListTemplatesOptions = {}
+  ): Promise<QuestionnaireTemplate[]> => {
     const aggregated: QuestionnaireTemplate[] = [];
-    let nextUrl: string | null = "questionnaires/frontend/templates/?page_size=100";
+    const params = new URLSearchParams({ page_size: "100" });
+    if (options.standaloneOnly) params.set("standalone_only", "true");
+    let nextUrl: string | null = `questionnaires/frontend/templates/?${params.toString()}`;
 
     while (nextUrl) {
       const { data } = await axiosInstance.get<
