@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { corporatePilotConfig, isCorporatePlatformPreview } from "./config";
 
 export function CorporateRouteGuard({ children }: { children: ReactNode }) {
+  if (!corporatePilotConfig.enabled) return <Navigate to="/dashboard" replace />;
   if (isCorporatePlatformPreview) return <>{children}</>;
 
   return (

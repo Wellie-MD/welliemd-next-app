@@ -83,6 +83,21 @@ interface PaginatedProductsResponse {
   results: ProductForAssignment[];
 }
 
+const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === "object");
+
+const normalizeProductForAssignment = (
+  product: ProductForAssignment,
+): ProductForAssignment => ({
+  ...product,
+  name: typeof product.name === "string" ? product.name : String(product.name ?? ""),
+  allowed_visit_types: Array.isArray(product.allowed_visit_types)
+    ? product.allowed_visit_types.filter((visitType): visitType is string => typeof visitType === "string")
+    : [],
+});
+
 interface ApiError {
   response?: {
     status?: number;
@@ -204,8 +219,8 @@ function ProductChangeHistoryDialog({
   filter: ChangeHistoryFilter;
   onFilterChange: (filter: ChangeHistoryFilter) => void;
 }) {
-  const entries = history?.results || [];
-  const recordType = history?.record.type === "Product" ? "product" : history?.record.type || "record";
+  const entries = asArray<ProductChangeLog>(history?.results);
+  const recordType = history?.record?.type === "Product" ? "product" : history?.record?.type || "record";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -234,7 +249,7 @@ function ProductChangeHistoryDialog({
             </span>
             <span className="text-[11.5px] text-slate-400">
               Type: <b className="font-semibold text-slate-700">
-                {history?.record.type === "Product" ? "Medicine / Product" : history?.record.type || "-"}
+                {history?.record?.type === "Product" ? "Medicine / Product" : history?.record?.type || "-"}
               </b>
             </span>
             <span className="text-[11.5px] text-slate-400">
@@ -505,9 +520,16 @@ export default function Products() {
   const [clientSearch, setClientSearch] = useState("");
 
   const { data: treatmentTypes = [] } = useTreatmentTypes();
+  const safeTreatmentTypes = useMemo(
+    () => asArray<unknown>(treatmentTypes).filter(
+      (type): type is (typeof treatmentTypes)[number] =>
+        isRecord(type) && type.id !== null && typeof type.id !== "undefined" && typeof type.name === "string",
+    ),
+    [treatmentTypes],
+  );
   const visitTypeOptions = useMemo(() => {
     const options = new Set<string>();
-    treatmentTypes.forEach((t) => {
+    safeTreatmentTypes.forEach((t) => {
       if (t.intakeVisitType) options.add(t.intakeVisitType);
       if (t.followupVisitType) options.add(t.followupVisitType);
     });
@@ -515,7 +537,7 @@ export default function Products() {
       return ["weightloss", "weightlossFollowup", "ED", "EDFollowup", "TRT", "TRTFollowup"];
     }
     return Array.from(options);
-  }, [treatmentTypes]);
+  }, [safeTreatmentTypes]);
 
   const displayedProducts = useMemo(() => {
     if (visitTypeFilter === "all") return products;
@@ -583,7 +605,13 @@ export default function Products() {
         { params }
       );
 
-      const results = response.data.results || [];
+      // Keep the page render-safe when an older API/tenant returns a bare
+      // array or a partially shaped paginated response.
+      const results = asArray<unknown>(
+        Array.isArray(response.data) ? response.data : response.data?.results,
+      )
+        .filter((product): product is ProductForAssignment => isRecord(product))
+        .map(normalizeProductForAssignment);
       setProducts(results);
       setSelectedProductCache((prev) => {
         const next = new Map(prev);
@@ -618,9 +646,23 @@ export default function Products() {
           clientApi.list(),
         ]);
 
-        setCategories(categoriesData);
-        setPharmacies(pharmaciesData);
-        setClients(Array.isArray(clientsData) ? clientsData : []);
+        setCategories(
+          asArray<unknown>(categoriesData).filter(
+            (category): category is ProductCategory =>
+              isRecord(category) && category.id !== null && typeof category.id !== "undefined" && typeof category.name === "string",
+          ),
+        );
+        setPharmacies(
+          asArray<unknown>(pharmaciesData).filter(
+            (pharmacy): pharmacy is Pharmacy =>
+              isRecord(pharmacy) && pharmacy.id !== null && typeof pharmacy.id !== "undefined" && typeof pharmacy.store_name === "string",
+          ),
+        );
+        setClients(
+          asArray<unknown>(clientsData).filter(
+            (client): client is Client => isRecord(client) && client.id !== null && typeof client.id !== "undefined",
+          ),
+        );
 
         // Fetch products on page 1
         await fetchProducts(1, pageSize);
@@ -660,7 +702,7 @@ export default function Products() {
     const search = clientSearch.toLowerCase();
     return clients.filter(
       (client) =>
-        client.name.toLowerCase().includes(search) ||
+        (client.name || "").toLowerCase().includes(search) ||
         client.user?.email?.toLowerCase().includes(search) ||
         client.user?.full_name?.toLowerCase().includes(search)
     );
@@ -1341,17 +1383,17 @@ export default function Products() {
             value={
               treatmentTypeFilter === "all"
                 ? "all"
-                : treatmentTypes.find(
+                : safeTreatmentTypes.find(
                     (type) => String(type.id) === treatmentTypeFilter,
                   )?.name || treatmentTypeFilter
             }
-            options={treatmentTypes.map((type) => type.name)}
+            options={safeTreatmentTypes.map((type) => type.name)}
             onChange={(value) => {
               if (value === "all") {
                 setTreatmentTypeFilter("all");
                 return;
               }
-              const selected = treatmentTypes.find(
+              const selected = safeTreatmentTypes.find(
                 (type) => type.name === value,
               );
               setTreatmentTypeFilter(selected ? String(selected.id) : "all");

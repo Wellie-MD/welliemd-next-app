@@ -79,7 +79,10 @@ const base = "/medical/pharmacies";
 export const pharmacyApi = {
   list: async (params?: Record<string, unknown>) => {
     const { data } = await axiosInstance.get<Paginated<Pharmacy>>(`${base}/`, { params });
-    return data.results ?? [];
+    // The API normally returns a paginated object, but older deployments can
+    // return a bare array. Keep callers render-safe for either shape.
+    if (Array.isArray(data)) return data;
+    return Array.isArray(data?.results) ? data.results : [];
   },
   retrieve: async (id: string) => {
     const { data } = await axiosInstance.get<Pharmacy>(`${base}/${id}/`);
