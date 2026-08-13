@@ -375,7 +375,9 @@ export default function CreateCouponPage() {
             <div className="bg-white dark:bg-slate-900 rounded-lg border dark:border-slate-700 p-6 space-y-4">
               <h2 className="text-lg font-semibold">Products application</h2>
               <p className="text-sm text-muted-foreground">
-                {formData.applicable_products.length || "All"} products selected
+                {formData.applicable_products.length === 0
+                  ? "No products selected (0)"
+                  : `${formData.applicable_products.length} products selected`}
               </p>
 
               {/* Product Categories - Dynamic */}
@@ -429,7 +431,7 @@ export default function CreateCouponPage() {
                   options={productOptions}
                   value={selectedProducts}
                   onChange={(sel) => handleInputChange("applicable_products", sel.map(s => s.value))}
-                  placeholder="Select products (leave empty for all)"
+                  placeholder="Select products..."
                   className="text-sm"
                   styles={{
                     control: (provided, state) => ({

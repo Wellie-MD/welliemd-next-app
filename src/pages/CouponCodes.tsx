@@ -271,7 +271,7 @@ export default function CouponCodes() {
       label: "Products", width: "100px", 
       render: (...a: any[]) => {
         const products = getRow<Coupon>(...a).applicable_products || []
-        return products.length === 0 ? "All" : `${products.length} products`
+        return products.length === 0 ? "None" : `${products.length} products`
       }
     },
     {
