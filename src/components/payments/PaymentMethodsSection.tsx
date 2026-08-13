@@ -10,6 +10,7 @@ import { StripeCardForm, type StripeCardFormHandle } from './StripeCardForm';
 import { NmiCollectForm, type NmiCollectFormHandle } from './NmiCollectForm';
 import { AuthorizeNetAcceptForm, type AuthorizeNetAcceptFormHandle } from './AuthorizeNetAcceptForm';
 import { PERMISSIONS } from '@/features/auth/types/auth.types';
+import { ErrorUtils } from '@/shared/lib/errors';
 
 interface PaymentMethodsSectionProps {
   userId?: string;
@@ -56,7 +57,7 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
       setConfig(cfg);
       return cfg;
     } catch (error: any) {
-      toast.error(error?.error || error?.message || 'Failed to load payment configuration');
+      toast.error(ErrorUtils.getErrorMessage(error, 'Failed to load payment configuration'));
       return null;
     }
   };
@@ -66,7 +67,7 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
       const list = await PaymentMethodsService.listPaymentMethods(gateway);
       setMethods(list || []);
     } catch (error: any) {
-      toast.error(error?.error || error?.message || 'Failed to load payment methods');
+      toast.error(ErrorUtils.getErrorMessage(error, 'Failed to load payment methods'));
     }
   };
 

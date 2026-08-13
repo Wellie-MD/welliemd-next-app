@@ -6,6 +6,7 @@ import { Eye, EyeOff, ShieldOff } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { toast } from 'sonner';
+import { ErrorUtils } from '@/shared/lib/errors';
 
 export default function Profile() {
   const { isImpersonated } = useAuth();
@@ -608,7 +609,7 @@ function VitalsCard({ latestVitals, onSaved }: VitalsCardProps) {
       });
       toast.success('Vitals saved successfully.');
     } catch (error: any) {
-      toast.error(error?.response?.data?.detail || error?.response?.data?.error || 'Failed to save vitals.');
+      toast.error(ErrorUtils.getErrorMessage(error, 'Failed to save vitals.'));
     } finally {
       setSaving(false);
     }

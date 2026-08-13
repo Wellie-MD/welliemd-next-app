@@ -21,6 +21,7 @@ import { StripeCardForm, type StripeCardFormHandle } from './StripeCardForm';
 import { NmiCollectForm, type NmiCollectFormHandle } from './NmiCollectForm';
 import { AuthorizeNetAcceptForm, type AuthorizeNetAcceptFormHandle } from './AuthorizeNetAcceptForm';
 import { toast } from 'sonner';
+import { ErrorUtils } from '@/shared/lib/errors';
 import visaLogo from '@/assets/icons/payment-methods/visa.svg';
 import mastercardLogo from '@/assets/icons/payment-methods/mastercard.svg';
 import amexLogo from '@/assets/icons/payment-methods/american-express.svg';
@@ -80,7 +81,7 @@ export default function PaymentMethodsPage() {
       setConfig(cfg);
       return cfg;
     } catch (error: any) {
-      toast.error(error?.error || error?.message || 'Failed to load payment configuration');
+      toast.error(ErrorUtils.getErrorMessage(error, 'Failed to load payment configuration'));
       return null;
     }
   };
@@ -90,7 +91,7 @@ export default function PaymentMethodsPage() {
       const list = await PaymentMethodsService.listPaymentMethods(gateway);
       setMethods(list || []);
     } catch (error: any) {
-      toast.error(error?.error || error?.message || 'Failed to load payment methods');
+      toast.error(ErrorUtils.getErrorMessage(error, 'Failed to load payment methods'));
     }
   };
 
@@ -177,8 +178,7 @@ export default function PaymentMethodsPage() {
       toast.success('Payment method removed');
       await loadMethods(activeGateway);
     } catch (error: any) {
-      const detail = error?.response?.data?.detail || error?.error || error?.message;
-      toast.error(detail || 'Failed to remove payment method');
+      toast.error(ErrorUtils.getErrorMessage(error, 'Failed to remove payment method'));
     }
   };
 
