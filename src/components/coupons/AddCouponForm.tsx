@@ -230,7 +230,7 @@ export default function AddCouponForm({
                           isMulti
                           className="w-full"
                           classNamePrefix="react-select"
-                          placeholder="Select products (leave empty to apply to all)"
+                          placeholder="Select products..."
                           value={selected}
                           onChange={(sel) => field.onChange(sel.map((s) => s.value))}
                           styles={{
