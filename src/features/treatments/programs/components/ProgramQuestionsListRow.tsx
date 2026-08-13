@@ -85,15 +85,22 @@ export function ProgramQuestionsListRow({
     }
   };
 
-  const handleRowClick = () => {
-    if (isReorderActive) return;
+  // Linked consents are edited in the shared consent library. Inline consents
+  // are owned by the program and must use the normal question editor.
+  const hasLinkedConsent = isConsent && Boolean(question.elementConfig?.sourceId);
+  const handleEdit = () => {
     if (isSection) {
       navigateToSection();
-    } else if (isConsent) {
+    } else if (hasLinkedConsent) {
       navigateToConsent();
     } else {
       onEdit(question);
     }
+  };
+
+  const handleRowClick = () => {
+    if (isReorderActive) return;
+    handleEdit();
   };
 
   return (
@@ -173,16 +180,10 @@ export function ProgramQuestionsListRow({
               size="icon"
               onClick={(event) => {
                 event.stopPropagation();
-                if (isSection) {
-                  navigateToSection();
-                } else if (isConsent) {
-                  navigateToConsent();
-                } else {
-                  onEdit(question);
-                }
+                handleEdit();
               }}
               className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-              title={isSection ? "Go to Section" : isConsent ? "Go to Consent" : "Edit Element"}
+              title={isSection ? "Go to Section" : hasLinkedConsent ? "Go to Consent" : "Edit Element"}
             >
               <Pencil className="h-3 w-3" />
             </Button>
