@@ -17,7 +17,10 @@ export function CheckoutPatientPreview({ validProducts, selectedPreviewIdx, visi
   const groups = Object.values(
     validProducts.reduce<Record<string, ProgramCheckoutProduct[]>>(
       (result, product) => {
-        const key = product.choiceGroup || `product-${product.id}`;
+        // Blank primary options belong to one checkout-question alternative
+        // group. Explicit groups (for example supply-* duration groups) remain
+        // separate.
+        const key = product.choiceGroup || "checkout-question-primary";
         result[key] = [...(result[key] || []), product];
         return result;
       },
