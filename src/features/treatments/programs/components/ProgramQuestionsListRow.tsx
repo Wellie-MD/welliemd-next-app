@@ -71,6 +71,8 @@ export function ProgramQuestionsListRow({
       ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen}` : "", product.rxDaysSupply ? `${product.rxDaysSupply}-day supply` : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
       : question.elementConfig?.description;
 
+  const consentLibraryId = question.elementConfig?.sourceId;
+
   const navigateToSection = () => {
     const sectionId = question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId;
     if (sectionId) {
@@ -79,9 +81,8 @@ export function ProgramQuestionsListRow({
   };
 
   const navigateToConsent = () => {
-    const consentId = question.elementConfig?.sourceId;
-    if (consentId) {
-      navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentId}`);
+    if (consentLibraryId) {
+      navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentLibraryId}`);
     }
   };
 
