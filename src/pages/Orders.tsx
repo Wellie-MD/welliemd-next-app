@@ -591,7 +591,6 @@ export default function Orders() {
                     recoveryState === "recovery_pending" ||
                     (remaining != null && remaining > 0)
                   )
-
                 return (
                   <div className="relative space-y-1">
                     <Badge variant="outline" className="max-w-full whitespace-normal text-left">
