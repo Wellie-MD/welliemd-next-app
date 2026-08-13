@@ -151,7 +151,7 @@ export default function Questionnaires() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const data = await templateApi.listTemplates();
+      const data = await templateApi.listTemplates({ standaloneOnly: true });
 
       // Handle both array response and paginated response
       if (Array.isArray(data)) {
