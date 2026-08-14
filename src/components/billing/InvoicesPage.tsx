@@ -707,7 +707,7 @@ function RevisionInvoiceModal({
                 "Authorized total"
               )}
             </section>}
-            {!treatmentPrescription && prescriptionEvents.map((event, index) => {
+            {prescriptionEvents.map((event, index) => {
               const revisionNumber = index;
               const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
               const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
@@ -744,7 +744,7 @@ function RevisionInvoiceModal({
                 </div>
               </section>
             )}
-            {!treatmentPrescription && fallbackAdjustments.map((adjustment, index) => {
+            {fallbackAdjustments.map((adjustment, index) => {
               const isCredit = adjustment.kind === "credit_note";
               const isNoCharge = adjustment.kind === "no_charge_revision";
               const explicitRevisionNumber = Number(adjustment.revision_number);
