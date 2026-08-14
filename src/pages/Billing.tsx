@@ -807,6 +807,12 @@ export default function Billing() {
                 </section>
               )}
               {prescriptionEvents.map((event, index) => {
+                // index 0 is the initial capture, which the "Treatment
+                // prescription" summary panel above already shows -- render
+                // only the actual revisions (index > 0) alongside it so a
+                // normal single-capture invoice doesn't show the same
+                // product/amounts twice.
+                if (treatmentPrescription && index === 0) return null;
                 const revisionNumber = index;
                 const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
                 const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
