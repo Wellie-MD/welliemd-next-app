@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { useClients } from "@/hooks/useClients"
 import { templateApi, type QuestionnaireTemplate } from "@/api/questionnaires"
+import { treatmentsApi } from "@/features/treatments/api/treatmentsApi"
+import type { Program } from "@/features/treatments/types"
 import { ExternalLink } from "lucide-react"   
 import {
   Select,
@@ -167,6 +169,7 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([])
+  const [programs, setPrograms] = useState<Program[]>([])
 
   useEffect(() => {
     if (!open) return
@@ -176,12 +179,20 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
       setLoading(true)
       setError(null)
       try {
-        const data = await templateApi.listTemplates()
-        const results = Array.isArray(data) ? data : (data as any)?.results ?? []
-        const publishedOnly = results.filter((t: QuestionnaireTemplate) => t.is_published && t.questionnaire_type === 'onboarding')
-        if (!cancelled) setTemplates(publishedOnly)
+        const [templateData, programData] = await Promise.all([
+          templateApi.listTemplates({ standaloneOnly: true }),
+          treatmentsApi.listPrograms(),
+        ])
+        const tResults = Array.isArray(templateData) ? templateData : (templateData as any)?.results ?? []
+        const publishedTemplates = tResults.filter((t: QuestionnaireTemplate) => t.is_published && t.questionnaire_type === 'onboarding')
+        const publishedProgs = (programData || []).filter((p: Program) => p.status === 'published')
+
+        if (!cancelled) {
+          setTemplates(publishedTemplates)
+          setPrograms(publishedProgs)
+        }
       } catch (e: any) {
-        if (!cancelled) setError(e?.message || "Failed to load questionnaires")
+        if (!cancelled) setError(e?.message || "Failed to load programs and questionnaires")
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -210,6 +221,14 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
     fallbackPromo: selectedCoupon?.code ?? "",
     fallbackSource: "coupon",
   })
+
+  const programItems = useMemo(() => {
+    return programs.map((p) => {
+      const slugOrVisit = p.slug?.trim() || p.visitType?.trim() || p.id
+      const visitPath = `/visit/${slugOrVisit}`
+      return { p, visitPath }
+    })
+  }, [programs])
 
   const items = useMemo(() => {
     return templates.map((t) => {
@@ -256,6 +275,74 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
             </div>
           )}
 
+          {/* Treatment Programs */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Treatment Programs</p>
+              {loading && <span className="text-xs text-muted-foreground">Loading…</span>}
+            </div>
+
+            {error && (
+              <div className="rounded-md border p-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            {!loading && !error && programItems.length === 0 && (
+              <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                No programs found.
+              </div>
+            )}
+
+            {!loading && !error && programItems.length > 0 && (
+              <div className="rounded-md border divide-y">
+                {programItems.map(({ p, visitPath }) => {
+                  const full = buildLink({
+                    base: questionnaireDomain,
+                    path: visitPath,
+                    qs: promoDisabled ? "" : qs,
+                    fallbackPromo: selectedCoupon?.code ?? "",
+                    fallbackSource: "coupon",
+                  })
+
+                  return (
+                    <div key={p.id} className="flex items-center justify-between p-3">
+                      <div className="min-w-0">
+                        <div className="font-medium">{p.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {p.treatmentTypeName || p.treatmentTypeKey} · {p.stage === 'follow_up' ? 'Follow-up' : 'Intake'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => copy(full)}
+                          disabled={promoDisabled}
+                          title={promoDisabled ? "No coupon selected" : "Copy full URL"}
+                        >
+                          {copiedLink === full ? "Copied" : "Copy Link"}
+                        </Button>
+                        <a
+                          href={full}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-disabled={promoDisabled}
+                          onClick={e => { if (promoDisabled) e.preventDefault() }}
+                          title="Open in new tab"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
           {/* Questionnaires */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -291,10 +378,6 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
                     <div key={t.id} className="flex items-center justify-between p-3">
                       <div className="min-w-0">
                         <div className="font-medium">{t.name}</div>
-                        {/* <div className="text-xs text-muted-foreground">
-                          {USE_VISIT_ROUTES && vt ? `Visit: ${vt} · ` : ""}
-                          Path: {path}
-                        </div> */}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
@@ -305,7 +388,6 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
                         >
                           {copiedLink === full ? "Copied" : "Copy Link"}
                         </Button>
-                        {/* icon-only open-in-new-tab */}
                         <a
                           href={full}
                           target="_blank"

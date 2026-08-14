@@ -262,7 +262,7 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
       setLoading(true)
       setError(null)
       try {
-        const data = await templateApi.listTemplates()
+        const data = await templateApi.listTemplates({ standaloneOnly: true })
         const results = Array.isArray(data) ? data : (data as any)?.results ?? []
         const publishedOnly = results.filter((t: QuestionnaireTemplate) => t.is_published && t.questionnaire_type === 'onboarding')
         if (!cancelled) setTemplates(publishedOnly)

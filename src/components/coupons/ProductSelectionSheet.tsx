@@ -41,12 +41,15 @@ export function ProductSelectionSheet({
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [localSelected, setLocalSelected] = useState<Set<string>>(new Set(selectedProductIds));
+  const [localSelected, setLocalSelected] = useState<Set<string>>(new Set(selectedProductIds.map(id => String(id))));
+  const [selectingAll, setSelectingAll] = useState(false);
 
-  // Reset local selection when prop changes
+  // Reset local selection when sheet opens or selectedProductIds prop changes
   useEffect(() => {
-    setLocalSelected(new Set(selectedProductIds));
-  }, [selectedProductIds]);
+    if (open) {
+      setLocalSelected(new Set(selectedProductIds.map(id => String(id))));
+    }
+  }, [open, selectedProductIds]);
 
   // Fetch products with lazy loading
   const fetchProducts = useCallback(async (pageNum: number, search: string, reset: boolean = false) => {
@@ -111,13 +114,14 @@ export function ProductSelectionSheet({
     }
   };
 
-  const toggleProduct = (productId: string) => {
+  const toggleProduct = (productId: string | number) => {
+    const strId = String(productId);
     setLocalSelected(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(productId)) {
-        newSet.delete(productId);
+      if (newSet.has(strId)) {
+        newSet.delete(strId);
       } else {
-        newSet.add(productId);
+        newSet.add(strId);
       }
       return newSet;
     });
@@ -128,8 +132,30 @@ export function ProductSelectionSheet({
     onOpenChange(false);
   };
 
-  const selectAll = () => {
-    setLocalSelected(new Set(products.map(p => p.id)));
+  const selectAll = async () => {
+    setSelectingAll(true);
+    try {
+      let url = `/products/ids/`;
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (categoryFilter?.type === 'product_type' && categoryFilter.key) {
+        params.append('product_type', categoryFilter.key);
+      } else if (categoryFilter?.type === 'rx_or_otc' && categoryFilter.key) {
+        params.append('rx_or_otc', categoryFilter.key);
+      } else if (categoryFilter?.type === 'category' && categoryFilter.key) {
+        params.append('category', categoryFilter.key);
+      }
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+
+      const res = await axiosInstance.get(url);
+      const fetchedIds: any[] = res.data?.ids || [];
+      setLocalSelected(new Set(fetchedIds.map(id => String(id))));
+    } catch (err) {
+      console.error('Failed to select all products:', err);
+    } finally {
+      setSelectingAll(false);
+    }
   };
 
   const clearAll = () => {
@@ -164,7 +190,14 @@ export function ProductSelectionSheet({
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">{localSelected.size} selected</span>
             <div className="flex gap-2">
-              <button onClick={selectAll} className="text-blue-600 dark:text-blue-400 hover:underline">Select all</button>
+              <button 
+                onClick={selectAll} 
+                disabled={selectingAll}
+                className="text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 flex items-center gap-1"
+              >
+                {selectingAll && <Loader2 className="h-3 w-3 animate-spin" />}
+                {selectingAll ? 'Selecting all...' : 'Select all'}
+              </button>
               <button onClick={clearAll} className="text-red-600 dark:text-red-400 hover:underline">Clear</button>
             </div>
           </div>
@@ -175,31 +208,41 @@ export function ProductSelectionSheet({
             onScrollCapture={handleScroll}
           >
             <div className="p-4 space-y-2">
-              {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer"
-                  onClick={() => toggleProduct(product.id)}
-                >
-                  <Checkbox
-                    checked={localSelected.has(product.id)}
-                    onCheckedChange={() => toggleProduct(product.id)}
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-sm text-foreground">{product.name}</div>
-                    {product.base_price && (
-                      <div className="text-xs text-muted-foreground">
-                        ${Number(product.base_price).toFixed(2)}
-                      </div>
+              {products.map((product) => {
+                const strId = String(product.id);
+                const isSelected = localSelected.has(strId);
+                return (
+                  <div
+                    key={strId}
+                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                      isSelected 
+                        ? 'bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800' 
+                        : 'hover:bg-gray-50 dark:hover:bg-slate-800 border border-transparent'
+                    }`}
+                    onClick={() => toggleProduct(strId)}
+                  >
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleProduct(strId)}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-sm text-foreground">{product.name}</div>
+                      {product.base_price && (
+                        <div className="text-xs text-muted-foreground">
+                          ${Number(product.base_price).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                    {product.product_type && (
+                      <span className="text-xs bg-gray-100 dark:bg-slate-800 dark:text-slate-200 px-2 py-1 rounded">
+                        {product.product_type}
+                      </span>
                     )}
                   </div>
-                  {product.product_type && (
-                    <span className="text-xs bg-gray-100 dark:bg-slate-800 dark:text-slate-200 px-2 py-1 rounded">
-                      {product.product_type}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
 
               {loading && (
                 <div className="flex justify-center py-4">

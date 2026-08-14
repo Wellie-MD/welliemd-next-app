@@ -271,7 +271,7 @@ export default function CouponCodes() {
       label: "Products", width: "100px", 
       render: (...a: any[]) => {
         const products = getRow<Coupon>(...a).applicable_products || []
-        return products.length === 0 ? "All" : `${products.length} products`
+        return products.length === 0 ? "None" : `${products.length} products`
       }
     },
     {
@@ -284,7 +284,7 @@ export default function CouponCodes() {
           "first_order": "First Order",
           "all_orders": "All Orders",
           "n_orders": "N Orders",
-          "first_payment": "First Payment"
+          "first_payment": "First Order"
         }
         return usageLabel[row.usage_type || "one_time"] || row.usage_type || "One Time"
       },

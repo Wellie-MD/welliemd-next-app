@@ -214,7 +214,7 @@ export default function TemplateManagement() {
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await templateApi.listTemplates();
+      const data = await templateApi.listTemplates({ standaloneOnly: true });
       setTemplates(data);
     } catch (error: unknown) {
       console.error("Failed to fetch templates:", error);
