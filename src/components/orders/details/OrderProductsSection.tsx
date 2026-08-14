@@ -390,11 +390,20 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
           {productItems.map((prod, idx) => {
             const isSelected = selectedProductId === prod.id
             const displayPrescribed = pendingProductChange ? pendingProductChange.productName : prod.prescribedName
-            // Prefer the per-product signal when reconciliation data is
-            // available; fall back to the order-wide flag for orders that
-            // never went through the prescribed-set reconciliation path.
+            // A card is "Prescribed" once EITHER its own product was
+            // directly confirmed (per-product signal, correct while the
+            // order is still partially prescribed and other products
+            // remain genuinely outstanding), OR the whole order has
+            // concluded (isPrescribedStatus) -- reconciliation is
+            // deliberately set-based, not paired 1:1 (see
+            // reconciliation.py), so a requested product that was
+            // substituted for a different one never appears in
+            // prescribed_set under its own id even though its slot IS
+            // resolved. Without the isPrescribedStatus fallback, a
+            // substituted requested product's card would show "Awaiting
+            // provider decision" forever, even after the whole case is done.
             const cardIsPrescribed = prescribedProductIds
-              ? Boolean(prod.productId && prescribedProductIds.has(prod.productId))
+              ? Boolean((prod.productId && prescribedProductIds.has(prod.productId)) || isPrescribedStatus)
               : isPrescribedStatus
 
             return (
