@@ -3,9 +3,9 @@ import { API_ENDPOINTS } from '@/config/constants';
 import type { PaymentConfig, PaymentGateway, PaymentMethod, CreatePaymentMethodPayload } from '../types/payment-methods.types';
 
 const endpointForGateway: Record<PaymentGateway, string> = {
-  stripe: '/stripe/payment-methods/',
-  nmi: '/nmi/payment-methods/',
-  authorize_net: '/authorizenet/payment-methods/',
+  stripe: API_ENDPOINTS.PAYMENTS.STRIPE_PAYMENT_METHODS,
+  nmi: API_ENDPOINTS.PAYMENTS.NMI_PAYMENT_METHODS,
+  authorize_net: API_ENDPOINTS.PAYMENTS.AUTHNET_PAYMENT_METHODS,
 };
 
 export const PaymentMethodsService = {

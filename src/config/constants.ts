@@ -60,7 +60,7 @@ export const API_ENDPOINTS = {
   PAYMENTS: {
     CONFIG: "/questionnaires/frontend/payment-config/",
     STRIPE_PAYMENT_METHODS: "/stripe/payment-methods/",
-    NMI_PAYMENT_METHODS: "/nmi/payment-methods/",
+    NMI_PAYMENT_METHODS: "/payments/payment-methods/",
     AUTHNET_PAYMENT_METHODS: "/authorizenet/payment-methods/",
   },
   TREATMENTS: {
