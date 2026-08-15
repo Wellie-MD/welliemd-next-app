@@ -82,9 +82,17 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
       }
       setLoading(false);
     };
-    init();
+
+    const refreshOnFocus = () => {
+      void init();
+    };
+
+    void init();
+    window.addEventListener('focus', refreshOnFocus);
+
     return () => {
       mounted = false;
+      window.removeEventListener('focus', refreshOnFocus);
     };
   }, []);
 

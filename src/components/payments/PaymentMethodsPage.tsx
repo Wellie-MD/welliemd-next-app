@@ -106,9 +106,17 @@ export default function PaymentMethodsPage() {
       }
       if (mounted) setLoading(false);
     };
-    init();
+
+    const refreshOnFocus = () => {
+      void init();
+    };
+
+    void init();
+    window.addEventListener('focus', refreshOnFocus);
+
     return () => {
       mounted = false;
+      window.removeEventListener('focus', refreshOnFocus);
     };
   }, []);
 
