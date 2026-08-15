@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import { normalizeChoiceDisplay } from "@/utils/choiceValue";
+import { normalizeChoiceDisplay, resolveChoiceValue } from "@/utils/choiceValue";
 import {
   visibilityIssueId,
   visibilityPathLabel,
@@ -188,6 +188,9 @@ function ConditionEditor({
   const isBetween = node.operator === "between";
   const isNumericOp = NUMERIC_OPERATORS.has(node.operator);
   const valueText = Array.isArray(node.value) ? node.value.join(", ") : node.value;
+  const selectValue = choiceOptions.length > 0 && !isMultiValue
+    ? resolveChoiceValue(choiceOptions, valueText)
+    : valueText;
 
   const betweenValues = Array.isArray(node.value) && node.value.length === 2
     ? node.value
@@ -197,9 +200,11 @@ function ConditionEditor({
   const hasIssue = Boolean(questionIssue || valueIssue);
 
   const updateValue = (raw: string) => {
+    const resolveValue = (value: string) =>
+      choiceOptions.length > 0 ? resolveChoiceValue(choiceOptions, value) : value;
     const nextValue = isMultiValue
-      ? raw.split(",").map((item) => item.trim()).filter(Boolean)
-      : raw;
+      ? raw.split(",").map((item) => resolveValue(item.trim())).filter(Boolean)
+      : resolveValue(raw);
     onChange(path, (current) => ({ ...current, value: nextValue }));
   };
 
@@ -381,7 +386,7 @@ function ConditionEditor({
               aria-describedby={valueIssue ? visibilityIssueId(valueIssue) : undefined}
             />
           ) : choiceOptions.length > 0 && !isMultiValue ? (
-            <Select value={valueText} onValueChange={updateValue}>
+            <Select value={selectValue} onValueChange={updateValue}>
               <SelectTrigger
                 className={valueIssue ? "border-red-500" : undefined}
                 data-visibility-field="value"

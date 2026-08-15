@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
@@ -19,6 +20,7 @@ import type { ProgramQuestion, VisibilityRule, VisibilityRuleGroup } from "@/fea
 import { treatmentConfigurationApi } from "@/features/treatments/api/configurationApi";
 import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { isPersistedUuid } from "@/features/treatments/api/mappers";
+import { resolveChoiceValue } from "@/utils/choiceValue";
 
 interface QuestionVisibilityTabProps {
   visibilityRuleGroup: VisibilityRuleGroup | undefined;
@@ -27,6 +29,8 @@ interface QuestionVisibilityTabProps {
   currentQuestionId: string;
   validationIssues?: VisibilityValidationIssue[];
 }
+
+const NUMERIC_VISIBILITY_OPERATORS = new Set(["gt", "gte", "lt", "lte", "between"]);
 
 const createEmptyRule = (): VisibilityRule => ({
   questionId: "",
@@ -126,6 +130,36 @@ export function QuestionVisibilityTab({
       order_index: 10001,
     },
   );
+
+  // Older rules may contain a short semantic answer (for example
+  // `Semaglutide`) while the current question choice has a longer display
+  // label. Keep the persisted rule aligned with the current choice whenever
+  // there is exactly one unambiguous match. This also makes the selected value
+  // survive closing and reopening the editor.
+  useEffect(() => {
+    if (!visibilityRuleGroup) return;
+
+    const canonicalize = (group: VisibilityRuleGroup): VisibilityRuleGroup => ({
+      ...group,
+      rules: (group.rules || []).map((rule) => {
+        const question = builderQuestions.find((candidate) => candidate.id === rule.questionId);
+        if (!question?.answer_choices?.length || NUMERIC_VISIBILITY_OPERATORS.has(rule.operator)) return rule;
+
+        const value = Array.isArray(rule.value)
+          ? rule.value.map((item) => resolveChoiceValue(question.answer_choices, item))
+          : resolveChoiceValue(question.answer_choices, rule.value);
+        return JSON.stringify(value) === JSON.stringify(rule.value)
+          ? rule
+          : { ...rule, value };
+      }),
+      subgroups: (group.subgroups || []).map(canonicalize),
+    });
+
+    const canonicalGroup = canonicalize(visibilityRuleGroup);
+    if (JSON.stringify(canonicalGroup) !== JSON.stringify(visibilityRuleGroup)) {
+      setVisibilityRuleGroup(canonicalGroup);
+    }
+  }, [builderQuestions, setVisibilityRuleGroup, visibilityRuleGroup]);
 
   const hasRules = !!visibilityRuleGroup && (
     (visibilityRuleGroup.rules?.length || 0) > 0 || (visibilityRuleGroup.subgroups || []).length > 0
