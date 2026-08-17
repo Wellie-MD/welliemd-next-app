@@ -4,6 +4,7 @@ import {
   type VisibilityCondition,
   type VisibilityGroup,
 } from "@/components/questionnaires/VisibilityRuleBuilder";
+import { normalizeVisibilityQuestionId } from "@/components/questionnaires/visibilityRuleValidation";
 import type { VisibilityRule, VisibilityRuleGroup } from "@/features/treatments/types";
 
 const isMultiValueOperator = (operator: VisibilityRule["operator"]): boolean =>
@@ -40,7 +41,7 @@ export const toBuilderGroup = (
             ? PATIENT_PROFILE_SEX_ID
             : rule.source === "patient_profile" && rule.field === "age"
             ? PATIENT_PROFILE_AGE_ID
-            : rule.questionId,
+            : normalizeVisibilityQuestionId(rule),
         question_type: rule.question_type,
         operator: rule.operator,
         value: isBetweenOperator(rule.operator) || isMultiValueOperator(rule.operator)

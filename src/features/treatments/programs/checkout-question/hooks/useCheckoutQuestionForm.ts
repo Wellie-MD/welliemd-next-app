@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
-import { PROGRAM_PRODUCT_ROLE, isCheckoutQuestionRequired } from "../constants";
+import {
+  PROGRAM_PRODUCT_ROLE,
+  productRoleForFlexibleSelection,
+} from "../constants";
 import { formatCheckoutQuestionText } from "../utils/checkoutTitleUtils";
 import { toast } from "@/components/ui/use-toast";
 
 type ProductForm = ProgramCheckoutProduct;
 type VisibilityRuleGroupForm = VisibilityRuleGroup;
+
+const isProductComplete = (product: ProductForm): boolean => Boolean(
+  product.category && product.regimen && product.doseLabel && product.productId,
+);
 
 interface UseCheckoutQuestionFormArgs {
   open: boolean;
@@ -16,7 +23,7 @@ interface UseCheckoutQuestionFormArgs {
 }
 
 export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange }: UseCheckoutQuestionFormArgs) {
-  const [products, setProducts] = useState<ProductForm[]>([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
+  const [products, setProducts] = useState<ProductForm[]>([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.optionalAddon })]);
   const [visibilityRuleGroup, setVisibilityRuleGroup] = useState<VisibilityRuleGroupForm | undefined>(undefined);
   const [selectedPreviewIdx, setSelectedPreviewIdx] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
@@ -59,7 +66,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           : undefined
       );
     } else {
-      setProducts([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
+      setProducts([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.optionalAddon })]);
       setVisibilityRuleGroup(undefined);
     }
     setSelectedPreviewIdx(0);
@@ -67,11 +74,11 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
   }, [open, initialQuestion]);
 
   const validProducts = useMemo(
-    () => products.filter((product) => product.category && product.regimen && product.doseLabel && product.productId),
+    () => products.filter(isProductComplete),
     [products]
   );
 
-  const handleAddProduct = () => setProducts((current) => [...current, checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
+  const handleAddProduct = () => setProducts((current) => [...current, checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.optionalAddon })]);
 
   const handleRemoveProduct = (index: number) => {
     setProducts((current) => {
@@ -122,6 +129,21 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
   };
 
   const handleSaveModal = async () => {
+    const incompleteRows = products
+      .map((product, index) => ({ product, index }))
+      .filter(({ product }) => !isProductComplete(product));
+    if (incompleteRows.length > 0) {
+      const labels = incompleteRows.map(({ product, index }) => {
+        const label = [product.category, product.regimen, product.doseLabel]
+          .filter(Boolean)
+          .join(" / ");
+        return `Option ${index + 1}${label ? ` (${label})` : ""}`;
+      });
+      const message = `${labels.join(", ")} is incomplete. Complete Category, Regimen, Dose Level, and Catalog Product before saving.`;
+      setFormError(message);
+      toast({ title: "Incomplete Product option", description: message, variant: "destructive" });
+      return;
+    }
     if (validProducts.length === 0) {
       setFormError("Configure at least one complete option with Category, Regimen, Dose Level, and Catalog Product.");
       return;
@@ -182,13 +204,10 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return {
         ...product,
         sourceProductId,
-        // Authored per option. Forcing primary_choice here made it impossible
-        // to configure a required companion or an optional add-on at all.
-        productRole: product.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
-        choiceGroup: (
-          product.choiceGroup
-          || `product-${sourceProductId || product.productId}`
+        productRole: productRoleForFlexibleSelection(
+          product.productRole || PROGRAM_PRODUCT_ROLE.optionalAddon,
         ),
+        choiceGroup: product.choiceGroup,
       };
     };
 
@@ -202,7 +221,10 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           visibilityRules: normalizeGroup(product.visibilityRules),
         })),
         visibilityRules: normalizeGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
-        required: isCheckoutQuestionRequired(validProducts),
+        required: false,
+        selectionMode: "multiple",
+        minSelections: 1,
+        maxSelections: undefined,
       });
       onOpenChange(false);
     } catch (error) {

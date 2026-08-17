@@ -4,7 +4,6 @@ import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
 import type { ProgramQuestion, ProgramCheckoutQuestion, ProgramCheckoutProduct } from "@/features/treatments/types";
-import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
 import { toast } from "@/components/ui/use-toast";
 import { useMemo, useState } from "react";
 
@@ -47,6 +46,9 @@ export function CheckoutEditor({
       text: activeQuestion.text,
       products: activeQuestion.checkoutProducts?.length ? activeQuestion.checkoutProducts : fallbackProducts,
       visibilityRules: activeQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
+      required: false,
+      selectionMode: "multiple",
+      minSelections: 1,
     };
   }, [activeQuestion]);
 
@@ -63,10 +65,19 @@ export function CheckoutEditor({
         text: data.text,
         kind: "checkout",
         section: activeQuestion?.section || "Checkout",
-        required: isCheckoutQuestionRequired(data.products),
+        required: data.required ?? false,
         visibilityRuleGroup: data.visibilityRules,
         checkoutProducts: data.products,
         checkoutProductIds: data.products.map((product) => product.productId || product.id),
+        checkoutSelectionMode: data.selectionMode,
+        checkoutMinSelections: data.minSelections,
+        checkoutMaxSelections: data.maxSelections,
+        elementConfig: {
+          ...(activeQuestion?.elementConfig || {}),
+          selectionMode: data.selectionMode,
+          minSelections: data.minSelections,
+          maxSelections: data.maxSelections,
+        },
       };
       await onSave(updatedQuestion);
       setJustSaved(true);

@@ -421,6 +421,7 @@ export function TreatmentAssignmentModal({
                   onRetry={() => retry(pair)}
                   onCancel={() => cancel(pair)}
                   onRecheck={() => recheckPair(pair)}
+                  onNavigate={() => changeOpen(false)}
                   permissions={permissions}
                 />
               ))

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   AlertCircle,
   Check,
@@ -10,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 
 import {
   ASSIGNMENT_ACTION_LABELS,
+  ASSIGNMENT_SOURCE,
   ASSIGNMENT_STAGE_LABELS,
   ASSIGNMENT_STEP_LABELS,
   DEPENDENCY_LABELS,
@@ -21,10 +23,41 @@ import {
 } from "@/features/treatments/assignment/constants";
 import { AssignmentIssueList } from "@/features/treatments/assignment/components/AssignmentIssueList";
 import { navigateToAssignmentAction } from "@/features/treatments/assignment/navigation";
+import {
+  usePublishCustomProgram,
+  useUpdateProgramStatus,
+} from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import type {
   AssignmentOperation,
   AssignmentPreflight,
 } from "@/api/treatmentAssignmentApi";
+
+type PublishApiErrorData = {
+  error?: string;
+  detail?: string;
+  details?: unknown;
+};
+
+const publishErrorMessage = (error: unknown): string => {
+  const data = (error as { response?: { data?: PublishApiErrorData } })
+    ?.response?.data;
+  if (data?.details) {
+    const details = data.details;
+    const flattened = Array.isArray(details)
+      ? details
+      : typeof details === "object" && details !== null
+        ? Object.values(details as Record<string, unknown>).flat()
+        : [details];
+    const message = flattened.filter(Boolean).join(" ");
+    if (message) return message;
+  }
+  return (
+    data?.detail ||
+    data?.error ||
+    (error as { message?: string })?.message ||
+    "Unable to publish. Try again."
+  );
+};
 
 export interface AssignmentPairState {
   key: string;
@@ -44,6 +77,9 @@ export function AssignmentPairCard(props: {
   onRetry: () => void;
   onCancel: () => void;
   onRecheck: () => void;
+  /** Called after a corrective action navigates away, so the modal can close
+   * instead of floating over the page it just navigated to. */
+  onNavigate?: () => void;
   /** Permissions used to authorize corrective actions. */
   permissions: ReadonlySet<string>;
 }) {
@@ -58,6 +94,28 @@ export function AssignmentPairCard(props: {
   const checkoutIssues = preflight?.checkout_issues || [];
   const operationIssues = operation?.last_error_issues || [];
   const failedStep = operation?.steps.find((step) => step.status === "failed");
+
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const updateProgramStatus = useUpdateProgramStatus();
+  const publishCustomProgram = usePublishCustomProgram();
+  const publishing = updateProgramStatus.isPending || publishCustomProgram.isPending;
+
+  const handlePublish = async () => {
+    setPublishError(null);
+    try {
+      if (preflight?.source_kind === ASSIGNMENT_SOURCE.customProgram) {
+        await publishCustomProgram.mutateAsync(pair.sourceId);
+      } else {
+        await updateProgramStatus.mutateAsync({
+          programId: pair.sourceId,
+          status: "published",
+        });
+      }
+      props.onRecheck();
+    } catch (error) {
+      setPublishError(publishErrorMessage(error));
+    }
+  };
   return (
     <article className="rounded-xl border bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -122,20 +180,36 @@ export function AssignmentPairCard(props: {
                       </p>
                     </div>
                   </div>
-                  {stage.actionable && stage.action !== "assign_parent" && (
+                  {stage.actionable && stage.action === "publish" && (
                     <button
                       type="button"
-                      onClick={() =>
-                        navigateToAssignmentAction(
-                          navigate,
-                          stage.action_route
-                        )
-                      }
-                      className="shrink-0 rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700"
+                      disabled={publishing}
+                      onClick={handlePublish}
+                      className="shrink-0 rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700 disabled:cursor-wait disabled:opacity-60"
                     >
-                      {ASSIGNMENT_ACTION_LABELS[stage.action] || stage.action}
+                      {publishing ? "Publishing…" : ASSIGNMENT_ACTION_LABELS.publish}
                     </button>
                   )}
+                  {stage.actionable &&
+                    stage.action !== "assign_parent" &&
+                    stage.action !== "publish" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            navigateToAssignmentAction(
+                              navigate,
+                              stage.action_route
+                            )
+                          ) {
+                            props.onNavigate?.();
+                          }
+                        }}
+                        className="shrink-0 rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700"
+                      >
+                        {ASSIGNMENT_ACTION_LABELS[stage.action] || stage.action}
+                      </button>
+                    )}
                 </div>
                 {stage.nodes
                   .filter((node) => node.message)
@@ -147,6 +221,11 @@ export function AssignmentPairCard(props: {
                       {node.name}: {node.message}
                     </p>
                   ))}
+                {stage.action === "publish" && publishError && (
+                  <p className="ml-8 mt-1 text-[11px] text-red-700">
+                    {publishError}
+                  </p>
+                )}
               </li>
             ))}
           </ol>
@@ -185,6 +264,7 @@ export function AssignmentPairCard(props: {
             issues={checkoutIssues}
             summary={preflight.checkout_summary}
             onRecheck={props.onRecheck}
+            onNavigate={props.onNavigate}
             permissions={props.permissions}
           />
         </>
@@ -210,6 +290,7 @@ export function AssignmentPairCard(props: {
               issues={operationIssues}
               summary={operation.last_error_summary}
               onRecheck={props.onRecheck}
+              onNavigate={props.onNavigate}
               permissions={props.permissions}
             />
           ) : (
