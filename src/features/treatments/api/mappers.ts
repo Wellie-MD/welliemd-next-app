@@ -115,8 +115,34 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
       record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule ?? record.conditional_logic,
     ) ?? { mode: "simple", rules: [], subgroups: [] },
     required: Boolean(record.required ?? record.is_required ?? isCheckoutQuestionRequired(rawProducts.map(checkoutProductFromRecord))),
+    selectionMode: (
+      record.selectionMode
+      ?? record.selection_mode
+      ?? checkoutConfig?.selection_mode
+      ?? "single"
+    ) as ProgramCheckoutQuestion["selectionMode"],
+    minSelections: Number(
+      record.minSelections
+      ?? record.min_selections
+      ?? checkoutConfig?.min_selections,
+    ) || undefined,
+    maxSelections: Number(
+      record.maxSelections
+      ?? record.max_selections
+      ?? checkoutConfig?.max_selections,
+    ) || undefined,
   };
 };
+
+const checkoutQuestionToRecord = (
+  question: ProgramCheckoutQuestion,
+): ProgramCheckoutQuestion & Record<string, unknown> => ({
+  ...question,
+  selection_mode: question.selectionMode || "single",
+  min_selections: question.minSelections ?? null,
+  max_selections: question.maxSelections ?? null,
+  is_required: Boolean(question.required),
+});
 
 export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): ProgramQuestion => ({
   id: String(record.id || `q-${index + 1}`),
@@ -402,7 +428,9 @@ export const programToRecord = (program: Partial<Program>, treatmentTypes: Treat
     payload.screening_questions = (program.screeningQuestions || []).map(questionToRecord);
   }
   if (program.checkoutQuestions !== undefined) {
-    payload.checkout_questions = program.checkoutQuestions || [];
+    payload.checkout_questions = (program.checkoutQuestions || []).map(
+      checkoutQuestionToRecord,
+    );
   }
   if (program.consentIds !== undefined) {
     payload.consent_ids = program.consentIds || [];

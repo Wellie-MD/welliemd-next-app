@@ -11,6 +11,22 @@ export interface VisibilityValidationIssue {
   message: string;
 }
 
+/**
+ * Visibility rules have existed in both API (snake_case) and domain
+ * (camelCase) shapes. Keep the authoring UI tolerant of either shape and of
+ * incomplete historical records. An empty id is intentional: the builder can
+ * render it and its normal validation message lets the user repair the rule.
+ */
+export const normalizeVisibilityQuestionId = (condition: unknown): string => {
+  if (!condition || typeof condition !== "object") return "";
+  const record = condition as Record<string, unknown>;
+  const snakeCaseId = record.question_id;
+  const raw = typeof snakeCaseId === "string" && snakeCaseId.trim()
+    ? snakeCaseId
+    : record.questionId;
+  return typeof raw === "string" ? raw : raw == null ? "" : String(raw);
+};
+
 const NUMERIC_OPERATORS = new Set(["gt", "gte", "lt", "lte"]);
 
 const isBlank = (value: unknown): boolean =>

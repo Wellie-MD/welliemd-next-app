@@ -84,6 +84,9 @@ export interface ProgramQuestion {
   consentText?: string;
   checkoutProductIds?: string[];
   checkoutProducts?: ProgramCheckoutProduct[];
+  checkoutSelectionMode?: "single" | "multiple";
+  checkoutMinSelections?: number;
+  checkoutMaxSelections?: number;
   visibilityRule?: {
     questionId: string;
     value: string;

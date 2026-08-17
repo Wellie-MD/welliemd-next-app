@@ -3,6 +3,7 @@ import { strict as assert } from "assert";
 import type { VisibilityGroup } from "../src/components/questionnaires/VisibilityRuleBuilder.tsx";
 import {
   validateVisibilityGroup,
+  normalizeVisibilityQuestionId,
   visibilityPathLabel,
 } from "../src/components/questionnaires/visibilityRuleValidation.ts";
 
@@ -90,6 +91,12 @@ test("multi-value operators require at least one value", () => {
   }]));
 
   assert.equal(issues[0].message, "Enter at least one trigger value.");
+});
+
+test("legacy snake_case question ids are normalized before rendering", () => {
+  assert.equal(normalizeVisibilityQuestionId({ question_id: "question-legacy" }), "question-legacy");
+  assert.equal(normalizeVisibilityQuestionId({ questionId: "question-camel" }), "question-camel");
+  assert.equal(normalizeVisibilityQuestionId({ question_id: undefined }), "");
 });
 
 console.log("All visibility-rule validation tests passed.");
