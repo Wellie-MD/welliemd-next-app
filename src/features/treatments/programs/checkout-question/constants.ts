@@ -17,3 +17,11 @@ export const isCheckoutQuestionRequired = (products: ProgramCheckoutProduct[] = 
       product.productRole === PROGRAM_PRODUCT_ROLE.primaryChoice ||
       product.productRole === PROGRAM_PRODUCT_ROLE.requiredCompanion
   );
+
+export const productRoleForFlexibleSelection = (
+  role: ProgramProductRole,
+): ProgramProductRole => (
+  role === PROGRAM_PRODUCT_ROLE.primaryChoice
+    ? PROGRAM_PRODUCT_ROLE.optionalAddon
+    : role
+);

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
-import { PROGRAM_PRODUCT_ROLE, isCheckoutQuestionRequired } from "../constants";
+import {
+  PROGRAM_PRODUCT_ROLE,
+  productRoleForFlexibleSelection,
+} from "../constants";
 import { formatCheckoutQuestionText } from "../utils/checkoutTitleUtils";
 import { toast } from "@/components/ui/use-toast";
 
@@ -13,7 +16,7 @@ const isProductComplete = (product: ProductForm): boolean => Boolean(
 );
 
 const createEmptyProducts = (): ProductForm[] => [
-  checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice }),
+  checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.optionalAddon }),
 ];
 
 interface UseCheckoutQuestionFormArgs {
@@ -85,7 +88,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     [products]
   );
 
-  const handleAddProduct = () => setProducts((current) => [...current, checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
+  const handleAddProduct = () => setProducts((current) => [...current, checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.optionalAddon })]);
 
   const handleRemoveProduct = (index: number) => {
     setProducts((current) => {
@@ -211,11 +214,10 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return {
         ...product,
         sourceProductId,
-        productRole: PROGRAM_PRODUCT_ROLE.primaryChoice,
-        choiceGroup: (
-          product.choiceGroup
-          || `product-${sourceProductId || product.productId}`
+        productRole: productRoleForFlexibleSelection(
+          product.productRole || PROGRAM_PRODUCT_ROLE.optionalAddon,
         ),
+        choiceGroup: product.choiceGroup,
       };
     };
 
@@ -229,7 +231,10 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           visibilityRules: normalizeGroup(product.visibilityRules),
         })),
         visibilityRules: normalizeGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
-        required: isCheckoutQuestionRequired(validProducts),
+        required: false,
+        selectionMode: "multiple",
+        minSelections: 1,
+        maxSelections: undefined,
       });
       onOpenChange(false);
     } catch (error) {
