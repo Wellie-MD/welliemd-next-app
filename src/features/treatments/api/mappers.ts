@@ -107,25 +107,28 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
   const rawProducts = (
     record.products ?? record.answer_choices ?? record.options ?? checkoutConfig?.products ?? []
   ) as CheckoutRecord[];
+  const products = rawProducts.map(checkoutProductFromRecord);
+  const minSelections = Number(
+    record.minSelections
+    ?? record.min_selections
+    ?? checkoutConfig?.min_selections,
+  ) || undefined;
   return {
     id: String(record.id ?? record.source_id ?? `checkout-question-${index + 1}`),
     text: String(record.text ?? record.question_text ?? record.prompt ?? "Checkout Options"),
-    products: rawProducts.map(checkoutProductFromRecord),
+    products,
     visibilityRules: checkoutVisibilityGroup(
       record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule ?? record.conditional_logic,
     ) ?? { mode: "simple", rules: [], subgroups: [] },
-    required: Boolean(record.required ?? record.is_required ?? isCheckoutQuestionRequired(rawProducts.map(checkoutProductFromRecord))),
+    required: Boolean(record.required ?? record.is_required)
+      || isCheckoutQuestionRequired(products, minSelections),
     selectionMode: (
       record.selectionMode
       ?? record.selection_mode
       ?? checkoutConfig?.selection_mode
       ?? "single"
     ) as ProgramCheckoutQuestion["selectionMode"],
-    minSelections: Number(
-      record.minSelections
-      ?? record.min_selections
-      ?? checkoutConfig?.min_selections,
-    ) || undefined,
+    minSelections,
     maxSelections: Number(
       record.maxSelections
       ?? record.max_selections

@@ -85,7 +85,8 @@ export function ProgramCheckoutQuestions({
               </tr>
             ) : (
               questions.map((cq) => {
-                const isRequired = cq.required ?? isCheckoutQuestionRequired(cq.products);
+                const isRequired = Boolean(cq.required)
+                  || isCheckoutQuestionRequired(cq.products, cq.minSelections);
                 return (
                   <tr key={cq.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-5 text-[13px] font-bold text-slate-900 w-1/3">
