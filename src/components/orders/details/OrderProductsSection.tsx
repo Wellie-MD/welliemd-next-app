@@ -15,6 +15,7 @@ export interface BundledSupplyItem {
 
 export interface NormalizedProductItem {
   id: string
+  productId?: string
   name: string
   requestedName: string
   prescribedName: string
@@ -221,6 +222,7 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
 
         medProducts.push({
           id: String(item.id || `line-${idx}`),
+          productId: item.product_id == null ? undefined : String(item.product_id),
           name: prescribedName,
           requestedName: reqName,
           prescribedName,
@@ -262,8 +264,10 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
         const price = Number(rx?.price ?? req?.price ?? order.pricing?.subtotal_before_discount ?? order.original_price ?? 0)
         const shipping = Number(rx?.shipping_fee ?? req?.shipping_fee ?? order.shipping_fee ?? 0)
 
+        const productId = rx?.product_id ?? req?.product_id
         medProducts.push({
           id: String(rx?.rxId || rx?.medId || `prod-${i}`),
+          productId: productId == null ? undefined : String(productId),
           name: rxName,
           requestedName: reqName,
           prescribedName: rxName,
@@ -291,6 +295,24 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
 
   const orderStatus = (order.orderStatus || order.status || "").toLowerCase()
   const isPrescribedStatus = orderStatus === "prescribed" || Boolean(order.datePrescribed)
+
+  // A partially-prescribed order captures/confirms individual products as
+  // Beluga delivers them, well before the order as a whole reaches
+  // "prescribed" -- reconciliation.prescribed_set already reflects exactly
+  // which specific Products have been confirmed so far. Falling back to the
+  // order-wide isPrescribedStatus flag for every card would show an
+  // already-confirmed product as "Awaiting provider decision" (or a
+  // still-outstanding one as falsely "Prescribed") for as long as any
+  // sibling product in the same order remains outstanding.
+  const prescribedProductIds = React.useMemo(() => {
+    const prescribedSet = order.treatment_aggregate?.reconciliation?.prescribed_set
+    if (!Array.isArray(prescribedSet)) return null
+    const ids = new Set<string>()
+    prescribedSet.forEach((item) => {
+      if (item?.product_id != null) ids.add(String(item.product_id))
+    })
+    return ids
+  }, [order])
 
   return (
     <div className="bg-card rounded-2xl border border-border shadow-xs overflow-hidden">
@@ -368,6 +390,21 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
           {productItems.map((prod, idx) => {
             const isSelected = selectedProductId === prod.id
             const displayPrescribed = pendingProductChange ? pendingProductChange.productName : prod.prescribedName
+            // A card is "Prescribed" once EITHER its own product was
+            // directly confirmed (per-product signal, correct while the
+            // order is still partially prescribed and other products
+            // remain genuinely outstanding), OR the whole order has
+            // concluded (isPrescribedStatus) -- reconciliation is
+            // deliberately set-based, not paired 1:1 (see
+            // reconciliation.py), so a requested product that was
+            // substituted for a different one never appears in
+            // prescribed_set under its own id even though its slot IS
+            // resolved. Without the isPrescribedStatus fallback, a
+            // substituted requested product's card would show "Awaiting
+            // provider decision" forever, even after the whole case is done.
+            const cardIsPrescribed = prescribedProductIds
+              ? Boolean((prod.productId && prescribedProductIds.has(prod.productId)) || isPrescribedStatus)
+              : isPrescribedStatus
 
             return (
               <div
@@ -429,7 +466,7 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
                     <span className="text-muted-foreground font-medium text-[11px] block">
                       Prescribed (Doctor Final):
                     </span>
-                    {isPrescribedStatus ? (
+                    {cardIsPrescribed ? (
                       <span className="pill pill-green max-w-full truncate block">
                         {displayPrescribed}
                       </span>

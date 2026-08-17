@@ -81,7 +81,21 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
     const allSupplies = extractOrderSupplies(order)
     const list: Array<{ id: string; name: string; qty: number; unitPrice: number; total: number }> = []
 
-    if (Array.isArray(order.line_items) && order.line_items.length > 0) {
+    if (order.prescribed_pricing_summary?.items && order.prescribed_pricing_summary.items.length > 0) {
+      order.prescribed_pricing_summary.items.forEach((item: any, idx: number) => {
+        const id = String(item.rxId || item.medId || `prescribed-${idx}`)
+        const qty = Number(item.quantity) || 1
+        const total = Number(item.subtotal) || 0
+
+        list.push({
+          id,
+          name: String(item.name || "Treatment Product"),
+          qty,
+          unitPrice: qty > 0 ? total / qty : total,
+          total,
+        })
+      })
+    } else if (Array.isArray(order.line_items) && order.line_items.length > 0) {
       const lineItems = order.line_items as Array<Record<string, unknown>>
 
       lineItems.forEach((item, idx) => {
@@ -146,6 +160,7 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
   const taxAmount = parseMoney(order.pricing?.tax_total)
   const consultFee = parseMoney(order.pricing?.consult_fee)
   const grandTotal = parseMoney(
+    order.prescribed_pricing_summary?.final_total ??
     order.treatment_case_summary?.treatment_total ??
       order.pricing?.grand_total ??
       order.grand_total ??
@@ -156,13 +171,15 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
 
   const subtotalPrice = itemsSubtotalSum > 0
     ? itemsSubtotalSum
-    : parseMoney(order.pricing?.medication_subtotal ?? order.pricing?.subtotal_before_discount ?? order.original_price) ?? 0
+    : parseMoney(order.prescribed_pricing_summary?.subtotal ?? order.pricing?.medication_subtotal ?? order.pricing?.subtotal_before_discount ?? order.original_price) ?? 0
 
   // Calculate mathematical discount delta if grandTotal is specified
   const computedGross = subtotalPrice + (consultFee ?? 0) + shippingFee + (taxAmount ?? 0)
-  const effectiveDiscount = grandTotal != null && grandTotal < computedGross
-    ? computedGross - grandTotal
-    : rawDiscount
+  const effectiveDiscount = order.prescribed_pricing_summary
+    ? (parseMoney(order.prescribed_pricing_summary.coupon_discount) ?? rawDiscount)
+    : grandTotal != null && grandTotal < computedGross
+      ? computedGross - grandTotal
+      : rawDiscount
 
   const allocation = order.combined_payment_summary?.allocation
   const refundedAmount = parseMoney(allocation?.refunded_amount ?? order.totalRefunded) ?? 0

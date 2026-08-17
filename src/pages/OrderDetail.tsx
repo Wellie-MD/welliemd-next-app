@@ -45,7 +45,6 @@ import { OrderPatientCard } from "@/components/orders/details/OrderPatientCard"
 import { OrderPaymentCard } from "@/components/orders/details/OrderPaymentCard"
 import { OrderTimelineCard } from "@/components/orders/details/OrderTimelineCard"
 import { OrderMetadataSection } from "@/components/orders/details/OrderMetadataSection"
-import { OrderSupportNotesSection } from "@/components/orders/details/OrderSupportNotesSection"
 import { OrderMedicalCard } from "@/components/orders/details/OrderMedicalCard"
 import { OrderPharmacyCard } from "@/components/orders/details/OrderPharmacyCard"
 import { RefundVoidModal } from "@/components/orders/details/RefundVoidModal"
@@ -1440,9 +1439,11 @@ export default function OrderDetail() {
     order.product_name ||
     "—"
   const rawPrescribedMedicineName =
-    order.prescribed_medicines?.[0]?.name ||
-    order.prescription_medications?.[0]?.name ||
-    null
+    order.prescribed_pricing_summary?.items?.length
+      ? order.prescribed_pricing_summary.items.map((item: any) => `${item.name}${Number(item.quantity) > 1 ? ` (x${item.quantity})` : ''}`).join(", ")
+      : order.prescribed_medicines?.[0]?.name ||
+        order.prescription_medications?.[0]?.name ||
+        null
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
   const isSameMedicinePlaceholder =
     prescribedNameNormalized === "same med" ||
@@ -1692,8 +1693,7 @@ export default function OrderDetail() {
           {/* Clinical & System Metadata */}
           <OrderMetadataSection order={order} />
 
-          {/* Support Notes & Audit Logs */}
-          <OrderSupportNotesSection order={order} />
+
               {/* Prescribed Block */}
               <div className="px-6 py-1 mt-1">
                 {!showFullSplitLayout ? (
@@ -1707,9 +1707,17 @@ export default function OrderDetail() {
                   <>
                     <div className="text-[11px] font-bold tracking-wide uppercase text-slate-500 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap">
                       Prescribed (Latest)
-                      <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
-                        {prescribedMedicineDisplayName}
-                      </span>
+                      {order.prescribed_pricing_summary?.items?.length > 0 ? (
+                        order.prescribed_pricing_summary.items.map((item: any, idx: number) => (
+                          <span key={idx} className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                            {item.name} {Number(item.quantity) > 1 ? `(x${item.quantity})` : ""}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                          {prescribedMedicineDisplayName}
+                        </span>
+                      )}
                       {showFullSplitLayout && (
                         <button
                           type="button"
@@ -1743,27 +1751,38 @@ export default function OrderDetail() {
                       </>
                     ) : (
                       <>
-                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                          <span className="text-slate-500 dark:text-slate-400">Product amount</span>
-                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
-                        </div>
-                        {previewDiscountAmount > 0 && (
+                        {order.prescribed_pricing_summary?.items?.length > 0 ? (
+                          order.prescribed_pricing_summary.items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center py-1.5 text-[13.5px]">
+                              <span className="text-slate-500 dark:text-slate-400">
+                                {item.name} {Number(item.quantity) > 1 ? `(x${item.quantity})` : ""}
+                              </span>
+                              <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(Number(item.subtotal))}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                            <span className="text-slate-500 dark:text-slate-400">Product amount</span>
+                            <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
+                          </div>
+                        )}
+                        {(Number(order.prescribed_pricing_summary?.coupon_discount || previewDiscountAmount)) > 0 && (
                           <div className="flex justify-between items-center py-1.5 text-[13.5px]">
                             <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
-                            <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
+                            <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${Number(order.prescribed_pricing_summary?.coupon_discount || previewDiscountAmount).toFixed(2)}</span>
                           </div>
                         )}
                         <div className="flex justify-between items-center py-1.5 text-[13.5px]">
                           <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
-                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${productSubtotalPrice}</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${order.prescribed_pricing_summary ? formatMoney(Number(order.prescribed_pricing_summary.subtotal)) : productSubtotalPrice}</span>
                         </div>
                         <div className="flex justify-between items-center py-1.5 text-[13.5px]">
                           <span className="text-slate-500 dark:text-slate-400">Shipping</span>
-                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(previewShippingFee)}</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(Number(order.prescribed_pricing_summary?.shipping || previewShippingFee))}</span>
                         </div>
                         <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
                           <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
-                          <span className="text-slate-900 dark:text-white font-bold tabular-nums">${prescribedFinalDisplay ?? totalPrice}</span>
+                          <span className="text-slate-900 dark:text-white font-bold tabular-nums">${order.prescribed_pricing_summary ? formatMoney(Number(order.prescribed_pricing_summary.final_total)) : (prescribedFinalDisplay ?? totalPrice)}</span>
                         </div>
                       </>
                     )}

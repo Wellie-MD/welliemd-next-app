@@ -237,8 +237,9 @@ export function OrderDetailsSheet({
       : order?.requested_medicines?.[0]?.name ||
         order?.product_name ||
         "—"
-  const rawPrescribedMedicineName =
-    isPhase2Order
+  const rawPrescribedMedicineName = order.prescribed_pricing_summary?.items?.length
+    ? order.prescribed_pricing_summary.items.map((item: any) => `${item.name}${Number(item.quantity) > 1 ? ` (x${item.quantity})` : ''}`).join(", ")
+    : isPhase2Order
       ? phase2LineItems.filter((item) => item.prescription_status === "prescribed").map((item) => item.product_name || "Product").filter(Boolean).join(", ") || null
       : order?.prescribed_medicines?.[0]?.name ||
         order?.prescription_medications?.[0]?.name ||

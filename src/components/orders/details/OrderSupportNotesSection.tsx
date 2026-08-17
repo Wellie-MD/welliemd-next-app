@@ -10,15 +10,15 @@ interface OrderSupportNotesSectionProps {
 export const OrderSupportNotesSection: React.FC<OrderSupportNotesSectionProps> = ({ order }) => {
   const support = order.treatment_aggregate?.support
   const notes = order.notes
-  const billingPendingReason = order.billing_pending_reason
+  const rawBillingReason = order.billing_pending_reason || ""
+  const isTechnicalError = rawBillingReason.includes("HTTPError") || rawBillingReason.includes("Client Error") || rawBillingReason.includes("500 Internal") || rawBillingReason.includes("400 Bad Request")
+  const billingPendingReason = isTechnicalError ? null : (order.billing_pending_reason || null)
 
   const hasSupportData =
     Boolean(notes) ||
     Boolean(billingPendingReason) ||
     Boolean(support?.owner) ||
-    Boolean(support?.pending_reason) ||
-    Boolean(support?.last_error_code) ||
-    Boolean(support?.last_error_detail)
+    Boolean(support?.pending_reason)
 
   return (
     <div className="bg-card rounded-2xl border border-border shadow-xs overflow-hidden">
@@ -80,22 +80,7 @@ export const OrderSupportNotesSection: React.FC<OrderSupportNotesSectionProps> =
               </div>
             )}
 
-            {/* Support Error Code & Technical Details */}
-            {(support?.last_error_code || support?.last_error_detail) && (
-              <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-1 text-rose-900 dark:text-rose-200">
-                <div className="flex items-center gap-2 font-semibold">
-                  <ShieldAlert className="h-4 w-4 text-rose-600" />
-                  <span>
-                    Support Error {support.last_error_code ? `[${support.last_error_code}]` : ""}
-                  </span>
-                </div>
-                {support.last_error_detail && (
-                  <p className="text-xs text-rose-800 dark:text-rose-300 font-mono pt-1 leading-relaxed">
-                    {support.last_error_detail}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* Technical support error blocks intentionally omitted for Client Portal */}
 
             {/* Support Notes */}
             {notes && (
