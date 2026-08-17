@@ -8,11 +8,15 @@ export const PROGRAM_PRODUCT_ROLE = {
   informational: "informational",
 } as const satisfies Record<string, ProgramProductRole>;
 
-// Mirrors the backend's is_req computation (program_checkout_configuration.py):
-// a checkout question is only "required" if the patient must choose one of its
-// primary-choice products — Optional/Informational/Clinician-only roles never force a selection.
-export const isCheckoutQuestionRequired = (products: ProgramCheckoutProduct[] = []) =>
-  products.some(
+// A checkout question is required when its contract requires at least one
+// selection, even if every individual option is an optional add-on. Product
+// roles remain useful for legacy single-select questions, where a primary
+// choice/required companion is the only requiredness signal.
+export const isCheckoutQuestionRequired = (
+  products: ProgramCheckoutProduct[] = [],
+  minSelections?: number | null,
+) =>
+  Number(minSelections ?? 0) > 0 || products.some(
     (product) =>
       product.productRole === PROGRAM_PRODUCT_ROLE.primaryChoice ||
       product.productRole === PROGRAM_PRODUCT_ROLE.requiredCompanion
