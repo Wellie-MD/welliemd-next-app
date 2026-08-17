@@ -43,6 +43,9 @@ export interface ProgramCheckoutQuestion {
   products: ProgramCheckoutProduct[];
   visibilityRules: VisibilityRuleGroup;
   required?: boolean;
+  selectionMode?: "single" | "multiple";
+  minSelections?: number;
+  maxSelections?: number;
 }
 
 export interface CheckoutProductOption {

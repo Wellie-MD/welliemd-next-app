@@ -16,6 +16,7 @@ import { normalizeChoiceDisplay, resolveChoiceValue } from "@/utils/choiceValue"
 import {
   visibilityIssueId,
   visibilityPathLabel,
+  normalizeVisibilityQuestionId,
   type VisibilityValidationIssue,
 } from "./visibilityRuleValidation";
 
@@ -160,11 +161,15 @@ function getQuestionChoices(question: QuestionOption | undefined): string[] {
 }
 
 function formatQuestionLabel(question: QuestionOption): string {
-  const isProfileSource = question.id.startsWith("__patient_profile_");
+  const questionId = typeof question.id === "string" ? question.id : "";
+  const isProfileSource = questionId.startsWith("__patient_profile_");
   return isProfileSource || !question.order_index
     ? question.question_text
     : `${question.order_index}. ${question.question_text}`;
 }
+
+const isPatientProfileQuestion = (question: QuestionOption): boolean =>
+  typeof question.id === "string" && question.id.startsWith("__patient_profile_");
 
 function ConditionEditor({
   node,
@@ -181,8 +186,9 @@ function ConditionEditor({
   onRemove: (path: number[]) => void;
   validationIssues: VisibilityValidationIssue[];
 }) {
-  const selectedQuestion = questions.find((question) => question.id === node.question_id);
-  const isPatientProfileSource = node.question_id.startsWith("__patient_profile_");
+  const questionId = normalizeVisibilityQuestionId(node);
+  const selectedQuestion = questions.find((question) => question.id === questionId);
+  const isPatientProfileSource = questionId.startsWith("__patient_profile_");
   const choiceOptions = getQuestionChoices(selectedQuestion);
   const isMultiValue = ["in", "not_in"].includes(node.operator);
   const isBetween = node.operator === "between";
@@ -226,7 +232,7 @@ function ConditionEditor({
         <div className="space-y-2">
           <Label className="text-xs">Question</Label>
           <Select
-            value={node.question_id}
+            value={questionId}
             onValueChange={(questionId) => {
               const isBmi = questionId === DERIVED_BMI_ID;
               onChange(path, (current) => ({
@@ -248,7 +254,7 @@ function ConditionEditor({
             <SelectContent className="w-[min(32rem,calc(100vw-2rem))]">
               <SelectGroup>
                 <SelectLabel>Earlier questions</SelectLabel>
-                {questions.filter((question) => !question.id.startsWith("__patient_profile_")).map((question) => (
+                {questions.filter((question) => !isPatientProfileQuestion(question)).map((question) => (
                   <SelectItem
                     key={question.id}
                     value={question.id}
@@ -258,10 +264,10 @@ function ConditionEditor({
                   </SelectItem>
                 ))}
               </SelectGroup>
-              {questions.some((question) => question.id.startsWith("__patient_profile_")) && (
+              {questions.some(isPatientProfileQuestion) && (
                 <SelectGroup>
                   <SelectLabel>Patient profile</SelectLabel>
-                  {questions.filter((question) => question.id.startsWith("__patient_profile_")).map((question) => (
+                  {questions.filter(isPatientProfileQuestion).map((question) => (
                     <SelectItem
                       key={question.id}
                       value={question.id}

@@ -9,7 +9,13 @@ import {
   regimensForProducts,
   selectableCatalogProducts,
 } from "../src/features/treatments/programs/checkout-question/utils/catalogOptions.js";
-import { checkoutQuestionFromRecord } from "../src/features/treatments/api/mappers.js";
+import {
+  checkoutQuestionFromRecord,
+  programToRecord,
+} from "../src/features/treatments/api/mappers.js";
+import {
+  productRoleForFlexibleSelection,
+} from "../src/features/treatments/programs/checkout-question/constants.js";
 
 const product = (overrides: Partial<Product>): Product => ({
   id: 1,
@@ -167,5 +173,41 @@ assert.deepEqual(
     { group: "supply-group", label: "Semaglutide 0.25 mg", duration: 60 },
   ],
 );
+
+const multiSelectQuestion = checkoutQuestionFromRecord(
+  {
+    id: "checkout-multiple",
+    selection_mode: "multiple",
+    min_selections: 1,
+    max_selections: null,
+    is_required: false,
+    answer_choices: [{
+      option_id: "optional-1",
+      product_id: 101,
+      product_role: "optional_addon",
+    }],
+  },
+  3,
+);
+assert.equal(multiSelectQuestion.selectionMode, "multiple");
+assert.equal(multiSelectQuestion.minSelections, 1);
+assert.equal(multiSelectQuestion.maxSelections, undefined);
+assert.equal(multiSelectQuestion.required, false);
+assert.equal(multiSelectQuestion.products[0].productRole, "optional_addon");
+assert.equal(productRoleForFlexibleSelection("primary_choice"), "optional_addon");
+assert.equal(productRoleForFlexibleSelection("required_companion"), "required_companion");
+
+const serializedProgram = programToRecord({
+  id: "program-1",
+  name: "Weight Loss",
+  checkoutQuestions: [multiSelectQuestion],
+} as never);
+assert.deepEqual(serializedProgram.checkout_questions?.[0], {
+  ...multiSelectQuestion,
+  selection_mode: "multiple",
+  min_selections: 1,
+  max_selections: null,
+  is_required: false,
+});
 
 console.log("checkout question catalog dependency tests passed");

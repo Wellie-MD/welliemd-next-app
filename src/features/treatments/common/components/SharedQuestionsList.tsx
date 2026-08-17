@@ -232,6 +232,9 @@ export function SharedQuestionsList({
     products: question.checkoutProducts || [],
     visibilityRules: question.visibilityRuleGroup || { mode: "simple", rules: [] },
     required: question.required,
+    selectionMode: question.checkoutSelectionMode,
+    minSelections: question.checkoutMinSelections,
+    maxSelections: question.checkoutMaxSelections,
   });
 
   // Patient Authentication cannot be dragged or duplicated and always stays
@@ -626,6 +629,9 @@ export function SharedQuestionsList({
       .map((product) => product.productId)
       .filter((productId): productId is string => Boolean(productId)),
     checkoutProducts: checkout.products,
+    checkoutSelectionMode: checkout.selectionMode,
+    checkoutMinSelections: checkout.minSelections,
+    checkoutMaxSelections: checkout.maxSelections,
     visibilityRuleGroup: checkout.visibilityRules,
     elementConfig: {
       checkoutProducts: checkout.products,

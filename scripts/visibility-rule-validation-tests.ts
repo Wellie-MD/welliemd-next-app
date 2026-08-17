@@ -3,6 +3,7 @@ import { strict as assert } from "assert";
 import type { VisibilityGroup } from "../src/components/questionnaires/VisibilityRuleBuilder.tsx";
 import {
   validateVisibilityGroup,
+  normalizeVisibilityQuestionId,
   visibilityPathLabel,
 } from "../src/components/questionnaires/visibilityRuleValidation.ts";
 import { resolveChoiceValue } from "../src/utils/choiceValue.ts";
@@ -120,6 +121,12 @@ test("ambiguous dose prefixes are left unchanged", () => {
 test("long choice labels remain selectable as-is", () => {
   const value = "Increase the dose if a higher one is available, or continue with my current dose if it's already at the maximum";
   assert.equal(resolveChoiceValue([value, "Decrease dose"], value), value);
+});
+
+test("legacy snake_case question ids are normalized before rendering", () => {
+  assert.equal(normalizeVisibilityQuestionId({ question_id: "question-legacy" }), "question-legacy");
+  assert.equal(normalizeVisibilityQuestionId({ questionId: "question-camel" }), "question-camel");
+  assert.equal(normalizeVisibilityQuestionId({ question_id: undefined }), "");
 });
 
 console.log("All visibility-rule validation tests passed.");
