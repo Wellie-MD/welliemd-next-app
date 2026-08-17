@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { PROGRAM_PRODUCT_ROLE, isCheckoutQuestionRequired } from "../constants";
@@ -12,6 +12,10 @@ const isProductComplete = (product: ProductForm): boolean => Boolean(
   product.category && product.regimen && product.doseLabel && product.productId,
 );
 
+const createEmptyProducts = (): ProductForm[] => [
+  checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice }),
+];
+
 interface UseCheckoutQuestionFormArgs {
   open: boolean;
   initialQuestion?: ProgramCheckoutQuestion | null;
@@ -20,11 +24,18 @@ interface UseCheckoutQuestionFormArgs {
 }
 
 export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange }: UseCheckoutQuestionFormArgs) {
-  const [products, setProducts] = useState<ProductForm[]>([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
+  const [products, setProducts] = useState<ProductForm[]>(createEmptyProducts);
   const [visibilityRuleGroup, setVisibilityRuleGroup] = useState<VisibilityRuleGroupForm | undefined>(undefined);
   const [selectedPreviewIdx, setSelectedPreviewIdx] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  const resetForm = useCallback(() => {
+    setProducts(createEmptyProducts());
+    setVisibilityRuleGroup(undefined);
+    setSelectedPreviewIdx(0);
+    setFormError(null);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -63,12 +74,11 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           : undefined
       );
     } else {
-      setProducts([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
-      setVisibilityRuleGroup(undefined);
+      resetForm();
     }
     setSelectedPreviewIdx(0);
     setFormError(null);
-  }, [open, initialQuestion]);
+  }, [open, initialQuestion, resetForm]);
 
   const validProducts = useMemo(
     () => products.filter(isProductComplete),
@@ -270,6 +280,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     handleProductPriceChange,
     handleProductVisibilityChange,
     handleVisibilityRuleGroupChange,
+    resetForm,
     handleSaveModal,
   };
 }

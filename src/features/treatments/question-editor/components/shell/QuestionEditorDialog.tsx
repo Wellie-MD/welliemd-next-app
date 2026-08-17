@@ -32,6 +32,7 @@ export function QuestionEditorDialog({
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isFlowTestOpen, setIsFlowTestOpen] = useState(false);
+  const [newQuestionRevision, setNewQuestionRevision] = useState(0);
 
   // Sync initial question on open
   useEffect(() => {
@@ -43,13 +44,22 @@ export function QuestionEditorDialog({
 
   const activeQuestion = questions.find((q) => q.id === activeQuestionId);
 
+  const handleSelectQuestion = (questionId: string | null) => {
+    setActiveQuestionId(questionId);
+    if (questionId === null) {
+      // Setting null is a no-op when the editor is already in new-question
+      // mode, so bump the revision to force a clean draft in that case too.
+      setNewQuestionRevision((revision) => revision + 1);
+    }
+  };
+
   const sidebar = (
     <QuestionEditorSidebar
       questions={questions}
       activeQuestionId={activeQuestionId}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
-      onSelectQuestion={setActiveQuestionId}
+      onSelectQuestion={handleSelectQuestion}
     />
   );
 
@@ -67,6 +77,7 @@ export function QuestionEditorDialog({
           </DialogTitle>
           {activeQuestion?.kind === "checkout" ? (
             <CheckoutEditor
+              key={`${activeQuestionId || "new"}-${newQuestionRevision}`}
               activeQuestion={activeQuestion}
               questions={questions}
               programName={programName}
@@ -78,6 +89,7 @@ export function QuestionEditorDialog({
             />
           ) : activeQuestion?.kind === "patient_authentication" ? (
             <AuthEditor
+              key={`${activeQuestionId || "new"}-${newQuestionRevision}`}
               activeQuestion={activeQuestion}
               questions={questions}
               programName={programName}
@@ -88,6 +100,7 @@ export function QuestionEditorDialog({
             />
           ) : (
             <StandardEditor
+              key={`${activeQuestionId || "new"}-${newQuestionRevision}`}
               activeQuestion={activeQuestion}
               questions={questions}
               programName={programName}
