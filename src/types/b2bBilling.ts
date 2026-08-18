@@ -74,6 +74,7 @@ export interface B2BInvoicePrescriptionItem {
   shipping_amount?: string;
   product_total?: string;
   patient_amount?: string;
+  product_identity_diagnostic?: ProductIdentityDiagnostic;
 }
 
 export interface B2BInvoicePrescriptionEvent {
@@ -86,7 +87,19 @@ export interface B2BInvoicePrescriptionEvent {
   shipping_amount?: string;
   product_total?: string;
   patient_total?: string;
+  product_identity_diagnostic?: ProductIdentityDiagnostic;
   items?: B2BInvoicePrescriptionItem[];
+}
+
+export interface ProductIdentityDiagnostic {
+  code: "product_identity_mismatch" | string;
+  resolution?: "source_product_id" | "beluga_medicine_id" | string;
+  source_product_id?: string;
+  source_product_name?: string;
+  source_beluga_medicine_id?: string;
+  provided_beluga_medicine_id?: string;
+  med_product_id?: string | null;
+  med_product_name?: string | null;
 }
 
 export interface B2BInvoice {
@@ -137,6 +150,7 @@ export interface B2BInvoice {
     original_requested_medication_amount?: string;
     original_requested_shipping_amount?: string;
     original_requested_product_total?: string;
+    product_identity_diagnostics?: ProductIdentityDiagnostic[];
   } | null;
   revision_adjustments?: Array<{
     id: string;
@@ -151,6 +165,7 @@ export interface B2BInvoice {
     adjustment_amount: string;
     created_at?: string | null;
     source?: string;
+    product_identity_diagnostics?: ProductIdentityDiagnostic[];
   }>;
   prescription_events?: B2BInvoicePrescriptionEvent[];
   adjustment_summary?: {
