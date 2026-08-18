@@ -26,6 +26,7 @@ export interface AvailableTreatment {
     days_remaining: number | null;
     launch: {
         custom_program_id?: string;
+        program_id?: string;
         template_id?: string;
         release_token?: string;
         release_version?: number;
@@ -70,50 +71,42 @@ export async function getAvailableTreatments(): Promise<AvailableTreatment[]> {
 /**
  * Start a new treatment.
  *
- * Build a release-bound questionnaire URL from backend-issued launch metadata.
+ * Ask the tenant backend for a release-bound, pre-authenticated launch URL.
  */
-export function startNewTreatment(treatment: AvailableTreatment): Promise<StartTreatmentResponse> {
+export async function startNewTreatment(treatment: AvailableTreatment): Promise<StartTreatmentResponse> {
     if (!treatment.can_start || !treatment.launch) {
-        return Promise.resolve({
+        return {
             success: false,
             message: 'This treatment has no published release.',
-        });
-    }
-    if (treatment.launch.template_id) {
-        return apiClient.post<StartTreatmentResponse>(
-            '/questionnaires/start-new-treatment/',
-            { template_id: treatment.launch.template_id },
-        ).then(response => response.data).catch((error: any) => ({
-            success: false,
-            message: error?.response?.data?.message || error?.response?.data?.error || 'Unable to start this treatment intake.',
-        }));
-    }
-
-    const serverUrl = treatment.launch.questionnaire_url?.trim();
-    const configuredBase = import.meta.env.VITE_QUESTIONNAIRE_BASE_URL?.trim().replace(/\/$/, '');
-
-    if (!serverUrl && !configuredBase) {
-        return Promise.resolve({
-            success: false,
-            message: 'Treatment intake is not configured. Please contact your care team.',
-        });
+        };
     }
 
     try {
-        const url = serverUrl
-            ? new URL(serverUrl)
-            : new URL(treatment.launch.path, `${configuredBase}/`);
-        if (treatment.launch.custom_program_id && treatment.launch.release_token && treatment.launch.release_version != null) {
-            url.searchParams.set('custom_program_id', treatment.launch.custom_program_id);
-            url.searchParams.set('release_token', treatment.launch.release_token);
-            url.searchParams.set('release_version', String(treatment.launch.release_version));
+        if (
+            treatment.launch.template_id
+            && !treatment.launch.program_id
+            && !treatment.launch.custom_program_id
+        ) {
+            const response = await apiClient.post<StartTreatmentResponse>(
+                '/questionnaires/start-new-treatment/',
+                { template_id: treatment.launch.template_id },
+            );
+            return response.data;
         }
-        return Promise.resolve({ success: true, questionnaire_url: url.toString() });
-    } catch {
-        return Promise.resolve({
+
+        const response = await apiClient.post<StartTreatmentResponse>(
+            '/treatments/available/launch/',
+            { kind: treatment.kind, id: treatment.id },
+        );
+        return response.data;
+    } catch (error: any) {
+        return {
             success: false,
-            message: 'Treatment intake is not configured. Please contact your care team.',
-        });
+            message: error?.response?.data?.detail
+            || error?.response?.data?.message
+            || error?.response?.data?.error
+            || 'Unable to start this treatment intake.',
+        };
     }
 }
 

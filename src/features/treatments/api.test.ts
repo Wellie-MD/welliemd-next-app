@@ -1,8 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startNewTreatment, type AvailableTreatment } from './api';
+import { apiClient } from '@/shared/api/client';
+
+vi.mock('@/shared/api/client', () => ({
+  apiClient: { post: vi.fn() },
+}));
+
+const mockPost = vi.mocked(apiClient.post);
 
 const treatment = (overrides: Partial<AvailableTreatment> = {}): AvailableTreatment => ({
+  kind: 'custom_program',
   id: 'wrapper-1',
   name: 'Combined Program',
   description: '',
@@ -29,17 +37,51 @@ const treatment = (overrides: Partial<AvailableTreatment> = {}): AvailableTreatm
 });
 
 describe('startNewTreatment', () => {
-  it('builds a release-bound launch URL without mutable clinical values', async () => {
+  beforeEach(() => mockPost.mockReset());
+
+  it('requests a pre-authenticated release launch from the tenant backend', async () => {
+    mockPost.mockResolvedValue({
+      data: {
+        success: true,
+        questionnaire_url: 'https://intake.example.com/start/combined-program?portal_handoff=opaque',
+      },
+    });
     const result = await startNewTreatment(treatment());
     expect(result.success).toBe(true);
-    if (!result.questionnaire_url) throw new Error('Expected a questionnaire URL');
-    const url = new URL(result.questionnaire_url);
-    expect(url.origin).toBe('https://intake.example.com');
-    expect(url.pathname).toBe('/start/combined-program');
-    expect(url.searchParams.get('custom_program_id')).toBe('wrapper-1');
-    expect(url.searchParams.get('release_token')).toBe('release-token');
-    expect(url.searchParams.get('release_version')).toBe('4');
-    expect(url.searchParams.has('patient_id')).toBe(false);
+    expect(mockPost).toHaveBeenCalledWith('/treatments/available/launch/', {
+      kind: 'custom_program',
+      id: 'wrapper-1',
+    });
+    expect(result.questionnaire_url).toContain('portal_handoff=opaque');
+  });
+
+  it('requests a pre-authenticated launch for a standalone Program', async () => {
+    mockPost.mockResolvedValue({
+      data: {
+        success: true,
+        questionnaire_url: 'https://intake.example.com/start/standalone-program?portal_handoff=opaque',
+      },
+    });
+    const result = await startNewTreatment(
+      treatment({
+        kind: 'program',
+        id: 'program-1',
+        slug: 'standalone-program',
+        launch: {
+          program_id: 'program-1',
+          release_token: 'program-release-token',
+          release_version: 7,
+          path: '/start/standalone-program',
+          questionnaire_url: 'https://intake.example.com/start/standalone-program',
+        },
+      })
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockPost).toHaveBeenCalledWith('/treatments/available/launch/', {
+      kind: 'program',
+      id: 'program-1',
+    });
   });
 
   it('does not launch without a published release', async () => {
@@ -47,21 +89,4 @@ describe('startNewTreatment', () => {
     expect(result).toEqual({ success: false, message: 'This treatment has no published release.' });
   });
 
-  it('fails safely when neither the backend nor deployment provides an intake host', async () => {
-    const result = await startNewTreatment(
-      treatment({
-        launch: {
-          custom_program_id: 'wrapper-1',
-          release_token: 'release-token',
-          release_version: 4,
-          path: '/start/combined-program',
-        },
-      })
-    );
-
-    expect(result).toEqual({
-      success: false,
-      message: 'Treatment intake is not configured. Please contact your care team.',
-    });
-  });
 });
