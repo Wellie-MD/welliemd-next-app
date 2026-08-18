@@ -370,6 +370,15 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
   maxBmi: record.max_bmi ?? null,
   serviceStatesAll: record.service_states_all ?? true,
   serviceStates: record.service_states || [],
+  serviceAreaCoverage: record.service_area_coverage
+    ? {
+      programStates: record.service_area_coverage.program_states || [],
+      coveredStates: record.service_area_coverage.covered_states || [],
+      missingStates: record.service_area_coverage.missing_states || [],
+      hasServiceAreaQuestion: Boolean(record.service_area_coverage.has_service_area_question),
+      warning: record.service_area_coverage.warning || null,
+    }
+    : undefined,
   shippingDestinationPolicy: record.shipping_destination_policy || "service_location_only",
   labRequirements: (record.lab_requirements || []).map((requirement) => ({
     id: requirement.id,

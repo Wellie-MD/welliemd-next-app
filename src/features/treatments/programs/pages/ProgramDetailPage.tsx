@@ -381,6 +381,7 @@ export default function ProgramDetailPage() {
         treatmentTypeKey={foundProgram.treatmentTypeKey}
         serviceStatesAll={foundProgram.serviceStatesAll ?? true}
         serviceStates={foundProgram.serviceStates || []}
+        serviceAreaCoverage={foundProgram.serviceAreaCoverage}
         onEditSettings={() => setIsSettingsOpen(true)}
       />
 
