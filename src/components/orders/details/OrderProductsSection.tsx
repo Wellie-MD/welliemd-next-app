@@ -25,6 +25,8 @@ export interface NormalizedProductItem {
   lineTotal: number
   shippingFee: number
   status: string
+  isPrescribed: boolean
+  hasProductPrescriptionState: boolean
   rxId?: string
   strength?: string
   doctorName?: string
@@ -81,6 +83,30 @@ const findMedicationForLine = (
   medications: PrescriptionMedication[]
 ): PrescriptionMedication | undefined =>
   medications.find((medication) => matchesLineItem(line, medication))
+
+const medicationIdentityValues = (medication: PrescriptionMedication): string[] =>
+  [
+    medication.product_id,
+    medication.source_product_id,
+    medication.id,
+    medication.medId,
+    medication.rxId,
+  ]
+    .filter((value) => value != null && String(value) !== "")
+    .map(String)
+
+const medicationsMatch = (
+  left: PrescriptionMedication,
+  right: PrescriptionMedication
+): boolean => {
+  const rightValues = new Set(medicationIdentityValues(right))
+  return medicationIdentityValues(left).some((value) => rightValues.has(value))
+}
+
+const isPrescribedLineItem = (item: OrderLineItem): boolean => {
+  const prescriptionStatus = String(item.prescription_status || "").toLowerCase()
+  return prescriptionStatus === "prescribed" || Boolean(item.prescribed_at)
+}
 
 export function extractOrderSupplies(order: Order): BundledSupplyItem[] {
   const supplies: BundledSupplyItem[] = []
@@ -207,6 +233,7 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
 
         const matchingReq = findMedicationForLine(item, requestedList)
         const matchingRx = findMedicationForLine(item, prescribedList)
+        const lineIsPrescribed = isPrescribedLineItem(item) || Boolean(matchingRx)
 
         const reqName = matchingReq?.name || item.product_name || "Product name unavailable"
         const prescribedName = item.product_name || matchingRx?.name || matchingRx?.prescribed_name || reqName
@@ -231,6 +258,8 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
           lineTotal: total,
           shippingFee: Number(item.unit_shipping_fee) || 0,
           status: item.prescription_status || item.status || "active",
+          isPrescribed: lineIsPrescribed,
+          hasProductPrescriptionState: true,
           doctorName,
           rxId: matchingRx?.rxId || matchingReq?.rxId,
           strength: matchingRx?.strength || matchingReq?.strength,
@@ -247,7 +276,13 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
 
       for (let i = 0; i < maxCount; i++) {
         const req = requestedList[i] || requestedList[0]
-        const rx = prescribedList[i] || prescribedList[0]
+        // Do not use prescribedList[i] (or prescribedList[0]) as a positional
+        // fallback. A webhook can prescribe one product from a multi-product
+        // checkout; positional reuse incorrectly marks every requested product
+        // as prescribed.
+        const rx = req
+          ? prescribedList.find((candidate) => medicationsMatch(req, candidate))
+          : prescribedList[i]
 
         if (isSupplyItem(req as any) || isSupplyItem(rx as any)) continue
 
@@ -259,7 +294,8 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
           rawRxName?.trim().toLowerCase() === "same medicine"
 
         const rxName = rawRxName && !isSamePlaceholder ? rawRxName : reqName
-        const isChanged = Boolean(rawRxName && !isSamePlaceholder && rawRxName !== reqName)
+        const isPrescribed = Boolean(rx)
+        const isChanged = Boolean(isPrescribed && rawRxName && !isSamePlaceholder && rawRxName !== reqName)
         const qty = Number(rx?.quantity || req?.quantity || 1) || 1
         const price = Number(rx?.price ?? req?.price ?? order.pricing?.subtotal_before_discount ?? order.original_price ?? 0)
         const shipping = Number(rx?.shipping_fee ?? req?.shipping_fee ?? order.shipping_fee ?? 0)
@@ -276,6 +312,8 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
           lineTotal: price,
           shippingFee: shipping,
           status: order.orderStatus || order.status || "created",
+          isPrescribed,
+          hasProductPrescriptionState: prescribedList.length > 0,
           rxId: rx?.rxId,
           strength: rx?.strength || req?.strength,
           doctorName,
@@ -298,18 +336,15 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
 
   // A partially-prescribed order captures/confirms individual products as
   // Beluga delivers them, well before the order as a whole reaches
-  // "prescribed" -- reconciliation.prescribed_set already reflects exactly
-  // which specific Products have been confirmed so far. Falling back to the
-  // order-wide isPrescribedStatus flag for every card would show an
-  // already-confirmed product as "Awaiting provider decision" (or a
-  // still-outstanding one as falsely "Prescribed") for as long as any
-  // sibling product in the same order remains outstanding.
+  // "prescribed". Only the product-level signals may mark a card prescribed.
   const prescribedProductIds = React.useMemo(() => {
     const prescribedSet = order.treatment_aggregate?.reconciliation?.prescribed_set
     if (!Array.isArray(prescribedSet)) return null
     const ids = new Set<string>()
     prescribedSet.forEach((item) => {
       if (item?.product_id != null) ids.add(String(item.product_id))
+      if (item?.source_product_id != null) ids.add(String(item.source_product_id))
+      if (item?.med_id != null) ids.add(String(item.med_id))
     })
     return ids
   }, [order])
@@ -390,21 +425,20 @@ export const OrderProductsSection: React.FC<OrderProductsSectionProps> = ({
           {productItems.map((prod, idx) => {
             const isSelected = selectedProductId === prod.id
             const displayPrescribed = pendingProductChange ? pendingProductChange.productName : prod.prescribedName
-            // A card is "Prescribed" once EITHER its own product was
-            // directly confirmed (per-product signal, correct while the
-            // order is still partially prescribed and other products
-            // remain genuinely outstanding), OR the whole order has
-            // concluded (isPrescribedStatus) -- reconciliation is
-            // deliberately set-based, not paired 1:1 (see
-            // reconciliation.py), so a requested product that was
-            // substituted for a different one never appears in
-            // prescribed_set under its own id even though its slot IS
-            // resolved. Without the isPrescribedStatus fallback, a
-            // substituted requested product's card would show "Awaiting
-            // provider decision" forever, even after the whole case is done.
-            const cardIsPrescribed = prescribedProductIds
-              ? Boolean((prod.productId && prescribedProductIds.has(prod.productId)) || isPrescribedStatus)
-              : isPrescribedStatus
+            // Never use the order-wide prescribed flag for every card. It is
+            // stamped when the first RX webhook arrives and therefore does
+            // not mean that every product in a multi-product checkout has
+            // been prescribed.
+            const cardIsPrescribed = prod.isPrescribed || Boolean(
+              !prod.hasProductPrescriptionState &&
+              productItems.length === 1 &&
+              !prescribedProductIds &&
+              isPrescribedStatus
+            ) || Boolean(
+              prescribedProductIds &&
+              prod.productId &&
+              prescribedProductIds.has(prod.productId)
+            )
 
             return (
               <div
