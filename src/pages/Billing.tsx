@@ -12,6 +12,21 @@ type DisplayInvoice = B2BInvoice & {
   supplementalInvoices?: B2BInvoice[];
 };
 
+function productIdentityDiagnostics(invoice: B2BInvoice) {
+  return [
+    ...(invoice.requested_breakdown?.product_identity_diagnostics || []),
+    ...(invoice.revision_adjustments || []).flatMap(
+      (adjustment) => adjustment.product_identity_diagnostics || []
+    ),
+    ...(invoice.prescription_events || []).flatMap((event) => [
+      ...(event.product_identity_diagnostic ? [event.product_identity_diagnostic] : []),
+      ...(event.items || [])
+        .map((item) => item.product_identity_diagnostic)
+        .filter((diagnostic): diagnostic is NonNullable<typeof diagnostic> => Boolean(diagnostic)),
+    ]),
+  ];
+}
+
 export default function Billing() {
   const queryClient = useQueryClient();
   const [invoiceType, setInvoiceType] = useState<
@@ -766,6 +781,14 @@ export default function Billing() {
             </aside>
 
             <main>
+              {productIdentityDiagnostics(invoice).length > 0 && (
+                <div className="border-b bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+                  <div className="font-semibold">Product identity warning</div>
+                  <p className="mt-1 text-amber-800 dark:text-amber-300">
+                    The canonical source product was used for billing because the supplied Beluga medicine ID resolved to a different catalog product.
+                  </p>
+                </div>
+              )}
               {treatmentPrescription && (
                 <div className="border-b p-5">
                   <TreatmentPrescriptionInvoiceSets contract={treatmentPrescription} />

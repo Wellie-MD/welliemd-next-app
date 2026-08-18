@@ -68,6 +68,21 @@ function invoiceCombinedTotal(inv: B2BInvoice) {
   return invoiceAmount(inv) + invoiceSupplementalTotal(inv);
 }
 
+function productIdentityDiagnostics(invoice: B2BInvoice) {
+  return [
+    ...(invoice.requested_breakdown?.product_identity_diagnostics || []),
+    ...(invoice.revision_adjustments || []).flatMap(
+      (adjustment) => adjustment.product_identity_diagnostics || []
+    ),
+    ...(invoice.prescription_events || []).flatMap((event) => [
+      ...(event.product_identity_diagnostic ? [event.product_identity_diagnostic] : []),
+      ...(event.items || [])
+        .map((item) => item.product_identity_diagnostic)
+        .filter((diagnostic): diagnostic is NonNullable<typeof diagnostic> => Boolean(diagnostic)),
+    ]),
+  ];
+}
+
 function formatDate(dateString?: string) {
   if (!dateString) return "N/A";
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -501,6 +516,18 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+
+            {productIdentityDiagnostics(selected).length > 0 && (
+              <div className="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-900/20">
+                <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
+                  <AlertCircle className="h-4 w-4" />
+                  Product identity warning
+                </div>
+                <p className="mt-1 text-amber-800 dark:text-amber-300">
+                  The canonical source product was used for billing because the supplied Beluga medicine ID resolved to a different catalog product.
+                </p>
               </div>
             )}
 
