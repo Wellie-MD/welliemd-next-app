@@ -377,7 +377,9 @@ body.light .km-nbtn {
   top: calc(60px + var(--km-banner-h, 0px));
   left: 0;
   right: 0;
-  bottom: 0;
+  /* 128px clears the fixed Intercom launcher (bottom:24px + 56px tall) so
+     the composer's send button is never rendered underneath it. */
+  bottom: 128px;
   background: var(--km-bg);
   transform: translateX(100%);
   transition: transform .3s cubic-bezier(.4, 0, .2, 1);
