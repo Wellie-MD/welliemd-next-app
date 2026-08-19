@@ -6,6 +6,7 @@ interface BrandContextValue {
   colors: BrandColors;
   logos: BrandLogos | undefined;
   support: SupportDetails | undefined;
+  clientName: string | undefined;
   isLoading: boolean;
   error: string | null;
 }
@@ -21,6 +22,7 @@ export const BrandContext = createContext<BrandContextValue>({
   colors: defaultColors,
   logos: undefined,
   support: undefined,
+  clientName: undefined,
   isLoading: false,
   error: null,
 });
@@ -82,6 +84,7 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
   const [colors, setColors] = useState<BrandColors>(defaultColors);
   const [logos, setLogos] = useState<BrandLogos | undefined>(undefined);
   const [support, setSupport] = useState<SupportDetails | undefined>(undefined);
+  const [clientName, setClientName] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { setTheme } = useTheme();
@@ -146,6 +149,7 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
         
         setLogos(fixedLogos);
         setSupport(brandSettings.support);
+        setClientName(brandSettings.client_name || undefined);
 
         const storedTheme = localStorage.getItem(themeStorageKey);
         const userThemeOverride = localStorage.getItem(userThemeOverrideKey);
@@ -187,6 +191,7 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
         setColors(defaultColors);
         setLogos(undefined);
         setSupport(undefined);
+        setClientName(undefined);
       } finally {
         setIsLoading(false);
       }
@@ -196,7 +201,7 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
   }, []);
 
   return (
-    <BrandContext.Provider value={{ colors, logos, support, isLoading, error }}>
+    <BrandContext.Provider value={{ colors, logos, support, clientName, isLoading, error }}>
       {children}
     </BrandContext.Provider>
   );

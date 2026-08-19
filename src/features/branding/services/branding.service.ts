@@ -28,6 +28,8 @@ export interface BrandSettings {
   logos?: BrandLogos;
   patientPortalTheme?: 'light' | 'dark';
   support?: SupportDetails;
+  /** The client (business) this patient portal instance belongs to. */
+  client_name?: string;
 }
 
 export const brandingService = {

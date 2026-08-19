@@ -178,7 +178,7 @@ function countUnread(messages: ChatMessage[], since: number): number {
 }
 
 export const IntercomWidget = () => {
-  const { logos } = useBranding();
+  const { logos, clientName } = useBranding();
   const [ready, setReady] = useState(enabled);
   const [panelOpen, setPanelOpen] = useState(false);
   const [view, setView] = useState<'thread' | 'list'>('thread');
@@ -219,7 +219,10 @@ export const IntercomWidget = () => {
     return subscribeReady(setReady);
   }, []);
 
-  const displayName = env.VITE_APP_NAME || 'WellieMD';
+  // Show the patient's associated client (business) in the chat title,
+  // falling back to the platform name until branding has loaded / for
+  // patients with no associated client.
+  const displayName = clientName || env.VITE_APP_NAME || 'WellieMD';
   const initials = toInitials(displayName);
   const logoUrl = logos?.round || logos?.square || '';
   const greeting = `Hi there 👋 Welcome to ${displayName} Support. How can we help today?`;
