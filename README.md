@@ -1,4 +1,4 @@
-# WellieMD Admin Portal Client
+# WellieMD Admin Portal Client 
 
 A modern, responsive admin portal for managing WellieMD healthcare operations. Built with React, TypeScript, and Vite, this application provides a comprehensive interface for managing patients, products, questionnaires, billing, analytics, and more.
 
