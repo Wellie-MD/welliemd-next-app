@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Plus, Check } from "lucide-react";
 import type { Program } from "@/features/treatments/types";
+import { RUNTIME_STATE } from "@/features/treatments/assignment/constants";
 
 interface ProgramLibraryTabProps {
   programs: Program[];
@@ -11,13 +12,16 @@ interface ProgramLibraryTabProps {
     treatmentTypeKey?: string;
     sourceId?: string;
   }) => void;
-  flowItems?: Array<{ kind: string; title: string }>;
+  flowItems?: Array<{ kind: string; title: string; sourceId?: string }>;
 }
 
 export function ProgramLibraryTab({ programs, onAddItem, flowItems = [] }: ProgramLibraryTabProps) {
-  const isProgramAdded = (programName: string) => {
-    return flowItems.some((fi) => fi.kind === "program" && fi.title === programName);
+  const isProgramAdded = (programId: string) => {
+    return flowItems.some((fi) => fi.kind === "program" && fi.sourceId === programId);
   };
+  const attachablePrograms = programs.filter(
+    (program) => program.assignmentRuntimeState === RUNTIME_STATE.ready,
+  );
 
   return (
     <div className="space-y-4">
@@ -31,8 +35,8 @@ export function ProgramLibraryTab({ programs, onAddItem, flowItems = [] }: Progr
           Available Intake modules
         </div>
 
-        {programs.map((program) => {
-          const added = isProgramAdded(program.name);
+        {attachablePrograms.map((program) => {
+          const added = isProgramAdded(program.id);
 
           return (
             <div
@@ -73,6 +77,11 @@ export function ProgramLibraryTab({ programs, onAddItem, flowItems = [] }: Progr
             </div>
           );
         })}
+        {!attachablePrograms.length && (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
+            No Programs are ready to attach. Publish and complete runtime setup for a Program first.
+          </p>
+        )}
       </div>
     </div>
   );

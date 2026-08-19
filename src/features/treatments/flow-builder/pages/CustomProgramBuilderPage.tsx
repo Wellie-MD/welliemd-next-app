@@ -17,6 +17,7 @@ import { createMockId } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import { synchronizeCustomProgramStructure } from "@/features/treatments/flow-builder/utils/customProgramStages";
 import type { CheckoutProductOption, CustomProgram, CustomProgramBuilderAddItem, CustomProgramFlowItem } from "@/features/treatments/types";
+import { RUNTIME_STATE } from "@/features/treatments/assignment/constants";
 
 export default function CustomProgramBuilderPage() {
   const { customProgramId = "custom-universal" } = useParams();
@@ -222,10 +223,10 @@ export default function CustomProgramBuilderPage() {
           consents={consents}
           onEditCheckoutOverride={handleEditCheckoutOverride}
           onDeleteCheckoutOverride={handleDeleteCheckoutOverride}
-          onSaveMatching={async (programMatchingRules) => {
+          onSaveMatching={async (programMatchingRules, matchAllEligiblePatients) => {
             await saveCustomProgramMutation.mutateAsync(
               synchronizeCustomProgramStructure(
-                { ...customProgram, programMatchingRules },
+                { ...customProgram, programMatchingRules, matchAllEligiblePatients },
                 customProgram.flowItems
               )
             );
@@ -237,7 +238,7 @@ export default function CustomProgramBuilderPage() {
       <AddToFlowDrawer
         open={isDrawerOpen}
         onOpenChange={setIsDrawerOpen}
-        programs={programs}
+        programs={programs.filter((program) => program.assignmentRuntimeState === RUNTIME_STATE.ready)}
         sections={sections}
         consents={consents}
         onAddItem={handleAddItem}
