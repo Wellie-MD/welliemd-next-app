@@ -51,7 +51,26 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
   const updateConfig = (next: ProgramMatchingConfig) => setDraft((current) => ({ ...current, [selectedId]: next }));
   const updateRule = (next: ProgramMatchingRule) => updateConfig({ ...config, rule: next });
   const matchingQuestionIds = new Set(matchingQuestions.map((item) => item.sourceId || item.id));
-  const invalid = rule.rules.some((condition) => !condition.field || !condition.operator || (!profileFields.has(condition.field) && !matchingQuestionIds.has(condition.field)));
+  const conditionError = (condition: ProgramMatchingCondition) => {
+    if (!condition.field) return "Select a matching input.";
+    if (!condition.operator) return "Select an operator.";
+    if (!profileFields.has(condition.field) && !matchingQuestionIds.has(condition.field)) {
+      return "This matching input is no longer attached to the flow.";
+    }
+    if (
+      condition.operator !== "exists"
+      && (condition.value === undefined || condition.value === null || condition.value === "")
+    ) return "Enter an expected answer.";
+    return null;
+  };
+  const validationByProgram = new Map(
+    attached.map((item) => {
+      const itemRule = (draft[item.id] || emptyConfig()).rule;
+      const normalizedRule = (itemRule && "rules" in itemRule ? itemRule : emptyRule()) as ProgramMatchingRule;
+      return [item.id, normalizedRule.rules.map(conditionError).filter(Boolean) as string[]];
+    }),
+  );
+  const anyConditionInvalid = [...validationByProgram.values()].some((errors) => errors.length > 0);
   const priorityGroups = attached.reduce<Record<string, string[]>>((groups, item) => {
     const value = draft[item.id]?.priority;
     if (value !== undefined && value !== null && value !== "" && Number(value) > 0) {
@@ -66,7 +85,7 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
   });
   const duplicatePriorityGroups = Object.entries(priorityGroups).filter(([, names]) => names.length > 1);
   const priorityInvalid = missingPriorityPrograms.length > 0 || duplicatePriorityGroups.length > 0;
-  const validationInvalid = invalid || priorityInvalid;
+  const validationInvalid = anyConditionInvalid || priorityInvalid;
   const enabledPrograms = attached.filter(
     (item) => (draft[item.id] || emptyConfig()).enabled,
   );
@@ -112,7 +131,13 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
                 return <div key={item.id} className={`rounded-md border p-2.5 ${selectedId === item.id ? "border-blue-400 bg-white ring-1 ring-blue-100" : "border-transparent hover:bg-white"}`}>
                   <button onClick={() => setSelectedId(item.id)} className="w-full text-left">
                     <div className="text-xs font-semibold text-slate-900">{item.name}</div>
-                    <div className="mt-1 text-[10px] text-slate-500">{itemRule?.rules?.length || 0} matching conditions</div>
+                    {validationByProgram.get(item.id)?.length ? (
+                      <ul className="mt-1 list-disc pl-3 text-[10px] text-rose-600">
+                        {validationByProgram.get(item.id)?.map((message, index) => <li key={`${item.id}-error-${index}`}>{message}</li>)}
+                      </ul>
+                    ) : (
+                      <div className="mt-1 text-[10px] text-slate-500">{itemRule?.rules?.length || 0} matching conditions</div>
+                    )}
                   </button>
                   <label className="mt-2 flex items-center gap-2 text-[10px] font-semibold text-slate-600">
                     Priority
@@ -177,8 +202,8 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
               </p>
               <div className="mt-3 space-y-1.5 text-[10px]">
                 <div className={validationInvalid ? "text-rose-600" : "text-emerald-700"}>
-                  {invalid
-                    ? "Some conditions are incomplete or reference a removed question."
+                  {anyConditionInvalid
+                    ? "One or more attached Programs have incomplete matching conditions."
                     : "Every condition references a real matching input."}
                 </div>
                 {missingPriorityPrograms.length > 0 && (

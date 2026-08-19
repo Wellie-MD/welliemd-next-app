@@ -21,6 +21,7 @@ export const treatmentQueryKeys = {
     [...treatmentQueryKeys.programs(), programId, "questions"] as const,
   customPrograms: () => [...treatmentQueryKeys.all, "custom-programs"] as const,
   customProgram: (id: string) => [...treatmentQueryKeys.customPrograms(), id] as const,
+  customProgramValidation: (id: string) => [...treatmentQueryKeys.customProgram(id), "validation"] as const,
   sections: () => [...treatmentQueryKeys.all, "sections"] as const,
   sectionFields: (sectionId: string) => [...treatmentQueryKeys.sections(), sectionId, "fields"] as const,
   consents: () => [...treatmentQueryKeys.all, "consents"] as const,
@@ -64,6 +65,14 @@ export const useCustomProgram = (id: string) =>
     enabled: isPersistedUuid(id),
   });
 
+export const useCustomProgramValidation = (id: string) =>
+  useQuery({
+    queryKey: treatmentQueryKeys.customProgramValidation(id),
+    queryFn: () => treatmentsApi.validateCustomProgram(id),
+    enabled: isPersistedUuid(id),
+    staleTime: 0,
+  });
+
 export const useSections = () =>
   useQuery({
     queryKey: treatmentQueryKeys.sections(),
@@ -90,6 +99,7 @@ export const useSaveCustomProgram = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customProgram(data.id) });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customProgramValidation(data.id) });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
   });
@@ -103,6 +113,7 @@ export const usePublishCustomProgram = () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() }),
         queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customProgram(id) }),
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customProgramValidation(id) }),
         queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() }),
       ]);
     },

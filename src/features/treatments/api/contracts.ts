@@ -105,6 +105,18 @@ export type CustomProgramRecord = {
   } | null;
 };
 
+export type CustomProgramValidationBlocker = {
+  code: string;
+  source_id?: string;
+  message: string | Record<string, unknown>;
+};
+
+export type CustomProgramValidationRecord = {
+  valid: boolean;
+  custom_program_id: string;
+  blockers: CustomProgramValidationBlocker[];
+};
+
 export type ProgramRecord = {
   id: string;
   source_questionnaire_template?: string | null;

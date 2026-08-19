@@ -289,7 +289,9 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   consentIds: record.consent_ids || [],
   checkoutOptions: record.checkout_options || [],
   flowItems: record.flow_items || [],
-  updatedAt: record.updated_at?.split("T")[0] || dateStamp(),
+  // Preserve the full server timestamp because Custom Program writes use it
+  // as the optimistic-concurrency token.
+  updatedAt: record.updated_at || dateStamp(),
   visitType: record.visit_type ?? null,
   onboardingName: record.onboarding_name || "",
   questionCount: record.question_count || 0,
