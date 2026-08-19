@@ -25,6 +25,24 @@ import type {
 
 const dateStamp = () => new Date().toISOString().split("T")[0];
 
+const normalizeCustomProgramFlowItems = (items: CustomProgram["flowItems"]): CustomProgram["flowItems"] =>
+  items.map((item) => {
+    if (item.kind !== "routing_question" || item.questionKind !== "multiple") {
+      return item;
+    }
+
+    // Older custom-program records used the non-canonical "multiple" alias.
+    // Preserve real multi-select questions, but treat an alias with no choices
+    // as the text question it was authored to be.
+    const choices = item.choices || item.answerOptions || [];
+    const questionKind = choices.length > 0 ? "multiple_choice" : "text";
+    return {
+      ...item,
+      questionKind,
+      subtitle: `Matching input (${questionKind})`,
+    };
+  });
+
 export const slugify = (value: string): string => value
   .trim()
   .toLowerCase()
@@ -288,8 +306,10 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   sectionIds: record.section_ids || [],
   consentIds: record.consent_ids || [],
   checkoutOptions: record.checkout_options || [],
-  flowItems: record.flow_items || [],
-  updatedAt: record.updated_at?.split("T")[0] || dateStamp(),
+  flowItems: normalizeCustomProgramFlowItems(record.flow_items || []),
+  // Keep the complete ISO timestamp. The Admin sends this value back as the
+  // optimistic-lock version on the next update.
+  updatedAt: record.updated_at || dateStamp(),
   visitType: record.visit_type ?? null,
   onboardingName: record.onboarding_name || "",
   questionCount: record.question_count || 0,
@@ -334,7 +354,7 @@ export const customProgramToRecord = (program: CustomProgram) => ({
   section_ids: program.sectionIds || [],
   consent_ids: program.consentIds || [],
   checkout_options: program.checkoutOptions || [],
-  flow_items: program.flowItems || [],
+  flow_items: normalizeCustomProgramFlowItems(program.flowItems || []),
   visit_type: program.visitType ?? null,
   onboarding_name: program.onboardingName || "",
   question_count: program.questionCount || 0,

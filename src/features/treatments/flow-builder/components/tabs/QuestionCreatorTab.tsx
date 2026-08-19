@@ -10,7 +10,7 @@ interface QuestionCreatorTabProps {
 }
 
 const AVAILABLE_QUESTIONS = [
-  { id: "rq-1", title: "What would you love to change about how you feel?", type: "multiple" },
+  { id: "rq-1", title: "What would you love to change about how you feel?", type: "text" },
   { id: "rq-2", title: "Tell us about your weight right now.", type: "bmi" },
   { id: "rq-3", title: "When it comes to GLP medications, what fits your preferences?", type: "single" },
   { id: "rq-4", title: "When it comes to intimacy, what's closest to your experience?", type: "single" },
