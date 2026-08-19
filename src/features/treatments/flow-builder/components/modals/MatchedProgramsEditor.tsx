@@ -102,17 +102,6 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
     }),
   );
   const validationInvalid = invalid;
-  const collisionGroups = (getKey: (item: Program) => string | undefined) => Object.entries(
-    attached.reduce<Record<string, string[]>>((groups, item) => {
-      const key = getKey(item) || "";
-      if (!key) return groups;
-      groups[key] = [...(groups[key] || []), item.name];
-      return groups;
-    }, {}),
-  ).filter(([, names]) => names.length > 1);
-  const treatmentTypeCollisions = collisionGroups((item) => item.treatmentTypeKey);
-  const visitTypeCollisions = collisionGroups((item) => item.visitType);
-
   const addCondition = () => updateRule({
     ...rule,
     rules: [...rule.rules, { field: matchingQuestions[0]?.sourceId || matchingQuestions[0]?.id || "age", operator: "eq", value: "" }],
@@ -204,22 +193,12 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
                   {enabledPrograms.length} of {attached.length} Programs have matching enabled.
                 </div>
               </div>
-              {(treatmentTypeCollisions.length > 0 || visitTypeCollisions.length > 0) && (
-                <div className="mt-3 rounded border border-rose-300 bg-rose-50 p-2.5 text-[10px] text-rose-900">
+              {attached.length > 1 && (
+                <div className="mt-3 rounded border border-blue-200 bg-blue-50 p-2.5 text-[10px] text-blue-900">
                   <div className="flex gap-1.5 font-semibold">
-                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                    <span>Publish is blocked until every route is unique. You can still save this draft.</span>
+                    <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>Programs may share a Treatment Type. If several eligible alternatives match, the lowest priority number is selected.</span>
                   </div>
-                  {treatmentTypeCollisions.map(([key, names]) => (
-                    <div key={`treatment-${key}`} className="mt-1.5 pl-4">
-                      Treatment Type <strong>{key}</strong> is used by <strong>{names.join(" and ")}</strong>.
-                    </div>
-                  ))}
-                  {visitTypeCollisions.map(([key, names]) => (
-                    <div key={`visit-${key}`} className="mt-1.5 pl-4">
-                      Visit Type <strong>{key}</strong> is used by <strong>{names.join(" and ")}</strong>.
-                    </div>
-                  ))}
                 </div>
               )}
               <p className="mt-3 text-[10px] font-semibold text-slate-700">
