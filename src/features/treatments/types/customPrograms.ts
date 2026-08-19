@@ -47,6 +47,7 @@ export interface ProgramMatchingRule {
 export interface ProgramMatchingConfig {
   enabled: boolean;
   rule: ProgramMatchingRule | Record<string, never>;
+  priority?: number;
 }
 
 export type CustomProgramFlowItemInput = Omit<CustomProgramFlowItem, "id">;
@@ -96,6 +97,7 @@ export interface CustomProgram {
   iconColor?: string;
   tags?: string[];
   isMulti?: boolean;
+  matchAllEligiblePatients?: boolean;
   programMatchingRules: Record<string, ProgramMatchingConfig>;
   assignmentRuntimeState?: string;
   runtimeReadyAt?: string | null;

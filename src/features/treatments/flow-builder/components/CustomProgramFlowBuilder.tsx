@@ -22,7 +22,10 @@ interface CustomProgramFlowBuilderProps {
   consents: ConsentForm[];
   onEditCheckoutOverride: (item: CustomProgramFlowItem) => void;
   onDeleteCheckoutOverride: (item: CustomProgramFlowItem) => void;
-  onSaveMatching: (rules: CustomProgram["programMatchingRules"]) => Promise<void>;
+  onSaveMatching: (
+    rules: CustomProgram["programMatchingRules"],
+    matchAllEligiblePatients: boolean,
+  ) => Promise<void>;
 }
 
 export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, onEditCheckoutOverride, onDeleteCheckoutOverride, onSaveMatching }: CustomProgramFlowBuilderProps) {

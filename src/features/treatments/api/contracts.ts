@@ -80,6 +80,7 @@ export type CustomProgramRecord = {
   icon_color?: string;
   tags?: string[];
   is_multi?: boolean;
+  match_all_eligible_patients?: boolean;
   program_matching_rules?: CustomProgram["programMatchingRules"];
   updated_at?: string;
   assignment_runtime_state?: string;
