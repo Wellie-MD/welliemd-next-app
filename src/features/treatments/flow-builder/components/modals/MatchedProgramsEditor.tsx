@@ -12,11 +12,14 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   customProgram: CustomProgram;
   programs: Program[];
-  onSave: (rules: CustomProgram["programMatchingRules"]) => Promise<void> | void;
+  onSave: (
+    rules: CustomProgram["programMatchingRules"],
+    matchAllEligiblePatients: boolean,
+  ) => Promise<void> | void;
 }
 
 const emptyRule = (): ProgramMatchingRule => ({ combinator: "and", rules: [] });
-const emptyConfig = (): ProgramMatchingConfig => ({ enabled: true, rule: emptyRule() });
+const emptyConfig = (priority?: number): ProgramMatchingConfig => ({ enabled: true, rule: emptyRule(), priority });
 const profileFields = new Set(["age", "bmi", "sex", "gender", "service_state"]);
 const operatorsThatNeedValues = new Set([
   "eq", "neq", "contains", "not_contains", "in", "not_in",
@@ -52,16 +55,26 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
   const matchingQuestions = useMemo(() => customProgram.flowItems.filter((item) => item.kind === "routing_question"), [customProgram.flowItems]);
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState(customProgram.programMatchingRules || {});
+  const [matchAllEligiblePatients, setMatchAllEligiblePatients] = useState(
+    customProgram.matchAllEligiblePatients ?? false,
+  );
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setDraft(structuredClone(customProgram.programMatchingRules || {}));
+    const incoming = customProgram.programMatchingRules || {};
+    setDraft(Object.fromEntries(
+      attached.map((item, index) => [
+        item.id,
+        { ...emptyConfig(index + 1), ...(incoming[item.id] || {}) },
+      ]),
+    ));
+    setMatchAllEligiblePatients(customProgram.matchAllEligiblePatients ?? false);
     setSelectedId((current) => attached.some((item) => item.id === current) ? current : attached[0]?.id || "");
   }, [open, customProgram.programMatchingRules, attached]);
 
   const program = attached.find((item) => item.id === selectedId);
-  const config = draft[selectedId] || emptyConfig();
+  const config = draft[selectedId] || emptyConfig(attached.findIndex((item) => item.id === selectedId) + 1);
   const rule = ("rules" in config.rule ? config.rule : emptyRule()) as ProgramMatchingRule;
   const enabledPrograms = attached.filter(
     (item) => (draft[item.id] || emptyConfig()).enabled,
@@ -75,6 +88,41 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
     return itemRule.rules.some((condition) => conditionIsInvalid(condition, matchingQuestionIds));
   }).map((item) => item.name);
   const invalid = invalidProgramNames.length > 0;
+  const conditionError = (condition: ProgramMatchingCondition) => {
+    if (!condition.field) return "Select a matching input.";
+    if (!condition.operator) return "Select an operator.";
+    if (!profileFields.has(condition.field) && !matchingQuestionIds.has(condition.field)) {
+      return "This matching input is no longer attached to the flow.";
+    }
+    if (!hasCompleteValue(condition)) {
+      return condition.operator === "between"
+        ? "Enter two expected answers."
+        : "Enter an expected answer.";
+    }
+    return null;
+  };
+  const validationByProgram = new Map(
+    attached.map((item) => {
+      const itemRule = (draft[item.id] || emptyConfig()).rule;
+      const normalizedRule = (itemRule && "rules" in itemRule ? itemRule : emptyRule()) as ProgramMatchingRule;
+      return [item.id, normalizedRule.rules.map(conditionError).filter(Boolean) as string[]];
+    }),
+  );
+  const priorityGroups = attached.reduce<Record<string, string[]>>((groups, item) => {
+    const value = draft[item.id]?.priority;
+    if (value !== undefined && value !== null && value !== "" && Number(value) > 0) {
+      const key = String(value);
+      groups[key] = [...(groups[key] || []), item.name];
+    }
+    return groups;
+  }, {});
+  const missingPriorityPrograms = attached.filter((item) => {
+    const priority = draft[item.id]?.priority;
+    return priority === undefined || priority === null || priority === "" || Number(priority) < 1;
+  });
+  const duplicatePriorityGroups = Object.entries(priorityGroups).filter(([, names]) => names.length > 1);
+  const priorityInvalid = missingPriorityPrograms.length > 0 || duplicatePriorityGroups.length > 0;
+  const validationInvalid = invalid || priorityInvalid;
   const collisionGroups = (getKey: (item: Program) => string | undefined) => Object.entries(
     attached.reduce<Record<string, string[]>>((groups, item) => {
       const key = getKey(item) || "";
@@ -105,13 +153,39 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
         <div className="grid min-h-0 flex-1 grid-cols-[230px_1fr_280px]">
           <aside className="overflow-auto border-r border-slate-200 bg-slate-50 p-3">
             <div className="mb-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">Attached Programs</div>
+            <label className="mb-3 flex items-center justify-between gap-2 rounded-md border border-blue-100 bg-blue-50 p-2.5 text-[10px] font-semibold text-blue-900">
+              Match all eligible patients
+              <Switch checked={matchAllEligiblePatients} onCheckedChange={setMatchAllEligiblePatients} />
+            </label>
             <div className="space-y-1.5">
               {attached.map((item) => {
                 const itemRule = draft[item.id]?.rule as ProgramMatchingRule | undefined;
-                return <button key={item.id} onClick={() => setSelectedId(item.id)} className={`w-full rounded-md border p-2.5 text-left ${selectedId === item.id ? "border-blue-400 bg-white ring-1 ring-blue-100" : "border-transparent hover:bg-white"}`}>
-                  <div className="text-xs font-semibold text-slate-900">{item.name}</div>
-                  <div className="mt-1 text-[10px] text-slate-500">{itemRule?.rules?.length || 0} matching conditions</div>
-                </button>;
+                const priority = draft[item.id]?.priority ?? "";
+                return <div key={item.id} className={`rounded-md border p-2.5 ${selectedId === item.id ? "border-blue-400 bg-white ring-1 ring-blue-100" : "border-transparent hover:bg-white"}`}>
+                  <button onClick={() => setSelectedId(item.id)} className="w-full text-left">
+                    <div className="text-xs font-semibold text-slate-900">{item.name}</div>
+                    {validationByProgram.get(item.id)?.length ? (
+                      <ul className="mt-1 list-disc pl-3 text-[10px] text-rose-600">
+                        {validationByProgram.get(item.id)?.map((message, index) => <li key={`${item.id}-error-${index}`}>{message}</li>)}
+                      </ul>
+                    ) : (
+                      <div className="mt-1 text-[10px] text-slate-500">{itemRule?.rules?.length || 0} matching conditions</div>
+                    )}
+                  </button>
+                  <label className="mt-2 flex items-center gap-2 text-[10px] font-semibold text-slate-600">
+                    Priority
+                    <Input
+                      type="number"
+                      min={1}
+                      value={priority}
+                      onChange={(event) => setDraft((current) => ({
+                        ...current,
+                        [item.id]: { ...(current[item.id] || emptyConfig()), priority: event.target.value === "" ? undefined : Number(event.target.value) },
+                      }))}
+                      className="h-7 w-16 bg-white text-[10px]"
+                    />
+                  </label>
+                </div>;
               })}
             </div>
           </aside>
@@ -165,6 +239,12 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
                     ? `Fix conditions for: ${invalidProgramNames.join(", ")}.`
                     : "Every condition references a real matching input."}
                 </div>
+                {missingPriorityPrograms.length > 0 && (
+                  <div className="text-rose-600">Missing priority: {missingPriorityPrograms.map((item) => item.name).join(", ")}</div>
+                )}
+                {duplicatePriorityGroups.length > 0 && (
+                  <div className="text-rose-600">Duplicate priority: {duplicatePriorityGroups.map(([priority, names]) => `${priority} (${names.join(", ")})`).join("; ")}</div>
+                )}
                 <div className="text-slate-600">
                   {enabledPrograms.length} of {attached.length} Programs have matching enabled.
                 </div>
@@ -195,9 +275,9 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
           </aside>
         </div>
         <DialogFooter className="items-center border-t border-slate-200 px-5 py-3">
-          <div className="mr-auto flex items-center gap-1.5 text-xs text-slate-500">{invalid ? <AlertTriangle className="h-4 w-4 text-rose-500" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}{invalid ? "Complete every condition before saving." : "Rules are valid."}</div>
+          <div className="mr-auto flex items-center gap-1.5 text-xs text-slate-500">{validationInvalid ? <AlertTriangle className="h-4 w-4 text-rose-500" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}{validationInvalid ? "Resolve rule and priority errors before saving." : "Rules and priorities are valid."}</div>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={saving || invalid} onClick={async () => { setSaving(true); try { await onSave(draft); onOpenChange(false); } finally { setSaving(false); } }}>{saving ? "Saving…" : "Save Rules"}</Button>
+          <Button disabled={saving || validationInvalid} onClick={async () => { setSaving(true); try { await onSave(draft, matchAllEligiblePatients); onOpenChange(false); } finally { setSaving(false); } }}>{saving ? "Saving…" : "Save Rules"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

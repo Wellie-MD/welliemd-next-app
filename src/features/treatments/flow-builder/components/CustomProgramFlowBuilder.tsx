@@ -20,12 +20,13 @@ interface CustomProgramFlowBuilderProps {
   programs: Program[];
   sections: CommonSection[];
   consents: ConsentForm[];
-  onEditCheckoutOverride: (item: CustomProgramFlowItem) => void;
-  onDeleteCheckoutOverride: (item: CustomProgramFlowItem) => void;
-  onSaveMatching: (rules: CustomProgram["programMatchingRules"]) => Promise<void>;
+  onSaveMatching: (
+    rules: CustomProgram["programMatchingRules"],
+    matchAllEligiblePatients: boolean,
+  ) => Promise<void>;
 }
 
-export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, onEditCheckoutOverride, onDeleteCheckoutOverride, onSaveMatching }: CustomProgramFlowBuilderProps) {
+export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, onSaveMatching }: CustomProgramFlowBuilderProps) {
   const builder = useCustomProgramFlowBuilder({ customProgram, onSave, onUpdateFlow });
   const [matchingOpen, setMatchingOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
@@ -110,8 +111,6 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
           onEditQuestion={setEditingQuestion}
           onOpenPreview={() => builder.setIsTestModalOpen(true)}
           onConfigureMatching={() => setMatchingOpen(true)}
-          onEditCheckoutOverride={onEditCheckoutOverride}
-          onDeleteCheckoutOverride={onDeleteCheckoutOverride}
         />
       )}
 

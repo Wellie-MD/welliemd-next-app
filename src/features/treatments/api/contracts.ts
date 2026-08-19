@@ -80,6 +80,7 @@ export type CustomProgramRecord = {
   icon_color?: string;
   tags?: string[];
   is_multi?: boolean;
+  match_all_eligible_patients?: boolean;
   program_matching_rules?: CustomProgram["programMatchingRules"];
   updated_at?: string;
   expected_updated_at?: string;
@@ -103,6 +104,18 @@ export type CustomProgramRecord = {
     lab_count: number;
     program_count: number;
   } | null;
+};
+
+export type CustomProgramValidationBlocker = {
+  code: string;
+  source_id?: string;
+  message: string | Record<string, unknown>;
+};
+
+export type CustomProgramValidationRecord = {
+  valid: boolean;
+  custom_program_id: string;
+  blockers: CustomProgramValidationBlocker[];
 };
 
 export type ProgramRecord = {

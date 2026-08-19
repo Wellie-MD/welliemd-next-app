@@ -7,6 +7,7 @@ import type { PreviewContext } from "@/features/treatments/types";
 import { useCustomPrograms, useDeleteCustomProgram, useSaveCustomProgram } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import type { CustomProgramFormData } from "@/features/treatments/custom-programs/components/CustomProgramModal";
 import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
+import { customProgramMutationErrorMessage } from "@/features/treatments/api/customProgramsApi";
 
 export type CustomProgramsViewMode = "card" | "list";
 export type CustomProgramsFilter = "all" | "multi" | "single";
@@ -43,6 +44,7 @@ function buildNewCustomProgram(data: CustomProgramFormData): CustomProgram {
     iconColor: "#be185d",
     tags: [],
     isMulti: false,
+    matchAllEligiblePatients: false,
     programMatchingRules: {},
     flowItems: [
       {
@@ -158,7 +160,10 @@ export function useCustomProgramsPage() {
 
         toast({
           title: "Error",
-          description: `Failed to ${selectedProgram ? "update" : "create"} ${data.name}.`,
+          description: customProgramMutationErrorMessage(
+            error,
+            `Failed to ${selectedProgram ? "update" : "create"} ${data.name}.`,
+          ),
           variant: "destructive",
         });
       },

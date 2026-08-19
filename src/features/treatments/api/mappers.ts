@@ -289,8 +289,8 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   consentIds: record.consent_ids || [],
   checkoutOptions: record.checkout_options || [],
   flowItems: record.flow_items || [],
-  // Keep the complete ISO timestamp. The Admin sends this value back as the
-  // optimistic-lock version on the next update.
+  // Preserve the complete server timestamp because Admin updates send it
+  // back as the optimistic-concurrency token.
   updatedAt: record.updated_at || dateStamp(),
   visitType: record.visit_type ?? null,
   onboardingName: record.onboarding_name || "",
@@ -300,6 +300,7 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   iconColor: record.icon_color || undefined,
   tags: record.tags || [],
   isMulti: record.is_multi ?? false,
+  matchAllEligiblePatients: record.match_all_eligible_patients ?? false,
   programMatchingRules: record.program_matching_rules || {},
   assignmentRuntimeState: record.assignment_runtime_state,
   runtimeReadyAt: record.runtime_ready_at ?? null,
@@ -344,6 +345,7 @@ export const customProgramToRecord = (program: CustomProgram) => ({
   icon_color: program.iconColor || "",
   tags: program.tags || [],
   is_multi: program.isMulti ?? false,
+  match_all_eligible_patients: program.matchAllEligiblePatients,
   program_matching_rules: program.programMatchingRules || {},
   ...(isPersistedUuid(program.id) && program.updatedAt?.includes("T")
     ? { expected_updated_at: program.updatedAt }
