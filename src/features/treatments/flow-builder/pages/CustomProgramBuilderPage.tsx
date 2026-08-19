@@ -16,7 +16,10 @@ import {
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { RUNTIME_STATE } from "@/features/treatments/assignment/constants";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
-import { customProgramMutationErrorMessage } from "@/features/treatments/api/customProgramsApi";
+import {
+  customProgramMutationErrorMessage,
+  isCustomProgramRevisionConflict,
+} from "@/features/treatments/api/customProgramsApi";
 import { synchronizeCustomProgramStructure } from "@/features/treatments/flow-builder/utils/customProgramStages";
 import type { CustomProgram, CustomProgramBuilderAddItem, CustomProgramFlowItem } from "@/features/treatments/types";
 
@@ -28,11 +31,7 @@ const blockerMessage = (message: string | Record<string, unknown>) => {
 };
 
 const staleBuilderRevisionMessage = (error: unknown): string | null => {
-  const responseData = (error as {
-    response?: { data?: { detail?: unknown; code?: unknown } };
-  })?.response?.data;
-  const code = responseData?.code || responseData?.detail;
-  if (code === "stale_builder_revision") {
+  if (isCustomProgramRevisionConflict(error)) {
     return "This draft changed in another Admin window. Refresh it, review the latest changes, and save again.";
   }
   return null;
@@ -216,11 +215,11 @@ export default function CustomProgramBuilderPage() {
           programs={programs}
           sections={sections}
           consents={consents}
-          onSaveMatching={async (programMatchingRules, matchAllEligiblePatients) => {
+          onSaveMatching={async (programMatchingRules) => {
             try {
               await saveCustomProgramMutation.mutateAsync(
                 synchronizeCustomProgramStructure(
-                  { ...customProgram, programMatchingRules, matchAllEligiblePatients },
+                  { ...customProgram, programMatchingRules },
                   customProgram.flowItems
                 )
               );

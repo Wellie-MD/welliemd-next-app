@@ -300,7 +300,6 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   iconColor: record.icon_color || undefined,
   tags: record.tags || [],
   isMulti: record.is_multi ?? false,
-  matchAllEligiblePatients: record.match_all_eligible_patients ?? false,
   programMatchingRules: record.program_matching_rules || {},
   assignmentRuntimeState: record.assignment_runtime_state,
   runtimeReadyAt: record.runtime_ready_at ?? null,
@@ -345,7 +344,6 @@ export const customProgramToRecord = (program: CustomProgram) => ({
   icon_color: program.iconColor || "",
   tags: program.tags || [],
   is_multi: program.isMulti ?? false,
-  match_all_eligible_patients: program.matchAllEligiblePatients,
   program_matching_rules: program.programMatchingRules || {},
   ...(isPersistedUuid(program.id) && program.updatedAt?.includes("T")
     ? { expected_updated_at: program.updatedAt }

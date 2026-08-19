@@ -22,7 +22,6 @@ interface CustomProgramFlowBuilderProps {
   consents: ConsentForm[];
   onSaveMatching: (
     rules: CustomProgram["programMatchingRules"],
-    matchAllEligiblePatients: boolean,
   ) => Promise<void>;
 }
 

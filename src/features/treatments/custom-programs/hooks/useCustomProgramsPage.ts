@@ -44,7 +44,6 @@ function buildNewCustomProgram(data: CustomProgramFormData): CustomProgram {
     iconColor: "#be185d",
     tags: [],
     isMulti: false,
-    matchAllEligiblePatients: false,
     programMatchingRules: {},
     flowItems: [
       {
