@@ -624,7 +624,8 @@ export function SharedQuestionsList({
     text: checkout.text,
     kind: "checkout",
     section: "Checkout",
-    required: checkout.required ?? isCheckoutQuestionRequired(checkout.products),
+    required: Boolean(checkout.required)
+      || isCheckoutQuestionRequired(checkout.products, checkout.minSelections),
     checkoutProductIds: checkout.products
       .map((product) => product.productId)
       .filter((productId): productId is string => Boolean(productId)),
@@ -800,7 +801,8 @@ export function SharedQuestionsList({
               text: checkoutQuestion.text,
               kind: "checkout",
               section: "Checkout",
-              required: checkoutQuestion.required ?? isCheckoutQuestionRequired(checkoutQuestion.products),
+              required: Boolean(checkoutQuestion.required)
+                || isCheckoutQuestionRequired(checkoutQuestion.products, checkoutQuestion.minSelections),
               checkoutProducts: checkoutQuestion.products,
               visibilityRuleGroup: checkoutQuestion.visibilityRules,
             });

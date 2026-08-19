@@ -34,7 +34,8 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
         text: formatCheckoutQuestionText(checkout.products, checkout.text),
         kind: "checkout",
         section: PROGRAM_AUTHORING_COPY.checkoutSection,
-        required: checkout.required ?? isCheckoutQuestionRequired(checkout.products),
+        required: Boolean(checkout.required)
+          || isCheckoutQuestionRequired(checkout.products, checkout.minSelections),
         checkoutProductIds: checkout.products
           .map((product) => product.productId)
           .filter((productId): productId is string => Boolean(productId)),

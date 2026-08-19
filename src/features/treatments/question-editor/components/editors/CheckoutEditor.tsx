@@ -80,6 +80,11 @@ export function CheckoutEditor({
         },
       };
       await onSave(updatedQuestion);
+      if (!activeQuestion) {
+        // Keep the editor open for the next checkout question, but do not
+        // carry the inserted question's products into the new draft.
+        form.resetForm();
+      }
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 1200);
       // No onClose() — stay open so the admin can keep iterating; a failed

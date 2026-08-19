@@ -303,7 +303,6 @@ export function CreateProgramModal({
               className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-800"
             >
               <option value="service_location_only">Verified service address only</option>
-              <option value="separate_verified_allowed">Allow a separately verified shipping address</option>
             </select>
             <p className="text-[10px] text-slate-400">
               Combined checkout allows a different destination only when every selected Program permits it.

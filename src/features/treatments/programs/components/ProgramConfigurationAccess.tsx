@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import {
+  AlertTriangle,
   ClipboardList,
   FileCheck2,
   FlaskConical,
@@ -16,6 +17,10 @@ interface ProgramConfigurationAccessProps {
   treatmentTypeKey: string;
   serviceStatesAll: boolean;
   serviceStates: string[];
+  serviceAreaCoverage?: {
+    missingStates: string[];
+    warning?: string | null;
+  };
   onEditSettings: () => void;
 }
 
@@ -63,6 +68,7 @@ export function ProgramConfigurationAccess({
   treatmentTypeKey,
   serviceStatesAll,
   serviceStates,
+  serviceAreaCoverage,
   onEditSettings,
 }: ProgramConfigurationAccessProps) {
   const serviceArea = serviceStatesAll
@@ -111,6 +117,17 @@ export function ProgramConfigurationAccess({
           </Link>
         ))}
       </div>
+      {serviceAreaCoverage?.warning && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            {serviceAreaCoverage.warning}
+            {serviceAreaCoverage.missingStates.length > 0 && (
+              <> Missing coverage: {serviceAreaCoverage.missingStates.join(", ")}.</>
+            )}
+          </span>
+        </div>
+      )}
     </section>
   );
 }

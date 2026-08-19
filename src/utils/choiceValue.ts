@@ -66,6 +66,41 @@ export function normalizeChoiceToken(choice: unknown): string {
   return normalizeChoiceDisplay(choice).trim().toLowerCase();
 }
 
+/**
+ * Resolve a persisted/legacy answer value to the current choice label.
+ *
+ * Visibility rules historically stored short semantic values (for example
+ * `Semaglutide`) while the question choices later gained explanatory text
+ * (`Semaglutide (Ozempic, Wegovy, Rybelsus)`). Radix Select only considers an
+ * item selected when its value is an exact match, so keep the current label
+ * when there is one unambiguous prefix match. Ambiguous prefixes (such as
+ * `Semaglutide` when several dose choices start with it) remain unchanged.
+ */
+export function resolveChoiceValue(
+  choices: Array<unknown> | undefined,
+  target: unknown,
+): string {
+  const targetDisplay = normalizeChoiceDisplay(target).trim();
+  if (!targetDisplay || !choices?.length) return targetDisplay;
+
+  const options = choices
+    .map((choice) => normalizeChoiceDisplay(choice).trim())
+    .filter(Boolean);
+  const targetToken = normalizeChoiceToken(targetDisplay);
+  const exact = options.find((option) => normalizeChoiceToken(option) === targetToken);
+  if (exact) return exact;
+
+  const compactTarget = targetToken.replace(/[^a-z0-9]/g, "");
+  if (!compactTarget) return targetDisplay;
+
+  const prefixMatches = options.filter((option) => {
+    const compactOption = normalizeChoiceToken(option).replace(/[^a-z0-9]/g, "");
+    return compactOption.startsWith(compactTarget);
+  });
+
+  return prefixMatches.length === 1 ? prefixMatches[0] : targetDisplay;
+}
+
 function extractTokens(choice: unknown): Set<string> {
   const tokens = new Set<string>();
   const displayToken = normalizeChoiceToken(choice);

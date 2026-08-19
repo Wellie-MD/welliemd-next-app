@@ -633,7 +633,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
               </div>
             )}
 
-            {!selected.treatment_prescription && (selected.revision_adjustments || []).length > 0 && (
+            {(selected.revision_adjustments || []).length > 0 && (
               <div className="px-4 pb-4">
                 <h4 className="font-semibold mb-2">Revision History</h4>
                 <div className="rounded-md border overflow-x-auto">

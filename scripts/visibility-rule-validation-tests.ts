@@ -6,6 +6,7 @@ import {
   normalizeVisibilityQuestionId,
   visibilityPathLabel,
 } from "../src/components/questionnaires/visibilityRuleValidation.ts";
+import { resolveChoiceValue } from "../src/utils/choiceValue.ts";
 
 const test = (name: string, run: () => void) => {
   run();
@@ -91,6 +92,35 @@ test("multi-value operators require at least one value", () => {
   }]));
 
   assert.equal(issues[0].message, "Enter at least one trigger value.");
+});
+
+test("legacy short choice values resolve to an unambiguous current label", () => {
+  assert.equal(
+    resolveChoiceValue(
+      [
+        "Semaglutide (Ozempic, Wegovy, Rybelsus)",
+        "Tirzepatide (Zepbound, Mounjaro)",
+        "None of these",
+      ],
+      "Semaglutide",
+    ),
+    "Semaglutide (Ozempic, Wegovy, Rybelsus)",
+  );
+});
+
+test("ambiguous dose prefixes are left unchanged", () => {
+  assert.equal(
+    resolveChoiceValue(
+      ["Semaglutide/Ozempic/Wegovy 0.25mg", "Semaglutide/Ozempic/Wegovy 0.5mg"],
+      "Semaglutide",
+    ),
+    "Semaglutide",
+  );
+});
+
+test("long choice labels remain selectable as-is", () => {
+  const value = "Increase the dose if a higher one is available, or continue with my current dose if it's already at the maximum";
+  assert.equal(resolveChoiceValue([value, "Decrease dose"], value), value);
 });
 
 test("legacy snake_case question ids are normalized before rendering", () => {

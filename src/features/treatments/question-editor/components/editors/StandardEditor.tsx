@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { QuestionEditorHeader } from "@/features/treatments/question-editor/components/shell/QuestionEditorHeader";
 import { QuestionSetupTab } from "@/features/treatments/question-editor/components/tabs/QuestionSetupTab";
 import { QuestionContentTab } from "@/features/treatments/question-editor/components/tabs/QuestionContentTab";
@@ -84,6 +84,22 @@ export function StandardEditor({
     [visibilityRuleGroup],
   );
 
+  const resetForm = useCallback(() => {
+    setQuestionText("");
+    setQuestionType("single_choice");
+    setChoices(["Option 1", "Option 2"]);
+    setDqChoices([]);
+    setNewChoiceText("");
+    setVisibilityRuleGroup(undefined);
+    setRequired(true);
+    setIncludeInQa(true);
+    setHiddenFromPatient(false);
+    setLockClientChanges(true);
+    setPrefillFromPrevious(false);
+    setConsentText("");
+    setUploadConfig({ upload_type: "general", max_file_size_mb: 5, allowed_extensions: SUPPORTED_UPLOAD_EXTENSIONS });
+  }, []);
+
   useEffect(() => {
     setVisibilityValidationAttempted(false);
     if (activeQuestion) {
@@ -136,20 +152,9 @@ export function StandardEditor({
         setVisibilityRuleGroup(undefined);
       }
     } else {
-      setQuestionText("");
-      setQuestionType("single_choice");
-      setChoices(["Option 1", "Option 2"]);
-      setDqChoices([]);
-      setConsentText("");
-      setUploadConfig({ upload_type: "general", max_file_size_mb: 5, allowed_extensions: SUPPORTED_UPLOAD_EXTENSIONS });
-      setVisibilityRuleGroup(undefined);
-      setRequired(true);
-      setIncludeInQa(true);
-      setHiddenFromPatient(false);
-      setLockClientChanges(true);
-      setPrefillFromPrevious(false);
+      resetForm();
     }
-  }, [activeQuestion]);
+  }, [activeQuestion, resetForm]);
 
   const handleAddChoice = () => {
     const label = newChoiceText.trim() || `Option ${choices.length + 1}`;
@@ -222,6 +227,11 @@ export function StandardEditor({
     setIsSaving(true);
     try {
       await onSave(updatedQuestion);
+      if (!activeQuestion) {
+        // New questions keep the dialog open for rapid authoring. Clear the
+        // inserted values before starting the next draft.
+        resetForm();
+      }
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 1200);
       // Stay open — the caller has already toasted on failure, and on

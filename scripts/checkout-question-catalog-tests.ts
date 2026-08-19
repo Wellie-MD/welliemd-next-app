@@ -14,6 +14,7 @@ import {
   programToRecord,
 } from "../src/features/treatments/api/mappers.js";
 import {
+  isCheckoutQuestionRequired,
   productRoleForFlexibleSelection,
 } from "../src/features/treatments/programs/checkout-question/constants.js";
 
@@ -192,7 +193,10 @@ const multiSelectQuestion = checkoutQuestionFromRecord(
 assert.equal(multiSelectQuestion.selectionMode, "multiple");
 assert.equal(multiSelectQuestion.minSelections, 1);
 assert.equal(multiSelectQuestion.maxSelections, undefined);
-assert.equal(multiSelectQuestion.required, false);
+// A multiple-selection checkout group with min_selections=1 is required at
+// the group level even when each individual product is an optional add-on.
+assert.equal(multiSelectQuestion.required, true);
+assert.equal(isCheckoutQuestionRequired(multiSelectQuestion.products, multiSelectQuestion.minSelections), true);
 assert.equal(multiSelectQuestion.products[0].productRole, "optional_addon");
 assert.equal(productRoleForFlexibleSelection("primary_choice"), "optional_addon");
 assert.equal(productRoleForFlexibleSelection("required_companion"), "required_companion");
@@ -207,7 +211,7 @@ assert.deepEqual(serializedProgram.checkout_questions?.[0], {
   selection_mode: "multiple",
   min_selections: 1,
   max_selections: null,
-  is_required: false,
+  is_required: true,
 });
 
 console.log("checkout question catalog dependency tests passed");
