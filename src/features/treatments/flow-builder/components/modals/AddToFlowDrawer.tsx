@@ -48,7 +48,7 @@ export function AddToFlowDrawer({
       case "consent":
         return <ConsentLibraryTab consents={consents} onAddItem={onAddItem} flowItems={flowItems} />;
       case "checkout":
-        return <CheckoutOptionTab onAddItem={onAddItem} />;
+        return <CheckoutOptionTab />;
       default:
         return null;
     }
@@ -74,7 +74,7 @@ export function AddToFlowDrawer({
               { id: "question", label: "Custom Question" },
               { id: "eligibility", label: "Programs" },
               { id: "consent", label: "Consent" },
-              { id: "checkout", label: "Checkout" },
+              { id: "checkout", label: "Inherited Checkout" },
             ].map((tab) => (
               <button
                 key={tab.id}

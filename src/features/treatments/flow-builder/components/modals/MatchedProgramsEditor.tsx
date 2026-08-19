@@ -18,25 +18,34 @@ interface Props {
 const emptyRule = (): ProgramMatchingRule => ({ combinator: "and", rules: [] });
 const emptyConfig = (): ProgramMatchingConfig => ({ enabled: true, rule: emptyRule() });
 const profileFields = new Set(["age", "bmi", "sex", "gender", "service_state"]);
+const operatorsThatNeedValues = new Set([
+  "eq", "neq", "contains", "not_contains", "in", "not_in",
+  "gt", "gte", "lt", "lte", "between",
+]);
 
-function evaluateCondition(condition: ProgramMatchingCondition, answers: Record<string, string>) {
-  const actual = answers[condition.field] ?? "";
-  const expected = String(condition.value ?? "");
-  if (condition.operator === "exists") return Boolean(actual) === (expected !== "false");
-  if (condition.operator === "contains" || condition.operator === "not_contains") {
-    const result = actual.split(",").map((value) => value.trim()).includes(expected);
-    return condition.operator === "contains" ? result : !result;
-  }
-  if (condition.operator === "eq" || condition.operator === "neq") return condition.operator === "eq" ? actual === expected : actual !== expected;
-  const left = Number(actual); const right = Number(expected);
-  if (!Number.isFinite(left) || !Number.isFinite(right)) return false;
-  if (condition.operator === "gt") return left > right;
-  if (condition.operator === "gte") return left >= right;
-  if (condition.operator === "lt") return left < right;
-  if (condition.operator === "lte") return left <= right;
-  if (condition.operator === "between") { const [low, high] = expected.split(",").map(Number); return Number.isFinite(low) && Number.isFinite(high) && left >= low && left <= high; }
+const isBlankValue = (value: ProgramMatchingCondition["value"]) => {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string") return !value.trim();
+  if (Array.isArray(value)) return value.length === 0 || value.some((item) => !String(item).trim());
   return false;
-}
+};
+
+const hasCompleteValue = (condition: ProgramMatchingCondition) => {
+  if (!operatorsThatNeedValues.has(condition.operator)) return true;
+  if (isBlankValue(condition.value)) return false;
+  if (condition.operator !== "between") return true;
+  const range = Array.isArray(condition.value)
+    ? condition.value
+    : String(condition.value).split(",");
+  return range.length === 2 && range.every((item) => String(item).trim());
+};
+
+const conditionIsInvalid = (condition: ProgramMatchingCondition, matchingQuestionIds: Set<string>) => (
+  !condition.field
+  || !condition.operator
+  || (!profileFields.has(condition.field) && !matchingQuestionIds.has(condition.field))
+  || !hasCompleteValue(condition)
+);
 
 export function MatchedProgramsEditor({ open, onOpenChange, customProgram, programs, onSave }: Props) {
   const attached = useMemo(() => programs.filter((item) => customProgram.includedProgramIds.includes(item.id)), [programs, customProgram.includedProgramIds]);
@@ -44,29 +53,65 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
   const [selectedId, setSelectedId] = useState("");
   const [draft, setDraft] = useState(customProgram.programMatchingRules || {});
   const [saving, setSaving] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
-  const [previewAnswers, setPreviewAnswers] = useState<Record<string, string>>({ service_state: "TX", age: "35", bmi: "31", sex: "female" });
 
   useEffect(() => {
     if (!open) return;
-    setDraft(structuredClone(customProgram.programMatchingRules || {}));
+    const incoming = customProgram.programMatchingRules || {};
+    setDraft(Object.fromEntries(
+      attached.map((item) => [
+        item.id,
+        { ...emptyConfig(), ...(incoming[item.id] || {}) },
+      ]),
+    ));
     setSelectedId((current) => attached.some((item) => item.id === current) ? current : attached[0]?.id || "");
   }, [open, customProgram.programMatchingRules, attached]);
 
   const program = attached.find((item) => item.id === selectedId);
   const config = draft[selectedId] || emptyConfig();
   const rule = ("rules" in config.rule ? config.rule : emptyRule()) as ProgramMatchingRule;
+  const enabledPrograms = attached.filter(
+    (item) => (draft[item.id] || emptyConfig()).enabled,
+  );
   const updateConfig = (next: ProgramMatchingConfig) => setDraft((current) => ({ ...current, [selectedId]: next }));
   const updateRule = (next: ProgramMatchingRule) => updateConfig({ ...config, rule: next });
   const matchingQuestionIds = new Set(matchingQuestions.map((item) => item.sourceId || item.id));
-  const invalid = rule.rules.some((condition) => !condition.field || !condition.operator || (!profileFields.has(condition.field) && !matchingQuestionIds.has(condition.field)));
-  const matchedPrograms = attached.filter((item) => {
-    const candidate = draft[item.id] || emptyConfig();
-    if (!candidate.enabled) return false;
-    const candidateRule = ("rules" in candidate.rule ? candidate.rule : emptyRule()) as ProgramMatchingRule;
-    const results = candidateRule.rules.map((condition) => evaluateCondition(condition, previewAnswers));
-    return !results.length || (candidateRule.combinator === "and" ? results.every(Boolean) : results.some(Boolean));
-  });
+  const invalidProgramNames = attached.filter((item) => {
+    const itemConfig = draft[item.id] || emptyConfig();
+    const itemRule = ("rules" in itemConfig.rule ? itemConfig.rule : emptyRule()) as ProgramMatchingRule;
+    return itemRule.rules.some((condition) => conditionIsInvalid(condition, matchingQuestionIds));
+  }).map((item) => item.name);
+  const invalid = invalidProgramNames.length > 0;
+  const conditionError = (condition: ProgramMatchingCondition) => {
+    if (!condition.field) return "Select a matching input.";
+    if (!condition.operator) return "Select an operator.";
+    if (!profileFields.has(condition.field) && !matchingQuestionIds.has(condition.field)) {
+      return "This matching input is no longer attached to the flow.";
+    }
+    if (!hasCompleteValue(condition)) {
+      return condition.operator === "between"
+        ? "Enter two expected answers."
+        : "Enter an expected answer.";
+    }
+    return null;
+  };
+  const validationByProgram = new Map(
+    attached.map((item) => {
+      const itemRule = (draft[item.id] || emptyConfig()).rule;
+      const normalizedRule = (itemRule && "rules" in itemRule ? itemRule : emptyRule()) as ProgramMatchingRule;
+      return [item.id, normalizedRule.rules.map(conditionError).filter(Boolean) as string[]];
+    }),
+  );
+  const validationInvalid = invalid;
+  const collisionGroups = (getKey: (item: Program) => string | undefined) => Object.entries(
+    attached.reduce<Record<string, string[]>>((groups, item) => {
+      const key = getKey(item) || "";
+      if (!key) return groups;
+      groups[key] = [...(groups[key] || []), item.name];
+      return groups;
+    }, {}),
+  ).filter(([, names]) => names.length > 1);
+  const treatmentTypeCollisions = collisionGroups((item) => item.treatmentTypeKey);
+  const visitTypeCollisions = collisionGroups((item) => item.visitType);
 
   const addCondition = () => updateRule({
     ...rule,
@@ -90,10 +135,18 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
             <div className="space-y-1.5">
               {attached.map((item) => {
                 const itemRule = draft[item.id]?.rule as ProgramMatchingRule | undefined;
-                return <button key={item.id} onClick={() => setSelectedId(item.id)} className={`w-full rounded-md border p-2.5 text-left ${selectedId === item.id ? "border-blue-400 bg-white ring-1 ring-blue-100" : "border-transparent hover:bg-white"}`}>
-                  <div className="text-xs font-semibold text-slate-900">{item.name}</div>
-                  <div className="mt-1 text-[10px] text-slate-500">{itemRule?.rules?.length || 0} matching conditions</div>
-                </button>;
+                return <div key={item.id} className={`rounded-md border p-2.5 ${selectedId === item.id ? "border-blue-400 bg-white ring-1 ring-blue-100" : "border-transparent hover:bg-white"}`}>
+                  <button onClick={() => setSelectedId(item.id)} className="w-full text-left">
+                    <div className="text-xs font-semibold text-slate-900">{item.name}</div>
+                    {validationByProgram.get(item.id)?.length ? (
+                      <ul className="mt-1 list-disc pl-3 text-[10px] text-rose-600">
+                        {validationByProgram.get(item.id)?.map((message, index) => <li key={`${item.id}-error-${index}`}>{message}</li>)}
+                      </ul>
+                    ) : (
+                      <div className="mt-1 text-[10px] text-slate-500">{itemRule?.rules?.length || 0} matching conditions</div>
+                    )}
+                  </button>
+                </div>;
               })}
             </div>
           </aside>
@@ -133,24 +186,53 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
             </>}
           </section>
           <aside className="overflow-auto bg-[#111c34] p-4 text-white">
-            <div className="flex items-center justify-between"><div className="text-[9px] font-bold uppercase tracking-wider text-slate-300">{previewMode ? "Sample rule inputs" : "Rule authoring harness"}</div><button className="text-[9px] font-semibold text-blue-300" onClick={() => setPreviewMode((value) => !value)}>{previewMode ? "View harness result" : "Test rule inputs"}</button></div>
-            {previewMode && <div className="mt-4 space-y-2 rounded bg-white p-3 text-slate-900">
-              {[{ id: "service_state", label: "State" }, { id: "age", label: "Age" }, { id: "bmi", label: "BMI" }, { id: "sex", label: "Sex" }, ...matchingQuestions.map((item) => ({ id: item.sourceId || item.id, label: item.title }))].map((field) => <label key={field.id} className="block text-[9px] font-semibold text-slate-600">{field.label}<Input className="mt-1 h-7 text-[10px]" value={previewAnswers[field.id] || ""} onChange={(event) => setPreviewAnswers((current) => ({ ...current, [field.id]: event.target.value }))} /></label>)}
-              <p className="text-[9px] text-slate-400">For multiple answers, enter comma-separated values. This checks draft rule shape only; use Patient Preview for authoritative eligibility.</p>
-            </div>}
+            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-300">Rule authoring harness</div>
             <div className="mt-5 rounded bg-white p-4 text-slate-900">
-              <h4 className="text-xs font-bold">Based on what you shared, you seem eligible for:</h4>
-              <p className="mt-1 text-[10px] text-slate-500">Select one or more areas you would like to explore.</p>
-              {matchedPrograms.map((item) => <div key={item.id} className="mt-3 rounded border border-blue-400 bg-blue-50 p-3"><div className="text-xs font-bold">{item.name}</div><div className="mt-1 text-[10px] text-slate-500">{item.description}</div></div>)}
-              {!matchedPrograms.length && <p className="mt-4 text-[10px] text-slate-500">No Programs match these sample answers.</p>}
+              <h4 className="text-xs font-bold">Rule check</h4>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Checks rule shape and inputs only. It does not apply service
+                state or the age/BMI/sex limits above, so it cannot tell you who
+                will actually be offered a treatment.
+              </p>
+              <div className="mt-3 space-y-1.5 text-[10px]">
+                <div className={invalid ? "text-rose-600" : "text-emerald-700"}>
+                  {invalid
+                    ? `Fix conditions for: ${invalidProgramNames.join(", ")}.`
+                    : "Every condition references a real matching input."}
+                </div>
+                <div className="text-slate-600">
+                  {enabledPrograms.length} of {attached.length} Programs have matching enabled.
+                </div>
+              </div>
+              {(treatmentTypeCollisions.length > 0 || visitTypeCollisions.length > 0) && (
+                <div className="mt-3 rounded border border-rose-300 bg-rose-50 p-2.5 text-[10px] text-rose-900">
+                  <div className="flex gap-1.5 font-semibold">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>Publish is blocked until every route is unique. You can still save this draft.</span>
+                  </div>
+                  {treatmentTypeCollisions.map(([key, names]) => (
+                    <div key={`treatment-${key}`} className="mt-1.5 pl-4">
+                      Treatment Type <strong>{key}</strong> is used by <strong>{names.join(" and ")}</strong>.
+                    </div>
+                  ))}
+                  {visitTypeCollisions.map(([key, names]) => (
+                    <div key={`visit-${key}`} className="mt-1.5 pl-4">
+                      Visit Type <strong>{key}</strong> is used by <strong>{names.join(" and ")}</strong>.
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="mt-3 text-[10px] font-semibold text-slate-700">
+                Use Patient Preview for who is actually offered what — it is the
+                only authoritative answer.
+              </p>
             </div>
           </aside>
         </div>
         <DialogFooter className="items-center border-t border-slate-200 px-5 py-3">
-          <div className="mr-auto flex items-center gap-1.5 text-xs text-slate-500">{invalid ? <AlertTriangle className="h-4 w-4 text-rose-500" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}{invalid ? "Complete every condition before saving." : "Rules are valid."}</div>
-          <Button variant="outline" onClick={() => setPreviewMode(true)}>Preview Answers</Button>
+          <div className="mr-auto flex items-center gap-1.5 text-xs text-slate-500">{validationInvalid ? <AlertTriangle className="h-4 w-4 text-rose-500" /> : <CheckCircle2 className="h-4 w-4 text-emerald-500" />}{validationInvalid ? "Resolve rule errors before saving." : "Rules are valid."}</div>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={saving || invalid} onClick={async () => { setSaving(true); try { await onSave(draft); onOpenChange(false); } finally { setSaving(false); } }}>{saving ? "Saving…" : "Save Rules"}</Button>
+          <Button disabled={saving || validationInvalid} onClick={async () => { setSaving(true); try { await onSave(draft); onOpenChange(false); } finally { setSaving(false); } }}>{saving ? "Saving…" : "Save Rules"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

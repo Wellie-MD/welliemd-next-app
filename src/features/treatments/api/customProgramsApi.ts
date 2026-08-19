@@ -1,7 +1,15 @@
 import axiosInstance from "@/api/axiosInstance";
 import type { CustomProgram } from "@/features/treatments/types";
-import type { CustomProgramRecord, PaginatedResponse } from "./contracts";
+import type {
+  CustomProgramRecord,
+  CustomProgramValidationRecord,
+  PaginatedResponse,
+} from "./contracts";
 import { customProgramFromRecord, customProgramToRecord, isPersistedUuid } from "./mappers";
+export {
+  customProgramMutationErrorMessage,
+  isCustomProgramRevisionConflict,
+} from "./customProgramErrors";
 
 const records = <T>(data: PaginatedResponse<T> | T[]): T[] => Array.isArray(data) ? data : data.results || [];
 
@@ -18,11 +26,20 @@ export const customProgramsApi = {
     return customProgramFromRecord(data);
   },
   save: async (program: CustomProgram): Promise<CustomProgram> => {
-    const payload = customProgramToRecord(program);
+    const payload = customProgramToRecord(program) as Record<string, unknown>;
+    if (isPersistedUuid(program.id) && program.updatedAt) {
+      payload.expected_updated_at = program.updatedAt;
+    }
     const { data } = isPersistedUuid(program.id)
       ? await axiosInstance.patch<CustomProgramRecord>(`treatments/custom-programs/${program.id}/`, payload)
       : await axiosInstance.post<CustomProgramRecord>("treatments/custom-programs/", payload);
     return customProgramFromRecord(data);
+  },
+  validate: async (id: string): Promise<CustomProgramValidationRecord> => {
+    const { data } = await axiosInstance.post<CustomProgramValidationRecord>(
+      `treatments/custom-programs/${id}/builder/validate/`,
+    );
+    return data;
   },
   publish: async (id: string): Promise<void> => {
     if (!isPersistedUuid(id)) return;

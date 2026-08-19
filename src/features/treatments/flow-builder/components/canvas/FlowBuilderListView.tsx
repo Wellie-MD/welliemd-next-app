@@ -42,8 +42,6 @@ interface FlowBuilderListViewProps {
   onEditQuestion: (item: CustomProgramFlowItem) => void;
   onOpenPreview: () => void;
   onConfigureMatching: () => void;
-  onEditCheckoutOverride: (item: CustomProgramFlowItem) => void;
-  onDeleteCheckoutOverride: (item: CustomProgramFlowItem) => void;
 }
 
 const stageToneClass: Record<AdminCustomProgramStage["tone"], string> = {
@@ -293,19 +291,9 @@ function StageRow({
 function CheckoutOverrideRow({
   item,
   itemNumber,
-  isFirst,
-  isLast,
-  onMove,
-  onEdit,
-  onDelete,
 }: {
   item: CustomProgramFlowItem;
   itemNumber: number;
-  isFirst: boolean;
-  isLast: boolean;
-  onMove: (direction: "up" | "down") => void;
-  onEdit: () => void;
-  onDelete: () => void;
 }) {
   return (
     <div className="flex min-h-[58px] items-center gap-3 rounded-lg border border-amber-200 bg-amber-50/40 px-4 py-3 shadow-sm">
@@ -314,12 +302,9 @@ function CheckoutOverrideRow({
       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700"><CreditCard className="h-4 w-4" /></div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2"><span className="rounded-[3px] border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">CHECKOUT OVERRIDE</span><span className="text-sm font-semibold text-slate-950">{item.title}</span></div>
-        <p className="mt-1 text-xs font-medium text-slate-500">{item.subtitle}</p>
+        <p className="mt-1 text-xs font-medium text-slate-500">{item.subtitle} · Legacy read-only configuration</p>
       </div>
-      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#4f00ff]" title="Edit checkout override" onClick={onEdit}><Edit3 className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isFirst} onClick={() => onMove("up")}><ArrowUp className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isLast} onClick={() => onMove("down")}><ArrowDown className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-600" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
+      <Lock className="mx-2 h-4 w-4 text-amber-500" />
     </div>
   );
 }
@@ -333,8 +318,6 @@ export function FlowBuilderListView({
   onEditQuestion,
   onOpenPreview,
   onConfigureMatching,
-  onEditCheckoutOverride,
-  onDeleteCheckoutOverride,
 }: FlowBuilderListViewProps) {
   const builderList = buildAdminCustomProgramStages(customProgram, { programs, sections, consents });
   let nextItemNumber = 2;
@@ -410,11 +393,6 @@ export function FlowBuilderListView({
             key={item.id}
             item={item}
             itemNumber={nextItemNumber + index}
-            isFirst={index === 0}
-            isLast={index === builderList.checkoutOverrides.length - 1}
-            onMove={(direction) => move(item.id, direction)}
-            onEdit={() => onEditCheckoutOverride(item)}
-            onDelete={() => onDeleteCheckoutOverride(item)}
           />
         ))}
         <LockedSystemRow item={builderList.checkoutItem} itemNumber={builderList.totalItemCount} />

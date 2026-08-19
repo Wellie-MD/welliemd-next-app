@@ -82,6 +82,7 @@ export type CustomProgramRecord = {
   is_multi?: boolean;
   program_matching_rules?: CustomProgram["programMatchingRules"];
   updated_at?: string;
+  expected_updated_at?: string;
   assignment_runtime_state?: string;
   runtime_ready_at?: string | null;
   source_assignment_checksum?: string;
@@ -102,6 +103,18 @@ export type CustomProgramRecord = {
     lab_count: number;
     program_count: number;
   } | null;
+};
+
+export type CustomProgramValidationBlocker = {
+  code: string;
+  source_id?: string;
+  message: string | Record<string, unknown>;
+};
+
+export type CustomProgramValidationRecord = {
+  valid: boolean;
+  custom_program_id: string;
+  blockers: CustomProgramValidationBlocker[];
 };
 
 export type ProgramRecord = {
@@ -131,6 +144,13 @@ export type ProgramRecord = {
   max_bmi?: number | null;
   service_states_all?: boolean;
   service_states?: string[];
+  service_area_coverage?: {
+    program_states?: string[];
+    covered_states?: string[];
+    missing_states?: string[];
+    has_service_area_question?: boolean;
+    warning?: string | null;
+  };
   shipping_destination_policy?: Program["shippingDestinationPolicy"];
   lab_requirements?: Array<{
     id?: string;

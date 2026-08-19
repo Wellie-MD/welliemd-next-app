@@ -289,7 +289,9 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   consentIds: record.consent_ids || [],
   checkoutOptions: record.checkout_options || [],
   flowItems: record.flow_items || [],
-  updatedAt: record.updated_at?.split("T")[0] || dateStamp(),
+  // Preserve the complete server timestamp because Admin updates send it
+  // back as the optimistic-concurrency token.
+  updatedAt: record.updated_at || dateStamp(),
   visitType: record.visit_type ?? null,
   onboardingName: record.onboarding_name || "",
   questionCount: record.question_count || 0,
@@ -343,6 +345,9 @@ export const customProgramToRecord = (program: CustomProgram) => ({
   tags: program.tags || [],
   is_multi: program.isMulti ?? false,
   program_matching_rules: program.programMatchingRules || {},
+  ...(isPersistedUuid(program.id) && program.updatedAt?.includes("T")
+    ? { expected_updated_at: program.updatedAt }
+    : {}),
 });
 
 export const programFromRecord = (record: ProgramRecord): Program => ({
@@ -370,6 +375,15 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
   maxBmi: record.max_bmi ?? null,
   serviceStatesAll: record.service_states_all ?? true,
   serviceStates: record.service_states || [],
+  serviceAreaCoverage: record.service_area_coverage
+    ? {
+      programStates: record.service_area_coverage.program_states || [],
+      coveredStates: record.service_area_coverage.covered_states || [],
+      missingStates: record.service_area_coverage.missing_states || [],
+      hasServiceAreaQuestion: Boolean(record.service_area_coverage.has_service_area_question),
+      warning: record.service_area_coverage.warning || null,
+    }
+    : undefined,
   shippingDestinationPolicy: record.shipping_destination_policy || "service_location_only",
   labRequirements: (record.lab_requirements || []).map((requirement) => ({
     id: requirement.id,
