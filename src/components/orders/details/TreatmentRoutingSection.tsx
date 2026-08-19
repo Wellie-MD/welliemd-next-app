@@ -3,6 +3,7 @@ import { Order } from "@/api/ordersApi"
 import { TreatmentOrderAggregate } from "@/features/treatments/orders/components/TreatmentOrderAggregate"
 import { Badge } from "@/components/ui/badge"
 import { Activity } from "lucide-react"
+import { CombinedTreatmentStatusSection } from "./CombinedTreatmentStatusSection"
 
 interface TreatmentRoutingSectionProps {
   order: Order
@@ -24,6 +25,13 @@ export const TreatmentRoutingSection: React.FC<TreatmentRoutingSectionProps> = (
         <TreatmentOrderAggregate
           aggregate={order.treatment_aggregate}
           currentOrderId={order.id}
+        />
+      )}
+
+      {order.combined_submission_summary?.orders && (
+        <CombinedTreatmentStatusSection
+          currentOrderId={order.id}
+          summary={order.combined_submission_summary}
         />
       )}
 

@@ -259,7 +259,11 @@ export interface CombinedSubmissionSummary {
     treatment_case_id: string
     treatment_type_id?: string
     treatment_type_key?: string | null
+    treatment_type_name?: string | null
+    visit_id?: string | null
+    visit_status?: string | null
     status?: string
+    b2b_reimbursement_status?: string | null
     beluga_dispatch_status?: string | null
     beluga_dispatch_reason?: string | null
     beluga_dispatch_attempt_count?: number | null
