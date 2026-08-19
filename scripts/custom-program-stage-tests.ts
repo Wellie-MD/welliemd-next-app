@@ -13,6 +13,10 @@ import {
   reorderCustomProgramItemWithinStage,
   synchronizeCustomProgramStructure,
 } from "../src/features/treatments/flow-builder/utils/customProgramStages.ts";
+import {
+  customProgramMutationErrorMessage,
+  isCustomProgramRevisionConflict,
+} from "../src/features/treatments/api/customProgramErrors.ts";
 
 const item = (
   id: string,
@@ -77,6 +81,17 @@ const test = (name: string, run: () => void) => {
   run();
   console.log(`PASS ${name}`);
 };
+
+test("shows a clear message for every stale builder error shape", () => {
+  const errors = [
+    { response: { data: { error: "stale_builder_revision" } } },
+    { response: { data: { detail: "stale_builder_revision" } } },
+    { response: { data: { detail: { detail: "stale_builder_revision" } } } },
+  ];
+  errors.forEach((error) => assert.equal(isCustomProgramRevisionConflict(error), true));
+  assert.match(customProgramMutationErrorMessage(errors[0], "fallback"), /Refresh/);
+  assert.equal(customProgramMutationErrorMessage(new Error("network"), "fallback"), "fallback");
+});
 
 test("canonicalizes every item into a fixed stage and removes duplicate system rows", () => {
   const result = canonicalizeCustomProgramFlowItems([

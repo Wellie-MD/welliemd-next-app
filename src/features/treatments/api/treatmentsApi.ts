@@ -106,6 +106,7 @@ export const treatmentsApi = {
 
   listCustomPrograms: customProgramsApi.list,
   getCustomProgram: customProgramsApi.get,
+  validateCustomProgram: customProgramsApi.validate,
   saveCustomProgram: customProgramsApi.save,
   publishCustomProgram: customProgramsApi.publish,
   deleteCustomProgram: customProgramsApi.delete,

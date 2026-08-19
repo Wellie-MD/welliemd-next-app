@@ -52,10 +52,10 @@ function CheckoutTab({ program, onClose }: { program: CustomProgram; onClose: ()
         <p>
           The published flow contains <strong className="text-slate-900">{summary?.checkoutQuestionCount ?? 0} checkout questions</strong> and <strong className="text-slate-900">{summary?.productCount ?? 0} unique products</strong> inherited from its included Programs.
         </p>
-        <p><strong className="text-slate-900">{program.checkoutOptions.length}</strong> Custom Program-level checkout overrides are configured.</p>
+        <p><strong className="text-slate-900">{program.checkoutOptions.length}</strong> legacy Custom Program-level checkout override{program.checkoutOptions.length === 1 ? " is" : "s are"} retained as read-only data.</p>
         <p>Users completing eligibility screening are routed to these products automatically upon matching recommendation criteria.</p>
         <Link to={`/dashboard/treatments/custom-programs/${program.id}/builder`} onClick={onClose} className="mt-1 inline-flex font-semibold text-blue-600 hover:underline">
-          Manage checkout mappings in builder &rarr;
+          Review inherited checkout mappings in builder &rarr;
         </Link>
       </div>
     </div>
@@ -121,7 +121,7 @@ export function CatalogConnectionsDialog({ open, onOpenChange, program, activeTa
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[16px] font-bold text-slate-900">Catalog Connections: {program?.name}</DialogTitle>
           <DialogDescription className="text-xs text-slate-500">
-            Manage product, checkout, labs, and supply assignments for the {program?.visitType || "universal"} flow.
+            Review inherited product, checkout, lab, and supply connections for the {program?.visitType || "universal"} flow.
           </DialogDescription>
         </DialogHeader>
 

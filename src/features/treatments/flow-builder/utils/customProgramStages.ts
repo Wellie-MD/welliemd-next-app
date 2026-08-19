@@ -66,8 +66,8 @@ export const getCustomProgramStageNumber = (
 
 /**
  * Normalize the persisted patient journey to the stage contract. System rows
- * are unique and terminal while administrator-authored checkout overrides stay
- * immediately before the locked checkout row.
+ * are unique and terminal while persisted legacy checkout overrides stay
+ * immediately before the locked checkout row for read-only visibility.
  */
 export function canonicalizeCustomProgramFlowItems(
   flowItems: CustomProgramFlowItem[]
