@@ -15,6 +15,33 @@ import type { ConsentForm, ConsentOption, TreatmentLibraryScope } from "@/featur
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 import { cn } from "@/lib/utils";
 
+type ConsentApiErrorData = {
+  text?: string | string[];
+  detail?: string;
+  error?: string;
+  message?: string;
+};
+
+const firstErrorMessage = (value?: string | string[]) =>
+  Array.isArray(value) ? value[0] : value;
+
+const consentApiErrorData = (error: unknown) =>
+  (error as { response?: { data?: ConsentApiErrorData } })?.response?.data;
+
+const consentTextErrorMessage = (error: unknown) =>
+  firstErrorMessage(consentApiErrorData(error)?.text);
+
+const consentSaveErrorMessage = (error: unknown) => {
+  const data = consentApiErrorData(error);
+  return (
+    firstErrorMessage(data?.text) ||
+    data?.detail ||
+    data?.error ||
+    data?.message ||
+    "Failed to save consent form."
+  );
+};
+
 interface ConsentEditModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -27,6 +54,10 @@ const defaultOption = (): ConsentOption => ({
   disqualifies: false,
 });
 
+const CONSENT_TEXT_MAX_HTML_CHARS = 1_000_000;
+const CONSENT_TEXT_TOO_LONG_MESSAGE =
+  "Consent text must be 1,000,000 characters or fewer.";
+
 export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditModalProps) {
   const { data: consents = [] } = useConsents();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
@@ -36,6 +67,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
   const [scope, setScope] = useState<TreatmentLibraryScope>("global");
   const [visitTypeKeys, setVisitTypeKeys] = useState<string[]>([]);
   const [text, setText] = useState("");
+  const [textValidationError, setTextValidationError] = useState<string | null>(null);
   const [options, setOptions] = useState<ConsentOption[]>([defaultOption()]);
 
   const existing = useMemo(
@@ -62,12 +94,14 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
       setScope(existing.scope === "global" ? "global" : "visit_type");
       setVisitTypeKeys(existing.visitTypeKeys ?? []);
       setText(existing.text || "");
+      setTextValidationError(null);
       setOptions(existing.options?.length ? existing.options : [defaultOption()]);
     } else {
       setName("");
       setScope("global");
       setVisitTypeKeys([]);
       setText("");
+      setTextValidationError(null);
       setOptions([defaultOption()]);
     }
   }, [existing, open]);
@@ -102,9 +136,16 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
       return;
     }
     if (!text.replace(/<[^>]*>/g, "").trim()) {
+      setTextValidationError("Consent text is required.");
       toast({ title: "Validation Error", description: "Consent text is required.", variant: "destructive" });
       return;
     }
+    if (text.trim().length > CONSENT_TEXT_MAX_HTML_CHARS) {
+      setTextValidationError(CONSENT_TEXT_TOO_LONG_MESSAGE);
+      toast({ title: "Validation Error", description: CONSENT_TEXT_TOO_LONG_MESSAGE, variant: "destructive" });
+      return;
+    }
+    setTextValidationError(null);
     if (scope === "visit_type" && visitTypeKeys.length === 0) {
       toast({
         title: "Validation Error",
@@ -137,8 +178,13 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
         });
         onOpenChange(false);
       },
-      onError: () => {
-        toast({ title: "Error", description: "Failed to save consent form.", variant: "destructive" });
+      onError: (error) => {
+        const message = consentSaveErrorMessage(error);
+        const textMessage = consentTextErrorMessage(error);
+        if (textMessage) {
+          setTextValidationError(textMessage);
+        }
+        toast({ title: "Error", description: message, variant: "destructive" });
       },
     });
   };
@@ -301,11 +347,19 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
               <p className="mb-3 text-xs text-slate-500">Bold key risks; use bullet lists for itemized acknowledgments.</p>
               <RichTextEditor
                 value={text}
-                onChange={setText}
+                onChange={(nextText) => {
+                  setText(nextText);
+                  setTextValidationError(null);
+                }}
                 placeholder="Type the legal consent document here…"
-                maxLength={8000}
+                maxSerializedHtmlLength={CONSENT_TEXT_MAX_HTML_CHARS}
                 data-testid="consent-text-editor"
               />
+              {textValidationError && (
+                <p className="mt-2 text-xs font-medium text-red-600" role="alert">
+                  {textValidationError}
+                </p>
+              )}
             </div>
           </div>
 
