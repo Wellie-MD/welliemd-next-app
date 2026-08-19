@@ -82,6 +82,7 @@ export type CustomProgramRecord = {
   is_multi?: boolean;
   program_matching_rules?: CustomProgram["programMatchingRules"];
   updated_at?: string;
+  expected_updated_at?: string;
   assignment_runtime_state?: string;
   runtime_ready_at?: string | null;
   source_assignment_checksum?: string;

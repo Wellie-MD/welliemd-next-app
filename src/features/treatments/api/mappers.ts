@@ -289,7 +289,9 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   consentIds: record.consent_ids || [],
   checkoutOptions: record.checkout_options || [],
   flowItems: record.flow_items || [],
-  updatedAt: record.updated_at?.split("T")[0] || dateStamp(),
+  // Keep the complete ISO timestamp. The Admin sends this value back as the
+  // optimistic-lock version on the next update.
+  updatedAt: record.updated_at || dateStamp(),
   visitType: record.visit_type ?? null,
   onboardingName: record.onboarding_name || "",
   questionCount: record.question_count || 0,
@@ -343,6 +345,9 @@ export const customProgramToRecord = (program: CustomProgram) => ({
   tags: program.tags || [],
   is_multi: program.isMulti ?? false,
   program_matching_rules: program.programMatchingRules || {},
+  ...(isPersistedUuid(program.id) && program.updatedAt?.includes("T")
+    ? { expected_updated_at: program.updatedAt }
+    : {}),
 });
 
 export const programFromRecord = (record: ProgramRecord): Program => ({

@@ -18,6 +18,17 @@ import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatme
 import { synchronizeCustomProgramStructure } from "@/features/treatments/flow-builder/utils/customProgramStages";
 import type { CheckoutProductOption, CustomProgram, CustomProgramBuilderAddItem, CustomProgramFlowItem } from "@/features/treatments/types";
 
+const staleBuilderRevisionMessage = (error: unknown): string | null => {
+  const responseData = (error as {
+    response?: { data?: { detail?: unknown; code?: unknown } };
+  })?.response?.data;
+  const code = responseData?.code || responseData?.detail;
+  if (code === "stale_builder_revision") {
+    return "This draft changed in another Admin window. Refresh it, review the latest changes, and save again.";
+  }
+  return null;
+};
+
 export default function CustomProgramBuilderPage() {
   const { customProgramId = "custom-universal" } = useParams();
   const { data: customProgram } = useCustomProgram(customProgramId);
@@ -170,6 +181,15 @@ export default function CustomProgramBuilderPage() {
         });
       },
       onError: (error) => {
+        const staleMessage = staleBuilderRevisionMessage(error);
+        if (staleMessage) {
+          toast({
+            title: "Draft changed elsewhere",
+            description: staleMessage,
+            variant: "destructive",
+          });
+          return;
+        }
         if (isDuplicateSlugError(error)) {
           showDuplicateSlugToast();
           return;
@@ -195,9 +215,10 @@ export default function CustomProgramBuilderPage() {
         description: "Preview and future assignments now use the latest immutable release.",
       });
     } catch (error) {
+      const staleMessage = staleBuilderRevisionMessage(error);
       toast({
-        title: "Unable to Publish",
-        description: "Resolve the reported configuration dependencies and try again.",
+        title: staleMessage ? "Draft changed elsewhere" : "Unable to Publish",
+        description: staleMessage || "Resolve the reported configuration dependencies and try again.",
         variant: "destructive",
       });
     }

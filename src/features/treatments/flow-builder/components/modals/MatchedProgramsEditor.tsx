@@ -18,6 +18,34 @@ interface Props {
 const emptyRule = (): ProgramMatchingRule => ({ combinator: "and", rules: [] });
 const emptyConfig = (): ProgramMatchingConfig => ({ enabled: true, rule: emptyRule() });
 const profileFields = new Set(["age", "bmi", "sex", "gender", "service_state"]);
+const operatorsThatNeedValues = new Set([
+  "eq", "neq", "contains", "not_contains", "in", "not_in",
+  "gt", "gte", "lt", "lte", "between",
+]);
+
+const isBlankValue = (value: ProgramMatchingCondition["value"]) => {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string") return !value.trim();
+  if (Array.isArray(value)) return value.length === 0 || value.some((item) => !String(item).trim());
+  return false;
+};
+
+const hasCompleteValue = (condition: ProgramMatchingCondition) => {
+  if (!operatorsThatNeedValues.has(condition.operator)) return true;
+  if (isBlankValue(condition.value)) return false;
+  if (condition.operator !== "between") return true;
+  const range = Array.isArray(condition.value)
+    ? condition.value
+    : String(condition.value).split(",");
+  return range.length === 2 && range.every((item) => String(item).trim());
+};
+
+const conditionIsInvalid = (condition: ProgramMatchingCondition, matchingQuestionIds: Set<string>) => (
+  !condition.field
+  || !condition.operator
+  || (!profileFields.has(condition.field) && !matchingQuestionIds.has(condition.field))
+  || !hasCompleteValue(condition)
+);
 
 export function MatchedProgramsEditor({ open, onOpenChange, customProgram, programs, onSave }: Props) {
   const attached = useMemo(() => programs.filter((item) => customProgram.includedProgramIds.includes(item.id)), [programs, customProgram.includedProgramIds]);
@@ -35,24 +63,28 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
   const program = attached.find((item) => item.id === selectedId);
   const config = draft[selectedId] || emptyConfig();
   const rule = ("rules" in config.rule ? config.rule : emptyRule()) as ProgramMatchingRule;
-  const updateConfig = (next: ProgramMatchingConfig) => setDraft((current) => ({ ...current, [selectedId]: next }));
-  const updateRule = (next: ProgramMatchingRule) => updateConfig({ ...config, rule: next });
-  const matchingQuestionIds = new Set(matchingQuestions.map((item) => item.sourceId || item.id));
-  const invalid = rule.rules.some((condition) => !condition.field || !condition.operator || (!profileFields.has(condition.field) && !matchingQuestionIds.has(condition.field)));
   const enabledPrograms = attached.filter(
     (item) => (draft[item.id] || emptyConfig()).enabled,
   );
-  // Two enabled Programs on one Treatment Type is a legitimate catalogue, but
-  // a patient matching both is asked to choose one before screening. Surface
-  // it here so that runtime rejection is never the first anyone hears of it.
-  const treatmentTypeCollisions = Object.entries(
-    enabledPrograms.reduce<Record<string, string[]>>((groups, item) => {
-      const key = item.treatmentTypeKey || "";
+  const updateConfig = (next: ProgramMatchingConfig) => setDraft((current) => ({ ...current, [selectedId]: next }));
+  const updateRule = (next: ProgramMatchingRule) => updateConfig({ ...config, rule: next });
+  const matchingQuestionIds = new Set(matchingQuestions.map((item) => item.sourceId || item.id));
+  const invalidProgramNames = attached.filter((item) => {
+    const itemConfig = draft[item.id] || emptyConfig();
+    const itemRule = ("rules" in itemConfig.rule ? itemConfig.rule : emptyRule()) as ProgramMatchingRule;
+    return itemRule.rules.some((condition) => conditionIsInvalid(condition, matchingQuestionIds));
+  }).map((item) => item.name);
+  const invalid = invalidProgramNames.length > 0;
+  const collisionGroups = (getKey: (item: Program) => string | undefined) => Object.entries(
+    attached.reduce<Record<string, string[]>>((groups, item) => {
+      const key = getKey(item) || "";
       if (!key) return groups;
       groups[key] = [...(groups[key] || []), item.name];
       return groups;
     }, {}),
   ).filter(([, names]) => names.length > 1);
+  const treatmentTypeCollisions = collisionGroups((item) => item.treatmentTypeKey);
+  const visitTypeCollisions = collisionGroups((item) => item.visitType);
 
   const addCondition = () => updateRule({
     ...rule,
@@ -130,23 +162,27 @@ export function MatchedProgramsEditor({ open, onOpenChange, customProgram, progr
               <div className="mt-3 space-y-1.5 text-[10px]">
                 <div className={invalid ? "text-rose-600" : "text-emerald-700"}>
                   {invalid
-                    ? "Some conditions are incomplete or reference a removed question."
+                    ? `Fix conditions for: ${invalidProgramNames.join(", ")}.`
                     : "Every condition references a real matching input."}
                 </div>
                 <div className="text-slate-600">
                   {enabledPrograms.length} of {attached.length} Programs have matching enabled.
                 </div>
               </div>
-              {treatmentTypeCollisions.length > 0 && (
-                <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-2.5 text-[10px] text-amber-900">
+              {(treatmentTypeCollisions.length > 0 || visitTypeCollisions.length > 0) && (
+                <div className="mt-3 rounded border border-rose-300 bg-rose-50 p-2.5 text-[10px] text-rose-900">
+                  <div className="flex gap-1.5 font-semibold">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>Publish is blocked until every route is unique. You can still save this draft.</span>
+                  </div>
                   {treatmentTypeCollisions.map(([key, names]) => (
-                    <div key={key} className="flex gap-1.5">
-                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                      <span>
-                        <strong>{names.join(" and ")}</strong> are both enabled on
-                        Treatment Type <strong>{key}</strong>. A patient matching
-                        both is asked to choose one before screening starts.
-                      </span>
+                    <div key={`treatment-${key}`} className="mt-1.5 pl-4">
+                      Treatment Type <strong>{key}</strong> is used by <strong>{names.join(" and ")}</strong>.
+                    </div>
+                  ))}
+                  {visitTypeCollisions.map(([key, names]) => (
+                    <div key={`visit-${key}`} className="mt-1.5 pl-4">
+                      Visit Type <strong>{key}</strong> is used by <strong>{names.join(" and ")}</strong>.
                     </div>
                   ))}
                 </div>
