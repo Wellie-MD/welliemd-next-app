@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import axiosInstance from '../../api/axiosInstance';
 import { useBranding } from '@/contexts/BrandingContext';
-import { storeSettingsApi } from '@/api/storeSettingsApi';
 
 declare global {
   interface Window {
@@ -53,7 +52,6 @@ const POLL_OPEN_MS = 5000;
 const POLL_IDLE_MS = 10000; // closed: still poll the cheap signal so replies notify promptly
 const FORCE_FETCH_EVERY = 6; // periodic safety sync if a webhook was missed
 const LAST_SEEN_KEY = 'welliemd_support_last_seen';
-const BRAND_NAME_KEY = 'welliemd_support_brand';
 const WS_EVENT_TYPE = 'support_message';
 
 /** Build the realtime notifications socket URL (token via query string, the
@@ -186,15 +184,6 @@ export const IntercomWidget = () => {
   const [unread, setUnread] = useState(0);
   const [loadingThread, setLoadingThread] = useState(false);
   const [listLoaded, setListLoaded] = useState(false);
-  // Seed from cache so the title doesn't flash the platform name before the
-  // client's store name loads on subsequent visits.
-  const [brandName, setBrandName] = useState(() => {
-    try {
-      return localStorage.getItem(BRAND_NAME_KEY) || '';
-    } catch {
-      return '';
-    }
-  });
 
   const msgsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -223,36 +212,13 @@ export const IntercomWidget = () => {
     return subscribeReady(setReady);
   }, []);
 
-  useEffect(() => {
-    if (!ready) return;
-    let active = true;
-    storeSettingsApi
-      .getCurrent()
-      .then((settings) => {
-        const name = settings.store_name || '';
-        if (!active || !name) return;
-        setBrandName(name);
-        try {
-          localStorage.setItem(BRAND_NAME_KEY, name);
-        } catch {
-          /* ignore */
-        }
-      })
-      .catch(() => { });
-    return () => {
-      active = false;
-    };
-  }, [ready]);
-
-  // Until the client's name is known, show a neutral "Support" rather than the
-  // platform fallback, so the title never flashes the wrong brand.
-  const titleBrand = brandName || 'Support';
-  const displayName = brandName || 'WellieMD';
+  // Support is always branded as WellieMD, never the client's own store name
+  // — this widget is WellieMD's support channel, not a white-labeled one.
+  const titleBrand = 'WellieMD';
+  const displayName = 'WellieMD';
   const initials = toInitials(displayName);
   const logoUrl = logos?.round || logos?.square || '';
-  const greeting = brandName
-    ? `Hi there 👋 Welcome to ${brandName} Support. How can we help with your brand today?`
-    : 'Hi there 👋 Welcome to Support. How can we help with your brand today?';
+  const greeting = 'Hi there 👋 Welcome to WellieMD Support. How can we help today?';
 
   // Render-only: update the visible thread (with optimistic-merge) without
   // touching seen/unread. Returns the server messages.
