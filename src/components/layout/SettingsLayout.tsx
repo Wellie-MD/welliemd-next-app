@@ -46,7 +46,7 @@ export function SettingsLayout() {
       >
 
         <div className="p-6">
-          <IntercomInlineBanner />
+          <IntercomInlineBanner className="mb-4" />
           <Suspense fallback={<div className="flex min-h-[40vh] items-center justify-center"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>}>
           <Routes>
             <Route path="store-details" element={<StoreDetails />} />
