@@ -55,6 +55,24 @@ const FORCE_FETCH_EVERY = 6; // periodic safety sync if a webhook was missed
 const LAST_SEEN_KEY = 'welliemd_support_last_seen';
 const BRAND_NAME_KEY = 'welliemd_support_brand';
 const WS_EVENT_TYPE = 'support_message';
+const WIDGET_POS_KEY = 'welliemd_support_widget_pos';
+const WIDGET_SIZE_PX = 56;
+const WIDGET_MARGIN_PX = 8;
+
+interface WidgetPos {
+  right: number;
+  bottom: number;
+}
+
+/** Keep the dragged launcher fully inside the viewport. */
+function clampWidgetPos(right: number, bottom: number): WidgetPos {
+  const maxRight = Math.max(WIDGET_MARGIN_PX, window.innerWidth - WIDGET_SIZE_PX - WIDGET_MARGIN_PX);
+  const maxBottom = Math.max(WIDGET_MARGIN_PX, window.innerHeight - WIDGET_SIZE_PX - WIDGET_MARGIN_PX);
+  return {
+    right: Math.min(Math.max(right, WIDGET_MARGIN_PX), maxRight),
+    bottom: Math.min(Math.max(bottom, WIDGET_MARGIN_PX), maxBottom),
+  };
+}
 
 /** Build the realtime notifications socket URL (token via query string, the
  *  scheme the Channels JWT middleware expects). Returns null until authed. */
@@ -186,6 +204,7 @@ export const IntercomWidget = () => {
   const [unread, setUnread] = useState(0);
   const [loadingThread, setLoadingThread] = useState(false);
   const [listLoaded, setListLoaded] = useState(false);
+  const [widgetPos, setWidgetPos] = useState<WidgetPos | null>(null);
   // Seed from cache so the title doesn't flash the platform name before the
   // client's store name loads on subsequent visits.
   const [brandName, setBrandName] = useState(() => {
@@ -209,6 +228,10 @@ export const IntercomWidget = () => {
   // just-sent bubble never flickers away.
   const pendingRef = useRef<{ body: string; ts: number }[]>([]);
   const signalRef = useRef(0);
+  // Bumped on every fetch/sync so overlapping requests (rapid-fire admin
+  // replies each trigger their own WS push) can detect they were superseded
+  // and skip applying an out-of-order, stale response over a fresher one.
+  const syncSeqRef = useRef(0);
   const tickRef = useRef(0);
   const wsConnectedRef = useRef(false);
   // True after "New chat" until the first message is sent, so that message
@@ -216,12 +239,60 @@ export const IntercomWidget = () => {
   const newChatRef = useRef(false);
   // Only notify for replies that arrive after the widget mounts (not history).
   const notifyTsRef = useRef(Math.floor(Date.now() / 1000));
+  const dragRef = useRef<{ startX: number; startY: number; startRight: number; startBottom: number; moved: boolean } | null>(null);
+  // Set right before the drag's trailing "click" event fires, so a drag never
+  // also toggles the panel open/closed.
+  const suppressClickRef = useRef(false);
 
   useEffect(() => {
     ensureStoreListener();
     ensureProbe();
     return subscribeReady(setReady);
   }, []);
+
+  // Restore a previously dragged position, clamped in case the viewport
+  // shrank since it was saved (e.g. resized window, rotated device).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(WIDGET_POS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed?.right === 'number' && typeof parsed?.bottom === 'number') {
+        setWidgetPos(clampWidgetPos(parsed.right, parsed.bottom));
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const onLauncherPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const current = widgetPos || { right: 24, bottom: 60 };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startRight: current.right, startBottom: current.bottom, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onLauncherPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+    drag.moved = true;
+    setWidgetPos(clampWidgetPos(drag.startRight - dx, drag.startBottom - dy));
+  };
+  const onLauncherPointerUp = () => {
+    const drag = dragRef.current;
+    dragRef.current = null;
+    if (!drag?.moved) return;
+    suppressClickRef.current = true;
+    setWidgetPos((pos) => {
+      try {
+        if (pos) localStorage.setItem(WIDGET_POS_KEY, JSON.stringify(pos));
+      } catch {
+        /* ignore */
+      }
+      return pos;
+    });
+  };
 
   useEffect(() => {
     if (!ready) return;
@@ -334,8 +405,9 @@ export const IntercomWidget = () => {
   };
 
   const fetchConversation = async (id: string | null, markSeen: boolean) => {
+    const seq = ++syncSeqRef.current;
     const data = await getConversationData(id ?? conversationIdRef.current);
-    if (data) applyConversation(data, markSeen);
+    if (data && seq === syncSeqRef.current) applyConversation(data, markSeen);
   };
 
   const fetchList = async () => {
@@ -388,8 +460,12 @@ export const IntercomWidget = () => {
   // latest conversation — that's where a new reply lands — and notify even if
   // the user is viewing a different (older) thread.
   const syncConversations = async () => {
+    const seq = ++syncSeqRef.current;
     const latest = await getConversationData(null);
-    if (!latest) return;
+    // A rapid run of admin replies fires one WS push each, so several of
+    // these can be in flight at once; responses can land out of order. Only
+    // the most recently issued fetch is allowed to apply its result.
+    if (!latest || seq !== syncSeqRef.current) return;
     const visible = typeof document === 'undefined' || !document.hidden;
     // inThread: panel open and currently in thread view (vs list view)
     const inThread = panelOpenRef.current && visible;
@@ -405,7 +481,7 @@ export const IntercomWidget = () => {
       // redundant thread fetch, but thread-view always stays live.
       if (threadVisible && curId && curId !== latest.conversation_id) {
         const current = await getConversationData(curId);
-        if (current) renderConversation(current); // keep a different open thread live
+        if (current && seq === syncSeqRef.current) renderConversation(current); // keep a different open thread live
       }
     }
     // Keep the conversations list live while the user is looking at it.
@@ -613,7 +689,10 @@ export const IntercomWidget = () => {
   );
 
   return (
-    <div className={`ic-root${panelOpen ? ' ic-open' : ''}`}>
+    <div
+      className={`ic-root${panelOpen ? ' ic-open' : ''}`}
+      style={widgetPos ? { right: widgetPos.right, bottom: widgetPos.bottom } : undefined}
+    >
       <style>{WIDGET_STYLES}</style>
 
       <div className="ic-panel" role="dialog" aria-label={`${displayName} Support`}>
@@ -690,8 +769,17 @@ export const IntercomWidget = () => {
                       <div className="ic-bubble">{greeting}</div>
                     </div>
                   )}
-                  {messages.map((m) => (
-                    <div className={`ic-row ${m.author === 'user' ? 'me' : 'them'}`} key={m.id}>
+                  {messages.map((m, idx) => (
+                    <div
+                      className={`ic-row ic-in ${m.author === 'user' ? 'me' : 'them'}`}
+                      key={m.id}
+                      // Small stagger so a burst of messages (e.g. several
+                      // rapid admin replies) settles in naturally one after
+                      // another instead of popping in all at once. Existing
+                      // bubbles keep their DOM node across re-renders (same
+                      // key), so this only plays for genuinely new messages.
+                      style={{ animationDelay: `${Math.min(idx, 6) * 40}ms` }}
+                    >
                       {m.author !== 'user' && renderAvatar('ic-bav')}
                       <div className="ic-bubble">{m.body}</div>
                     </div>
@@ -753,7 +841,17 @@ export const IntercomWidget = () => {
 
       <button
         className="ic-launcher"
-        onClick={() => (panelOpen ? setPanelOpen(false) : openPanel())}
+        onClick={() => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+          }
+          panelOpen ? setPanelOpen(false) : openPanel();
+        }}
+        onPointerDown={onLauncherPointerDown}
+        onPointerMove={onLauncherPointerMove}
+        onPointerUp={onLauncherPointerUp}
+        onPointerCancel={onLauncherPointerUp}
         aria-label={launcherActive ? 'Close support' : 'Open support'}
       >
         {!launcherActive && unread > 0 && <span className="ic-badge">{unread > 9 ? '9+' : unread}</span>}
@@ -779,9 +877,10 @@ const WIDGET_STYLES = `
     --ic-text:#e6edf3;--ic-text-3:#6b7686;--ic-accent:#4f8ff7;--ic-accent-soft:#16243a;
     --ic-accent-2:#1e3a5f}
   .ic-launcher{position:relative;width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
-    background:var(--ic-accent);color:#fff;display:grid;place-items:center;
+    touch-action:none;background:var(--ic-accent);color:#fff;display:grid;place-items:center;
     box-shadow:0 6px 22px rgba(37,99,235,.42);transition:transform .15s ease;margin-left:auto}
   .ic-launcher:hover{transform:scale(1.05)}
+  .ic-launcher:active{cursor:grabbing}
   .ic-launcher svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2;transition:opacity .12s}
   .ic-badge{position:absolute;top:-2px;right:-2px;min-width:20px;height:20px;padding:0 5px;
     border-radius:10px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;line-height:1;
@@ -809,6 +908,8 @@ const WIDGET_STYLES = `
   .ic-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
   .ic-row{display:flex;gap:8px;max-width:88%}
   .ic-row.me{align-self:flex-end;flex-direction:row-reverse}
+  @keyframes icmsgin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .ic-in{animation:icmsgin .22s ease backwards}
   .ic-bubble{padding:9px 13px;border-radius:14px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
   .ic-row.them .ic-bubble{background:var(--ic-bg);color:var(--ic-text);border-top-left-radius:4px}
   .ic-row.me .ic-bubble{background:var(--ic-accent);color:#fff;border-top-right-radius:4px}

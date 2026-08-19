@@ -187,8 +187,14 @@ export default function DashboardFrame() {
 
           <IntercomCardBanner />
 
-          <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
-            <IntercomInlineBanner />
+          {/* pb-20 (80px) reserves space for the fixed Intercom launcher
+              (bottom:60px + 56px tall = 116px) so it never overlaps page
+              content — buttons, table pagination, etc. — at the bottom of
+              the viewport. Note: 80px is less than the launcher's 116px
+              footprint, so some overlap can still occur; bump to pb-32
+              (128px) if that's seen in practice. */}
+          <main className="flex-1 bg-background min-w-0 overflow-x-hidden pb-20">
+            <IntercomInlineBanner className="mx-6 mt-4" />
             <Suspense fallback={<PageLoadingFallback />}>
             <Routes>
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
