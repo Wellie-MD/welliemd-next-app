@@ -9,7 +9,6 @@ import type {
 import {
   buildAdminCustomProgramStages,
   canonicalizeCustomProgramFlowItems,
-  moveCustomProgramItemWithinStage,
   reorderCustomProgramItemWithinStage,
   synchronizeCustomProgramStructure,
 } from "../src/features/treatments/flow-builder/utils/customProgramStages.ts";
@@ -150,7 +149,7 @@ test("reorders within a stage and rejects cross-stage movement", () => {
     item("q-2", "routing_question"),
     item("program-1", "program", "program-1"),
   ]);
-  const moved = moveCustomProgramItemWithinStage(flow, "q-1", "down");
+  const moved = reorderCustomProgramItemWithinStage(flow, "q-1", "q-2");
   assert.deepEqual(moved.filter((candidate) => candidate.kind === "routing_question").map((candidate) => candidate.id), ["q-2", "q-1"]);
 
   const rejected = reorderCustomProgramItemWithinStage(flow, "q-1", "program-1");

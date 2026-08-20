@@ -172,26 +172,6 @@ export function reorderCustomProgramItemWithinStage(
   return canonicalizeCustomProgramFlowItems(next);
 }
 
-export function moveCustomProgramItemWithinStage(
-  flowItems: CustomProgramFlowItem[],
-  itemId: string,
-  direction: "up" | "down"
-) {
-  const canonicalItems = canonicalizeCustomProgramFlowItems(flowItems);
-  const item = canonicalItems.find((candidate) => candidate.id === itemId);
-  if (!item || item.locked) return canonicalItems;
-
-  const stage = getCustomProgramStageNumber(item);
-  const siblings = canonicalItems.filter((candidate) => {
-    if (stage !== null) return getCustomProgramStageNumber(candidate) === stage && !candidate.locked;
-    return item.kind === "checkout" && candidate.kind === "checkout" && !candidate.locked;
-  });
-  const siblingIndex = siblings.findIndex((candidate) => candidate.id === itemId);
-  const targetSibling = siblings[siblingIndex + (direction === "up" ? -1 : 1)];
-  if (!targetSibling) return canonicalItems;
-  return reorderCustomProgramItemWithinStage(canonicalItems, itemId, targetSibling.id);
-}
-
 const persistedDisplayItem = (
   item: CustomProgramFlowItem,
   programsById: Map<string, Program>,

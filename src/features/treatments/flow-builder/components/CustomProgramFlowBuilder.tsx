@@ -108,7 +108,6 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
           consents={consents}
           onUpdateFlow={onUpdateFlow}
           onEditQuestion={setEditingQuestion}
-          onOpenPreview={() => builder.setIsTestModalOpen(true)}
           onConfigureMatching={() => setMatchingOpen(true)}
         />
       )}
