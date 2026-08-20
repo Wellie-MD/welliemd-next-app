@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AddToFlowDrawer } from "@/features/treatments/flow-builder/components/modals/AddToFlowDrawer";
 import { CustomProgramFlowBuilder } from "@/features/treatments/flow-builder/components/CustomProgramFlowBuilder";
-import { PrototypeNotice } from "@/features/treatments/common/components";
 import { toast } from "@/components/ui/use-toast";
 import {
   useConsents,
@@ -175,10 +174,6 @@ export default function CustomProgramBuilderPage() {
 
   return (
     <div className="h-full max-h-screen flex flex-col p-6 space-y-4">
-      <PrototypeNotice>
-        Builder matches the prototype list view, flow view, add-to-flow drawer, slug editing, preview, and save controls.
-      </PrototypeNotice>
-
       {validationBlockers.length > 0 && (
         <section className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950" role="alert">
           <div className="font-bold">Resolve Custom Program validation issues before publishing</div>
