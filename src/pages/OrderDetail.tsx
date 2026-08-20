@@ -1974,7 +1974,18 @@ export default function OrderDetail() {
               <Button variant="outline" onClick={() => setShowRefundDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleRefundSubmit} disabled={refundLoading}>
+              <Button
+                onClick={() =>
+                  handleRefundSubmit({
+                    amount: isRefundable ? refundAmount : undefined,
+                    refundTarget,
+                    reason: refundReason,
+                    reasonDescription: refundReasonDescription,
+                    notes: refundNotes,
+                  })
+                }
+                disabled={refundLoading}
+              >
                 {refundLoading ? "Processing..." : isAuthorized ? "Void Authorization" : "Process Refund"}
               </Button>
             </div>
