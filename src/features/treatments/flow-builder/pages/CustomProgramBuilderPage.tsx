@@ -15,7 +15,6 @@ import {
   useSaveCustomProgram,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId } from "@/features/treatments/common/data/factories";
-import { RUNTIME_STATE } from "@/features/treatments/assignment/constants";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import {
   customProgramMutationErrorMessage,
@@ -256,7 +255,7 @@ export default function CustomProgramBuilderPage() {
       <AddToFlowDrawer
         open={isDrawerOpen}
         onOpenChange={setIsDrawerOpen}
-        programs={programs.filter((program) => program.assignmentRuntimeState === RUNTIME_STATE.ready)}
+        programs={programs}
         sections={sections}
         consents={consents}
         onAddItem={handleAddItem}

@@ -48,7 +48,7 @@ export function AddToFlowDrawer({
       case "consent":
         return <ConsentLibraryTab consents={consents} onAddItem={onAddItem} flowItems={flowItems} />;
       case "checkout":
-        return <CheckoutOptionTab />;
+        return <CheckoutOptionTab programs={programs} flowItems={flowItems} />;
       default:
         return null;
     }
