@@ -1,11 +1,8 @@
 import {
-  ArrowDown,
-  ArrowUp,
   CheckCircle2,
   CreditCard,
   Edit3,
   ExternalLink,
-  Eye,
   FileCheck,
   GripVertical,
   HelpCircle,
@@ -27,7 +24,6 @@ import type {
 } from "@/features/treatments/types";
 import {
   buildAdminCustomProgramStages,
-  moveCustomProgramItemWithinStage,
   reorderCustomProgramItemWithinStage,
   type AdminCustomProgramStage,
   type AdminCustomProgramStageItem,
@@ -40,7 +36,6 @@ interface FlowBuilderListViewProps {
   consents: ConsentForm[];
   onUpdateFlow?: (items: CustomProgramFlowItem[]) => void;
   onEditQuestion: (item: CustomProgramFlowItem) => void;
-  onOpenPreview: () => void;
   onConfigureMatching: () => void;
 }
 
@@ -154,30 +149,24 @@ function LockedSystemRow({
 function StageRow({
   item,
   itemNumber,
-  isFirst,
-  isLast,
-  onMove,
   onDelete,
   onDropItem,
   onEditQuestion,
-  onOpenPreview,
   onConfigureMatching,
 }: {
   item: AdminCustomProgramStageItem;
   itemNumber: number;
-  isFirst: boolean;
-  isLast: boolean;
-  onMove: (direction: "up" | "down") => void;
   onDelete: () => void;
   onDropItem: (sourceId: string, targetId: string) => void;
   onEditQuestion: (item: CustomProgramFlowItem) => void;
-  onOpenPreview: () => void;
   onConfigureMatching: () => void;
 }) {
   const meta = rowMeta[item.kind];
   const Icon = meta.icon;
   const editable = Boolean(item.persistedItem) && !item.derived;
   const checkoutCount = item.program?.checkoutQuestionCount || 0;
+  const sourceId = item.persistedItem?.sourceId;
+  const consentId = sourceId || item.consent?.id;
 
   return (
     <div
@@ -238,48 +227,42 @@ function StageRow({
 
       <div className="ml-auto flex shrink-0 items-center gap-1 text-slate-400">
         {item.kind === "routing_question" && item.persistedItem && (
-          <>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#4f00ff]" title="Edit question" onClick={() => onEditQuestion(item.persistedItem!)}>
-              <Edit3 className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Preview patient flow" onClick={onOpenPreview}>
-              <Eye className="h-4 w-4" />
-            </Button>
-          </>
+          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#4f00ff]" title="Edit question" onClick={() => onEditQuestion(item.persistedItem!)}>
+            <Edit3 className="h-4 w-4" />
+          </Button>
         )}
         {item.kind === "program" && item.persistedItem && (
           <>
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#4f00ff]" title="Configure matching rules" onClick={onConfigureMatching}>
-              <Settings2 className="h-4 w-4" />
-            </Button>
-            {item.persistedItem.sourceId && (
-              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Open Program" asChild>
-                <Link to={`/dashboard/treatments/programs/${item.persistedItem.sourceId}`}>
+            {sourceId && (
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Edit program" asChild>
+                <Link to={`/dashboard/treatments/programs/${sourceId}`}>
                   <ExternalLink className="h-4 w-4" />
                 </Link>
               </Button>
             )}
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#4f00ff]" title="Configure visibility rules" onClick={onConfigureMatching}>
+              <Settings2 className="h-4 w-4" />
+            </Button>
           </>
         )}
-        {(item.kind === "section" || item.kind === "consent") && (
-          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title={`Open ${item.kind} library`} asChild>
-            <Link to={`/dashboard/treatments/${item.kind === "section" ? "sections" : "consents"}`}>
+        {(item.kind === "section" || item.kind === "section_field") && sourceId && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Edit section" asChild>
+            <Link to={`/dashboard/treatments/sections?sectionId=${sourceId}&view=list`}>
+              <ExternalLink className="h-4 w-4" />
+            </Link>
+          </Button>
+        )}
+        {item.kind === "consent" && consentId && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Edit consent" asChild>
+            <Link to={`/dashboard/treatments/consents?consentId=${consentId}`}>
               <ExternalLink className="h-4 w-4" />
             </Link>
           </Button>
         )}
         {editable ? (
-          <>
-            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isFirst} title="Move up within stage" onClick={() => onMove("up")}>
-              <ArrowUp className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isLast} title="Move down within stage" onClick={() => onMove("down")}>
-              <ArrowDown className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-600" title={`Remove ${item.title}`} onClick={onDelete}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-600" title={`Remove ${item.title}`} onClick={onDelete}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         ) : (
           <Lock className="mx-2 h-4 w-4" />
         )}
@@ -316,7 +299,6 @@ export function FlowBuilderListView({
   consents,
   onUpdateFlow,
   onEditQuestion,
-  onOpenPreview,
   onConfigureMatching,
 }: FlowBuilderListViewProps) {
   const builderList = buildAdminCustomProgramStages(customProgram, { programs, sections, consents });
@@ -324,8 +306,6 @@ export function FlowBuilderListView({
 
   const update = (items: CustomProgramFlowItem[]) => onUpdateFlow?.(items);
   const remove = (itemId: string) => update(customProgram.flowItems.filter((item) => item.id !== itemId));
-  const move = (itemId: string, direction: "up" | "down") =>
-    update(moveCustomProgramItemWithinStage(customProgram.flowItems, itemId, direction));
   const drop = (sourceId: string, targetId: string) =>
     update(reorderCustomProgramItemWithinStage(customProgram.flowItems, sourceId, targetId));
 
@@ -345,7 +325,6 @@ export function FlowBuilderListView({
             {builderList.stages.map((stage) => {
               const startIndex = nextItemNumber;
               nextItemNumber += stage.items.length;
-              const persistedItems = stage.items.filter((item) => !item.derived);
               return (
                 <section key={stage.id} className="space-y-2">
                   <div className="flex items-center gap-3 px-2">
@@ -358,19 +337,14 @@ export function FlowBuilderListView({
                       <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-xs text-slate-400">No items in this stage yet. Use Add to flow to add one.</div>
                     )}
                     {stage.items.map((item, index) => {
-                      const persistedIndex = persistedItems.findIndex((candidate) => candidate.id === item.id);
                       return (
                         <StageRow
                           key={item.id}
                           item={item}
                           itemNumber={startIndex + index}
-                          isFirst={persistedIndex <= 0}
-                          isLast={persistedIndex === persistedItems.length - 1}
-                          onMove={(direction) => move(item.id, direction)}
                           onDelete={() => remove(item.id)}
                           onDropItem={drop}
                           onEditQuestion={onEditQuestion}
-                          onOpenPreview={onOpenPreview}
                           onConfigureMatching={onConfigureMatching}
                         />
                       );
