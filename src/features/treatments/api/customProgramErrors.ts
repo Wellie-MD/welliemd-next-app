@@ -20,9 +20,34 @@ export const isCustomProgramRevisionConflict = (error: unknown): boolean => {
   );
 };
 
+const diagnosticText = (value: unknown): string[] => {
+  if (typeof value === "string" && value.trim()) return [value.trim()];
+  if (Array.isArray(value)) return value.flatMap(diagnosticText);
+  if (!value || typeof value !== "object") return [];
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.message === "string" && record.message.trim()) {
+    return [record.message.trim()];
+  }
+  return Object.entries(record).flatMap(([key, nested]) =>
+    diagnosticText(nested).map((message) => `${key}: ${message}`),
+  );
+};
+
 export const customProgramMutationErrorMessage = (
   error: unknown,
   fallback: string,
-): string => isCustomProgramRevisionConflict(error)
-  ? "This Custom Program was changed in another Admin session. Refresh it before saving or publishing again."
-  : fallback;
+): string => {
+  if (isCustomProgramRevisionConflict(error)) {
+    return "This Custom Program was changed in another Admin session. Refresh it before saving or publishing again.";
+  }
+
+  const data = responseData(error);
+  const messages = [
+    ...diagnosticText(data.details),
+    ...diagnosticText(data.blockers),
+    ...diagnosticText(data.unpublished_programs).map((message) => `Included Program: ${message}`),
+  ];
+  const uniqueMessages = [...new Set(messages)];
+  return uniqueMessages.length > 0 ? uniqueMessages.join(" ") : fallback;
+};

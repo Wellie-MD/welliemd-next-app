@@ -36,10 +36,24 @@ export const customProgramsApi = {
     return customProgramFromRecord(data);
   },
   validate: async (id: string): Promise<CustomProgramValidationRecord> => {
-    const { data } = await axiosInstance.post<CustomProgramValidationRecord>(
-      `treatments/custom-programs/${id}/builder/validate/`,
-    );
-    return data;
+    try {
+      const { data } = await axiosInstance.post<CustomProgramValidationRecord>(
+        `treatments/custom-programs/${id}/builder/validate/`,
+      );
+      return data;
+    } catch (error) {
+      // The API deliberately uses 409 when a draft has configuration
+      // dependencies. Keep the structured response so the builder can render
+      // the actionable blockers instead of treating it as an opaque query
+      // failure and hiding the diagnostics.
+      const response = (error as {
+        response?: { status?: number; data?: unknown };
+      })?.response;
+      if (response?.status === 409 && response.data && typeof response.data === "object") {
+        return response.data as CustomProgramValidationRecord;
+      }
+      throw error;
+    }
   },
   publish: async (id: string): Promise<void> => {
     if (!isPersistedUuid(id)) return;
