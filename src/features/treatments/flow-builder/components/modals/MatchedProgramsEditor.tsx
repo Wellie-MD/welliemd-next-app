@@ -12,7 +12,9 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   customProgram: CustomProgram;
   programs: Program[];
-  onSave: (rules: CustomProgram["programMatchingRules"]) => Promise<void> | void;
+  onSave: (
+    rules: CustomProgram["programMatchingRules"],
+  ) => Promise<void> | void;
 }
 
 const emptyRule = (): ProgramMatchingRule => ({ combinator: "and", rules: [] });
