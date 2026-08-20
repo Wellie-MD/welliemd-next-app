@@ -29,6 +29,7 @@ export interface CustomProgramFlowItem {
   includeInQa?: boolean;
   hiddenFromPatient?: boolean;
   prefillFromPrevious?: boolean;
+  lockClientChanges?: boolean;
 }
 
 export type ProgramMatchingOperator = "eq" | "neq" | "contains" | "not_contains" | "gt" | "gte" | "lt" | "lte" | "between" | "exists";

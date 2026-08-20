@@ -32,6 +32,7 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
     includeInQa?: boolean;
     hiddenFromPatient?: boolean;
     prefillFromPrevious?: boolean;
+    lockClientChanges?: boolean;
   }): CustomProgramBuilderAddItem => ({
     kind: "routing_question",
     title: q.text || "(untitled question)",
@@ -45,6 +46,7 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
     includeInQa: q.includeInQa,
     hiddenFromPatient: q.hiddenFromPatient,
     prefillFromPrevious: q.prefillFromPrevious,
+    lockClientChanges: q.lockClientChanges,
   });
 
   const handleCreateQuestion = (q: ProgramQuestion) => {
