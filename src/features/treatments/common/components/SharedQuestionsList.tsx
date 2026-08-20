@@ -322,9 +322,13 @@ export function SharedQuestionsList({
           onSuccess: () => {
             toast({ title: "Order Saved", description: "The list order has been successfully saved." });
           },
-          onError: () => {
+          onError: (error) => {
             setQuestions(previousQuestions);
-            toast({ title: "Error", description: "Failed to save the new order.", variant: "destructive" });
+            toast({
+              title: "Error",
+              description: getApiErrorMessage(error, "Failed to save the new order."),
+              variant: "destructive",
+            });
           },
         }
       );
