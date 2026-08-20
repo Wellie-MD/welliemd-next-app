@@ -280,7 +280,10 @@ export function buildAdminCustomProgramStages(
       title: "Custom Questions & Sections",
       tone: "question",
       items: persistedStageItems.filter(
-        (item) => item.kind === "routing_question" || item.kind === "section"
+        (item) =>
+          item.kind === "routing_question" ||
+          item.kind === "section" ||
+          item.kind === "section_field"
       ),
     },
     {
