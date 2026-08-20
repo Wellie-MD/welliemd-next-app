@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { AddToFlowDrawer } from "@/features/treatments/flow-builder/components/modals/AddToFlowDrawer";
 import { CustomProgramFlowBuilder } from "@/features/treatments/flow-builder/components/CustomProgramFlowBuilder";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,14 @@ export default function CustomProgramBuilderPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   if (isLoading) {
-    return <div className="p-6">Loading custom program…</div>;
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-6 w-6 animate-spin mr-2 text-slate-500" />
+          <p className="text-sm text-slate-600">Loading custom program...</p>
+        </div>
+      </div>
+    );
   }
 
   if (isError) {
