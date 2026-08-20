@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AddToFlowDrawer } from "@/features/treatments/flow-builder/components/modals/AddToFlowDrawer";
 import { CustomProgramFlowBuilder } from "@/features/treatments/flow-builder/components/CustomProgramFlowBuilder";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
   useConsents,
@@ -38,7 +39,7 @@ const staleBuilderRevisionMessage = (error: unknown): string | null => {
 
 export default function CustomProgramBuilderPage() {
   const { customProgramId = "custom-universal" } = useParams();
-  const { data: customProgram } = useCustomProgram(customProgramId);
+  const { data: customProgram, isLoading, isError, refetch } = useCustomProgram(customProgramId);
   const { data: programs = [] } = usePrograms();
   const { data: sections = [] } = useSections();
   const { data: consents = [] } = useConsents();
@@ -49,6 +50,19 @@ export default function CustomProgramBuilderPage() {
   const { mutate: saveCustomProgram } = saveCustomProgramMutation;
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  if (isLoading) {
+    return <div className="p-6">Loading custom program…</div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6 space-y-3">
+        <div>Failed to load the custom program.</div>
+        <Button onClick={() => refetch()}>Retry</Button>
+      </div>
+    );
+  }
 
   if (!customProgram) {
     return <div className="p-6">Custom program not found.</div>;

@@ -35,11 +35,20 @@ if (cssResources.length > 0) {
 
 (window as any).__perfMetrics = perfMetrics;
 
+// Client errors (4xx) won't succeed on retry, but transient network/server
+// errors (cold starts, LB blips) often do — retrying those avoids treating a
+// single flaky request as a permanent failure.
+const shouldRetryQuery = (failureCount: number, error: unknown) => {
+  const status = (error as { response?: { status?: number } })?.response?.status;
+  if (status && status >= 400 && status < 500) return false;
+  return failureCount < 2;
+};
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: false,
+      retry: shouldRetryQuery,
       staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
