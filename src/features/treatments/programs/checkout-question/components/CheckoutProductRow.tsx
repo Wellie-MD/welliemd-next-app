@@ -344,19 +344,6 @@ export function CheckoutProductRow({
           </div>
         )}
         <SelectField
-          label="Checkout role"
-          value={product.productRole || "primary_choice"}
-          onChange={(value) => onProductFieldChange(index, "productRole", value as ProgramCheckoutProduct["productRole"])}
-          options={[
-            { value: "primary_choice", label: "Primary choice — patient selects it" },
-            { value: "required_companion", label: "Required companion — always included" },
-            { value: "optional_addon", label: "Optional add-on — charged only if chosen" },
-            { value: "clinician_only", label: "Clinician only — never patient-selectable" },
-            { value: "informational", label: "Informational — no Order line or charge" },
-          ]}
-          testId={`checkout-product-role-${index}`}
-        />
-        <SelectField
           label="Category"
           value={selectedCategoryId ? String(selectedCategoryId) : ""}
           onChange={handleCategoryChange}
