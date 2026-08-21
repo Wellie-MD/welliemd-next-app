@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { ProgramQuestionsList } from "@/features/treatments/programs/components/ProgramQuestionsList";
-import { useProgramQuestions, usePrograms } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useProgramEffectiveContent, useProgramQuestions, usePrograms } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { Loader2 } from "lucide-react";
 
 export default function ProgramQuestionsListPage() {
@@ -12,6 +12,12 @@ export default function ProgramQuestionsListPage() {
   // Fetch the questions for this program
   const { data: questions = [], isLoading: isLoadingQuestions } = useProgramQuestions(programId);
 
+  const program = programs.find((item) => item.id === programId || item.slug === programId);
+  const { data: effectiveContent } = useProgramEffectiveContent(
+    program?.id || "",
+    program?.stage === "follow_up" ? "follow_up" : "onboarding",
+  );
+
   // Loading state handling to prevent false-positives on first render
   if (isLoadingPrograms || isLoadingQuestions) {
     return (
@@ -22,8 +28,6 @@ export default function ProgramQuestionsListPage() {
   }
 
   // Find program by ID or Slug
-  const program = programs.find((p) => p.id === programId || p.slug === programId);
-
   if (!program) {
     return (
       <div className="p-8 text-center bg-white rounded-xl border border-slate-200 max-w-md mx-auto mt-20 shadow-sm">
@@ -39,6 +43,7 @@ export default function ProgramQuestionsListPage() {
     <ProgramQuestionsList
       program={program}
       initialQuestions={questions}
+      effectiveContent={effectiveContent}
     />
   );
 }

@@ -11,13 +11,16 @@ import { PROGRAM_AUTHORING_COPY } from "@/features/treatments/programs/programAu
 import { projectAuthoredFlow } from "@/features/treatments/programs/programSystemBoundary";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
 import { formatCheckoutQuestionText } from "@/features/treatments/programs/checkout-question/utils/checkoutTitleUtils";
+import type { ProgramEffectiveContent } from "@/features/treatments/api/programsApi";
+import { projectEffectiveProgramFlow } from "@/features/treatments/programs/programEffectiveFlow";
 
 interface ProgramQuestionsListProps {
   program: Program;
   initialQuestions: ProgramQuestion[];
+  effectiveContent?: ProgramEffectiveContent;
 }
 
-export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuestionsListProps) {
+export function ProgramQuestionsList({ program, initialQuestions, effectiveContent }: ProgramQuestionsListProps) {
   const navigate = useNavigate();
   const { data: allConsents = [] } = useConsents();
   const displayQuestions = useMemo(
@@ -52,9 +55,12 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
           visibilityRuleGroup: checkout.visibilityRules,
         },
       }));
-      return [...flowQuestions, ...checkoutQuestions];
+      return projectEffectiveProgramFlow(
+        [...flowQuestions, ...checkoutQuestions],
+        effectiveContent,
+      );
     },
-    [initialQuestions, program]
+    [effectiveContent, initialQuestions, program]
   );
 
   const handleBack = () => {
