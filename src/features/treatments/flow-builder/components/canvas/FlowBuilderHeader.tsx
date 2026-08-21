@@ -47,7 +47,7 @@ export function FlowBuilderHeader({
           <div className="mt-2 flex items-center gap-3 text-sm">
             {isEditingSlug ? (
               <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+                <div className="flex items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
                   <span className="text-slate-400">welliemd.com/start/</span>
                   <input
                     type="text"
@@ -66,7 +66,7 @@ export function FlowBuilderHeader({
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+                <div className="flex items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
                   <span className="text-slate-400">welliemd.com/start/</span>
                   <span className="font-semibold text-slate-900">{slug}</span>
                 </div>

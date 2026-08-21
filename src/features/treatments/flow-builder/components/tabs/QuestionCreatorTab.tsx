@@ -10,7 +10,7 @@ interface QuestionCreatorTabProps {
 }
 
 const AVAILABLE_QUESTIONS = [
-  { id: "rq-1", title: "What would you love to change about how you feel?", type: "multiple" },
+  { id: "rq-1", title: "What would you love to change about how you feel?", type: "text" },
   { id: "rq-2", title: "Tell us about your weight right now.", type: "bmi" },
   { id: "rq-3", title: "When it comes to GLP medications, what fits your preferences?", type: "single" },
   { id: "rq-4", title: "When it comes to intimacy, what's closest to your experience?", type: "single" },
@@ -32,6 +32,7 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
     includeInQa?: boolean;
     hiddenFromPatient?: boolean;
     prefillFromPrevious?: boolean;
+    lockClientChanges?: boolean;
   }): CustomProgramBuilderAddItem => ({
     kind: "routing_question",
     title: q.text || "(untitled question)",
@@ -45,6 +46,7 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
     includeInQa: q.includeInQa,
     hiddenFromPatient: q.hiddenFromPatient,
     prefillFromPrevious: q.prefillFromPrevious,
+    lockClientChanges: q.lockClientChanges,
   });
 
   const handleCreateQuestion = (q: ProgramQuestion) => {

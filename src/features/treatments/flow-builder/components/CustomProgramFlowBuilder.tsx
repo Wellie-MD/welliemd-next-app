@@ -41,10 +41,11 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
     includeInQa: editingQuestion.includeInQa,
     hiddenFromPatient: editingQuestion.hiddenFromPatient,
     prefillFromPrevious: editingQuestion.prefillFromPrevious,
+    lockClientChanges: editingQuestion.lockClientChanges,
   } : null;
 
   return (
-    <div className="flex h-full flex-col space-y-4">
+    <div className="flex flex-col space-y-4">
       <FlowBuilderHeader
         name={customProgram.name}
         slug={customProgram.slug}
@@ -95,6 +96,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
             includeInQa: question.includeInQa,
             hiddenFromPatient: question.hiddenFromPatient,
             prefillFromPrevious: question.prefillFromPrevious,
+            lockClientChanges: question.lockClientChanges,
           } : item));
           setEditingQuestion(null);
         }}
@@ -108,13 +110,12 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
           consents={consents}
           onUpdateFlow={onUpdateFlow}
           onEditQuestion={setEditingQuestion}
-          onOpenPreview={() => builder.setIsTestModalOpen(true)}
           onConfigureMatching={() => setMatchingOpen(true)}
         />
       )}
 
       {builder.viewMode === "flow" && (
-        <div className="grid min-h-[500px] flex-1 grid-cols-[280px_1fr] gap-4 overflow-hidden">
+        <div className="grid h-[calc(100vh-260px)] min-h-[500px] grid-cols-[280px_1fr] gap-4 overflow-hidden">
           <FlowBuilderSidebar
             items={builder.filteredLibraryItems}
             filter={builder.sidebarFilter}
@@ -131,9 +132,6 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
             preFan={builder.preFan}
             tracks={builder.tracks}
             postFan={builder.postFan}
-            onOpenPreview={() => builder.setIsTestModalOpen(true)}
-            onOpenDrawer={onOpenDrawer}
-            onSave={builder.handleSave}
             onDragStart={builder.handleDragStart}
             onDragEnd={builder.handleDragEnd}
             onDropOnArrow={builder.handleDropOnArrow}

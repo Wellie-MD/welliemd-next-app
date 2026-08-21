@@ -1,5 +1,3 @@
-import { Check, Plus, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { CustomProgramFlowItem } from "@/features/treatments/types";
 import { FlowCanvasChip, type FlowCanvasItem } from "./FlowCanvasChip";
 
@@ -14,9 +12,6 @@ interface FlowBuilderCanvasProps {
   preFan: FlowCanvasItem[];
   tracks: TreatmentTrack[];
   postFan: FlowCanvasItem[];
-  onOpenPreview: () => void;
-  onOpenDrawer?: () => void;
-  onSave: () => void;
   onDragStart: (event: React.DragEvent, index: number) => void;
   onDragEnd: () => void;
   onDropOnArrow: (event: React.DragEvent, afterItemId: string) => void;
@@ -83,9 +78,6 @@ export function FlowBuilderCanvas({
   preFan,
   tracks,
   postFan,
-  onOpenPreview,
-  onOpenDrawer,
-  onSave,
   onDragStart,
   onDragEnd,
   onDropOnArrow,
@@ -96,27 +88,6 @@ export function FlowBuilderCanvas({
 }: FlowBuilderCanvasProps) {
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white p-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-bold text-slate-900">Patient Flow</h2>
-          <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">Stage View</span>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-8 border-[#0f766e] bg-[#0f766e] text-xs text-white hover:border-[#0f766e] hover:bg-[#0f766e]/90" onClick={onOpenPreview} data-testid="simulate-custom-program-patient">
-            <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
-            Simulate a patient
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs text-slate-700" onClick={onOpenDrawer} data-testid="canvas-add-flow-item">
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Add item
-          </Button>
-          <Button size="sm" onClick={onSave} data-testid="canvas-save-custom-program">
-            <Check className="mr-1.5 h-3.5 w-3.5" />
-            Save
-          </Button>
-        </div>
-      </div>
-
       <div onDragOver={(event) => event.preventDefault()} onDrop={onCanvasDrop} className="flex min-w-0 flex-1 items-center justify-start overflow-auto bg-[#f8fafc] p-6">
         <div className="flex items-center gap-3 py-10 pl-4 pr-10">
           <FlowChipChain

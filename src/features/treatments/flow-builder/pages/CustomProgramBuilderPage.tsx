@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { AddToFlowDrawer } from "@/features/treatments/flow-builder/components/modals/AddToFlowDrawer";
 import { CustomProgramFlowBuilder } from "@/features/treatments/flow-builder/components/CustomProgramFlowBuilder";
-import { PrototypeNotice } from "@/features/treatments/common/components";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import {
   useConsents,
@@ -14,7 +15,6 @@ import {
   useSaveCustomProgram,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId } from "@/features/treatments/common/data/factories";
-import { RUNTIME_STATE } from "@/features/treatments/assignment/constants";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import {
   customProgramMutationErrorMessage,
@@ -39,7 +39,7 @@ const staleBuilderRevisionMessage = (error: unknown): string | null => {
 
 export default function CustomProgramBuilderPage() {
   const { customProgramId = "custom-universal" } = useParams();
-  const { data: customProgram } = useCustomProgram(customProgramId);
+  const { data: customProgram, isLoading, isError, refetch } = useCustomProgram(customProgramId);
   const { data: programs = [] } = usePrograms();
   const { data: sections = [] } = useSections();
   const { data: consents = [] } = useConsents();
@@ -50,6 +50,26 @@ export default function CustomProgramBuilderPage() {
   const { mutate: saveCustomProgram } = saveCustomProgramMutation;
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center p-12">
+          <Loader2 className="h-6 w-6 animate-spin mr-2 text-slate-500" />
+          <p className="text-sm text-slate-600">Loading custom program...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6 space-y-3">
+        <div>Failed to load the custom program.</div>
+        <Button onClick={() => refetch()}>Retry</Button>
+      </div>
+    );
+  }
 
   if (!customProgram) {
     return <div className="p-6">Custom program not found.</div>;
@@ -175,10 +195,6 @@ export default function CustomProgramBuilderPage() {
 
   return (
     <div className="h-full max-h-screen flex flex-col p-6 space-y-4">
-      <PrototypeNotice>
-        Builder matches the prototype list view, flow view, add-to-flow drawer, slug editing, preview, and save controls.
-      </PrototypeNotice>
-
       {validationBlockers.length > 0 && (
         <section className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950" role="alert">
           <div className="font-bold">Resolve Custom Program validation issues before publishing</div>
@@ -204,7 +220,7 @@ export default function CustomProgramBuilderPage() {
         </section>
       )}
 
-      <div className="flex-1 overflow-hidden">
+      <div>
         <CustomProgramFlowBuilder
           customProgram={customProgram}
           onOpenDrawer={() => setIsDrawerOpen(true)}
@@ -239,7 +255,7 @@ export default function CustomProgramBuilderPage() {
       <AddToFlowDrawer
         open={isDrawerOpen}
         onOpenChange={setIsDrawerOpen}
-        programs={programs.filter((program) => program.assignmentRuntimeState === RUNTIME_STATE.ready)}
+        programs={programs}
         sections={sections}
         consents={consents}
         onAddItem={handleAddItem}

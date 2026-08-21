@@ -3,10 +3,45 @@ import type {
   ContentLibraryStats,
   ProgramQuestion,
   ProgramStatus,
+  VisibilityRuleGroup,
 } from "@/features/treatments/types";
 import { customProgramsApi } from "./customProgramsApi";
 import { consentsApi, sectionsApi, treatmentTypesApi } from "./libraryApi";
 import { programsApi, type ProgramSaveInput } from "./programsApi";
+
+const pruneVisibilityGroupReference = (
+  group: VisibilityRuleGroup | undefined,
+  removedQuestionId: string,
+): VisibilityRuleGroup | undefined => {
+  if (!group) return group;
+  const rules = group.rules.filter((rule) => rule.questionId !== removedQuestionId);
+  const subgroups = (group.subgroups || [])
+    .map((subgroup) => pruneVisibilityGroupReference(subgroup, removedQuestionId))
+    .filter((subgroup): subgroup is VisibilityRuleGroup => Boolean(subgroup?.rules.length));
+  if (!rules.length && !subgroups.length) return undefined;
+  return { ...group, rules, subgroups };
+};
+
+/**
+ * Deleting a question can orphan sibling visibility rules that pointed at it.
+ * A stale reference makes every future save of this Program's questions fail
+ * (the backend rejects the whole payload), so it must be cleared here, at
+ * the one place a question actually disappears from the list.
+ */
+const clearVisibilityReferencesTo = (
+  questions: ProgramQuestion[],
+  removedQuestionId: string,
+): ProgramQuestion[] =>
+  questions.map((question) => {
+    const visibilityRule = question.visibilityRule?.questionId === removedQuestionId
+      ? undefined
+      : question.visibilityRule;
+    const visibilityRuleGroup = pruneVisibilityGroupReference(question.visibilityRuleGroup, removedQuestionId);
+    if (visibilityRule === question.visibilityRule && visibilityRuleGroup === question.visibilityRuleGroup) {
+      return question;
+    }
+    return { ...question, visibilityRule, visibilityRuleGroup };
+  });
 
 export const treatmentsApi = {
   listStats: async (): Promise<ContentLibraryStats> => {
@@ -54,9 +89,10 @@ export const treatmentsApi = {
 
   deleteProgramQuestion: async (programId: string, questionId: string): Promise<void> => {
     const current = await programsApi.listQuestions(programId);
-    const updated = current
-      .filter((item) => item.id !== questionId)
-      .map((item, index) => ({ ...item, order: index + 1 }));
+    const updated = clearVisibilityReferencesTo(
+      current.filter((item) => item.id !== questionId),
+      questionId,
+    ).map((item, index) => ({ ...item, order: index + 1 }));
     await programsApi.saveQuestions(programId, updated);
   },
 

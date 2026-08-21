@@ -9,7 +9,6 @@ import type {
 import {
   buildAdminCustomProgramStages,
   canonicalizeCustomProgramFlowItems,
-  moveCustomProgramItemWithinStage,
   reorderCustomProgramItemWithinStage,
   synchronizeCustomProgramStructure,
 } from "../src/features/treatments/flow-builder/utils/customProgramStages.ts";
@@ -150,7 +149,7 @@ test("reorders within a stage and rejects cross-stage movement", () => {
     item("q-2", "routing_question"),
     item("program-1", "program", "program-1"),
   ]);
-  const moved = moveCustomProgramItemWithinStage(flow, "q-1", "down");
+  const moved = reorderCustomProgramItemWithinStage(flow, "q-1", "q-2");
   assert.deepEqual(moved.filter((candidate) => candidate.kind === "routing_question").map((candidate) => candidate.id), ["q-2", "q-1"]);
 
   const rejected = reorderCustomProgramItemWithinStage(flow, "q-1", "program-1");
@@ -161,6 +160,7 @@ test("projects all stages and deduplicates automatic Program consents", () => {
   const cp = customProgram([
     item("q-1", "routing_question"),
     item("section-row", "section", "section-1"),
+    { ...item("section-field-row", "section_field", "section-1"), mappedField: "field-1" },
     item("program-row-1", "program", "program-1"),
     item("program-row-2", "program", "program-2"),
     item("explicit-consent", "consent", "consent-1"),
@@ -171,11 +171,14 @@ test("projects all stages and deduplicates automatic Program consents", () => {
     consents: [consent("consent-1"), consent("consent-2")],
   });
 
-  assert.deepEqual(projection.stages.map((stage) => stage.items.length), [2, 2, 2]);
+  assert.deepEqual(projection.stages.map((stage) => stage.items.length), [3, 2, 2]);
+  const sectionField = projection.stages[0].items.find((candidate) => candidate.kind === "section_field");
+  assert.equal(sectionField?.title, "section-field-row");
+  assert.equal(sectionField?.persistedItem?.mappedField, "field-1");
   const automatic = projection.stages[2].items.find((candidate) => candidate.derived);
   assert.equal(automatic?.title, "consent-2");
   assert.deepEqual(automatic?.matchedProgramNames, ["program-1", "program-2"]);
-  assert.equal(projection.totalItemCount, 8);
+  assert.equal(projection.totalItemCount, 9);
 });
 
 test("keeps empty stages visible", () => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent } from "react";
 import { Bold, Italic, Heading, Link, List, ListOrdered, RemoveFormatting, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -8,8 +8,8 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   className?: string;
-  /** Optional cap that surfaces a character counter when provided. */
-  maxLength?: number;
+  /** Optional cap for normalized serialized HTML characters. */
+  maxSerializedHtmlLength?: number;
   "data-testid"?: string;
 }
 
@@ -34,15 +34,11 @@ export function RichTextEditor({
   onChange,
   placeholder = "Start typing…",
   className,
-  maxLength,
+  maxSerializedHtmlLength,
   "data-testid": dataTestId,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const [charCount, setCharCount] = useState(0);
-
-  const syncCharCount = useCallback((el: HTMLDivElement) => {
-    setCharCount(el.textContent?.length ?? 0);
-  }, []);
+  const charCount = value.trim().length;
 
   // Sync external value into the DOM only when it diverges from live content.
   useEffect(() => {
@@ -50,16 +46,14 @@ export function RichTextEditor({
     if (!el) return;
     if (el.innerHTML !== value) {
       el.innerHTML = value || "";
-      syncCharCount(el);
     }
-  }, [value, syncCharCount]);
+  }, [value]);
 
   const handleInput = useCallback(() => {
     const el = editorRef.current;
     if (!el) return;
-    syncCharCount(el);
     onChange(el.innerHTML);
-  }, [onChange, syncCharCount]);
+  }, [onChange]);
 
   const runCommand = useCallback(
     (command: ExecCommand, arg?: string) => (event: MouseEvent<HTMLButtonElement>) => {
@@ -106,7 +100,9 @@ export function RichTextEditor({
     { key: "undo", label: "Undo", icon: Undo2, onMouseDown: runCommand("undo") },
   ];
 
-  const overLimit = typeof maxLength === "number" && charCount > maxLength;
+  const overLimit =
+    typeof maxSerializedHtmlLength === "number" &&
+    charCount > maxSerializedHtmlLength;
 
   return (
     <div
@@ -132,15 +128,16 @@ export function RichTextEditor({
             </button>
           );
         })}
-        {typeof maxLength === "number" && (
+        {typeof maxSerializedHtmlLength === "number" && (
           <span
             className={cn(
               "ml-auto text-[11px] font-medium",
               overLimit ? "text-red-600" : "text-slate-400"
             )}
+            aria-label={`Serialized HTML characters: ${charCount} of ${maxSerializedHtmlLength}`}
             aria-live="polite"
           >
-            {charCount}/{maxLength}
+            {charCount.toLocaleString()}/{maxSerializedHtmlLength.toLocaleString()}
           </span>
         )}
       </div>

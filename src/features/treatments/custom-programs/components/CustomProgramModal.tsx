@@ -37,6 +37,17 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
     audience: "all" as CustomProgram["audience"],
   });
 
+  const minAgeValue = Number.parseInt(formData.minAge, 10);
+  const maxAgeValue = formData.maxAge.trim()
+    ? Number.parseInt(formData.maxAge, 10)
+    : undefined;
+  const hasInvalidAgeRange = (
+    Number.isFinite(minAgeValue)
+    && maxAgeValue !== undefined
+    && Number.isFinite(maxAgeValue)
+    && maxAgeValue < minAgeValue
+  );
+
   useEffect(() => {
     if (program) {
       setFormData({
@@ -59,6 +70,8 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasInvalidAgeRange) return;
+
     onSubmit({
       ...formData,
       minAge: parseInt(formData.minAge) || 18,
@@ -253,12 +266,17 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
                       value={formData.maxAge}
                       onChange={(e) => setFormData({ ...formData, maxAge: e.target.value })}
                       placeholder="No limit"
-                      className="pr-14 text-sm"
+                      className={`pr-14 text-sm ${hasInvalidAgeRange ? "border-red-500 focus:border-red-500 focus:ring-red-500" : ""}`}
                     />
                     <span className="absolute right-3 text-xs text-slate-400 pointer-events-none">years</span>
                   </div>
                 </div>
               </div>
+              {hasInvalidAgeRange && (
+                <p className="mt-2 text-xs text-red-600" role="alert">
+                  Maximum age must be greater than or equal to minimum age ({minAgeValue}).
+                </p>
+              )}
               <p className="mt-2.5 text-[11px] text-slate-400 leading-normal">
                 Only patients within this age range will see this plan. Leave maximum blank for no upper limit (e.g., 18+ only).
               </p>
