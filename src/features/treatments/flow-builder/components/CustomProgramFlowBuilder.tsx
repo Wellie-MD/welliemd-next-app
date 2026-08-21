@@ -41,6 +41,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
     includeInQa: editingQuestion.includeInQa,
     hiddenFromPatient: editingQuestion.hiddenFromPatient,
     prefillFromPrevious: editingQuestion.prefillFromPrevious,
+    lockClientChanges: editingQuestion.lockClientChanges,
   } : null;
 
   return (
@@ -95,6 +96,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
             includeInQa: question.includeInQa,
             hiddenFromPatient: question.hiddenFromPatient,
             prefillFromPrevious: question.prefillFromPrevious,
+            lockClientChanges: question.lockClientChanges,
           } : item));
           setEditingQuestion(null);
         }}

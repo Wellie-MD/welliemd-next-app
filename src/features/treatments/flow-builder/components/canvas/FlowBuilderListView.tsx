@@ -15,6 +15,7 @@ import {
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/use-toast";
 import type {
   CommonSection,
   ConsentForm,
@@ -24,6 +25,7 @@ import type {
 } from "@/features/treatments/types";
 import {
   buildAdminCustomProgramStages,
+  describeCustomProgramReorderBlock,
   reorderCustomProgramItemWithinStage,
   type AdminCustomProgramStage,
   type AdminCustomProgramStageItem,
@@ -306,11 +308,18 @@ export function FlowBuilderListView({
 
   const update = (items: CustomProgramFlowItem[]) => onUpdateFlow?.(items);
   const remove = (itemId: string) => update(customProgram.flowItems.filter((item) => item.id !== itemId));
-  const drop = (sourceId: string, targetId: string) =>
+  const drop = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const blockReason = describeCustomProgramReorderBlock(customProgram.flowItems, sourceId, targetId);
+    if (blockReason) {
+      toast({ title: "Can't reorder item", description: blockReason, variant: "destructive" });
+      return;
+    }
     update(reorderCustomProgramItemWithinStage(customProgram.flowItems, sourceId, targetId));
+  };
 
   return (
-    <div className="flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-6">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
       <div className="mx-auto max-w-[880px] space-y-6">
         <div className="flex items-center gap-4">
           <div className="h-px flex-1 bg-slate-200" />
