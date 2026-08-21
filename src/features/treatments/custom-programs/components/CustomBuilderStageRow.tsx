@@ -57,7 +57,7 @@ export function CustomBuilderStageRow({
   const meta = rowMeta[item.kind] ?? rowMeta.question;
   const Icon = meta.icon || FileText;
   const isEditableClientQuestion = item.kind === "question" && item.source === "client" && !item.locked;
-  const canPreviewQuestion = item.kind === "question" && !isEditableClientQuestion;
+  const canPreviewQuestion = item.kind === "question";
 
   return (
     <div className="flex min-h-[58px] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-150 hover:border-[#4f00ff] hover:shadow-[0_0_0_1px_rgba(79,0,255,0.12),0_8px_24px_-18px_rgba(79,0,255,0.65)] dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none dark:hover:border-blue-600 dark:hover:bg-[#141827]">
@@ -83,7 +83,7 @@ export function CustomBuilderStageRow({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-3 text-slate-400 dark:text-slate-500">
-        {isEditableClientQuestion ? (
+        {isEditableClientQuestion && (
           <button
             type="button"
             onClick={() => onEditClientQuestion?.(item)}
@@ -92,7 +92,8 @@ export function CustomBuilderStageRow({
           >
             <Edit3 className="h-4 w-4" />
           </button>
-        ) : canPreviewQuestion ? (
+        )}
+        {canPreviewQuestion ? (
           <button
             type="button"
             onClick={() => onPreviewQuestion?.(item, previewQuestionNumber ?? itemNumber)}

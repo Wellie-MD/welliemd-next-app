@@ -5,9 +5,9 @@ import { showFloatingToast } from "@/components/ui/floating-toast";
 import { SharedQuestionDialog } from "@/features/treatments/common/components";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { CustomProgramPreviewDialog } from "@/features/treatments/custom-programs/components/CustomProgramPreviewDialog";
-import { CustomProgramQuestionPreviewDialog } from "@/features/treatments/custom-programs/components/CustomProgramQuestionPreviewDialog";
 import { ListContentSection } from "@/features/treatments/custom-programs/components/ListContentSection";
 import { getCustomProgramEffectiveSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
+import { ProgramQuestionDetailModal } from "@/features/treatments/programs/components/ProgramQuestionDetailModal";
 import { buildQuestionnaireRuntimeUrl } from "@/features/treatments/utils/questionnaireRuntimeUrl";
 import {
   useAddCustomProgramBuilderQuestion,
@@ -17,7 +17,12 @@ import {
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { cn } from "@/lib/utils";
 import { useClients } from "@/hooks/useClients";
-import type { CustomProgram, CustomProgramBuilderQuestionInput, CustomProgramBuilderStageItem } from "@/features/treatments/types";
+import type {
+  CustomProgram,
+  CustomProgramBuilderQuestionInput,
+  CustomProgramBuilderStageItem,
+  ProgramQuestion,
+} from "@/features/treatments/types";
 
 const BUILDER_VIEW_STORAGE_KEY = "welliemd_custom_program_builder_view";
 type BuilderViewMode = "list" | "flow";
@@ -177,7 +182,7 @@ export default function CustomProgramBuilderPage() {
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramBuilderStageItem | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewQuestion, setPreviewQuestion] = useState<{
-    question: CustomProgramBuilderStageItem;
+    question: ProgramQuestion;
     questionNumber: number;
   } | null>(null);
   const [viewMode, setViewMode] = useState<BuilderViewMode>(() => {
@@ -226,7 +231,25 @@ export default function CustomProgramBuilderPage() {
   };
 
   const handlePreviewQuestion = (question: CustomProgramBuilderStageItem, questionNumber: number) => {
-    setPreviewQuestion({ question, questionNumber });
+    const isClientQuestion = question.source === "client" && !question.locked;
+    setPreviewQuestion({
+      question: {
+        id: question.id,
+        order: questionNumber,
+        text: question.title,
+        kind: question.questionKind ?? "single_choice",
+        section: customProgram?.name || "Custom Program",
+        required: question.required ?? true,
+        source: question.source === "client" ? "client" : "admin",
+        locked: question.locked,
+        is_client_custom: question.source === "client",
+        can_be_modified: isClientQuestion,
+        is_from_admin: question.source !== "client",
+        is_read_only: !isClientQuestion,
+        choices: question.answerOptions || [],
+      },
+      questionNumber,
+    });
   };
 
   const handleQuestionDialogOpenChange = (open: boolean) => {
@@ -336,14 +359,14 @@ export default function CustomProgramBuilderPage() {
       />
 
       {previewQuestion && (
-        <CustomProgramQuestionPreviewDialog
+        <ProgramQuestionDetailModal
           open={!!previewQuestion}
           onOpenChange={(open) => {
             if (!open) setPreviewQuestion(null);
           }}
-          customProgram={customProgram}
           question={previewQuestion.question}
           questionNumber={previewQuestion.questionNumber}
+          programName={customProgram.name}
         />
       )}
     </div>

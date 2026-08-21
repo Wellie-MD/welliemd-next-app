@@ -85,8 +85,10 @@ const mapBuilderQuestionFromFlowItem = (
   item: CustomProgramApiRecord["flow_items"][number]
 ): MappedBuilderQuestion => {
   const metadata = item.metadata || {};
-  const source = String(item.source || metadata.source || "").trim().toLowerCase();
-  const isClientQuestion = source === "client";
+  const sources = [item.source, metadata.source]
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+  const isClientQuestion = sources.includes("client") && !sources.some((source) => source !== "client");
   const title = item.title || String(metadata.title || metadata.text || "");
   const subtitle = item.subtitle || String(metadata.subtitle || "");
   const questionKind =
@@ -273,10 +275,19 @@ const mapCustomProgramFlowItemsToPatch = (
   const originalFlowItems = (program as Partial<MappedCustomProgram>).__apiFlowItems;
 
   if (!originalFlowItems) {
-    return [
-      ...(program.flowItems || []),
-      ...builderQuestions.map(mapBuilderQuestionToFlowItem),
-    ];
+    const fallbackFlowItems = program.flowItems || [];
+    const existingQuestionItems = fallbackFlowItems.filter(isBuilderQuestionFlowItem);
+    const nonQuestionFlowItems = fallbackFlowItems.filter(
+      (item) => !isBuilderQuestionFlowItem(item),
+    );
+    const fallbackQuestions = builderQuestions.length
+      ? builderQuestions.map(mapBuilderQuestionToFlowItem)
+      : existingQuestionItems;
+
+    return insertNewClientQuestionsBeforeLaterStage(
+      nonQuestionFlowItems,
+      fallbackQuestions,
+    );
   }
 
   const questionsById = new Map(builderQuestions.map((question) => [question.id, question]));
