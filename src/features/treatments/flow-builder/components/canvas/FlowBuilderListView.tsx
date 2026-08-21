@@ -344,6 +344,7 @@ export function FlowBuilderListView({
   consents,
   onUpdateFlow,
   onEditQuestion,
+  onOpenPreview,
   onConfigureMatching,
 }: FlowBuilderListViewProps) {
   const builderList = buildAdminCustomProgramStages(customProgram, { programs, sections, consents });
