@@ -96,6 +96,10 @@ export interface CustomProgram {
   builderTreatmentOptions?: CustomProgramBuilderStageItem[];
   builderConsents?: CustomProgramBuilderStageItem[];
   runtimeSummary?: CustomProgramRuntimeSummary | null;
+  /** Tenant assignment state mirrored from the control plane. */
+  assignmentRuntimeState?: string | null;
+  runtimeReadyAt?: string | null;
+  sourceAssignmentChecksum?: string | null;
 }
 
 export interface CustomProgramRuntimeSummary {

@@ -2,6 +2,10 @@ import { Sparkles, Pill } from "lucide-react";
 import type { CustomProgram } from "@/features/treatments/types";
 import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { cn } from "@/lib/utils";
+import {
+  readinessToneClass,
+  resolveCustomProgramReadiness,
+} from "@/features/treatments/custom-programs/utils/customProgramReadiness";
 
 const uniqueNonEmptyValues = (values: Array<string | undefined>) =>
   Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
@@ -14,6 +18,7 @@ interface CustomProgramCardProps {
 
 export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: CustomProgramCardProps) {
   const isMulti = isCustomProgramMulti(customProgram);
+  const readiness = resolveCustomProgramReadiness(customProgram);
 
   const renderIcon = () => {
     const iconClass = "h-[17px] w-[17px]";
@@ -96,8 +101,19 @@ export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: C
 
       <div className="flex h-[120px] shrink-0 flex-col justify-between border-b border-slate-100 bg-white p-3.5 dark:border-slate-700 dark:bg-[#171b27]">
         <div>
-          <div className="font-semibold text-[13px] text-slate-900 leading-tight dark:text-slate-50">
-            {customProgram.onboardingName || customProgram.name}
+          <div className="flex items-start justify-between gap-2">
+            <div className="font-semibold text-[13px] text-slate-900 leading-tight dark:text-slate-50">
+              {customProgram.onboardingName || customProgram.name}
+            </div>
+            <span
+              className={cn(
+                "shrink-0 rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide",
+                readinessToneClass(readiness.status),
+              )}
+              title={readiness.detail}
+            >
+              {readiness.label}
+            </span>
           </div>
           <div className="text-[11.5px] text-slate-400 mt-1 dark:text-slate-500">
             {customProgram.runtimeSummary?.status === "ready"
@@ -107,6 +123,11 @@ export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: C
                 : `${customProgram.questionCount || 0} questions`}
             {customProgram.updatedAt && ` · updated ${formatDate(customProgram.updatedAt)}`}
           </div>
+          {!readiness.runnable && (
+            <div className="mt-1.5 text-[10.5px] leading-snug text-amber-700 dark:text-amber-500">
+              {readiness.detail}
+            </div>
+          )}
         </div>
         <div className="flex gap-1.5 mt-auto">
           <button
