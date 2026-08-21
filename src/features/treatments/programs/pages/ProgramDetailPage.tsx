@@ -396,8 +396,10 @@ export default function ProgramDetailPage() {
             onViewAll={() => navigate(ADMIN_TREATMENT_ROUTES.programQuestions(foundProgram.id))}
           />
           <ProgramConsents
-            visitType={effectiveContent?.visit_type || foundProgram.treatmentType}
+            visitType={effectiveContent?.visit_type || foundProgram.visitType}
             groupedConsents={effectiveContent?.consents}
+            consents={allConsents.filter((consent) => !consent.isArchived)}
+            attachedConsentIds={foundProgram.consentIds || []}
             onAddConsent={() => setIsConsentOpen(true)}
             onRemoveConsent={handleRemoveExplicitConsent}
           />

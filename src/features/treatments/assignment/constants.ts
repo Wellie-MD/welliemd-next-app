@@ -78,7 +78,7 @@ export const ASSIGNMENT_STEP_LABELS: Record<string, string> = {
 
 const ASSIGNMENT_ERROR_MESSAGES: Record<string, string> = {
   tenant_manifest_parity_failed:
-    "The client imported a different checkout product role or group than the approved Program release. Publish a new release and reassign after the client importer is updated. The parity guard blocked activation; no runtime configuration was published.",
+    "The client imported a different checkout option contract than the approved Program release. This may involve its role, group, label, duration, quantity, or visibility. Update the client importer and retry the assignment; the parity guard blocked activation, so no runtime configuration was published.",
   tenant_activation_blocked:
     "The Program was imported and checked, but the client portal could not make it available to patients. Confirm that the client is active, its assignment endpoint is reachable, and all required Products, Labs, and member Programs are ready. Then refresh the assignment and retry. If it still fails, contact support with the Correlation ID.",
   source_changed:
