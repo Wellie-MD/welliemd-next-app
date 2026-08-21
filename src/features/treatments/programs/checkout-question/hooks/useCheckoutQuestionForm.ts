@@ -3,7 +3,6 @@ import { checkoutProductFactory } from "@/features/treatments/common/data/factor
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import {
   PROGRAM_PRODUCT_ROLE,
-  productRoleForFlexibleSelection,
 } from "../constants";
 import { formatCheckoutQuestionText } from "../utils/checkoutTitleUtils";
 import { toast } from "@/components/ui/use-toast";
@@ -214,9 +213,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return {
         ...product,
         sourceProductId,
-        productRole: productRoleForFlexibleSelection(
-          product.productRole || PROGRAM_PRODUCT_ROLE.optionalAddon,
-        ),
+        productRole: product.productRole || PROGRAM_PRODUCT_ROLE.optionalAddon,
         choiceGroup: product.choiceGroup,
       };
     };
