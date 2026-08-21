@@ -123,12 +123,12 @@ export function ProgramQuestionsListRow({
             className="p-1 -ml-1 text-slate-400 hover:text-slate-600 cursor-grab active:cursor-grabbing shrink-0"
             title="Drag to reorder"
           >
-            <GripVertical className="h-4 w-4" />
+            <GripVertical className="h-[17px] w-[17px]" />
           </div>
         ) : (
           null
         )}
-        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold ${index === 0 ? "border-slate-500 bg-slate-600 text-white" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold ${index === 0 ? "border-slate-500 bg-slate-600 text-white" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
           {index + 1}
         </div>
       </div>
@@ -136,23 +136,23 @@ export function ProgramQuestionsListRow({
       {/* 2. Text */}
       <div className="flex min-w-0 items-start gap-2 pr-4">
         {ElementIcon && (
-          <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${tone.icon}`}>
-            <ElementIcon className="h-2.5 w-2.5" />
+          <span className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded border ${tone.icon}`}>
+            <ElementIcon className="h-3 w-3" />
           </span>
         )}
         <div className="min-w-0">
-          <div className="truncate text-[11.5px] font-semibold leading-4 text-slate-900">{primaryText}</div>
+          <div className="truncate text-[13px] font-semibold leading-4 text-slate-900">{primaryText}</div>
           {typeof secondaryText === "string" && secondaryText && (
-            <div className="truncate text-[9.5px] leading-3.5 text-slate-500">{secondaryText}</div>
+            <div className="truncate text-[11px] leading-3.5 text-slate-500">{secondaryText}</div>
           )}
         </div>
       </div>
 
       {/* 3. Required */}
-      <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-700">
+      <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-700">
         {question.required ? (
           <>
-            <Check className="h-3 w-3 text-slate-600 stroke-[3]" />
+            <Check className="h-3.5 w-3.5 text-slate-600 stroke-[3]" />
             Required
           </>
         ) : (
@@ -162,7 +162,7 @@ export function ProgramQuestionsListRow({
 
       {/* 4. Type & Tags */}
       <div className="flex items-start">
-        <div className={`inline-flex items-center rounded border px-2 py-1 text-[9px] font-medium ${tone.badge}`}>
+        <div className={`inline-flex items-center rounded border px-2 py-1 text-[10px] font-medium ${tone.badge}`}>
           {PROGRAM_QUESTION_KIND_LABELS[question.kind]}
         </div>
       </div>
@@ -173,7 +173,7 @@ export function ProgramQuestionsListRow({
             remove it. It still cannot be dragged — it is pinned first — and
             publication requires it, so removing it blocks publish. */}
         {isSystem && !isAuth ? (
-          <span className="pr-1 text-[9px] italic text-slate-300">System</span>
+          <span className="pr-1 text-[10px] italic text-slate-300">System</span>
         ) : (
           <>
             <Button
@@ -183,19 +183,19 @@ export function ProgramQuestionsListRow({
                 event.stopPropagation();
                 handleEdit();
               }}
-              className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
+              className="h-7 w-7 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
               title={isSection ? "Go to Section" : hasLinkedConsent ? "Go to Consent" : "Edit Element"}
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-3.5 w-3.5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={(event) => { event.stopPropagation(); onDelete(question.id); }}
-              className="h-6 w-6 rounded text-slate-300 hover:bg-red-50 hover:text-red-600"
+              className="h-7 w-7 rounded text-slate-300 hover:bg-red-50 hover:text-red-600"
               title="Delete Element"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </>
         )}
