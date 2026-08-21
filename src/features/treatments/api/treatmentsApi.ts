@@ -68,7 +68,7 @@ type CustomProgramApiRecord = {
   section_ids: string[];
   consent_ids: string[];
   checkout_options: CustomProgram["checkoutOptions"];
-  flow_items: Array<CustomProgramFlowItem & Partial<CustomProgramBuilderStageItem>>;
+  flow_items: CustomProgramApiFlowItem[];
   visit_type?: string | null;
   onboarding_name?: string;
   question_count?: number;
@@ -96,6 +96,28 @@ type CustomProgramApiRecord = {
   is_multi?: boolean;
   created_at?: string;
   updated_at?: string;
+};
+
+type CustomProgramApiFlowItem = {
+  id?: string;
+  kind: CustomProgramFlowItem["kind"] | "question";
+  title?: string;
+  subtitle?: string;
+  source?: CustomProgramBuilderStageItem["source"];
+  sourceId?: string;
+  source_id?: string;
+  locked?: boolean;
+  is_locked?: boolean;
+  required?: boolean;
+  questionKind?: CustomProgramBuilderStageItem["questionKind"];
+  question_kind?: string;
+  choiceCount?: number;
+  answerOptions?: string[];
+  choices?: string[];
+  treatmentTypeKey?: string;
+  treatment_type_key?: string;
+  mappedField?: string;
+  metadata?: Record<string, unknown>;
 };
 
 type SectionApiRecord = {
@@ -216,10 +238,46 @@ const mapProgramToPatchPayload = (program: Partial<Program>) => ({
 const isBuilderQuestionFlowItem = (item: CustomProgramApiRecord["flow_items"][number]) =>
   item.kind === "routing_question" || item.kind === "question";
 
+const asString = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim() ? value : undefined;
+
+const asStringArray = (value: unknown): string[] | undefined =>
+  Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : undefined;
+
+const normalizeCustomProgramFlowItem = (
+  item: CustomProgramApiRecord["flow_items"][number],
+  index: number,
+): CustomProgramApiRecord["flow_items"][number] & CustomProgramFlowItem & Partial<CustomProgramBuilderStageItem> => {
+  const metadata = item.metadata || {};
+  const sourceId = asString(item.sourceId)
+    || asString(item.source_id)
+    || asString(metadata.sourceId)
+    || asString(metadata.source_id);
+  const title = asString(item.title) || asString(metadata.title) || "";
+  const subtitle = asString(item.subtitle) || asString(metadata.subtitle) || "";
+  const questionKind = item.questionKind || item.question_kind || metadata.questionKind || metadata.question_kind;
+  const answerOptions = item.answerOptions || item.choices || asStringArray(metadata.answerOptions) || asStringArray(metadata.answer_options);
+
+  return {
+    ...item,
+    id: asString(item.id) || sourceId || `${item.kind}-${index + 1}`,
+    title,
+    subtitle,
+    sourceId,
+    locked: item.locked ?? item.is_locked ?? Boolean(metadata.is_locked),
+    source: item.source || (asString(metadata.source) as CustomProgramBuilderStageItem["source"] | undefined),
+    required: item.required ?? (typeof metadata.required === "boolean" ? metadata.required : undefined),
+    questionKind: questionKind as CustomProgramBuilderStageItem["questionKind"] | undefined,
+    answerOptions,
+    treatmentTypeKey: item.treatmentTypeKey || item.treatment_type_key || asString(metadata.treatmentTypeKey) || asString(metadata.treatment_type_key),
+    mappedField: item.mappedField || asString(metadata.mappedField) || asString(metadata.mapped_field),
+  };
+};
+
 const mapBuilderQuestionFromFlowItem = (
   item: CustomProgramApiRecord["flow_items"][number]
 ): CustomProgramBuilderStageItem => ({
-  id: item.id,
+  id: item.id || item.sourceId || "question",
   kind: "question",
   title: item.title,
   subtitle: item.subtitle,
@@ -262,7 +320,7 @@ const mapBuilderSectionFromFlowItem = (
 });
 
 const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram => {
-  const flowItems = record.flow_items || [];
+  const flowItems = (record.flow_items || []).map(normalizeCustomProgramFlowItem);
 
   return {
     id: record.id,

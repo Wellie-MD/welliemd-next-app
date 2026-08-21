@@ -1,6 +1,6 @@
 import type { CustomProgram, CustomProgramBuilderStageItem } from "@/features/treatments/types";
 import { useCustomProgramBuilderList } from "@/features/treatments/custom-programs/hooks/useCustomProgramBuilderList";
-import { useConsents, usePrograms } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useConsents, usePrograms, useSections } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { CustomBuilderLockedComponent } from "./CustomBuilderLockedComponent";
 import { CustomBuilderStageComponent } from "./CustomBuilderStageComponent";
 
@@ -18,8 +18,9 @@ export function ListContentSection({
   onPreviewQuestion,
 }: ListContentSectionProps) {
   const { data: programs = [] } = usePrograms();
+  const { data: sections = [] } = useSections();
   const { data: consents = [] } = useConsents();
-  const builderList = useCustomProgramBuilderList(customProgram, { programs, consents });
+  const builderList = useCustomProgramBuilderList(customProgram, { programs, sections, consents });
   let nextItemNumber = 2;
 
   return (

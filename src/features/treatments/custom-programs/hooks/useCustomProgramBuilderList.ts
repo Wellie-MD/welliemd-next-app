@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { ClientTreatmentConsent } from "@/features/treatments/api/treatmentsApi";
+import type { ClientTreatmentConsent, ClientTreatmentSection } from "@/features/treatments/api/treatmentsApi";
 import type {
   CustomProgram,
   CustomProgramBuilderLockedItem,
@@ -23,23 +23,114 @@ const toFallbackStageItem = (
   sourceId: item.sourceId,
 });
 
+const itemSourceId = (item: CustomProgramBuilderStageItem) => item.sourceId || item.id;
+
+const formatCount = (count: number, singular: string) => `${count} ${singular}${count === 1 ? "" : "s"}`;
+
+const enrichBuilderItem = (
+  item: CustomProgramBuilderStageItem,
+  catalogs: {
+    programs: Program[];
+    sections: ClientTreatmentSection[];
+    consents: ClientTreatmentConsent[];
+  },
+): CustomProgramBuilderStageItem => {
+  const sourceId = itemSourceId(item);
+  const program = item.kind === "program"
+    ? catalogs.programs.find((candidate) => String(candidate.id) === String(sourceId))
+    : undefined;
+  const section = item.kind === "section"
+    ? catalogs.sections.find((candidate) => String(candidate.id) === String(sourceId))
+    : undefined;
+  const consent = item.kind === "consent"
+    ? catalogs.consents.find((candidate) => String(candidate.id) === String(sourceId))
+    : undefined;
+
+  if (item.kind === "program") {
+    return {
+      ...item,
+      title: item.title || program?.name || "Program",
+      subtitle: item.subtitle || (program
+        ? "Routed treatment · follow-up inherited"
+        : "Routed treatment"),
+      sourceId: item.sourceId || program?.id,
+      treatmentTypeKey: item.treatmentTypeKey || program?.treatmentTypeKey,
+    };
+  }
+
+  if (item.kind === "section") {
+    return {
+      ...item,
+      title: item.title || section?.name || "Section",
+      subtitle: item.subtitle || (section
+        ? `${formatCount(section.fieldCount, "field")}, asked as one block`
+        : "Reusable section fields."),
+      sourceId: item.sourceId || section?.id,
+    };
+  }
+
+  if (item.kind === "consent") {
+    return {
+      ...item,
+      title: item.title || consent?.name || "Consent",
+      subtitle: item.subtitle || (consent
+        ? consent.scope === "global" ? "Universal" : "Treatment-specific"
+        : "Consent form capture."),
+      sourceId: item.sourceId || consent?.id,
+    };
+  }
+
+  return item;
+};
+
 const getBuilderQuestions = (customProgram: CustomProgram) => {
   if (customProgram.builderQuestions?.length) return customProgram.builderQuestions;
   return [];
 };
 
-const getBuilderSections = (customProgram: CustomProgram) => {
-  if (customProgram.builderSections?.length) return customProgram.builderSections;
-  return customProgram.flowItems
+const getBuilderSections = (customProgram: CustomProgram, sections: ClientTreatmentSection[]) => {
+  const items = customProgram.builderSections?.length
+    ? customProgram.builderSections
+    : customProgram.flowItems
     .filter((item) => item.kind === "section")
     .map((item) => toFallbackStageItem(item, true));
+  if (items.length) return items;
+
+  return (customProgram.sectionIds || []).flatMap((sectionId) => {
+    const section = sections.find((candidate) => String(candidate.id) === String(sectionId));
+    return section ? [{
+      id: section.id,
+      kind: "section" as const,
+      title: section.name,
+      source: "welliemd" as const,
+      locked: true,
+      required: true,
+      sourceId: section.id,
+    }] : [];
+  });
 };
 
-const getBuilderTreatmentOptions = (customProgram: CustomProgram) => {
-  if (customProgram.builderTreatmentOptions?.length) return customProgram.builderTreatmentOptions;
-  return customProgram.flowItems
+const getBuilderTreatmentOptions = (customProgram: CustomProgram, programs: Program[]) => {
+  const items = customProgram.builderTreatmentOptions?.length
+    ? customProgram.builderTreatmentOptions
+    : customProgram.flowItems
     .filter((item) => item.kind === "program")
     .map((item) => toFallbackStageItem(item, true));
+  if (items.length) return items;
+
+  return (customProgram.includedProgramIds || []).flatMap((programId) => {
+    const program = programs.find((candidate) => String(candidate.id) === String(programId));
+    return program ? [{
+      id: program.id,
+      kind: "program" as const,
+      title: program.name,
+      source: "welliemd" as const,
+      locked: true,
+      required: true,
+      treatmentTypeKey: program.treatmentTypeKey,
+      sourceId: program.id,
+    }] : [];
+  });
 };
 
 const getBuilderConsents = (customProgram: CustomProgram) => {
@@ -96,11 +187,13 @@ export function useCustomProgramBuilderList(
   customProgram: CustomProgram,
   options?: {
     programs?: Program[];
+    sections?: ClientTreatmentSection[];
     consents?: ClientTreatmentConsent[];
   },
 ) {
   return useMemo(() => {
     const programs = options?.programs || [];
+    const sections = options?.sections || [];
     const consents = options?.consents || [];
     const authenticationItem: CustomProgramBuilderLockedItem = {
       id: "builder-authentication",
@@ -127,21 +220,24 @@ export function useCustomProgramBuilderList(
         stageNumber: 1,
         title: "Custom Questions & Sections",
         tone: "question",
-        items: [...getBuilderQuestions(customProgram), ...getBuilderSections(customProgram)],
+        items: [...getBuilderQuestions(customProgram), ...getBuilderSections(customProgram, sections)]
+          .map((item) => enrichBuilderItem(item, { programs, sections, consents })),
       },
       {
         id: "stage-treatment-options",
         stageNumber: 2,
         title: "Treatment Options",
         tone: "program",
-        items: getBuilderTreatmentOptions(customProgram),
+        items: getBuilderTreatmentOptions(customProgram, programs)
+          .map((item) => enrichBuilderItem(item, { programs, sections, consents })),
       },
       {
         id: "stage-consents",
         stageNumber: 3,
         title: "Consents",
         tone: "consent",
-        items: getDerivedConsentItems(customProgram, programs, consents),
+        items: getDerivedConsentItems(customProgram, programs, consents)
+          .map((item) => enrichBuilderItem(item, { programs, sections, consents })),
       },
     ];
 
@@ -153,5 +249,5 @@ export function useCustomProgramBuilderList(
       stages,
       checkoutItem,
     };
-  }, [customProgram, options?.programs, options?.consents]);
+  }, [customProgram, options?.programs, options?.sections, options?.consents]);
 }
