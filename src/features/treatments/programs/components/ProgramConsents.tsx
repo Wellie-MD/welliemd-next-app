@@ -26,7 +26,8 @@ export interface ProgramConsentsGrouped {
 interface ProgramConsentsProps {
   visitType?: string;
   groupedConsents?: ProgramConsentsGrouped;
-  consents?: Array<{ id: string; name: string; scope: string }>;
+  consents?: Array<{ id: string; name: string; scope: string; visitTypeKeys?: string[] }>;
+  attachedConsentIds?: string[];
   onAddConsent: () => void;
   onRemoveConsent?: (consentId: string) => void;
 }
@@ -35,13 +36,16 @@ export function ProgramConsents({
   visitType,
   groupedConsents,
   consents = [],
+  attachedConsentIds = [],
   onAddConsent,
   onRemoveConsent,
 }: ProgramConsentsProps) {
-  // If groupedConsents is provided via EffectiveContent API, use it directly; otherwise fallback gracefully.
-  const globalConsents = groupedConsents?.inherited_global || consents.filter((c) => c.scope === "global");
-  const visitTypeConsents = groupedConsents?.inherited_visit_type || [];
-  const explicitConsents = groupedConsents?.explicit_program || consents.filter((c) => c.scope !== "global" && c.scope !== "visit_type");
+  // The endpoint remains authoritative. The library-derived fallback keeps
+  // inherited content visible while that request is loading or unavailable.
+  const fallback = resolveProgramConsentFallback(consents, visitType, attachedConsentIds);
+  const globalConsents = groupedConsents?.inherited_global || fallback.inherited_global;
+  const visitTypeConsents = groupedConsents?.inherited_visit_type || fallback.inherited_visit_type;
+  const explicitConsents = groupedConsents?.explicit_program || fallback.explicit_program;
   const inlineConsents = groupedConsents?.inline_conditional || [];
 
   const totalCount =
@@ -273,4 +277,32 @@ export function ProgramConsents({
       </div>
     </section>
   );
+}
+
+export function resolveProgramConsentFallback(
+  consents: Array<{ id: string; name: string; scope: string; visitTypeKeys?: string[] }>,
+  visitType?: string,
+  attachedConsentIds: string[] = [],
+): Omit<ProgramConsentsGrouped, "inline_conditional"> {
+  const normalizedVisitType = String(visitType || "").trim().toLowerCase();
+  const inheritedGlobal = consents.filter((consent) => consent.scope === "global");
+  const inheritedVisitType = consents.filter((consent) =>
+    consent.scope === "visit_type"
+    && Boolean(normalizedVisitType)
+    && (consent.visitTypeKeys || []).some(
+      (key) => String(key).trim().toLowerCase() === normalizedVisitType,
+    )
+  );
+  const inheritedIds = new Set(
+    [...inheritedGlobal, ...inheritedVisitType].map((consent) => consent.id),
+  );
+  const attachedIds = new Set(attachedConsentIds);
+  const explicitProgram = consents.filter(
+    (consent) => attachedIds.has(consent.id) && !inheritedIds.has(consent.id),
+  );
+  return {
+    inherited_global: inheritedGlobal,
+    inherited_visit_type: inheritedVisitType,
+    explicit_program: explicitProgram,
+  };
 }
