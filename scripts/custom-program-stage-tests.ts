@@ -9,6 +9,7 @@ import type {
 import {
   buildAdminCustomProgramStages,
   canonicalizeCustomProgramFlowItems,
+  describeCustomProgramReorderBlock,
   reorderCustomProgramItemWithinStage,
   synchronizeCustomProgramStructure,
 } from "../src/features/treatments/flow-builder/utils/customProgramStages.ts";
@@ -158,6 +159,22 @@ test("reorders within a stage and rejects cross-stage movement", () => {
 
   const rejected = reorderCustomProgramItemWithinStage(flow, "q-1", "program-1");
   assert.deepEqual(rejected.map((candidate) => candidate.id), flow.map((candidate) => candidate.id));
+});
+
+test("explains why a drag-and-drop reorder was rejected", () => {
+  const flow = canonicalizeCustomProgramFlowItems([
+    item("q-1", "routing_question"),
+    item("q-2", "routing_question"),
+    item("program-1", "program", "program-1"),
+  ]);
+
+  assert.equal(describeCustomProgramReorderBlock(flow, "q-1", "q-2"), null);
+
+  const crossStage = describeCustomProgramReorderBlock(flow, "q-1", "program-1");
+  assert.match(crossStage!, /only be reordered within their own stage/);
+
+  const lockedTarget = describeCustomProgramReorderBlock(flow, "q-1", flow[0].id);
+  assert.match(lockedTarget!, /locked system step/);
 });
 
 test("projects all stages and deduplicates automatic Program consents", () => {

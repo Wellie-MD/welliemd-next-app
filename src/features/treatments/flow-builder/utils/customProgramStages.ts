@@ -152,26 +152,51 @@ export function synchronizeCustomProgramStructure(
   };
 }
 
+const stageTitleByNumber: Record<1 | 2 | 3, string> = {
+  1: "Custom Questions & Sections",
+  2: "Treatment Options",
+  3: "Consents",
+};
+
+/**
+ * Explains why a drag-and-drop reorder would be rejected, so the UI can
+ * surface a reason instead of silently reverting the drop.
+ */
+export function describeCustomProgramReorderBlock(
+  flowItems: CustomProgramFlowItem[],
+  sourceId: string,
+  targetId: string
+): string | null {
+  const canonicalItems = canonicalizeCustomProgramFlowItems(flowItems);
+  const source = canonicalItems.find((item) => item.id === sourceId);
+  const target = canonicalItems.find((item) => item.id === targetId);
+  if (!source || !target) return null;
+  if (source.locked || target.locked) {
+    return `${(source.locked ? source : target).title} is a locked system step and can't be reordered.`;
+  }
+
+  const sourceStage = getCustomProgramStageNumber(source);
+  const targetStage = getCustomProgramStageNumber(target);
+  const bothCheckoutOverrides = source.kind === "checkout" && target.kind === "checkout";
+  if (sourceStage !== targetStage || (sourceStage === null && !bothCheckoutOverrides)) {
+    const sourceStageTitle = sourceStage ? stageTitleByNumber[sourceStage] : "Checkout overrides";
+    const targetStageTitle = targetStage ? stageTitleByNumber[targetStage] : "Checkout overrides";
+    return `Items can only be reordered within their own stage. "${source.title}" belongs to ${sourceStageTitle}, not ${targetStageTitle}.`;
+  }
+
+  return null;
+}
+
 export function reorderCustomProgramItemWithinStage(
   flowItems: CustomProgramFlowItem[],
   sourceId: string,
   targetId: string
 ) {
   const canonicalItems = canonicalizeCustomProgramFlowItems(flowItems);
-  const source = canonicalItems.find((item) => item.id === sourceId);
-  const target = canonicalItems.find((item) => item.id === targetId);
-  if (!source || !target || source.locked || target.locked) return canonicalItems;
-
-  const sourceStage = getCustomProgramStageNumber(source);
-  const targetStage = getCustomProgramStageNumber(target);
-  const bothCheckoutOverrides = source.kind === "checkout" && target.kind === "checkout";
-  if (sourceStage !== targetStage || (sourceStage === null && !bothCheckoutOverrides)) {
-    return canonicalItems;
-  }
-
   const sourceIndex = canonicalItems.findIndex((item) => item.id === sourceId);
   const targetIndex = canonicalItems.findIndex((item) => item.id === targetId);
-  if (sourceIndex === targetIndex) return canonicalItems;
+  if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return canonicalItems;
+  if (describeCustomProgramReorderBlock(canonicalItems, sourceId, targetId)) return canonicalItems;
 
   const next = [...canonicalItems];
   const [moved] = next.splice(sourceIndex, 1);
