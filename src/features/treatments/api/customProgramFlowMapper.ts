@@ -17,6 +17,7 @@ type CustomProgramApiFlowItem = Partial<
   question_kind?: string;
   answer_options?: string[];
   choices?: string[];
+  choice_count?: number;
   visibility_rule?: Record<string, unknown>;
   visibility_rules?: Record<string, unknown>;
 };
@@ -104,6 +105,7 @@ const mapBuilderQuestionFromFlowItem = (
       : Array.isArray(metadata.answer_options)
         ? metadata.answer_options.map(String)
         : []);
+  const choiceCount = item.choiceCount ?? item.choice_count ?? (answerOptions.length || undefined);
   const required =
     item.required ??
     (metadata.required === undefined ? true : Boolean(metadata.required));
@@ -119,7 +121,7 @@ const mapBuilderQuestionFromFlowItem = (
       : true,
     required,
     questionKind: questionKind as CustomProgramBuilderStageItem["questionKind"],
-    choiceCount: item.choiceCount,
+    choiceCount,
     answerOptions,
     treatmentTypeKey: item.treatmentTypeKey,
     sourceId: item.sourceId || item.source_id || String(metadata.source_id || "") || undefined,
