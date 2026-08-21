@@ -28,6 +28,7 @@ import type {
 import {
   buildAdminCustomProgramStages,
   describeCustomProgramReorderBlock,
+  getCustomProgramConsentSubtitle,
   reorderCustomProgramItemWithinStage,
   type AdminCustomProgramStage,
   type AdminCustomProgramStageItem,
@@ -128,11 +129,7 @@ function getItemSubtitle(item: AdminCustomProgramStageItem) {
     const visitType = item.program.visitType || "unresolved";
     return `${treatmentType} · ${stage} · Visit Type: ${visitType}`;
   }
-  if (item.derived) {
-    return `Auto · for ${item.matchedProgramNames?.join(", ") || "attached Program"}`;
-  }
-  if (item.consent) return item.consent.scope === "global" ? "Universal" : "Treatment-specific";
-  return item.subtitle || "Consent form capture";
+  return getCustomProgramConsentSubtitle(item);
 }
 
 function LockedSystemRow({

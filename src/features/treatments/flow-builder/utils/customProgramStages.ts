@@ -19,7 +19,21 @@ export interface AdminCustomProgramStageItem {
   program?: Program;
   section?: CommonSection;
   consent?: ConsentForm;
+  sourceType?: string;
   matchedProgramNames?: string[];
+}
+
+export function getCustomProgramConsentSubtitle(
+  item: AdminCustomProgramStageItem
+): string {
+  if (item.sourceType === "global") return "Universal";
+  if (item.derived) {
+    return `Auto · for ${item.matchedProgramNames?.join(", ") || "attached Program"}`;
+  }
+  if (item.consent) {
+    return item.consent.scope === "global" ? "Universal" : "Treatment-specific";
+  }
+  return item.subtitle || "Consent form capture";
 }
 
 export interface AdminCustomProgramStage {
@@ -310,6 +324,7 @@ export function buildAdminCustomProgramStages(
       persistedItem: persisted,
       derived: !persisted,
       consent,
+      sourceType: node.sourceType,
       matchedProgramNames: node.applicableProgramIds.map((id) => namesByProgramId.get(id) || id),
     };
   });

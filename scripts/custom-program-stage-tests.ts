@@ -9,6 +9,7 @@ import type {
 import {
   buildAdminCustomProgramStages,
   canonicalizeCustomProgramFlowItems,
+  getCustomProgramConsentSubtitle,
   describeCustomProgramReorderBlock,
   reorderCustomProgramItemWithinStage,
   synchronizeCustomProgramStructure,
@@ -220,6 +221,9 @@ test("projects authoritative effective stages and never derives inheritance from
   const automatic = projection.stages[2].items.find((candidate) => candidate.derived);
   assert.equal(automatic?.title, "consent-2");
   assert.deepEqual(automatic?.matchedProgramNames, ["program-1", "program-2"]);
+  const inheritedGlobal = projection.stages[2].items.find((candidate) => candidate.title === "consent-1");
+  assert.equal(getCustomProgramConsentSubtitle(inheritedGlobal!), "Universal");
+  assert.equal(getCustomProgramConsentSubtitle(automatic!), "Auto · for program-1, program-2");
   assert.equal(projection.totalItemCount, 8);
 });
 
