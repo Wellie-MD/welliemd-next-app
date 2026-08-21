@@ -49,6 +49,62 @@ const getBuilderConsents = (customProgram: CustomProgram) => {
     .map((item) => toFallbackStageItem(item, true));
 };
 
+const getProgramSubtitle = (program: Program) =>
+  program.checkoutQuestionCount > 0
+    ? "Routed treatment · follow-up inherited"
+    : "Routed treatment · no checkout questions configured";
+
+const enrichProgramItems = (items: CustomProgramBuilderStageItem[], programs: Program[]) => {
+  const programsById = new Map(programs.map((program) => [String(program.id), program]));
+
+  return items.map((item) => {
+    const program = item.sourceId
+      ? programsById.get(String(item.sourceId))
+      : programsById.get(String(item.title));
+
+    if (!program) {
+      return {
+        ...item,
+        title: item.title || "Program details unavailable",
+        subtitle: item.subtitle || "Program record unavailable",
+      };
+    }
+
+    return {
+      ...item,
+      title: program.name,
+      subtitle: item.subtitle || getProgramSubtitle(program),
+      treatmentTypeKey: item.treatmentTypeKey || program.treatmentTypeKey,
+      sourceId: item.sourceId || program.id,
+    };
+  });
+};
+
+const enrichConsentItems = (items: CustomProgramBuilderStageItem[], consents: ClientTreatmentConsent[]) => {
+  const consentsById = new Map(consents.map((consent) => [String(consent.id), consent]));
+
+  return items.map((item) => {
+    const consent = item.sourceId
+      ? consentsById.get(String(item.sourceId))
+      : consentsById.get(String(item.title));
+
+    if (!consent) {
+      return {
+        ...item,
+        title: item.title || "Consent details unavailable",
+        subtitle: item.subtitle || "Consent form capture.",
+      };
+    }
+
+    return {
+      ...item,
+      title: consent.name,
+      subtitle: item.subtitle || (consent.scope === "global" ? "Universal" : "Treatment-specific"),
+      sourceId: item.sourceId || consent.id,
+    };
+  });
+};
+
 const getDerivedConsentItems = (
   customProgram: CustomProgram,
   programs: Program[],
@@ -134,14 +190,14 @@ export function useCustomProgramBuilderList(
         stageNumber: 2,
         title: "Treatment Options",
         tone: "program",
-        items: getBuilderTreatmentOptions(customProgram),
+        items: enrichProgramItems(getBuilderTreatmentOptions(customProgram), programs),
       },
       {
         id: "stage-consents",
         stageNumber: 3,
         title: "Consents",
         tone: "consent",
-        items: getDerivedConsentItems(customProgram, programs, consents),
+        items: enrichConsentItems(getDerivedConsentItems(customProgram, programs, consents), consents),
       },
     ];
 
