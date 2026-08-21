@@ -113,6 +113,10 @@ test("canonicalizes every item into a fixed stage and removes duplicate system r
     "checkout-override",
     "checkout-duplicate",
   ]);
+  assert.equal(
+    result.find((candidate) => candidate.id === "question-1")?.sourceId,
+    "question-1",
+  );
 });
 
 test("materializes safe system rows for legacy flows", () => {
@@ -172,6 +176,8 @@ test("projects all stages and deduplicates automatic Program consents", () => {
   });
 
   assert.deepEqual(projection.stages.map((stage) => stage.items.length), [2, 2, 2]);
+  assert.equal(projection.checkoutStage.stageNumber, 4);
+  assert.equal(projection.checkoutStage.title, "Checkout");
   const automatic = projection.stages[2].items.find((candidate) => candidate.derived);
   assert.equal(automatic?.title, "consent-2");
   assert.deepEqual(automatic?.matchedProgramNames, ["program-1", "program-2"]);
@@ -185,7 +191,18 @@ test("keeps empty stages visible", () => {
     consents: [],
   });
   assert.deepEqual(projection.stages.map((stage) => stage.items.length), [0, 0, 0]);
+  assert.equal(projection.checkoutStage.stageNumber, 4);
   assert.equal(projection.totalItemCount, 2);
+});
+
+test("resolves blank block labels from catalogs instead of showing references", () => {
+  const namedProgram = { ...program("program-1"), name: "Branded GLP" };
+  const projection = buildAdminCustomProgramStages(
+    customProgram([{ ...item("row-1", "program", "program-1"), title: "", subtitle: "" }]),
+    { programs: [namedProgram], sections: [], consents: [] },
+  );
+  assert.equal(projection.stages[1].items[0]?.title, "Branded GLP");
+  assert.notEqual(projection.stages[1].items[0]?.title, "program-1");
 });
 
 console.log("All Custom Program stage tests passed.");

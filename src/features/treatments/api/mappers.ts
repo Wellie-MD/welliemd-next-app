@@ -303,6 +303,7 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   minAge: record.min_age,
   maxAge: record.max_age ?? undefined,
   includedProgramIds: record.included_program_ids || [],
+  includedPrograms: record.included_programs || [],
   sectionIds: record.section_ids || [],
   consentIds: record.consent_ids || [],
   checkoutOptions: record.checkout_options || [],

@@ -21,6 +21,37 @@ const records = <T>(data: PaginatedResponse<T> | T[]): T[] => Array.isArray(data
 
 export type ProgramSaveInput = Partial<Program> & Pick<Program, "id">;
 
+export interface EffectiveSectionItem {
+  id: string;
+  source_id?: string;
+  source_version?: number;
+  source_type: "global" | "visit_type" | "program" | "custom_program";
+  scope: "common" | "program";
+  name: string;
+  version?: number;
+  fields: Array<{ source_id?: string; label: string; kind: string }>;
+}
+
+export interface ProgramEffectiveContent {
+  visit_type: string;
+  consents: {
+    inherited_global: any[];
+    inherited_visit_type: any[];
+    explicit_program: any[];
+    inline_conditional: any[];
+  };
+  sections: {
+    inherited_global: EffectiveSectionItem[];
+    inherited_visit_type: EffectiveSectionItem[];
+    explicit_program: EffectiveSectionItem[];
+  };
+  blockers: Array<{
+    code: string;
+    message: string;
+    corrective_action?: { code: string; route: string };
+  }>;
+}
+
 export const programsApi = {
   list: async (): Promise<Program[]> => {
     const { data } = await axiosInstance.get<PaginatedResponse<ProgramRecord> | ProgramRecord[]>(
@@ -122,5 +153,14 @@ export const programsApi = {
       { questions: questions.map(questionToRecord) },
     );
     return (data || []).map(questionFromRecord);
+  },
+
+  getEffectiveContent: async (programId: string, stage?: string): Promise<ProgramEffectiveContent | undefined> => {
+    if (!isPersistedUuid(programId)) return undefined;
+    const { data } = await axiosInstance.get(
+      TREATMENT_PROGRAM_ENDPOINTS.effectiveContent(programId),
+      { params: stage ? { stage } : undefined },
+    );
+    return data;
   },
 };

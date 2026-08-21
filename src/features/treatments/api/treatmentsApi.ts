@@ -7,7 +7,6 @@ import type {
 import { customProgramsApi } from "./customProgramsApi";
 import { consentsApi, sectionsApi, treatmentTypesApi } from "./libraryApi";
 import { programsApi, type ProgramSaveInput } from "./programsApi";
-
 export const treatmentsApi = {
   listStats: async (): Promise<ContentLibraryStats> => {
     const [consents, sections, customPrograms, programs] = await Promise.all([
@@ -110,4 +109,5 @@ export const treatmentsApi = {
   saveCustomProgram: customProgramsApi.save,
   publishCustomProgram: customProgramsApi.publish,
   deleteCustomProgram: customProgramsApi.delete,
+  getProgramEffectiveContent: programsApi.getEffectiveContent,
 };

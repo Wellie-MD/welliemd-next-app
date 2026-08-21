@@ -5,6 +5,7 @@ import { toast } from "@/components/ui/use-toast";
 import {
   usePrograms,
   useProgramQuestions,
+  useProgramEffectiveContent,
   useConsents,
   useTreatmentTypes,
   useSaveProgram,
@@ -20,6 +21,7 @@ import { ProgramMetrics } from "@/features/treatments/programs/components/Progra
 import { ProgramCheckoutQuestions } from "@/features/treatments/programs/components/ProgramCheckoutQuestions";
 import { ProgramScreeningQuestions } from "@/features/treatments/programs/components/ProgramScreeningQuestions";
 import { ProgramConsents } from "@/features/treatments/programs/components/ProgramConsents";
+import { ProgramEffectiveSections } from "@/features/treatments/programs/components/ProgramEffectiveSections";
 import { ProgramEligibility } from "@/features/treatments/programs/components/ProgramEligibility";
 import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
 import { SectionSelectorModal } from "@/features/treatments/programs/components/SectionSelectorModal";
@@ -32,33 +34,7 @@ import { DeleteConfirmDialog } from "@/features/treatments/common/components";
 import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
 import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
-
-
-
-type ApiErrorData = {
-  detail?: string;
-  error?: string;
-  message?: string;
-};
-
-type ApiErrorLike = {
-  response?: {
-    data?: ApiErrorData;
-  };
-  message?: string;
-};
-
-const getApiErrorMessage = (error: unknown, fallback: string) => {
-  const apiError = error as ApiErrorLike;
-  return (
-    apiError.response?.data?.detail ||
-    apiError.response?.data?.error ||
-    apiError.response?.data?.message ||
-    apiError.message ||
-    fallback
-  );
-};
-
+import { getApiErrorMessage } from "@/features/treatments/programs/utils/programDetailErrors";
 const normalizeQuestionKind = (type: string): QuestionKind => {
   switch (type) {
     case "single":
@@ -80,15 +56,17 @@ export default function ProgramDetailPage() {
   const location = useLocation();
   const activeProgramId = programId || "program-glp-microdose";
 
-  // Queries
   const { data: programs = [], isLoading: isProgramsLoading } = usePrograms();
   const { data: allConsents = [] } = useConsents();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
 
   const foundProgram = programs.find((p) => p.id === activeProgramId || p.slug === activeProgramId);
   const { data: allQuestions = [], isLoading: isQuestionsLoading } = useProgramQuestions(foundProgram?.id || "");
+  const { data: effectiveContent } = useProgramEffectiveContent(
+    foundProgram?.id || "",
+    foundProgram?.phase
+  );
 
-  // Mutations
   const saveProgramMutation = useSaveProgram();
   const updateProgramSlugMutation = useUpdateProgramSlug();
   const saveProgramQuestionsMutation = useSaveProgramQuestions(foundProgram?.id || "");
@@ -110,7 +88,6 @@ export default function ProgramDetailPage() {
     );
   };
 
-  // Dialog control states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isScreeningOpen, setIsScreeningOpen] = useState(false);
   const [isSectionOpen, setIsSectionOpen] = useState(false);
@@ -119,7 +96,6 @@ export default function ProgramDetailPage() {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Edit target states
   const [editingCheckoutId, setEditingCheckoutId] = useState<string | null>(null);
   const [editingScreeningId, setEditingScreeningId] = useState<string | null>(null);
   const [checkoutDeleteId, setCheckoutDeleteId] = useState<string | null>(null);
@@ -148,12 +124,24 @@ export default function ProgramDetailPage() {
     choices: q.choices || ["Yes", "No"],
   }));
 
-  const programSpecificConsents = allConsents.filter(c => (foundProgram.consentIds || []).includes(c.id));
-  const universalConsents = allConsents.filter(c => c.scope === "global");
-  const consentsForUI = [
-    ...universalConsents.map(c => ({ id: c.id, name: c.name, scope: "global" })),
-    ...programSpecificConsents.map(c => ({ id: c.id, name: c.name, scope: "visit_type" })),
-  ];
+  const handleRemoveExplicitConsent = async (consentId: string) => {
+    if (!foundProgram) return;
+    const updatedIds = (foundProgram.consentIds || []).filter((id) => id !== consentId);
+    try {
+      await saveProgramMutation.mutateAsync({
+        id: foundProgram.id,
+        consentIds: updatedIds,
+        consentCount: updatedIds.length,
+      } as any);
+      toast({ title: "Consent removed from program" });
+    } catch (error) {
+      toast({
+        title: "Error removing consent",
+        description: getApiErrorMessage(error, "The consent could not be removed."),
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleCopySlug = () => {
     void navigator.clipboard.writeText(foundProgram.slug);
@@ -408,8 +396,15 @@ export default function ProgramDetailPage() {
             onViewAll={() => navigate(ADMIN_TREATMENT_ROUTES.programQuestions(foundProgram.id))}
           />
           <ProgramConsents
-            consents={consentsForUI}
+            visitType={effectiveContent?.visit_type || foundProgram.treatmentType}
+            groupedConsents={effectiveContent?.consents}
             onAddConsent={() => setIsConsentOpen(true)}
+            onRemoveConsent={handleRemoveExplicitConsent}
+          />
+          <ProgramEffectiveSections
+            visitType={effectiveContent?.visit_type || foundProgram.visitType}
+            sections={effectiveContent?.sections}
+            blockers={effectiveContent?.blockers}
           />
           <ProgramEligibility
             sexRequirement={foundProgram.sexRequirement || "any"}

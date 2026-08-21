@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { treatmentConfigurationApi as treatmentsApi } from "@/features/treatments/api/configurationApi";
 import type {
   CommonSection,
@@ -19,6 +19,8 @@ export const treatmentQueryKeys = {
   programs: () => [...treatmentQueryKeys.all, "programs"] as const,
   programQuestions: (programId: string) =>
     [...treatmentQueryKeys.programs(), programId, "questions"] as const,
+  programEffectiveContent: (programId: string, stage?: string) =>
+    [...treatmentQueryKeys.programs(), programId, "effective-content", stage || ""] as const,
   customPrograms: () => [...treatmentQueryKeys.all, "custom-programs"] as const,
   customProgram: (id: string) => [...treatmentQueryKeys.customPrograms(), id] as const,
   customProgramValidation: (id: string) => [...treatmentQueryKeys.customProgram(id), "validation"] as const,
@@ -52,6 +54,14 @@ export const useProgramQuestions = (programId: string) =>
     enabled: isPersistedUuid(programId),
   });
 
+export const useProgramEffectiveContent = (programId: string, stage?: string) =>
+  useQuery({
+    queryKey: treatmentQueryKeys.programEffectiveContent(programId, stage),
+    queryFn: () => treatmentsApi.getProgramEffectiveContent(programId, stage),
+    enabled: isPersistedUuid(programId),
+  });
+
+
 export const useCustomPrograms = () =>
   useQuery({
     queryKey: treatmentQueryKeys.customPrograms(),
@@ -84,6 +94,27 @@ export const useSectionFields = (sectionId: string) =>
     queryKey: treatmentQueryKeys.sectionFields(sectionId),
     queryFn: () => treatmentsApi.listSectionFields(sectionId),
   });
+
+/**
+ * Fields for several Sections at once, keyed by section id.
+ *
+ * The Custom Program matching editor needs every shared Section field placed in
+ * the flow as a selectable rule input, so it cannot fetch one Section at a time.
+ */
+export const useSectionFieldsMap = (sectionIds: string[]) => {
+  const unique = Array.from(new Set(sectionIds.filter(Boolean)));
+  const results = useQueries({
+    queries: unique.map((sectionId) => ({
+      queryKey: treatmentQueryKeys.sectionFields(sectionId),
+      queryFn: () => treatmentsApi.listSectionFields(sectionId),
+    })),
+  });
+  const map: Record<string, CommonSectionField[]> = {};
+  unique.forEach((sectionId, index) => {
+    map[sectionId] = (results[index]?.data as CommonSectionField[] | undefined) || [];
+  });
+  return map;
+};
 
 export const useConsents = () =>
   useQuery({

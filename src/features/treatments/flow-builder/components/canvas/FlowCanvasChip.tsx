@@ -101,7 +101,7 @@ export function FlowCanvasChip({ item, flowItems, onDragStart, onDragEnd, onInse
       <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider opacity-85">
         {presentation.icon}
         <span>{presentation.typeLabel}</span>
-        {(item.id === "sys-matched" || item.kind === "routing_question") && <button type="button" className="ml-auto rounded border border-blue-200 bg-white px-1.5 py-0.5 text-[8px] text-blue-700" onClick={(event) => { event.stopPropagation(); onEditSystemItem?.(item); }}>Edit</button>}
+        {item.kind === "routing_question" && <button type="button" className="ml-auto rounded border border-blue-200 bg-white px-1.5 py-0.5 text-[8px] text-blue-700" onClick={(event) => { event.stopPropagation(); onEditSystemItem?.(item); }}>Edit</button>}
       </div>
       <div className="line-clamp-2 text-[11.5px] font-bold leading-snug">{item.title}</div>
       <div className="truncate text-[9.5px] leading-none opacity-65">{item.subtitle}</div>

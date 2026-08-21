@@ -8,6 +8,8 @@ export interface FlowCanvasSystemItem {
   isSystem?: boolean;
   isStart?: boolean;
   isEnd?: boolean;
+  /** Derived runtime presentation, never authored configuration. */
+  isDerived?: boolean;
 }
 
 export interface TreatmentTrack {
@@ -49,7 +51,10 @@ export function buildFlowGraph({ flowItems, getConsentScope, getConsentVisitType
     { id: "sys-start", kind: "start", title: "Start", subtitle: "Patient enters", isStart: true },
     { id: "sys-auth", kind: "authentication", title: "Patient Authentication", subtitle: "Email first, then sign in or register", isSystem: true },
     ...routingItems,
-    { id: "sys-matched", kind: "matched_summary", title: "Matched Programs", subtitle: "Based on what you shared · Multi-select", isSystem: true },
+    // Derived runtime boundary, not authored configuration. Matching is owned
+    // per Program inclusion (CustomProgramProgram.matching_rule) and edited
+    // from its own Stage 2 row, so this node is a passive summary only.
+    { id: "sys-matched", kind: "matched_summary", title: "Matched Programs", subtitle: "Derived at runtime from each Program's matching rule", isSystem: true, isDerived: true },
     ...sectionItems,
   ];
 

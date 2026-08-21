@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { AddToFlowDrawer } from "@/features/treatments/flow-builder/components/modals/AddToFlowDrawer";
 import { CustomProgramFlowBuilder } from "@/features/treatments/flow-builder/components/CustomProgramFlowBuilder";
 import { PrototypeNotice } from "@/features/treatments/common/components";
@@ -95,6 +96,9 @@ export default function CustomProgramBuilderPage() {
       id: createMockId(item.kind),
       ...flowItemExtras,
     };
+    if (newItem.kind === "routing_question" && !newItem.sourceId) {
+      newItem.sourceId = newItem.id;
+    }
 
     items.push(newItem);
 
@@ -175,6 +179,16 @@ export default function CustomProgramBuilderPage() {
 
   return (
     <div className="h-full max-h-screen flex flex-col p-6 space-y-4">
+      <div className="shrink-0">
+        <Link
+          to="/dashboard/treatments/custom-programs"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+          aria-label="Back to Custom Programs"
+          title="Back to Custom Programs"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+      </div>
       <PrototypeNotice>
         Builder matches the prototype list view, flow view, add-to-flow drawer, slug editing, preview, and save controls.
       </PrototypeNotice>
@@ -186,18 +200,44 @@ export default function CustomProgramBuilderPage() {
             {attachedProgramBlockers.map(({ programId, name, blockers }) => (
               <div key={programId}>
                 <div className="font-semibold">{name}</div>
-                <ul className="ml-4 list-disc text-amber-800">
-                  {blockers.map((blocker, index) => (
-                    <li key={`${blocker.code}-${index}`}>{blockerMessage(blocker.message)}</li>
-                  ))}
+                <ul className="ml-4 list-disc text-amber-800 space-y-1 mt-1">
+                  {blockers.map((blocker, index) => {
+                    const actionRoute = blocker.corrective_action?.route || (blocker.source_id ? `/dashboard/treatments/programs/${blocker.source_id}` : null);
+                    return (
+                      <li key={`${blocker.code}-${index}`} className="flex items-center gap-2">
+                        <span>{blockerMessage(blocker.message)}</span>
+                        {actionRoute && (
+                          <Link
+                            to={actionRoute}
+                            className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-900 underline hover:text-amber-950"
+                          >
+                            Fix in Editor <ExternalLink className="h-3 w-3 inline" />
+                          </Link>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}
             {generalBlockers.length > 0 && (
-              <ul className="ml-4 list-disc text-amber-800">
-                {generalBlockers.map((blocker, index) => (
-                  <li key={`${blocker.code}-${index}`}>{blockerMessage(blocker.message)}</li>
-                ))}
+              <ul className="ml-4 list-disc text-amber-800 space-y-1 mt-1">
+                {generalBlockers.map((blocker, index) => {
+                  const actionRoute = blocker.corrective_action?.route || null;
+                  return (
+                    <li key={`${blocker.code}-${index}`} className="flex items-center gap-2">
+                      <span>{blockerMessage(blocker.message)}</span>
+                      {actionRoute && (
+                        <Link
+                          to={actionRoute}
+                          className="inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-900 underline hover:text-amber-950"
+                        >
+                          Fix <ExternalLink className="h-3 w-3 inline" />
+                        </Link>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

@@ -16,6 +16,7 @@ interface CustomProgramCardProps {
 export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, onViewCatalog }: CustomProgramCardProps) {
   const isMulti = isCustomProgramMulti(customProgram);
   const runtimeSummary = customProgram.runtimeSummary;
+  const destinations = customProgram.includedPrograms || [];
 
   const renderIcon = () => {
     const iconClass = "h-[17px] w-[17px]";
@@ -142,7 +143,25 @@ export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, 
       </div>
 
       {/* Connected Catalog Footer */}
-      {!customProgram.visitType ? (
+      {destinations.length > 0 ? (
+        <div className="flex-1 bg-[#fafbfc] p-3.5 rounded-b-xl">
+          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+            Routes into · {destinations.length} treatment{destinations.length === 1 ? "" : "s"}
+          </div>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {destinations.map((program) => (
+              <span key={program.id} className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700">
+                {program.name}
+              </span>
+            ))}
+            {(runtimeSummary?.consentCount ?? 0) > 0 && (
+              <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700">
+                {runtimeSummary?.consentCount} effective consents
+              </span>
+            )}
+          </div>
+        </div>
+      ) : !customProgram.visitType ? (
         <div className="flex-1 flex items-center gap-1.5 bg-[#fafbfc] px-3.5 py-2.5 text-[11.5px] text-slate-400 italic rounded-b-xl">
           <Info className="h-3.5 w-3.5 shrink-0 text-slate-400" />
           <span>Routes to multiple visit types — see destinations</span>
