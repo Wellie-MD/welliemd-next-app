@@ -1,7 +1,7 @@
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyStateCard } from "@/features/treatments/common/components";
-import type { CustomProgram } from "@/features/treatments/types";
+import type { CustomProgram, Program } from "@/features/treatments/types";
 import type { CustomProgramsViewMode } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { CustomProgramCard } from "./CustomProgramCard";
 import { CustomProgramTable } from "./CustomProgramTable";
@@ -16,6 +16,7 @@ interface CustomProgramsContentProps {
   onCopyStartUrl?: (program: CustomProgram) => void;
   onSaveSlug?: (program: CustomProgram, slugOverride: string) => Promise<void> | void;
   onClearFilters: () => void;
+  programs?: Program[];
 }
 
 function ProgramGroup({
@@ -24,12 +25,14 @@ function ProgramGroup({
   programs,
   onOpenBuilder,
   onPreview,
+  programsCatalog,
 }: {
   title: string;
   description: string;
   programs: CustomProgram[];
   onOpenBuilder?: (program: CustomProgram) => void;
   onPreview?: (program: CustomProgram) => void;
+  programsCatalog: Program[];
 }) {
   if (programs.length === 0) return null;
   return (
@@ -46,6 +49,7 @@ function ProgramGroup({
           <CustomProgramCard
             key={customProgram.id}
             customProgram={customProgram}
+            programs={programsCatalog}
             onOpenBuilder={onOpenBuilder}
             onPreview={onPreview}
           />
@@ -65,6 +69,7 @@ export function CustomProgramsContent({
   onCopyStartUrl,
   onSaveSlug,
   onClearFilters,
+  programs = [],
 }: CustomProgramsContentProps) {
   if (customPrograms.length === 0) {
     return <EmptyStateCard title="No custom programs yet" description="Customize intake programs for clients." />;
@@ -91,6 +96,7 @@ export function CustomProgramsContent({
         onPreview={onPreview}
         onCopyStartUrl={onCopyStartUrl}
         onSaveSlug={onSaveSlug}
+        programs={programs}
       />
     );
   }
@@ -101,6 +107,7 @@ export function CustomProgramsContent({
         title="Multi-treatment forms"
         description="Route patients to one or more treatments based on their answers"
         programs={groupedPrograms.multi}
+        programsCatalog={programs}
         onOpenBuilder={onOpenBuilder}
         onPreview={onPreview}
       />
@@ -108,6 +115,7 @@ export function CustomProgramsContent({
         title="Single-treatment forms"
         description="Each form customizes one treatment with its own eligibility screening"
         programs={groupedPrograms.single}
+        programsCatalog={programs}
         onOpenBuilder={onOpenBuilder}
         onPreview={onPreview}
       />

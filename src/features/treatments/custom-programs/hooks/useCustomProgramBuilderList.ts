@@ -28,6 +28,34 @@ const getBuilderQuestions = (customProgram: CustomProgram) => {
   return [];
 };
 
+const formatQuestionKind = (value?: string) =>
+  ({
+    single: "Single Choice",
+    single_choice: "Single Choice",
+    multiple: "Multiple Choice",
+    multiple_choice: "Multiple Choice",
+    yes_no: "Yes / No",
+  }[String(value)] || String(value || "text")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase()));
+
+const getQuestionSubtitle = (item: CustomProgramBuilderStageItem) => {
+  const optionCount = item.choiceCount
+    ?? item.answerOptions?.length
+    ?? (item.questionKind === "yes_no" ? 2 : 0);
+  const optionSummary = optionCount
+    ? ` · ${optionCount} option${optionCount === 1 ? "" : "s"}`
+    : "";
+  return optionSummary ? `${formatQuestionKind(item.questionKind)}${optionSummary}` : item.subtitle || formatQuestionKind(item.questionKind);
+};
+
+const enrichQuestionItems = (items: CustomProgramBuilderStageItem[]) =>
+  items.map((item) => ({
+    ...item,
+    title: item.title || "Question details unavailable",
+    subtitle: getQuestionSubtitle(item),
+  }));
+
 const getBuilderSections = (customProgram: CustomProgram) => {
   if (customProgram.builderSections?.length) return customProgram.builderSections;
   return customProgram.flowItems
@@ -47,6 +75,62 @@ const getBuilderConsents = (customProgram: CustomProgram) => {
   return customProgram.flowItems
     .filter((item) => item.kind === "consent")
     .map((item) => toFallbackStageItem(item, true));
+};
+
+const getProgramSubtitle = (program: Program) =>
+  program.checkoutQuestionCount > 0
+    ? "Routed treatment · follow-up inherited"
+    : "Routed treatment · no checkout questions configured";
+
+const enrichProgramItems = (items: CustomProgramBuilderStageItem[], programs: Program[]) => {
+  const programsById = new Map(programs.map((program) => [String(program.id), program]));
+
+  return items.map((item) => {
+    const program = item.sourceId
+      ? programsById.get(String(item.sourceId))
+      : programsById.get(String(item.title));
+
+    if (!program) {
+      return {
+        ...item,
+        title: item.title || "Program details unavailable",
+        subtitle: item.subtitle || "Program record unavailable",
+      };
+    }
+
+    return {
+      ...item,
+      title: program.name,
+      subtitle: item.subtitle || getProgramSubtitle(program),
+      treatmentTypeKey: item.treatmentTypeKey || program.treatmentTypeKey,
+      sourceId: item.sourceId || program.id,
+    };
+  });
+};
+
+const enrichConsentItems = (items: CustomProgramBuilderStageItem[], consents: ClientTreatmentConsent[]) => {
+  const consentsById = new Map(consents.map((consent) => [String(consent.id), consent]));
+
+  return items.map((item) => {
+    const consent = item.sourceId
+      ? consentsById.get(String(item.sourceId))
+      : consentsById.get(String(item.title));
+
+    if (!consent) {
+      return {
+        ...item,
+        title: item.title || "Consent details unavailable",
+        subtitle: item.subtitle || "Consent form capture.",
+      };
+    }
+
+    return {
+      ...item,
+      title: consent.name,
+      subtitle: item.subtitle || (consent.scope === "global" ? "Universal" : "Treatment-specific"),
+      sourceId: item.sourceId || consent.id,
+    };
+  });
 };
 
 const getDerivedConsentItems = (
@@ -127,21 +211,21 @@ export function useCustomProgramBuilderList(
         stageNumber: 1,
         title: "Custom Questions & Sections",
         tone: "question",
-        items: [...getBuilderQuestions(customProgram), ...getBuilderSections(customProgram)],
+        items: [...enrichQuestionItems(getBuilderQuestions(customProgram)), ...getBuilderSections(customProgram)],
       },
       {
         id: "stage-treatment-options",
         stageNumber: 2,
         title: "Treatment Options",
         tone: "program",
-        items: getBuilderTreatmentOptions(customProgram),
+        items: enrichProgramItems(getBuilderTreatmentOptions(customProgram), programs),
       },
       {
         id: "stage-consents",
         stageNumber: 3,
         title: "Consents",
         tone: "consent",
-        items: getDerivedConsentItems(customProgram, programs, consents),
+        items: enrichConsentItems(getDerivedConsentItems(customProgram, programs, consents), consents),
       },
     ];
 
