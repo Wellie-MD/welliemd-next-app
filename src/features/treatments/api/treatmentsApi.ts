@@ -68,7 +68,12 @@ type CustomProgramApiRecord = {
   section_ids: string[];
   consent_ids: string[];
   checkout_options: CustomProgram["checkoutOptions"];
-  flow_items: Array<CustomProgramFlowItem & Partial<CustomProgramBuilderStageItem>>;
+  flow_items: Array<CustomProgramFlowItem & Partial<CustomProgramBuilderStageItem> & {
+    choices?: string[];
+    question_kind?: CustomProgramBuilderStageItem["questionKind"];
+    answer_options?: string[];
+    choice_count?: number;
+  }>;
   visit_type?: string | null;
   onboarding_name?: string;
   question_count?: number;
@@ -218,20 +223,26 @@ const isBuilderQuestionFlowItem = (item: CustomProgramApiRecord["flow_items"][nu
 
 const mapBuilderQuestionFromFlowItem = (
   item: CustomProgramApiRecord["flow_items"][number]
-): CustomProgramBuilderStageItem => ({
-  id: item.id,
-  kind: "question",
-  title: item.title,
-  subtitle: item.subtitle,
-  source: item.source || "client",
-  locked: item.locked ?? false,
-  required: item.required ?? true,
-  questionKind: item.questionKind || "single_choice",
-  choiceCount: item.choiceCount,
-  answerOptions: item.answerOptions || [],
-  treatmentTypeKey: item.treatmentTypeKey,
-  sourceId: item.sourceId,
-});
+): CustomProgramBuilderStageItem => {
+  const questionKind = item.questionKind || item.question_kind || "single_choice";
+  const answerOptions = item.answerOptions || item.answer_options || item.choices || [];
+  const choiceCount = item.choiceCount ?? item.choice_count ?? (answerOptions.length || undefined);
+
+  return {
+    id: item.id,
+    kind: "question",
+    title: item.title,
+    subtitle: item.subtitle,
+    source: item.source || "client",
+    locked: item.locked ?? false,
+    required: item.required ?? true,
+    questionKind,
+    choiceCount,
+    answerOptions,
+    treatmentTypeKey: item.treatmentTypeKey,
+    sourceId: item.sourceId,
+  };
+};
 
 const mapBuilderTreatmentOptionFromFlowItem = (
   item: CustomProgramApiRecord["flow_items"][number]

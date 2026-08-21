@@ -28,6 +28,34 @@ const getBuilderQuestions = (customProgram: CustomProgram) => {
   return [];
 };
 
+const formatQuestionKind = (value?: string) =>
+  ({
+    single: "Single Choice",
+    single_choice: "Single Choice",
+    multiple: "Multiple Choice",
+    multiple_choice: "Multiple Choice",
+    yes_no: "Yes / No",
+  }[String(value)] || String(value || "text")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase()));
+
+const getQuestionSubtitle = (item: CustomProgramBuilderStageItem) => {
+  const optionCount = item.choiceCount
+    ?? item.answerOptions?.length
+    ?? (item.questionKind === "yes_no" ? 2 : 0);
+  const optionSummary = optionCount
+    ? ` · ${optionCount} option${optionCount === 1 ? "" : "s"}`
+    : "";
+  return optionSummary ? `${formatQuestionKind(item.questionKind)}${optionSummary}` : item.subtitle || formatQuestionKind(item.questionKind);
+};
+
+const enrichQuestionItems = (items: CustomProgramBuilderStageItem[]) =>
+  items.map((item) => ({
+    ...item,
+    title: item.title || "Question details unavailable",
+    subtitle: getQuestionSubtitle(item),
+  }));
+
 const getBuilderSections = (customProgram: CustomProgram) => {
   if (customProgram.builderSections?.length) return customProgram.builderSections;
   return customProgram.flowItems
@@ -183,7 +211,7 @@ export function useCustomProgramBuilderList(
         stageNumber: 1,
         title: "Custom Questions & Sections",
         tone: "question",
-        items: [...getBuilderQuestions(customProgram), ...getBuilderSections(customProgram)],
+        items: [...enrichQuestionItems(getBuilderQuestions(customProgram)), ...getBuilderSections(customProgram)],
       },
       {
         id: "stage-treatment-options",
