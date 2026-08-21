@@ -110,6 +110,67 @@ function effectiveSectionFields(
     .filter((question) => Boolean(question.elementConfig?.sourceFieldId));
 }
 
+type SectionProjection = {
+  clinical: ProgramQuestion[];
+  consents: ProgramQuestion[];
+  checkout: ProgramQuestion[];
+};
+
+function projectEffectiveSectionFields(
+  sections: Array<{ section: EffectiveSectionItem; sourceType: string }>,
+  visitType: string,
+  authoredSourceIds: Set<string>,
+): SectionProjection {
+  const projection: SectionProjection = { clinical: [], consents: [], checkout: [] };
+  const byId = new Map(sections.map((entry) => [sourceId(entry.section), entry]));
+  const referencedIds = new Set<string>();
+  sections.forEach(({ section }) => {
+    (section.fields || []).forEach((field) => {
+      if (String(field.kind || "").toLowerCase() !== "section") return;
+      const configuration = field.configuration || {};
+      const reference = String(configuration.sourceSectionId || configuration.sourceId || "");
+      if (reference) referencedIds.add(reference);
+    });
+  });
+
+  const emittedFields = new Set<string>();
+  const expandedSections = new Set<string>();
+  const expand = (entry: { section: EffectiveSectionItem; sourceType: string }, ancestors: Set<string>) => {
+    const sectionKey = `${sourceId(entry.section)}:v${entry.section.source_version || entry.section.version || 1}`;
+    if (ancestors.has(sectionKey) || expandedSections.has(sectionKey)) return;
+    const nextAncestors = new Set(ancestors).add(sectionKey);
+    expandedSections.add(sectionKey);
+
+    [...(entry.section.fields || [])]
+      .sort((left, right) => (left.order || 0) - (right.order || 0))
+      .forEach((field) => {
+        const configuration = field.configuration || {};
+        if (String(field.kind || "").toLowerCase() === "section") {
+          const reference = String(configuration.sourceSectionId || configuration.sourceId || "");
+          const target = byId.get(reference);
+          if (target) expand(target, nextAncestors);
+          return;
+        }
+        const [question] = effectiveSectionFields(
+          { ...entry.section, fields: [field] },
+          entry.sourceType,
+          visitType,
+        );
+        const fieldId = String(question?.elementConfig?.sourceFieldId || "");
+        if (!question || !fieldId || authoredSourceIds.has(fieldId) || emittedFields.has(fieldId)) return;
+        emittedFields.add(fieldId);
+        authoredSourceIds.add(fieldId);
+        if (question.kind === "consent") projection.consents.push(question);
+        else if (question.kind === "checkout") projection.checkout.push(question);
+        else projection.clinical.push(question);
+      });
+  };
+
+  const roots = sections.filter(({ section }) => !referencedIds.has(sourceId(section)));
+  (roots.length ? roots : sections).forEach((entry) => expand(entry, new Set()));
+  return projection;
+}
+
 /**
  * Project resolver-owned inherited content into the authoring list without
  * creating ProgramQuestion, ProgramConsent, or ProgramSection rows.
@@ -137,39 +198,36 @@ export function projectEffectiveProgramFlow(
       nodes.push(effectiveQuestion(item, kind, sourceType, effectiveContent.visit_type));
     });
   };
-  const sectionFieldKeys = new Set<string>();
-  const addSections = (items: EffectiveSectionItem[], sourceType: string) => {
-    items.forEach((section) => {
-      effectiveSectionFields(section, sourceType, effectiveContent.visit_type).forEach((question) => {
-        const fieldId = String(question.elementConfig?.sourceFieldId || "");
-        const key = `${sourceId(section)}:v${section.source_version || section.version || 1}:${fieldId}`;
-        if (!fieldId || sectionFieldKeys.has(key) || seen.has(fieldId)) return;
-        sectionFieldKeys.add(key);
-        seen.add(fieldId);
-        nodes.push(question);
-      });
-    });
-  };
 
   // Authentication remains the outer boundary. Shared Sections precede
   // clinical questions; effective Consents follow screening before Checkout.
   const authentication = authoredQuestions.filter((question) => question.kind === "patient_authentication");
   const checkout = authoredQuestions.filter((question) => question.kind === "checkout");
+  const authoredConsents = authoredQuestions.filter((question) => question.kind === "consent");
   const clinical = authoredQuestions.filter(
-    (question) => question.kind !== "patient_authentication" && question.kind !== "checkout",
+    (question) => question.kind !== "patient_authentication" && question.kind !== "checkout" && question.kind !== "consent",
   );
 
-  addSections(effectiveContent.sections.inherited_global, "global");
-  addSections(effectiveContent.sections.inherited_visit_type, "visit_type");
-  addSections(effectiveContent.sections.explicit_program, "program");
-  const sections = [...nodes];
-  nodes.length = 0;
+  const sectionProjection = projectEffectiveSectionFields([
+    ...effectiveContent.sections.inherited_global.map((section) => ({ section, sourceType: "global" })),
+    ...effectiveContent.sections.inherited_visit_type.map((section) => ({ section, sourceType: "visit_type" })),
+    ...effectiveContent.sections.explicit_program.map((section) => ({ section, sourceType: "program" })),
+  ], effectiveContent.visit_type, seen);
   addGroup(effectiveContent.consents.inherited_global as EffectiveNode[], "consent", "global");
   addGroup(effectiveContent.consents.inherited_visit_type as EffectiveNode[], "consent", "visit_type");
   addGroup(effectiveContent.consents.explicit_program as EffectiveNode[], "consent", "program");
   addGroup(effectiveContent.consents.inline_conditional as EffectiveNode[], "consent", "inline");
 
-  return [...authentication, ...sections, ...clinical, ...nodes, ...checkout].map(
+  return [
+    ...authentication,
+    ...sectionProjection.clinical,
+    ...clinical,
+    ...sectionProjection.consents,
+    ...authoredConsents,
+    ...nodes,
+    ...sectionProjection.checkout,
+    ...checkout,
+  ].map(
     (question, index) => ({ ...question, order: index + 1 }),
   );
 }

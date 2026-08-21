@@ -40,6 +40,19 @@ const effectiveContent: ProgramEffectiveContent = {
       fields: [
         { source_id: "field-1", label: "Current medical conditions", kind: "medical_conditions", required: true, order: 1, mapped_field: "medicalConditions" },
         { source_id: "field-2", label: "Current medications", kind: "self_reported_meds", required: false, order: 2, mapped_field: "selfReportedMeds" },
+        { source_id: "field-ref", label: "Referenced Clinical Section", kind: "section", required: true, order: 3, configuration: { sourceSectionId: "section-2" } },
+        { source_id: "field-checkout", label: "Product Options — NAD+", kind: "checkout", required: true, order: 4 },
+        { source_id: "field-consent", label: "NAD+ Consent", kind: "consent", required: true, order: 5 },
+      ],
+    }, {
+      id: "section-2",
+      source_id: "section-2",
+      source_type: "global",
+      scope: "common",
+      name: "Referenced Clinical Section",
+      version: 1,
+      fields: [
+        { source_id: "field-3", label: "Date of Birth", kind: "date", required: true, order: 1 },
       ],
     }],
     inherited_visit_type: [],
@@ -68,4 +81,13 @@ assert.match(html, /Self Reported Meds/);
 assert.match(html, /Optional/);
 assert.match(html, /System/);
 assert.doesNotMatch(html, />Medical Baseline</);
+assert.doesNotMatch(html, />Referenced Clinical Section</);
+const clinicalIndex = html.indexOf("Date of Birth");
+const sectionConsentIndex = html.indexOf("NAD+ Consent");
+const effectiveConsentIndex = html.indexOf("Truthfulness Consent");
+const checkoutIndex = html.indexOf("Product Options — NAD+");
+assert.ok(clinicalIndex > 0);
+assert.ok(sectionConsentIndex > clinicalIndex);
+assert.ok(effectiveConsentIndex > sectionConsentIndex);
+assert.ok(checkoutIndex > effectiveConsentIndex);
 console.log("PASS Program questions page projects inherited effective content");
