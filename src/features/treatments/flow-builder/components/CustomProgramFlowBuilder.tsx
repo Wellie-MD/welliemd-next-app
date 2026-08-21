@@ -103,6 +103,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
         programs={programs}
         sources={matchingSources}
         onSave={onSaveMatching}
+        onOpenPreview={() => builder.setIsTestModalOpen(true)}
       />
       <QuestionEditorDialog
         open={Boolean(editingQuestion)}
