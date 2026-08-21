@@ -23,6 +23,8 @@ export const treatmentQueryKeys = {
     [...treatmentQueryKeys.programs(), programId, "effective-content", stage || ""] as const,
   customPrograms: () => [...treatmentQueryKeys.all, "custom-programs"] as const,
   customProgram: (id: string) => [...treatmentQueryKeys.customPrograms(), id] as const,
+  customProgramEffectiveContent: (id: string) =>
+    [...treatmentQueryKeys.customProgram(id), "effective-content"] as const,
   customProgramValidation: (id: string) => [...treatmentQueryKeys.customProgram(id), "validation"] as const,
   sections: () => [...treatmentQueryKeys.all, "sections"] as const,
   sectionFields: (sectionId: string) => [...treatmentQueryKeys.sections(), sectionId, "fields"] as const,
@@ -72,6 +74,13 @@ export const useCustomProgram = (id: string) =>
   useQuery({
     queryKey: treatmentQueryKeys.customProgram(id),
     queryFn: () => treatmentsApi.getCustomProgram(id),
+    enabled: isPersistedUuid(id),
+  });
+
+export const useCustomProgramEffectiveContent = (id: string) =>
+  useQuery({
+    queryKey: treatmentQueryKeys.customProgramEffectiveContent(id),
+    queryFn: () => treatmentsApi.getCustomProgramEffectiveContent(id),
     enabled: isPersistedUuid(id),
   });
 

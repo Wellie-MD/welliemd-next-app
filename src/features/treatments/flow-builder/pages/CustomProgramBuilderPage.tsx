@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/use-toast";
 import {
   useConsents,
   useCustomProgram,
+  useCustomProgramEffectiveContent,
   useCustomProgramValidation,
   usePrograms,
   usePublishCustomProgram,
@@ -40,6 +41,7 @@ const staleBuilderRevisionMessage = (error: unknown): string | null => {
 export default function CustomProgramBuilderPage() {
   const { customProgramId = "custom-universal" } = useParams();
   const { data: customProgram, isLoading, isError, refetch } = useCustomProgram(customProgramId);
+  const effectiveContentQuery = useCustomProgramEffectiveContent(customProgramId);
   const { data: programs = [] } = usePrograms();
   const { data: sections = [] } = useSections();
   const { data: consents = [] } = useConsents();
@@ -51,27 +53,27 @@ export default function CustomProgramBuilderPage() {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  if (isLoading) {
+  if (isLoading || effectiveContentQuery.isLoading) {
     return (
       <div className="p-6">
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-6 w-6 animate-spin mr-2 text-slate-500" />
-          <p className="text-sm text-slate-600">Loading custom program...</p>
+          <p className="text-sm text-slate-600">Loading complete effective flow...</p>
         </div>
       </div>
     );
   }
 
-  if (isError) {
+  if (isError || effectiveContentQuery.isError) {
     return (
       <div className="p-6 space-y-3">
-        <div>Failed to load the custom program.</div>
-        <Button onClick={() => refetch()}>Retry</Button>
+        <div>Failed to load the complete effective Custom Program flow. Inherited content is not being hidden.</div>
+        <Button onClick={() => { refetch(); effectiveContentQuery.refetch(); }}>Retry</Button>
       </div>
     );
   }
 
-  if (!customProgram) {
+  if (!customProgram || !effectiveContentQuery.data) {
     return <div className="p-6">Custom program not found.</div>;
   }
 
@@ -270,6 +272,7 @@ export default function CustomProgramBuilderPage() {
           programs={programs}
           sections={sections}
           consents={consents}
+          effectiveContent={effectiveContentQuery.data}
           onSaveMatching={async (programMatchingRules) => {
             try {
               await saveCustomProgramMutation.mutateAsync(

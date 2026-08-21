@@ -6,6 +6,7 @@ import type {
   ProgramQuestion,
   ProgramStatus,
   TreatmentType,
+  QuestionKind,
 } from "@/features/treatments/types";
 import type { PaginatedResponse, ProgramQuestionRecord, ProgramRecord } from "./contracts";
 import {
@@ -29,7 +30,18 @@ export interface EffectiveSectionItem {
   scope: "common" | "program";
   name: string;
   version?: number;
-  fields: Array<{ source_id?: string; label: string; kind: string }>;
+  fields: Array<{
+    id?: string;
+    source_id?: string;
+    source_field_id?: string;
+    label: string;
+    kind: QuestionKind | string;
+    required?: boolean;
+    order?: number;
+    mapped_field?: string;
+    configuration?: Record<string, unknown>;
+    section_origin?: { source_id: string; name: string; version: number };
+  }>;
 }
 
 export interface ProgramEffectiveContent {

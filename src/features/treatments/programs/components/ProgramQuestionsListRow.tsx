@@ -33,6 +33,7 @@ export function ProgramQuestionsListRow({
   const isConsent = question.kind === "consent";
   const isSection = question.kind === "section";
   const isSystem = question.elementConfig?.system === true;
+  const isEffectiveSectionField = question.elementConfig?.effectiveSectionField === true;
 
   const {
     attributes,
@@ -90,7 +91,7 @@ export function ProgramQuestionsListRow({
   // are owned by the program and must use the normal question editor.
   const hasLinkedConsent = isConsent && Boolean(question.elementConfig?.sourceId);
   const handleEdit = () => {
-    if (isSection) {
+    if (isSection || isEffectiveSectionField) {
       navigateToSection();
     } else if (hasLinkedConsent) {
       navigateToConsent();
@@ -184,7 +185,7 @@ export function ProgramQuestionsListRow({
                 handleEdit();
               }}
               className="h-6 w-6 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-              title={isSection ? "Go to Section" : hasLinkedConsent ? "Go to Consent" : "Edit Element"}
+              title={isSection || isEffectiveSectionField ? "Go to Section" : hasLinkedConsent ? "Go to Consent" : "Edit Element"}
             >
               <Pencil className="h-3 w-3" />
             </Button>

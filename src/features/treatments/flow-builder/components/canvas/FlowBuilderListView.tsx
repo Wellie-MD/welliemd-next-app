@@ -22,6 +22,7 @@ import type {
   ConsentForm,
   CustomProgram,
   CustomProgramFlowItem,
+  EffectiveCustomProgramContent,
   Program,
 } from "@/features/treatments/types";
 import {
@@ -50,6 +51,7 @@ interface FlowBuilderListViewProps {
   programs: Program[];
   sections: CommonSection[];
   consents: ConsentForm[];
+  effectiveContent: EffectiveCustomProgramContent;
   onUpdateFlow?: (items: CustomProgramFlowItem[]) => void;
   onEditQuestion: (item: CustomProgramFlowItem) => void;
   onOpenPreview: () => void;
@@ -342,12 +344,18 @@ export function FlowBuilderListView({
   programs,
   sections,
   consents,
+  effectiveContent,
   onUpdateFlow,
   onEditQuestion,
   onOpenPreview,
   onConfigureMatching,
 }: FlowBuilderListViewProps) {
-  const builderList = buildAdminCustomProgramStages(customProgram, { programs, sections, consents });
+  const builderList = buildAdminCustomProgramStages(customProgram, {
+    programs,
+    sections,
+    consents,
+    effectiveContent,
+  });
   let nextItemNumber = 2;
 
   const update = (items: CustomProgramFlowItem[]) => onUpdateFlow?.(items);

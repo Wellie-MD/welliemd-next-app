@@ -3,6 +3,7 @@ import type {
   ConsentForm,
   CustomProgram,
   CustomProgramFlowItem,
+  EffectiveCustomProgramContent,
   Program,
 } from "@/features/treatments/types";
 
@@ -233,6 +234,7 @@ export function buildAdminCustomProgramStages(
     programs: Program[];
     sections: CommonSection[];
     consents: ConsentForm[];
+    effectiveContent?: EffectiveCustomProgramContent;
   }
 ): AdminCustomProgramStageProjection {
   const canonicalItems = canonicalizeCustomProgramFlowItems(customProgram.flowItems || []);
@@ -249,47 +251,68 @@ export function buildAdminCustomProgramStages(
     .filter((item) => getCustomProgramStageNumber(item) !== null)
     .map((item) => persistedDisplayItem(item, programsById, sectionsById, consentsById));
 
-  const explicitConsentKeys = new Set(
-    persistedStageItems
-      .filter((item) => item.kind === "consent")
-      .flatMap((item) => [item.persistedItem?.sourceId, item.title])
-      .filter(Boolean)
-      .map(String)
-  );
-  const derivedConsents = new Map<
-    string,
-    { consent: ConsentForm; matchedProgramNames: string[] }
-  >();
-
-  persistedStageItems
-    .filter((item) => item.kind === "program" && item.program)
-    .forEach((item) => {
-      const program = item.program!;
-      (program.consentIds || []).forEach((consentId) => {
-        const consent = consentsById.get(String(consentId));
-        if (!consent || explicitConsentKeys.has(consent.id) || explicitConsentKeys.has(consent.name)) return;
-        const existing = derivedConsents.get(consent.id);
-        if (existing) {
-          if (!existing.matchedProgramNames.includes(program.name)) {
-            existing.matchedProgramNames.push(program.name);
-          }
-          return;
-        }
-        derivedConsents.set(consent.id, { consent, matchedProgramNames: [program.name] });
-      });
-    });
-
-  const derivedConsentItems: AdminCustomProgramStageItem[] = Array.from(
-    derivedConsents.values()
-  ).map(({ consent, matchedProgramNames }) => ({
-    id: `derived-consent-${consent.id}`,
-    kind: "consent",
-    title: consent.name,
-    subtitle: "Consent form capture.",
-    derived: true,
-    consent,
-    matchedProgramNames,
-  }));
+  const effective = catalogs.effectiveContent;
+  const namesByProgramId = new Map(catalogs.programs.map((program) => [program.id, program.name]));
+  const effectiveQuestions: AdminCustomProgramStageItem[] = (effective?.stages.stage1.questions || []).map((question) => {
+    const persisted = canonicalItems.find(
+      (item) => item.kind === "routing_question" && String(item.sourceId || item.id) === question.sourceId,
+    );
+    return {
+      id: persisted?.id || question.id,
+      kind: "routing_question",
+      title: question.title || persisted?.title || "Question",
+      subtitle: persisted?.subtitle || "Matching input",
+      persistedItem: persisted,
+      derived: !persisted,
+    };
+  });
+  const effectiveSections: AdminCustomProgramStageItem[] = (effective?.stages.stage1.sections || []).map((sectionNode) => {
+    const section = sectionsById.get(sectionNode.sourceId);
+    const persisted = canonicalItems.find(
+      (item) => (item.kind === "section" || item.kind === "section_field") && String(item.sourceId) === sectionNode.sourceId,
+    );
+    return {
+      id: persisted?.id || `effective-section-${sectionNode.sourceId}-v${sectionNode.sourceVersion}`,
+      kind: "section",
+      title: sectionNode.name,
+      subtitle: section?.scope === "global" ? "Universal · automatically inherited" : "Effective reusable section",
+      persistedItem: persisted,
+      derived: !persisted,
+      section,
+      matchedProgramNames: sectionNode.applicableProgramIds.map((id) => namesByProgramId.get(id) || id),
+    };
+  });
+  const effectivePrograms: AdminCustomProgramStageItem[] = (effective?.stages.stage2.programs || []).map((row) => {
+    const program = programsById.get(row.programId);
+    const persisted = canonicalItems.find(
+      (item) => item.kind === "program" && String(item.sourceId) === row.programId,
+    );
+    return {
+      id: persisted?.id || row.inclusionId,
+      kind: "program",
+      title: row.name,
+      subtitle: "Program inclusion",
+      persistedItem: persisted,
+      derived: false,
+      program,
+    };
+  });
+  const effectiveConsents: AdminCustomProgramStageItem[] = (effective?.stages.stage3.consents || []).map((node) => {
+    const consent = consentsById.get(node.sourceId);
+    const persisted = canonicalItems.find(
+      (item) => item.kind === "consent" && String(item.sourceId) === node.sourceId,
+    );
+    return {
+      id: persisted?.id || `effective-consent-${node.sourceId}-v${node.sourceVersion}`,
+      kind: "consent",
+      title: node.name,
+      subtitle: node.sourceType === "global" ? "Universal" : "Automatically inherited",
+      persistedItem: persisted,
+      derived: !persisted,
+      consent,
+      matchedProgramNames: node.applicableProgramIds.map((id) => namesByProgramId.get(id) || id),
+    };
+  });
 
   const stages: AdminCustomProgramStage[] = [
     {
@@ -297,29 +320,23 @@ export function buildAdminCustomProgramStages(
       stageNumber: 1,
       title: "Custom Questions & Sections",
       tone: "question",
-      items: persistedStageItems.filter(
-        (item) =>
-          item.kind === "routing_question" ||
-          item.kind === "section" ||
-          item.kind === "section_field"
-      ),
+      items: effective
+        ? [...effectiveQuestions, ...effectiveSections]
+        : persistedStageItems.filter((item) => item.kind === "routing_question" || item.kind === "section" || item.kind === "section_field"),
     },
     {
       id: "stage-treatment-options",
       stageNumber: 2,
       title: "Treatment Options",
       tone: "program",
-      items: persistedStageItems.filter((item) => item.kind === "program"),
+      items: effective ? effectivePrograms : persistedStageItems.filter((item) => item.kind === "program"),
     },
     {
       id: "stage-consents",
       stageNumber: 3,
       title: "Consents",
       tone: "consent",
-      items: [
-        ...persistedStageItems.filter((item) => item.kind === "consent"),
-        ...derivedConsentItems,
-      ],
+      items: effective ? effectiveConsents : persistedStageItems.filter((item) => item.kind === "consent"),
     },
   ];
 

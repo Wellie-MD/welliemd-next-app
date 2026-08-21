@@ -123,3 +123,47 @@ export interface CustomProgram {
   sourceAssignmentChecksum?: string;
   runtimeSummary?: CustomProgramRuntimeSummary | null;
 }
+
+export interface EffectiveContentReason {
+  type: "global" | "visit_type" | "program" | "custom_program" | "inline";
+  key?: string;
+  id?: string;
+  programId?: string;
+}
+
+export interface EffectiveCustomProgramNode {
+  sourceId: string;
+  sourceVersion: number;
+  name: string;
+  scope?: string;
+  sourceType?: string;
+  applicableProgramIds: string[];
+  resolvedFrom: EffectiveContentReason[];
+}
+
+export interface EffectiveCustomProgramContent {
+  customProgramId: string;
+  revision: string;
+  systemSteps: { authentication: { count: number; locked: boolean } };
+  stages: {
+    stage1: {
+      questions: Array<{ id: string; sourceId: string; title?: string; displayOrder: number }>;
+      sections: EffectiveCustomProgramNode[];
+    };
+    stage2: { programs: Array<{
+      inclusionId: string;
+      programId: string;
+      name: string;
+      displayOrder: number;
+      matchingEnabled: boolean;
+      matchingRule: Record<string, unknown>;
+      matchingState: "always_offered" | "conditional" | "not_offered";
+      effectiveConsentCount: number;
+      effectiveSectionCount: number;
+      checkoutCount: number;
+    }> };
+    stage3: { consents: EffectiveCustomProgramNode[] };
+    stage4: { checkout: { count: number; locked: boolean } };
+  };
+  blockers: Array<Record<string, unknown>>;
+}

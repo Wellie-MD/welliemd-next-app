@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, Program, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, EffectiveCustomProgramContent, Program, ProgramQuestion } from "@/features/treatments/types";
 import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
 import { useSectionFieldsMap } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { buildMatchingSources } from "@/features/treatments/flow-builder/utils/programMatchingRules";
@@ -22,12 +22,13 @@ interface CustomProgramFlowBuilderProps {
   programs: Program[];
   sections: CommonSection[];
   consents: ConsentForm[];
+  effectiveContent: EffectiveCustomProgramContent;
   onSaveMatching: (
     rules: CustomProgram["programMatchingRules"],
   ) => Promise<void>;
 }
 
-export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, onSaveMatching }: CustomProgramFlowBuilderProps) {
+export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, effectiveContent, onSaveMatching }: CustomProgramFlowBuilderProps) {
   const builder = useCustomProgramFlowBuilder({ customProgram, onSave, onUpdateFlow });
   const [matchingProgramId, setMatchingProgramId] = useState<string | null>(null);
 
@@ -138,6 +139,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
           programs={programs}
           sections={sections}
           consents={consents}
+          effectiveContent={effectiveContent}
           onUpdateFlow={onUpdateFlow}
           onEditQuestion={setEditingQuestion}
           onOpenPreview={() => builder.setIsTestModalOpen(true)}

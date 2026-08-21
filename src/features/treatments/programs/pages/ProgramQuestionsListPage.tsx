@@ -13,13 +13,14 @@ export default function ProgramQuestionsListPage() {
   const { data: questions = [], isLoading: isLoadingQuestions } = useProgramQuestions(programId);
 
   const program = programs.find((item) => item.id === programId || item.slug === programId);
-  const { data: effectiveContent } = useProgramEffectiveContent(
+  const effectiveContentQuery = useProgramEffectiveContent(
     program?.id || "",
     program?.stage === "follow_up" ? "follow_up" : "onboarding",
   );
+  const effectiveContent = effectiveContentQuery.data;
 
   // Loading state handling to prevent false-positives on first render
-  if (isLoadingPrograms || isLoadingQuestions) {
+  if (isLoadingPrograms || isLoadingQuestions || (Boolean(program) && effectiveContentQuery.isLoading)) {
     return (
       <div className="flex items-center justify-center min-h-[400px] w-full">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -35,6 +36,24 @@ export default function ProgramQuestionsListPage() {
         <p className="text-sm text-slate-500 mb-4">
           We couldn't find a program matching "{programId}".
         </p>
+      </div>
+    );
+  }
+
+  if (effectiveContentQuery.isError) {
+    return (
+      <div className="mx-auto mt-20 max-w-md rounded-xl border border-amber-200 bg-amber-50 p-8 text-center shadow-sm">
+        <h3 className="mb-2 text-lg font-bold text-slate-900">Unable to load the complete Program flow</h3>
+        <p className="mb-4 text-sm text-slate-600">
+          Inherited Section fields and Consents are unavailable, so this page will not show a misleading partial list.
+        </p>
+        <button
+          type="button"
+          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+          onClick={() => effectiveContentQuery.refetch()}
+        >
+          Retry
+        </button>
       </div>
     );
   }

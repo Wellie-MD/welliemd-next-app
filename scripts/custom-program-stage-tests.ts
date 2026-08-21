@@ -177,7 +177,7 @@ test("explains why a drag-and-drop reorder was rejected", () => {
   assert.match(lockedTarget!, /locked system step/);
 });
 
-test("projects all stages and deduplicates automatic Program consents", () => {
+test("projects authoritative effective stages and never derives inheritance from Program consentIds", () => {
   const cp = customProgram([
     item("q-1", "routing_question"),
     item("section-row", "section", "section-1"),
@@ -190,18 +190,37 @@ test("projects all stages and deduplicates automatic Program consents", () => {
     programs: [program("program-1", ["consent-1", "consent-2"]), program("program-2", ["consent-2"])],
     sections: [section],
     consents: [consent("consent-1"), consent("consent-2")],
+    effectiveContent: {
+      customProgramId: "custom-1",
+      revision: "2026-07-20",
+      systemSteps: { authentication: { count: 1, locked: true } },
+      stages: {
+        stage1: {
+          questions: [{ id: "q-1", sourceId: "q-1", title: "q-1", displayOrder: 1 }],
+          sections: [{ sourceId: "section-1", sourceVersion: 1, name: "Medical Baseline", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "global" }] }],
+        },
+        stage2: { programs: [
+          { inclusionId: "program-row-1", programId: "program-1", name: "program-1", displayOrder: 1, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 2, effectiveSectionCount: 1, checkoutCount: 2 },
+          { inclusionId: "program-row-2", programId: "program-2", name: "program-2", displayOrder: 2, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 1, effectiveSectionCount: 1, checkoutCount: 2 },
+        ] },
+        stage3: { consents: [
+          { sourceId: "consent-1", sourceVersion: 1, name: "consent-1", scope: "common", sourceType: "global", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "global" }] },
+          { sourceId: "consent-2", sourceVersion: 1, name: "consent-2", scope: "common", sourceType: "visit_type", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "visit_type", key: "weightloss" }] },
+        ] },
+        stage4: { checkout: { count: 1, locked: true } },
+      },
+      blockers: [],
+    },
   });
 
-  assert.deepEqual(projection.stages.map((stage) => stage.items.length), [3, 2, 2]);
-  const sectionField = projection.stages[0].items.find((candidate) => candidate.kind === "section_field");
-  assert.equal(sectionField?.title, "Medical Baseline");
-  assert.equal(sectionField?.persistedItem?.mappedField, "field-1");
+  assert.deepEqual(projection.stages.map((stage) => stage.items.length), [2, 2, 2]);
+  assert.deepEqual(projection.stages[0].items.map((candidate) => candidate.kind), ["routing_question", "section"]);
   assert.equal(projection.checkoutStage.stageNumber, 4);
   assert.equal(projection.checkoutStage.title, "Checkout");
   const automatic = projection.stages[2].items.find((candidate) => candidate.derived);
   assert.equal(automatic?.title, "consent-2");
   assert.deepEqual(automatic?.matchedProgramNames, ["program-1", "program-2"]);
-  assert.equal(projection.totalItemCount, 9);
+  assert.equal(projection.totalItemCount, 8);
 });
 
 test("keeps empty stages visible", () => {

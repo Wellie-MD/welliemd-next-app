@@ -29,7 +29,22 @@ const effectiveContent: ProgramEffectiveContent = {
     explicit_program: [],
     inline_conditional: [],
   },
-  sections: { inherited_global: [], inherited_visit_type: [], explicit_program: [] },
+  sections: {
+    inherited_global: [{
+      id: "section-1",
+      source_id: "section-1",
+      source_type: "global",
+      scope: "common",
+      name: "Medical Baseline",
+      version: 2,
+      fields: [
+        { source_id: "field-1", label: "Current medical conditions", kind: "medical_conditions", required: true, order: 1, mapped_field: "medicalConditions" },
+        { source_id: "field-2", label: "Current medications", kind: "self_reported_meds", required: false, order: 2, mapped_field: "selfReportedMeds" },
+      ],
+    }],
+    inherited_visit_type: [],
+    explicit_program: [],
+  },
   blockers: [],
 };
 
@@ -46,4 +61,11 @@ assert.match(html, /Truthfulness Consent/);
 assert.match(html, /GLP Consent/);
 assert.match(html, /Inherited — Global/);
 assert.match(html, /Inherited — Visit Type · weightloss/);
+assert.match(html, /Current medical conditions/);
+assert.match(html, /Current medications/);
+assert.match(html, /Medical Conditions/);
+assert.match(html, /Self Reported Meds/);
+assert.match(html, /Optional/);
+assert.match(html, /System/);
+assert.doesNotMatch(html, />Medical Baseline</);
 console.log("PASS Program questions page projects inherited effective content");
