@@ -194,7 +194,7 @@ export default function CustomProgramBuilderPage() {
   };
 
   return (
-    <div className="h-full max-h-screen flex flex-col p-6 space-y-4">
+    <div className="h-full max-h-screen min-h-0 flex flex-col overflow-hidden p-6 space-y-4">
       {validationBlockers.length > 0 && (
         <section className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950" role="alert">
           <div className="font-bold">Resolve Custom Program validation issues before publishing</div>
