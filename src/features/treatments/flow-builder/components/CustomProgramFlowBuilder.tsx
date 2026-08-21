@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, Program, ProgramQuestion } from "@/features/treatments/types";
 import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
+import { useSectionFieldsMap } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { buildMatchingSources } from "@/features/treatments/flow-builder/utils/programMatchingRules";
 import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 import { PatientFlowTestModal } from "./modals/PatientFlowTestModal";
 import { FlowBuilderCanvas } from "./canvas/FlowBuilderCanvas";
 import { FlowBuilderHeader } from "./canvas/FlowBuilderHeader";
 import { FlowBuilderListView } from "./canvas/FlowBuilderListView";
 import { FlowBuilderSidebar } from "./canvas/FlowBuilderSidebar";
-import { MatchedProgramsEditor } from "./modals/MatchedProgramsEditor";
+import { ProgramMatchingRuleEditor } from "./modals/ProgramMatchingRuleEditor";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
 
 interface CustomProgramFlowBuilderProps {
@@ -27,7 +29,26 @@ interface CustomProgramFlowBuilderProps {
 
 export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, onSaveMatching }: CustomProgramFlowBuilderProps) {
   const builder = useCustomProgramFlowBuilder({ customProgram, onSave, onUpdateFlow });
-  const [matchingOpen, setMatchingOpen] = useState(false);
+  const [matchingProgramId, setMatchingProgramId] = useState<string | null>(null);
+
+  // Inputs a Stage 2 matching rule may legally reference. Section fields must
+  // be loaded for every Section placed in the flow, otherwise a valid rule
+  // would render as "input no longer available".
+  const flowSectionIds = useMemo(
+    () => customProgram.flowItems
+      .filter((item) => item.kind === "section" || item.kind === "section_field")
+      .map((item) => String(item.sourceId || "")),
+    [customProgram.flowItems],
+  );
+  const sectionFields = useSectionFieldsMap(flowSectionIds);
+  const matchingSources = useMemo(
+    () => buildMatchingSources({
+      flowItems: customProgram.flowItems,
+      sections,
+      sectionFields,
+    }),
+    [customProgram.flowItems, sections, sectionFields],
+  );
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
   const editorQuestion: ProgramQuestion | null = editingQuestion ? {
     id: editingQuestion.sourceId || editingQuestion.id,
@@ -75,7 +96,15 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
           apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
         }}
       />
-      <MatchedProgramsEditor open={matchingOpen} onOpenChange={setMatchingOpen} customProgram={customProgram} programs={programs} onSave={onSaveMatching} />
+      <ProgramMatchingRuleEditor
+        open={Boolean(matchingProgramId)}
+        onOpenChange={(open) => { if (!open) setMatchingProgramId(null); }}
+        customProgram={customProgram}
+        programId={matchingProgramId}
+        programs={programs}
+        sources={matchingSources}
+        onSave={onSaveMatching}
+      />
       <QuestionEditorDialog
         open={Boolean(editingQuestion)}
         onOpenChange={(open) => { if (!open) setEditingQuestion(null); }}
@@ -110,7 +139,8 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
           consents={consents}
           onUpdateFlow={onUpdateFlow}
           onEditQuestion={setEditingQuestion}
-          onConfigureMatching={() => setMatchingOpen(true)}
+          onOpenPreview={() => builder.setIsTestModalOpen(true)}
+          onConfigureMatching={(programId) => setMatchingProgramId(programId)}
         />
       )}
 
@@ -138,7 +168,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
             onCanvasDrop={builder.handleCanvasContainerDrop}
             onInsertItem={builder.handleInsertItem}
             getTargetIndexForId={builder.getTargetIndexForId}
-            onEditSystemItem={(item) => { if (item.id === "sys-matched") setMatchingOpen(true); else if (item.kind === "routing_question") setEditingQuestion(customProgram.flowItems.find((flowItem) => flowItem.id === item.id) || null); }}
+            onEditSystemItem={(item) => { if (item.kind === "routing_question") setEditingQuestion(customProgram.flowItems.find((flowItem) => flowItem.id === item.id) || null); }}
           />
         </div>
       )}

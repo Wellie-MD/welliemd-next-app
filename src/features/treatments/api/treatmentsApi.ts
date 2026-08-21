@@ -146,4 +146,5 @@ export const treatmentsApi = {
   saveCustomProgram: customProgramsApi.save,
   publishCustomProgram: customProgramsApi.publish,
   deleteCustomProgram: customProgramsApi.delete,
+  getProgramEffectiveContent: programsApi.getEffectiveContent,
 };

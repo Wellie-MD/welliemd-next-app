@@ -68,6 +68,7 @@ export type CustomProgramRecord = {
   min_age: number;
   max_age?: number | null;
   included_program_ids: string[];
+  included_programs?: Array<{ id: string; name: string }>;
   section_ids: string[];
   consent_ids: string[];
   checkout_options: CustomProgram["checkoutOptions"];
@@ -108,7 +109,13 @@ export type CustomProgramRecord = {
 export type CustomProgramValidationBlocker = {
   code: string;
   source_id?: string;
+  program_id?: string;
+  stage?: string;
   message: string | Record<string, unknown>;
+  corrective_action?: {
+    code: string;
+    route: string;
+  };
 };
 
 export type CustomProgramValidationRecord = {

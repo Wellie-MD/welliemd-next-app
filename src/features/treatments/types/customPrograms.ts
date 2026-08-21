@@ -32,22 +32,41 @@ export interface CustomProgramFlowItem {
   lockClientChanges?: boolean;
 }
 
-export type ProgramMatchingOperator = "eq" | "neq" | "contains" | "not_contains" | "gt" | "gte" | "lt" | "lte" | "between" | "exists";
+/** Mirrors the backend `RUNTIME_RULE_OPERATORS` set. */
+export type ProgramMatchingOperator =
+  | "eq" | "neq" | "in" | "not_in" | "contains" | "not_contains"
+  | "gt" | "gte" | "lt" | "lte" | "between" | "exists"
+  | "is_empty" | "is_not_empty";
 
 export interface ProgramMatchingCondition {
   field: string;
   operator: ProgramMatchingOperator;
   value?: string | number | string[] | boolean;
+  /** Upper bound for `between`. */
+  value2?: string | number;
 }
 
-export interface ProgramMatchingRule {
+/**
+ * A rule group. `rules` may contain conditions and further groups, so the
+ * tree nests arbitrarily — the same shape the backend evaluator accepts.
+ */
+export interface ProgramMatchingGroup {
   combinator: "and" | "or";
-  rules: ProgramMatchingCondition[];
+  rules: ProgramMatchingNode[];
 }
+
+export type ProgramMatchingNode = ProgramMatchingCondition | ProgramMatchingGroup;
+
+/** Retained name for the root group. */
+export type ProgramMatchingRule = ProgramMatchingGroup;
 
 export interface ProgramMatchingConfig {
+  /**
+   * `false` withholds an attached Program without deleting its authored rule.
+   * It is not the same as an empty rule, which means "always offered".
+   */
   enabled: boolean;
-  rule: ProgramMatchingRule | Record<string, never>;
+  rule: ProgramMatchingGroup | ProgramMatchingCondition | Record<string, never>;
 }
 
 export type CustomProgramFlowItemInput = Omit<CustomProgramFlowItem, "id">;
@@ -83,6 +102,7 @@ export interface CustomProgram {
   minAge: number;
   maxAge?: number;
   includedProgramIds: string[];
+  includedPrograms?: Array<{ id: string; name: string }>;
   sectionIds: string[];
   consentIds: string[];
   checkoutOptions: CheckoutProductOption[];

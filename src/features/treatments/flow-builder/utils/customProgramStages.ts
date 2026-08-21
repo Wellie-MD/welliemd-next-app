@@ -33,6 +33,7 @@ export interface AdminCustomProgramStageProjection {
   authenticationItem: CustomProgramFlowItem;
   stages: AdminCustomProgramStage[];
   checkoutOverrides: CustomProgramFlowItem[];
+  checkoutStage: { stageNumber: 4; title: "Checkout" };
   checkoutItem: CustomProgramFlowItem;
   totalItemCount: number;
 }
@@ -75,9 +76,15 @@ export function canonicalizeCustomProgramFlowItems(
   const authentication = flowItems.find((item) => item.kind === "authentication");
   const lockedCheckout = flowItems.find((item) => item.kind === "checkout" && item.locked);
 
-  const stageOne = flowItems.filter(
-    (item) => item.kind === "routing_question" || item.kind === "section" || item.kind === "section_field"
-  );
+  const stageOne = flowItems
+    .filter(
+      (item) => item.kind === "routing_question" || item.kind === "section" || item.kind === "section_field"
+    )
+    .map((item) =>
+      item.kind === "routing_question" && !item.sourceId
+        ? { ...item, sourceId: item.id }
+        : item
+    );
   const stageTwo = flowItems.filter((item) => item.kind === "program");
   const stageThree = flowItems.filter((item) => item.kind === "consent");
   const checkoutOverrides = flowItems.filter(
@@ -177,17 +184,23 @@ const persistedDisplayItem = (
   programsById: Map<string, Program>,
   sectionsById: Map<string, CommonSection>,
   consentsById: Map<string, ConsentForm>
-): AdminCustomProgramStageItem => ({
-  id: item.id,
-  kind: item.kind as AdminCustomProgramStageItem["kind"],
-  title: item.title,
-  subtitle: item.subtitle,
-  persistedItem: item,
-  derived: false,
-  program: item.sourceId ? programsById.get(String(item.sourceId)) : undefined,
-  section: item.sourceId ? sectionsById.get(String(item.sourceId)) : undefined,
-  consent: item.sourceId ? consentsById.get(String(item.sourceId)) : undefined,
-});
+): AdminCustomProgramStageItem => {
+  const program = item.sourceId ? programsById.get(String(item.sourceId)) : undefined;
+  const section = item.sourceId ? sectionsById.get(String(item.sourceId)) : undefined;
+  const consent = item.sourceId ? consentsById.get(String(item.sourceId)) : undefined;
+  const resolvedName = program?.name || section?.name || consent?.name;
+  return {
+    id: item.id,
+    kind: item.kind as AdminCustomProgramStageItem["kind"],
+    title: resolvedName || item.title || "Unavailable referenced block",
+    subtitle: item.subtitle || (resolvedName ? `${item.kind.replace("_", " ")} block` : "This referenced block is unavailable"),
+    persistedItem: item,
+    derived: false,
+    program,
+    section,
+    consent,
+  };
+};
 
 export function buildAdminCustomProgramStages(
   customProgram: CustomProgram,
@@ -289,6 +302,7 @@ export function buildAdminCustomProgramStages(
     authenticationItem,
     stages,
     checkoutOverrides,
+    checkoutStage: { stageNumber: 4, title: "Checkout" },
     checkoutItem,
     totalItemCount:
       2 + checkoutOverrides.length + stages.reduce((count, stage) => count + stage.items.length, 0),

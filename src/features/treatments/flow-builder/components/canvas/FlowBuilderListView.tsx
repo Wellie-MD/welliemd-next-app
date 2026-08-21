@@ -2,6 +2,7 @@ import {
   CheckCircle2,
   CreditCard,
   Edit3,
+  Eye,
   ExternalLink,
   FileCheck,
   GripVertical,
@@ -28,6 +29,19 @@ import {
   type AdminCustomProgramStage,
   type AdminCustomProgramStageItem,
 } from "@/features/treatments/flow-builder/utils/customProgramStages";
+import {
+  matchingStatus,
+  matchingStatusLabel,
+} from "@/features/treatments/flow-builder/utils/programMatchingRules";
+import type { ProgramMatchingConfig } from "@/features/treatments/types";
+
+/** Visual weight for each of the three Stage 2 offering states. */
+function matchingTone(config: ProgramMatchingConfig | undefined): string {
+  const status = matchingStatus(config);
+  if (status === "withheld") return "bg-slate-100 text-slate-500 line-through";
+  if (status === "conditional") return "bg-blue-50 text-blue-700";
+  return "bg-emerald-50 text-emerald-700";
+}
 
 interface FlowBuilderListViewProps {
   customProgram: CustomProgram;
@@ -36,7 +50,8 @@ interface FlowBuilderListViewProps {
   consents: ConsentForm[];
   onUpdateFlow?: (items: CustomProgramFlowItem[]) => void;
   onEditQuestion: (item: CustomProgramFlowItem) => void;
-  onConfigureMatching: () => void;
+  onOpenPreview: () => void;
+  onConfigureMatching: (programId: string) => void;
 }
 
 const stageToneClass: Record<AdminCustomProgramStage["tone"], string> = {
@@ -101,7 +116,13 @@ function getItemSubtitle(item: AdminCustomProgramStageItem) {
   }
   if (item.kind === "program") {
     if (!item.program) return item.subtitle || "Program record unavailable";
-    return `${item.program.questionCount} question${item.program.questionCount === 1 ? "" : "s"} · ${item.program.visitType || item.program.treatmentTypeKey} · Onboarding`;
+    // Stage 2 row contract: Treatment Type, stage, and resolved Visit Type are
+    // distinct facts. Visit Type is a provider route and may legitimately be
+    // shared by two Treatment Types, so it must never stand in for identity.
+    const treatmentType = item.program.treatmentTypeName || item.program.treatmentTypeKey || "No Treatment Type";
+    const stage = item.program.stage === "follow_up" ? "Follow-up" : "Onboarding";
+    const visitType = item.program.visitType || "unresolved";
+    return `${treatmentType} · ${stage} · Visit Type: ${visitType}`;
   }
   if (item.derived) {
     return `Auto · for ${item.matchedProgramNames?.join(", ") || "attached Program"}`;
@@ -152,14 +173,18 @@ function StageRow({
   onDelete,
   onDropItem,
   onEditQuestion,
+  onOpenPreview,
   onConfigureMatching,
+  matchingRules,
 }: {
   item: AdminCustomProgramStageItem;
   itemNumber: number;
   onDelete: () => void;
   onDropItem: (sourceId: string, targetId: string) => void;
   onEditQuestion: (item: CustomProgramFlowItem) => void;
-  onConfigureMatching: () => void;
+  onOpenPreview: () => void;
+  onConfigureMatching: (programId: string) => void;
+  matchingRules: CustomProgram["programMatchingRules"];
 }) {
   const meta = rowMeta[item.kind];
   const Icon = meta.icon;
@@ -167,6 +192,8 @@ function StageRow({
   const checkoutCount = item.program?.checkoutQuestionCount || 0;
   const sourceId = item.persistedItem?.sourceId;
   const consentId = sourceId || item.consent?.id;
+  const inclusionId = item.persistedItem?.sourceId || item.persistedItem?.id || "";
+  const matchingConfig = matchingRules?.[inclusionId];
 
   return (
     <div
@@ -213,6 +240,17 @@ function StageRow({
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
           <span>{getItemSubtitle(item)}</span>
+          {item.kind === "program" && item.persistedItem && (
+            <span
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                matchingTone(matchingConfig),
+              )}
+              title="How this Program is offered inside this Custom Program"
+            >
+              {matchingStatusLabel(matchingConfig)}
+            </span>
+          )}
           {item.kind === "program" && (
             checkoutCount > 0 ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
@@ -227,22 +265,27 @@ function StageRow({
 
       <div className="ml-auto flex shrink-0 items-center gap-1 text-slate-400">
         {item.kind === "routing_question" && item.persistedItem && (
-          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#4f00ff]" title="Edit question" onClick={() => onEditQuestion(item.persistedItem!)}>
-            <Edit3 className="h-4 w-4" />
-          </Button>
+          <>
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#4f00ff]" title="Edit question" onClick={() => onEditQuestion(item.persistedItem!)}>
+              <Edit3 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Preview patient flow" onClick={onOpenPreview}>
+              <Eye className="h-4 w-4" />
+            </Button>
+          </>
         )}
         {item.kind === "program" && item.persistedItem && (
           <>
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#4f00ff]" title="Configure matching rules" onClick={() => onConfigureMatching(item.persistedItem!.sourceId || item.persistedItem!.id)}>
+              <Settings2 className="h-4 w-4" />
+            </Button>
             {sourceId && (
-              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Edit program" asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Open Program" asChild>
                 <Link to={`/dashboard/treatments/programs/${sourceId}`}>
                   <ExternalLink className="h-4 w-4" />
                 </Link>
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#4f00ff]" title="Configure visibility rules" onClick={onConfigureMatching}>
-              <Settings2 className="h-4 w-4" />
-            </Button>
           </>
         )}
         {(item.kind === "section" || item.kind === "section_field") && sourceId && (
@@ -345,7 +388,9 @@ export function FlowBuilderListView({
                           onDelete={() => remove(item.id)}
                           onDropItem={drop}
                           onEditQuestion={onEditQuestion}
+                          onOpenPreview={onOpenPreview}
                           onConfigureMatching={onConfigureMatching}
+                          matchingRules={customProgram.programMatchingRules}
                         />
                       );
                     })}
@@ -360,6 +405,14 @@ export function FlowBuilderListView({
           <div className="h-px flex-1 bg-slate-200" />
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">End of flow</div>
           <div className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <div className="flex items-center gap-3 px-2">
+          <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-bold uppercase text-amber-700">
+            Stage {builderList.checkoutStage.stageNumber}
+          </span>
+          <h2 className="text-sm font-bold text-slate-950">{builderList.checkoutStage.title}</h2>
+          <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide text-slate-400">Locked final boundary</span>
         </div>
 
         {builderList.checkoutOverrides.map((item, index) => (
