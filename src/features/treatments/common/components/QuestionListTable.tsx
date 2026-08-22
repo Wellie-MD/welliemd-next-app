@@ -11,6 +11,7 @@ interface QuestionListTableProps {
   onDragEnd: (event: DragEndEvent) => void;
   onEdit: (question: ProgramQuestion) => void;
   onDelete: (id: string) => void;
+  onDetachSection?: (sectionId: string, sectionName: string) => void;
 }
 
 export function QuestionListTable(props: QuestionListTableProps) {
@@ -36,6 +37,7 @@ export function QuestionListTable(props: QuestionListTableProps) {
                 isReorderActive={props.reorderActive}
                 onEdit={props.onEdit}
                 onDelete={props.onDelete}
+                onDetachSection={props.onDetachSection}
               />
             ))}
           </div>

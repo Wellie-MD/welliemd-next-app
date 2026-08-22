@@ -4,7 +4,7 @@ import { Eye, Grid3X3, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Program, ProgramQuestion } from "@/features/treatments/types";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
-import { useConsents } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useConsents, useSaveProgramQuestions } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { ProgramLabsSection } from "./ProgramLabsSection";
 import { PROGRAM_AUTHORING_COPY } from "@/features/treatments/programs/programAuthoringConstants";
@@ -22,6 +22,7 @@ interface ProgramQuestionsListProps {
 
 export function ProgramQuestionsList({ program, initialQuestions, effectiveContent }: ProgramQuestionsListProps) {
   const navigate = useNavigate();
+  const saveQuestions = useSaveProgramQuestions(program.id);
   const { data: allConsents = [] } = useConsents();
   const displayQuestions = useMemo(
     () => {
@@ -65,6 +66,18 @@ export function ProgramQuestionsList({ program, initialQuestions, effectiveConte
 
   const handleBack = () => {
     navigate("/dashboard/treatments/programs");
+  };
+
+  const detachSection = async (sectionId: string) => {
+    const remaining = initialQuestions.filter((question) => {
+      if (question.kind !== "section") return true;
+      const source = question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId;
+      return String(source || "") !== sectionId;
+    });
+    if (remaining.length === initialQuestions.length) {
+      throw new Error("The Program-specific Section attachment was not found. Refresh the page and try again.");
+    }
+    await saveQuestions.mutateAsync(remaining);
   };
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -125,6 +138,7 @@ export function ProgramQuestionsList({ program, initialQuestions, effectiveConte
         onViewModeChange={setViewMode}
         onOpenPreview={() => setIsSimulateOpen(true)}
         allConsents={allConsents}
+        onDetachSection={detachSection}
       />
       {viewMode === "list" && <ProgramLabsSection program={program} />}
 

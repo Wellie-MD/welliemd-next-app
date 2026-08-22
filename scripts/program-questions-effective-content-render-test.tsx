@@ -68,7 +68,17 @@ const effectiveContent: ProgramEffectiveContent = {
         { source_id: "field-1", label: "Weight management goal", kind: "text", required: true, order: 1 },
       ],
     }],
-    explicit_program: [],
+    explicit_program: [{
+      id: "section-program-1",
+      source_id: "section-program-1",
+      source_type: "program",
+      scope: "program",
+      name: "Program Safety Questions",
+      version: 3,
+      fields: [
+        { source_id: "field-program-1", label: "Program safety answer", kind: "yes_no", required: true, order: 1 },
+      ],
+    }],
   },
   blockers: [],
 };
@@ -91,6 +101,10 @@ assert.match(html, /Current medications/);
 assert.match(html, /Inherited — Global · Medical Baseline/);
 assert.match(html, /Weight management goal/);
 assert.match(html, /Inherited — Visit Type · weightloss · Weight Management History/);
+assert.match(html, /Program safety answer/);
+assert.match(html, /Program-specific Section · Program Safety Questions/);
+assert.match(html, /Manage Medical Baseline/);
+assert.match(html, /Detach Program Safety Questions from Program/);
 assert.match(html, /Medical Conditions/);
 assert.match(html, /Self Reported Meds/);
 assert.match(html, /Optional/);

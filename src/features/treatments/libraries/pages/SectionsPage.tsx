@@ -15,6 +15,32 @@ import { useSections, useDeleteSection } from "@/features/treatments/libraries/h
 import { toast } from "@/components/ui/use-toast";
 import type { CommonSection } from "@/features/treatments/types";
 import { formatScope } from "@/features/treatments/utils/labels";
+import type { AxiosError } from "axios";
+
+type SectionDeleteBlocker = {
+  type: "program" | "custom_program";
+  id: string;
+  name: string;
+  reason: string;
+};
+
+type SectionDeleteError = {
+  code?: string;
+  detail?: string;
+  blockers?: SectionDeleteBlocker[];
+};
+
+const sectionDeleteErrorMessage = (error: unknown) => {
+  const data = (error as AxiosError<SectionDeleteError>)?.response?.data;
+  if (data?.code !== "section_in_use" || !data.blockers?.length) {
+    return data?.detail || "The section could not be deleted.";
+  }
+  const usages = data.blockers.map((blocker) => {
+    const owner = blocker.type === "program" ? "Program" : "Custom Program";
+    return `${owner}: ${blocker.name}`;
+  });
+  return `${data.detail || "This Common Section is in use"} ${usages.join("; ")}.`;
+};
 
 export default function SectionsPage() {
   const { data: sections = [] } = useSections();
@@ -116,10 +142,10 @@ export default function SectionsPage() {
         });
         setDeleteSectionId(null);
       },
-      onError: () => {
+      onError: (error) => {
         toast({
-          title: "Delete Failed",
-          description: "The section could not be deleted.",
+          title: "Common Section is still in use",
+          description: sectionDeleteErrorMessage(error),
           variant: "destructive",
         });
       },

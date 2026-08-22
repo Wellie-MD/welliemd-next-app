@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useNavigate } from "react-router-dom";
-import { GripVertical, Check, FileCheck, Layers3, LockKeyhole, Pencil, ShoppingCart, Trash2 } from "lucide-react";
+import { ExternalLink, GripVertical, Check, FileCheck, Layers3, LockKeyhole, Pencil, ShoppingCart, Trash2, Unlink } from "lucide-react";
 import type { ProgramQuestion } from "@/features/treatments/types";
 import { Button } from "@/components/ui/button";
 import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
@@ -18,6 +18,7 @@ interface ProgramQuestionsListRowProps {
   isReorderActive: boolean;
   onEdit: (question: ProgramQuestion) => void;
   onDelete: (questionId: string) => void;
+  onDetachSection?: (sectionId: string, sectionName: string) => void;
 }
 
 export function ProgramQuestionsListRow({
@@ -26,6 +27,7 @@ export function ProgramQuestionsListRow({
   isReorderActive,
   onEdit,
   onDelete,
+  onDetachSection,
 }: ProgramQuestionsListRowProps) {
   const navigate = useNavigate();
   const isAuth = question.kind === "patient_authentication";
@@ -34,6 +36,12 @@ export function ProgramQuestionsListRow({
   const isSection = question.kind === "section";
   const isSystem = question.elementConfig?.system === true;
   const isEffectiveSectionField = question.elementConfig?.effectiveSectionField === true;
+  const sourceSectionId = String(question.elementConfig?.sourceSectionId || "");
+  const sourceSectionName = String(question.elementConfig?.sourceSectionName || "Common Section");
+  const canDetachSection = isEffectiveSectionField
+    && question.elementConfig?.sourceType === "program"
+    && Boolean(sourceSectionId)
+    && Boolean(onDetachSection);
 
   const {
     attributes,
@@ -173,7 +181,38 @@ export function ProgramQuestionsListRow({
         {/* The author added Patient Authentication, so they can configure and
             remove it. It still cannot be dragged — it is pinned first — and
             publication requires it, so removing it blocks publish. */}
-        {isSystem && !isAuth ? (
+        {isEffectiveSectionField ? (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigateToSection();
+              }}
+              className="h-7 w-7 rounded text-slate-400 hover:bg-blue-50 hover:text-blue-600"
+              title={`Manage ${sourceSectionName}`}
+              aria-label={`Manage ${sourceSectionName}`}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+            {canDetachSection && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDetachSection?.(sourceSectionId, sourceSectionName);
+                }}
+                className="h-7 w-7 rounded text-slate-400 hover:bg-red-50 hover:text-red-600"
+                title={`Detach ${sourceSectionName} from Program`}
+                aria-label={`Detach ${sourceSectionName} from Program`}
+              >
+                <Unlink className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </>
+        ) : isSystem && !isAuth ? (
           <span className="pr-1 text-[10px] italic text-slate-300">System</span>
         ) : (
           <>

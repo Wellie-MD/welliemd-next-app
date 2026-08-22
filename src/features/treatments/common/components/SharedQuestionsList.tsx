@@ -81,6 +81,7 @@ export interface SharedQuestionsListProps {
   onViewModeChange?: (mode: "list" | "flow") => void;
   onOpenPreview?: () => void;
   allConsents?: ConsentForm[];
+  onDetachSection?: (sectionId: string) => Promise<void>;
 }
 
 export function SharedQuestionsList({
@@ -98,6 +99,7 @@ export function SharedQuestionsList({
   onViewModeChange,
   onOpenPreview,
   allConsents = [],
+  onDetachSection,
 }: SharedQuestionsListProps) {
   const navigate = useNavigate();
   const [questions, setQuestions] = useState<ProgramQuestion[]>(initialQuestions);
@@ -116,6 +118,7 @@ export function SharedQuestionsList({
   // Active question editing/deleting state
   const [activeEditingQuestion, setActiveEditingQuestion] = useState<ProgramQuestion | null>(null);
   const [questionToDeleteId, setQuestionToDeleteId] = useState<string | null>(null);
+  const [sectionToDetach, setSectionToDetach] = useState<{ id: string; name: string } | null>(null);
 
   // Sync state if initialQuestions change
   useEffect(() => {
@@ -443,6 +446,26 @@ export function SharedQuestionsList({
   };
 
   const confirmDelete = () => {
+    if (sectionToDetach && onDetachSection) {
+      const target = sectionToDetach;
+      onDetachSection(target.id)
+        .then(() => {
+          toast({
+            title: "Section Detached",
+            description: `${target.name} and all of its projected fields were removed from this Program.`,
+          });
+        })
+        .catch((error) => {
+          toast({
+            title: "Unable to detach Section",
+            description: getApiErrorMessage(error, "The Common Section could not be detached."),
+            variant: "destructive",
+          });
+        });
+      setSectionToDetach(null);
+      setIsDeleteDialogOpen(false);
+      return;
+    }
     if (!questionToDeleteId) {
       setIsDeleteDialogOpen(false);
       return;
@@ -921,6 +944,10 @@ export function SharedQuestionsList({
             onDragEnd={handleDragEnd}
             onEdit={handleEditClick}
             onDelete={handleDeleteClick}
+            onDetachSection={(sectionId, sectionName) => {
+              setSectionToDetach({ id: sectionId, name: sectionName });
+              setIsDeleteDialogOpen(true);
+            }}
           />
         </div>
       </main>
@@ -991,7 +1018,19 @@ export function SharedQuestionsList({
         }}
       />
 
-      <DeleteElementDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen} onConfirm={confirmDelete} />
+      <DeleteElementDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setSectionToDetach(null);
+        }}
+        onConfirm={confirmDelete}
+        title={sectionToDetach ? `Detach ${sectionToDetach.name}?` : undefined}
+        description={sectionToDetach
+          ? "This removes the Common Section once at the parent level. All projected field rows disappear together; the library Section is not deleted."
+          : undefined}
+        actionLabel={sectionToDetach ? "Detach Section" : undefined}
+      />
     </div>
   );
 }
