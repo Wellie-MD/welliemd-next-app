@@ -344,6 +344,16 @@ export function CheckoutProductRow({
           </div>
         )}
         <SelectField
+          label="Checkout role"
+          value={product.productRole || "primary_choice"}
+          onChange={(value) => onProductFieldChange(index, "productRole", value as ProgramCheckoutProduct["productRole"])}
+          options={[
+            { value: "required_companion", label: "Required" },
+            { value: "optional_addon", label: "Optional" },
+          ]}
+          testId={`checkout-product-role-${index}`}
+        />
+        <SelectField
           label="Category"
           value={selectedCategoryId ? String(selectedCategoryId) : ""}
           onChange={handleCategoryChange}
