@@ -42,6 +42,12 @@ export const customProgramsApi = {
         id: reason.id,
         programId: reason.program_id,
       })),
+      fields: (value.fields || []).map((field: Record<string, any>) => ({
+        sourceId: String(field.source_id || field.id),
+        label: String(field.label || field.name || field.source_id || field.id),
+        kind: String(field.kind || field.field_type || field.question_type || "text"),
+        order: Number(field.order || field.display_order || 0),
+      })),
     });
     const stages = data.stages || {};
     return {

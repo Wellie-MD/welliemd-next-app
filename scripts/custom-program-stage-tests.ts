@@ -221,10 +221,29 @@ test("projects authoritative effective stages and never derives inheritance from
   const automatic = projection.stages[2].items.find((candidate) => candidate.derived);
   assert.equal(automatic?.title, "consent-2");
   assert.deepEqual(automatic?.matchedProgramNames, ["program-1", "program-2"]);
+  assert.equal(projection.stages[1].items[0]?.checkoutCount, 2);
   const inheritedGlobal = projection.stages[2].items.find((candidate) => candidate.title === "consent-1");
   assert.equal(getCustomProgramConsentSubtitle(inheritedGlobal!), "Universal");
   assert.equal(getCustomProgramConsentSubtitle(automatic!), "Auto · for program-1, program-2");
   assert.equal(projection.totalItemCount, 8);
+});
+
+test("uses effective Program names for consent applicability when catalogs are stale", () => {
+  const cp = customProgram([item("program-row", "program", "program-1")]);
+  const projection = buildAdminCustomProgramStages(cp, {
+    programs: [], sections: [], consents: [],
+    effectiveContent: {
+      customProgramId: "custom-1", revision: "1",
+      systemSteps: { authentication: { count: 1, locked: true } },
+      stages: {
+        stage1: { questions: [], sections: [] },
+        stage2: { programs: [{ inclusionId: "program-row", programId: "program-1", name: "Actual Program", displayOrder: 1, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 1, effectiveSectionCount: 0, checkoutCount: 1 }] },
+        stage3: { consents: [{ sourceId: "consent-1", sourceVersion: 1, name: "Terms", scope: "common", sourceType: "visit_type", applicableProgramIds: ["program-1"], resolvedFrom: [] }] },
+        stage4: { checkout: { count: 1, locked: true } },
+      }, blockers: [],
+    },
+  });
+  assert.deepEqual(projection.stages[2].items[0]?.matchedProgramNames, ["Actual Program"]);
 });
 
 test("keeps empty stages visible", () => {

@@ -190,7 +190,7 @@ function StageRow({
   const meta = rowMeta[item.kind];
   const Icon = meta.icon;
   const editable = Boolean(item.persistedItem) && !item.derived;
-  const checkoutCount = item.program?.checkoutQuestionCount || 0;
+  const checkoutCount = item.checkoutCount ?? item.program?.checkoutQuestionCount ?? 0;
   const sourceId = item.persistedItem?.sourceId;
   const consentId = sourceId || item.consent?.id;
   const inclusionId = item.persistedItem?.sourceId || item.persistedItem?.id || "";

@@ -374,6 +374,15 @@ export interface MatchingSourceInputs {
   sections: Array<{ id: string; name: string }>;
   /** Fields per section id. */
   sectionFields: Record<string, Array<{ id: string; sourceFieldId?: string; label: string; kind: string }>>;
+  /** Effective inherited Sections absent from authored flow rows. */
+  effectiveSections?: Array<{
+    sourceId: string;
+    sourceVersion: number;
+    name: string;
+    applicableProgramIds: string[];
+    resolvedFrom: Array<{ type: string }>;
+    fields?: Array<{ sourceId: string; label: string; kind: string; order: number }>;
+  }>;
 }
 
 const KIND_MAP: Record<string, MatchingFieldKind> = {
@@ -416,6 +425,18 @@ export function buildMatchingSources(inputs: MatchingSourceInputs): MatchingSour
       group: "Custom Program questions",
       choices: item.choices || item.answerOptions || [],
     });
+  }
+
+  for (const section of inputs.effectiveSections || []) {
+    for (const field of section.fields || []) {
+      if (sources.some((existing) => existing.id === field.sourceId)) continue;
+      sources.push({
+        id: field.sourceId,
+        label: `${section.name} · ${field.label}`,
+        kind: toKind(field.kind),
+        group: "Section fields",
+      });
+    }
   }
 
   const sectionsById = new Map((inputs.sections || []).map((section) => [section.id, section]));

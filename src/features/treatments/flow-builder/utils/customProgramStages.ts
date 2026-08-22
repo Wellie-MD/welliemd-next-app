@@ -21,6 +21,7 @@ export interface AdminCustomProgramStageItem {
   consent?: ConsentForm;
   sourceType?: string;
   matchedProgramNames?: string[];
+  checkoutCount?: number;
 }
 
 export function getCustomProgramConsentSubtitle(
@@ -267,6 +268,9 @@ export function buildAdminCustomProgramStages(
 
   const effective = catalogs.effectiveContent;
   const namesByProgramId = new Map(catalogs.programs.map((program) => [program.id, program.name]));
+  for (const row of effective?.stages.stage2.programs || []) {
+    namesByProgramId.set(row.programId, row.name);
+  }
   const effectiveQuestions: AdminCustomProgramStageItem[] = (effective?.stages.stage1.questions || []).map((question) => {
     const persisted = canonicalItems.find(
       (item) => item.kind === "routing_question" && String(item.sourceId || item.id) === question.sourceId,
@@ -309,6 +313,7 @@ export function buildAdminCustomProgramStages(
       persistedItem: persisted,
       derived: false,
       program,
+      checkoutCount: row.checkoutCount,
     };
   });
   const effectiveConsents: AdminCustomProgramStageItem[] = (effective?.stages.stage3.consents || []).map((node) => {

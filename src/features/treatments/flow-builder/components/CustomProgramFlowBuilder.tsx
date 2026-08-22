@@ -47,8 +47,9 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
       flowItems: customProgram.flowItems,
       sections,
       sectionFields,
+      effectiveSections: effectiveContent.stages.stage1.sections,
     }),
-    [customProgram.flowItems, sections, sectionFields],
+    [customProgram.flowItems, sections, sectionFields, effectiveContent.stages.stage1.sections],
   );
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
   const editorQuestion: ProgramQuestion | null = editingQuestion ? {

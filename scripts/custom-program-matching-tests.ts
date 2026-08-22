@@ -394,4 +394,19 @@ test("location is present in the picker", () => {
   assert.ok(built.some((item) => item.id === "service_state"));
 });
 
+test("the picker includes fields from automatically inherited effective Sections", () => {
+  const built = buildMatchingSources({
+    flowItems: [], sections: [], sectionFields: {},
+    effectiveSections: [{
+      sourceId: "section-inherited", sourceVersion: 3, name: "Medical Baseline",
+      applicableProgramIds: ["program-1"], resolvedFrom: [{ type: "global" }],
+      fields: [{ sourceId: "inherited-bmi", label: "BMI", kind: "number", order: 1 }],
+    }],
+  });
+  const field = built.find((item) => item.id === "inherited-bmi");
+  assert.equal(field?.group, "Section fields");
+  assert.equal(field?.label, "Medical Baseline · BMI");
+  assert.equal(field?.kind, "number");
+});
+
 console.log("\nAll Custom Program matching rule tests passed.");

@@ -139,6 +139,7 @@ export interface EffectiveCustomProgramNode {
   sourceType?: string;
   applicableProgramIds: string[];
   resolvedFrom: EffectiveContentReason[];
+  fields?: Array<{ sourceId: string; label: string; kind: string; order: number }>;
 }
 
 export interface EffectiveCustomProgramContent {
