@@ -9,7 +9,6 @@ const isDisplayableTitle = (value?: string) => {
   const title = value?.trim();
   return Boolean(title && !referencePattern.test(title));
 };
-
 interface ProgramReference {
   id?: string;
   title?: string;
@@ -57,4 +56,3 @@ export const resolveCustomProgramNames = (customProgram: CustomProgram, programs
 
   return uniqueNonEmptyValues(resolvedNames);
 };
-
