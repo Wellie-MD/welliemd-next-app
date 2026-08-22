@@ -96,6 +96,34 @@ export function QuestionPreviewTab({
     </div>
   );
 
+  const renderShippingAddress = () => (
+    <div className="space-y-3" data-testid="preview-shipping-address">
+      <label className="block text-xs font-semibold text-slate-700">
+        Street Address
+        <Input className="mt-1 h-9 bg-slate-50 text-sm" placeholder="123 Main Street" />
+      </label>
+      <label className="block text-xs font-semibold text-slate-700">
+        <span>Apartment, Suite, or Unit</span>
+        <span className="ml-1 font-normal text-slate-400">Optional</span>
+        <Input className="mt-1 h-9 bg-slate-50 text-sm" placeholder="Apt 4B" />
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block text-xs font-semibold text-slate-700">
+          City
+          <Input className="mt-1 h-9 bg-slate-50 text-sm" placeholder="City" />
+        </label>
+        <label className="block text-xs font-semibold text-slate-700">
+          State
+          <Input className="mt-1 h-9 bg-slate-50 text-sm" placeholder="State" />
+        </label>
+      </div>
+      <label className="block text-xs font-semibold text-slate-700">
+        ZIP Code
+        <Input className="mt-1 h-9 bg-slate-50 text-sm" placeholder="12345" />
+      </label>
+    </div>
+  );
+
   return (
     <aside className="bg-[#1c2333] h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
@@ -131,7 +159,9 @@ export function QuestionPreviewTab({
               {text || "Enter question text..."}
             </h2>
 
-            {kind === "text" ? (
+            {kind === "shipping_address" ? (
+              renderShippingAddress()
+            ) : kind === "text" ? (
               <Input
                 value={freeTextValue}
                 onChange={(event) => setFreeTextValue(event.target.value)}
