@@ -55,7 +55,19 @@ const effectiveContent: ProgramEffectiveContent = {
         { source_id: "field-3", label: "Date of Birth", kind: "date", required: true, order: 1 },
       ],
     }],
-    inherited_visit_type: [],
+    inherited_visit_type: [{
+      id: "section-visit-1",
+      source_id: "section-visit-1",
+      source_type: "visit_type",
+      scope: "common",
+      name: "Weight Management History",
+      version: 4,
+      fields: [
+        // Canonical field identity is scoped by its parent Section/version.
+        // Reusing a field ID in another Section must not hide this row.
+        { source_id: "field-1", label: "Weight management goal", kind: "text", required: true, order: 1 },
+      ],
+    }],
     explicit_program: [],
   },
   blockers: [],
@@ -76,6 +88,9 @@ assert.match(html, /Inherited — Global/);
 assert.match(html, /Inherited — Visit Type · weightloss/);
 assert.match(html, /Current medical conditions/);
 assert.match(html, /Current medications/);
+assert.match(html, /Inherited — Global · Medical Baseline/);
+assert.match(html, /Weight management goal/);
+assert.match(html, /Inherited — Visit Type · weightloss · Weight Management History/);
 assert.match(html, /Medical Conditions/);
 assert.match(html, /Self Reported Meds/);
 assert.match(html, /Optional/);

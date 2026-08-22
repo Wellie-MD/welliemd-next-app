@@ -96,7 +96,9 @@ function effectiveSectionFields(
           sourceSectionId: sectionId,
           sourceSectionName: section.name,
           sourceSectionVersion: section.source_version || section.version || 1,
+          sourceSectionScope: section.scope,
           sourceType,
+          sourceVisitType: sourceType === "visit_type" ? visitType : undefined,
           mappedField: field.mapped_field || "",
           system: true,
           effective: true,
@@ -157,9 +159,9 @@ function projectEffectiveSectionFields(
           visitType,
         );
         const fieldId = String(question?.elementConfig?.sourceFieldId || "");
-        if (!question || !fieldId || authoredSourceIds.has(fieldId) || emittedFields.has(fieldId)) return;
-        emittedFields.add(fieldId);
-        authoredSourceIds.add(fieldId);
+        const fieldKey = `${sectionKey}:${fieldId}`;
+        if (!question || !fieldId || authoredSourceIds.has(fieldId) || emittedFields.has(fieldKey)) return;
+        emittedFields.add(fieldKey);
         if (question.kind === "consent") projection.consents.push(question);
         else if (question.kind === "checkout") projection.checkout.push(question);
         else projection.clinical.push(question);
