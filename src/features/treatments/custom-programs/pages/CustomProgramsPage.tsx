@@ -13,7 +13,7 @@ import {
   getCustomProgramEffectiveSlug,
   normalizeCustomProgramSlug,
 } from "@/features/treatments/custom-programs/utils/customProgramSlug";
-import { useUpdateCustomProgramSlugOverride } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { usePrograms, useUpdateCustomProgramSlugOverride } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { useClients } from "@/hooks/useClients";
 import type { CustomProgram } from "@/features/treatments/types";
 import { buildQuestionnaireRuntimeUrl } from "@/features/treatments/utils/questionnaireRuntimeUrl";
@@ -22,6 +22,7 @@ export default function CustomProgramsPage() {
   const navigate = useNavigate();
   const page = useCustomProgramsPage();
   const { currentClient } = useClients();
+  const { data: programs = [] } = usePrograms();
   const updateSlugMutation = useUpdateCustomProgramSlugOverride();
   const [previewProgram, setPreviewProgram] = useState<CustomProgram | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -128,6 +129,7 @@ export default function CustomProgramsPage() {
         onCopyStartUrl={handleCopyStartUrl}
         onSaveSlug={handleSaveSlug}
         onClearFilters={page.handleClearFilters}
+        programs={programs}
       />
 
       {previewProgram && (

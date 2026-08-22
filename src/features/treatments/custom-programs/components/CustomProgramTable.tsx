@@ -3,9 +3,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { SlugEditorModal } from "@/features/treatments/common/components";
-import type { CustomProgram, CustomProgramStatus } from "@/features/treatments/types";
+import type { CustomProgram, CustomProgramStatus, Program } from "@/features/treatments/types";
 import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { getCustomProgramEffectiveSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
+import { resolveCustomProgramNames } from "@/features/treatments/custom-programs/utils/customProgramDisplay";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -22,6 +23,7 @@ interface CustomProgramTableProps {
   onPreview?: (program: CustomProgram) => void;
   onCopyStartUrl?: (program: CustomProgram) => Promise<void> | void;
   onSaveSlug?: (program: CustomProgram, slugOverride: string) => Promise<void> | void;
+  programs?: Program[];
 }
 
 const statusClassName: Record<CustomProgramStatus, string> = {
@@ -32,9 +34,6 @@ const statusClassName: Record<CustomProgramStatus, string> = {
 
 const formatStatusLabel = (status: CustomProgramStatus) =>
   status.charAt(0).toUpperCase() + status.slice(1);
-
-const getRoutesIntoCount = (program: CustomProgram) =>
-  program.builderTreatmentOptions?.length ?? program.includedProgramIds.length;
 
 const getQuestionCount = (program: CustomProgram) =>
   program.runtimeSummary?.effectiveQuestionCount
@@ -69,6 +68,7 @@ export function CustomProgramTable({
   onPreview,
   onCopyStartUrl,
   onSaveSlug,
+  programs = [],
 }: CustomProgramTableProps) {
   const [copiedProgramId, setCopiedProgramId] = useState<string | null>(null);
   const [editingProgram, setEditingProgram] = useState<CustomProgram | null>(null);
@@ -134,6 +134,7 @@ export function CustomProgramTable({
               const isMulti = isCustomProgramMulti(program);
               const copied = copiedProgramId === program.id;
               const effectiveSlug = getCustomProgramEffectiveSlug(program);
+              const routedTreatmentNames = resolveCustomProgramNames(program, programs);
 
               return (
                 <TableRow key={program.id} className="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
@@ -178,7 +179,7 @@ export function CustomProgramTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    {getRoutesIntoCount(program)} treatments
+                    {routedTreatmentNames.length > 0 ? routedTreatmentNames.join(", ") : "No routed treatments configured"}
                   </TableCell>
                   <TableCell className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     {getQuestionCount(program)}

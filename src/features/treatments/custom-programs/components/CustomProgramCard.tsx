@@ -1,22 +1,21 @@
 import { Sparkles, Pill } from "lucide-react";
-import type { CustomProgram } from "@/features/treatments/types";
+import type { CustomProgram, Program } from "@/features/treatments/types";
 import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
+import { resolveCustomProgramNames } from "@/features/treatments/custom-programs/utils/customProgramDisplay";
 import { cn } from "@/lib/utils";
 import {
   readinessToneClass,
   resolveCustomProgramReadiness,
 } from "@/features/treatments/custom-programs/utils/customProgramReadiness";
 
-const uniqueNonEmptyValues = (values: Array<string | undefined>) =>
-  Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
-
 interface CustomProgramCardProps {
   customProgram: CustomProgram;
+  programs?: Program[];
   onOpenBuilder?: (program: CustomProgram) => void;
   onPreview?: (program: CustomProgram) => void;
 }
 
-export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: CustomProgramCardProps) {
+export function CustomProgramCard({ customProgram, programs = [], onOpenBuilder, onPreview }: CustomProgramCardProps) {
   const isMulti = isCustomProgramMulti(customProgram);
   const readiness = resolveCustomProgramReadiness(customProgram);
 
@@ -51,19 +50,7 @@ export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: C
     }
   };
 
-  const builderTreatmentNames = uniqueNonEmptyValues(
-    customProgram.builderTreatmentOptions?.map((item) => item.title) ?? []
-  );
-  const flowTreatmentNames = uniqueNonEmptyValues(
-    customProgram.flowItems.filter((item) => item.kind === "program").map((item) => item.title)
-  );
-  const includedProgramNames = uniqueNonEmptyValues(customProgram.includedProgramIds);
-  const routedTreatmentNames =
-    builderTreatmentNames.length > 0
-      ? builderTreatmentNames
-      : flowTreatmentNames.length > 0
-        ? flowTreatmentNames
-        : includedProgramNames;
+  const routedTreatmentNames = resolveCustomProgramNames(customProgram, programs);
   const routedTreatmentCount = routedTreatmentNames.length;
 
   return (
