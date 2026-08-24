@@ -77,6 +77,7 @@ export function AssignmentPairCard(props: {
   onRetry: () => void;
   onCancel: () => void;
   onRecheck: () => void;
+  rechecking: boolean;
   /** Called after a corrective action navigates away, so the modal can close
    * instead of floating over the page it just navigated to. */
   onNavigate?: () => void;
@@ -231,10 +232,12 @@ export function AssignmentPairCard(props: {
           </ol>
           <button
             type="button"
+            disabled={props.rechecking}
             onClick={props.onRecheck}
-            className="mt-3 flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium"
+            className="mt-3 flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium disabled:cursor-wait disabled:opacity-60"
           >
-            <RefreshCw className="h-3.5 w-3.5" /> Recheck readiness
+            <RefreshCw className={`h-3.5 w-3.5 ${props.rechecking ? "animate-spin" : ""}`} />
+            {props.rechecking ? "Rechecking…" : "Recheck readiness"}
           </button>
           <div className="mt-3 flex flex-wrap gap-2">
             {Object.entries(preflight.counts).map(([kind, count]) => (
@@ -264,6 +267,7 @@ export function AssignmentPairCard(props: {
             issues={checkoutIssues}
             summary={preflight.checkout_summary}
             onRecheck={props.onRecheck}
+            rechecking={props.rechecking}
             onNavigate={props.onNavigate}
             permissions={props.permissions}
           />
@@ -290,6 +294,7 @@ export function AssignmentPairCard(props: {
               issues={operationIssues}
               summary={operation.last_error_summary}
               onRecheck={props.onRecheck}
+              rechecking={props.rechecking}
               onNavigate={props.onNavigate}
               permissions={props.permissions}
             />
