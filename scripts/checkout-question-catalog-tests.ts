@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import type { Product } from "../src/api/products.js";
 import {
+  catalogMetadataFromProducts,
   categoriesWithProducts,
   dosesForProducts,
   productsForCategory,
@@ -38,6 +39,10 @@ const products = selectableCatalogProducts([
 ]);
 
 assert.deepEqual(products.map((item) => item.id), [1, 2, 3]);
+const metadata = catalogMetadataFromProducts(products);
+assert.deepEqual(metadata.categories.map((item) => item.id), [20, 10]);
+assert.deepEqual(metadata.titrationCategories.map((item) => item.id), [100, 101, 200]);
+assert.deepEqual(metadata.doseMappings.map((item) => item.id), [1000, 1001, 2000]);
 assert.deepEqual(
   selectableCatalogProducts([
     product({ id: 1, name: "Weight Starter", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),

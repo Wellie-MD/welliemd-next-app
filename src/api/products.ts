@@ -8,6 +8,7 @@
  * - Edit all fields including pricing
  */
 import axiosInstance from "./axiosInstance";
+import { invalidateCatalogProductsCache } from "@/features/treatments/programs/checkout-question/utils/catalogProductCache";
 
 // ==================== PRODUCT TYPES ====================
 
@@ -344,6 +345,7 @@ export const productApi = {
    */
   createProduct: async (payload: any): Promise<any> => {
     const { data } = await axiosInstance.post("products/", payload);
+    invalidateCatalogProductsCache();
     return data;
   },
 
@@ -352,6 +354,7 @@ export const productApi = {
    */
   updateProduct: async (id: string | number, payload: any): Promise<unknown> => {
     const { data } = await axiosInstance.patch(`products/${id}/`, payload);
+    invalidateCatalogProductsCache();
     return data;
   },
 
@@ -360,6 +363,7 @@ export const productApi = {
    */
   deleteProduct: async (id: string | number): Promise<void> => {
     await axiosInstance.delete(`products/${id}/`);
+    invalidateCatalogProductsCache();
   },
 
   /**

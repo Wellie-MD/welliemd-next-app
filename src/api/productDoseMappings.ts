@@ -4,6 +4,7 @@
  * Manages structured dose mappings for products
  */
 import axiosInstance from "./axiosInstance";
+import { invalidateCatalogProductsCache } from "@/features/treatments/programs/checkout-question/utils/catalogProductCache";
 
 // ==================== TYPES ====================
 
@@ -100,6 +101,7 @@ export const createDoseMapping = async (
     "/products/dose-mappings/",
     payload
   );
+  invalidateCatalogProductsCache();
   return response.data;
 };
 
@@ -114,6 +116,7 @@ export const updateDoseMapping = async (
     `/products/dose-mappings/${id}/`,
     payload
   );
+  invalidateCatalogProductsCache();
   return response.data;
 };
 
@@ -123,6 +126,7 @@ export const updateDoseMapping = async (
  */
 export const deleteDoseMapping = async (id: number): Promise<void> => {
   await axiosInstance.delete(`/products/dose-mappings/${id}/`);
+  invalidateCatalogProductsCache();
 };
 
 /**

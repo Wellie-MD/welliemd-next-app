@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Info, Layers3, Plus, Ungroup } from "lucide-react";
-import { productCategoryApi, type ProductCategory } from "@/api/productCategories";
-import { titrationCategoryApi, type TitrationCategory } from "@/api/titrationCategories";
-import { listDoseMappings, type ProductDoseMapping } from "@/api/productDoseMappings";
+import { type ProductCategory } from "@/api/productCategories";
+import { type TitrationCategory } from "@/api/titrationCategories";
+import { type ProductDoseMapping } from "@/api/productDoseMappings";
 import { productApi, type Product } from "@/api/products";
 import type { ProgramCheckoutProduct, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { CheckoutProductRow } from "./CheckoutProductRow";
-import { selectableCatalogProducts } from "../utils/catalogOptions";
+import {
+  catalogMetadataFromProducts,
+  selectableCatalogProducts,
+} from "../utils/catalogOptions";
+import { loadCatalogProducts } from "../utils/catalogProductCache";
 
 interface CheckoutProductsSectionProps {
   products: ProgramCheckoutProduct[];
@@ -80,19 +84,18 @@ export function CheckoutProductsSection({
 
     const fetchCatalogMetadata = async () => {
       try {
-        const [nextCategories, nextTitrationCategories, nextDoseMappings, nextProducts] = await Promise.all([
-          productCategoryApi.listCategories(),
-          titrationCategoryApi.listCategories({ is_active: true, page_size: 100 }),
-          listDoseMappings({ page_size: 1000 }),
+        const nextProducts = await loadCatalogProducts(() =>
           productApi.listProducts({ is_admin_product: true, is_active: true, page_size: 250 }),
-        ]);
+        );
 
         if (cancelled) return;
-        setCategories(nextCategories || []);
-        setTitrationCategories(nextTitrationCategories || []);
-        setDoseMappings(nextDoseMappings?.results || []);
+        const selectableProducts = selectableCatalogProducts(nextProducts, programTreatmentTypeKey);
+        const metadata = catalogMetadataFromProducts(selectableProducts);
+        setCategories(metadata.categories);
+        setTitrationCategories(metadata.titrationCategories);
+        setDoseMappings(metadata.doseMappings);
         setAllCatalogProducts(nextProducts || []);
-        setCatalogProducts(selectableCatalogProducts(nextProducts || [], programTreatmentTypeKey));
+        setCatalogProducts(selectableProducts);
         setCatalogError(null);
         setCatalogLoaded(true);
       } catch (error) {

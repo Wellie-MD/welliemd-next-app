@@ -2,6 +2,7 @@
  * Titration Category API
  */
 import axiosInstance from "./axiosInstance";
+import { invalidateCatalogProductsCache } from "@/features/treatments/programs/checkout-question/utils/catalogProductCache";
 
 export interface TitrationCategory {
     id: number;
@@ -73,6 +74,7 @@ export const titrationCategoryApi = {
         display_order?: number;
     }): Promise<TitrationCategory> => {
         const { data } = await axiosInstance.post("products/titration-categories/", payload);
+        invalidateCatalogProductsCache();
         return data;
     },
 
@@ -84,6 +86,7 @@ export const titrationCategoryApi = {
         payload: Partial<TitrationCategory>
     ): Promise<TitrationCategory> => {
         const { data } = await axiosInstance.patch(`products/titration-categories/${id}/`, payload);
+        invalidateCatalogProductsCache();
         return data;
     },
 
@@ -92,6 +95,7 @@ export const titrationCategoryApi = {
      */
     deleteCategory: async (id: number): Promise<void> => {
         await axiosInstance.delete(`products/titration-categories/${id}/`);
+        invalidateCatalogProductsCache();
     },
 };
 

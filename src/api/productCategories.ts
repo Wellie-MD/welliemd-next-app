@@ -2,6 +2,7 @@
  * Product Category API
  */
 import axiosInstance from "./axiosInstance";
+import { invalidateCatalogProductsCache } from "@/features/treatments/programs/checkout-question/utils/catalogProductCache";
 
 export interface ProductCategory {
   id: number;
@@ -77,6 +78,7 @@ export const productCategoryApi = {
    */
   createCategory: async (payload: CreateCategoryPayload): Promise<ProductCategory> => {
     const { data } = await axiosInstance.post("products/categories/", payload);
+    invalidateCatalogProductsCache();
     return data;
   },
 
@@ -88,6 +90,7 @@ export const productCategoryApi = {
     payload: UpdateCategoryPayload
   ): Promise<ProductCategory> => {
     const { data } = await axiosInstance.patch(`products/categories/${id}/`, payload);
+    invalidateCatalogProductsCache();
     return data;
   },
 
@@ -96,6 +99,7 @@ export const productCategoryApi = {
    */
   deleteCategory: async (id: number): Promise<void> => {
     await axiosInstance.delete(`products/categories/${id}/`);
+    invalidateCatalogProductsCache();
   },
 
   /**
