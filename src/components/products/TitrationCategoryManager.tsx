@@ -20,6 +20,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { titrationCategoryApi, TitrationCategory } from "@/api/titrationCategories";
 
+const validationErrorMessage = (error: any, fallback: string) => {
+  const body = error?.response?.data;
+  if (typeof body === "string") return body;
+  if (!body || typeof body !== "object") return error?.message || fallback;
+
+  const direct = body.detail || body.error || body.message;
+  if (typeof direct === "string") return direct;
+
+  const messages = Object.entries(body).flatMap(([field, value]) => {
+    const values = Array.isArray(value) ? value : [value];
+    return values
+      .filter((item) => typeof item === "string")
+      .map((item) => `${field}: ${item}`);
+  });
+
+  return messages.join(" ") || fallback;
+};
+
 interface TitrationCategoryManagerProps {
   value?: number | null;
   onChange: (categoryId: number | null) => void;
@@ -110,7 +128,7 @@ export function TitrationCategoryManager({
       console.error("Failed to create titration category:", error);
       toast({
         title: "Error",
-        description: error.response?.data?.error || "Failed to create titration category",
+        description: validationErrorMessage(error, "Failed to create titration category"),
         variant: "destructive",
       });
     } finally {
@@ -137,41 +155,43 @@ export function TitrationCategoryManager({
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0">
-              <Command>
-                <CommandInput placeholder="Search regimens..." />
-                <CommandEmpty>No regimen found.</CommandEmpty>
-                <CommandGroup className="max-h-[200px] overflow-auto">
-                  {categories.map((category) => (
-                    <CommandItem
-                      key={category.id}
-                      value={category.name}
-                      onSelect={() => {
-                        onChange(category.id === value ? null : category.id);
-                        setOpen(false);
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          value === category.id ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{category.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Code: {category.code}
-                        </div>
-                        {category.description && (
-                          <div className="text-xs text-muted-foreground line-clamp-1">
-                            {category.description}
+            <PopoverContent className="max-h-[var(--radix-popover-content-available-height)] w-[min(400px,calc(100vw-2rem))] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto overscroll-contain p-0">
+              {!showAddForm && (
+                <Command>
+                  <CommandInput placeholder="Search regimens..." />
+                  <CommandEmpty>No regimen found.</CommandEmpty>
+                  <CommandGroup className="max-h-[200px] overflow-auto">
+                    {categories.map((category) => (
+                      <CommandItem
+                        key={category.id}
+                        value={category.name}
+                        onSelect={() => {
+                          onChange(category.id === value ? null : category.id);
+                          setOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            value === category.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium">{category.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Code: {category.code}
                           </div>
-                        )}
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </Command>
+                          {category.description && (
+                            <div className="text-xs text-muted-foreground line-clamp-1">
+                              {category.description}
+                            </div>
+                          )}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              )}
 
               {!showAddForm && (
                 <div className="border-t p-2">
