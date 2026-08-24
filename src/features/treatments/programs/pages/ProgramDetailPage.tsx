@@ -15,7 +15,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ArrowLeft, ArrowUpDown, GitBranch, Plus, Search } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Eye, GitBranch, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { showFloatingToast } from "@/components/ui/floating-toast";
@@ -34,6 +34,7 @@ import { formatProgramStage } from "@/features/treatments/utils/labels";
 import { cn } from "@/lib/utils";
 import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import { ProgramQuestionDetailModal } from "@/features/treatments/programs/components/ProgramQuestionDetailModal";
+import { ProgramPreviewDialog } from "@/features/treatments/programs/components/ProgramPreviewDialog";
 import {
   AuthRow,
   HIDDEN_SYSTEM_QUESTION_KINDS,
@@ -75,6 +76,7 @@ export default function ProgramDetailPage() {
   const [isQuestionDialogOpen, setIsQuestionDialogOpen] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [previewQuestion, setPreviewQuestion] = useState<ProgramQuestion | null>(null);
+  const [isProgramPreviewOpen, setIsProgramPreviewOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -419,7 +421,16 @@ export default function ProgramDetailPage() {
 	            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <div className="flex shrink-0 items-center gap-2 overflow-x-auto pb-1 lg:justify-end">
+	            <Button
+	              type="button"
+	              variant="outline"
+	              onClick={() => setIsProgramPreviewOpen(true)}
+	              className="h-9 shrink-0 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+	            >
+	              <Eye className="h-4 w-4" />
+	              Preview
+	            </Button>
 	            <Button
 	              type="button"
 	              variant="outline"
@@ -568,6 +579,12 @@ export default function ProgramDetailPage() {
           programName={foundProgram.name}
         />
       ) : null}
+
+      <ProgramPreviewDialog
+        open={isProgramPreviewOpen}
+        onOpenChange={setIsProgramPreviewOpen}
+        program={foundProgram}
+      />
 
     </div>
   );

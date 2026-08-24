@@ -116,6 +116,7 @@ export const isClientCreatedQuestion = (
     question &&
       (question.source === "client" ||
         question.is_client_custom === true ||
+        question.can_be_modified === true ||
         question.id.startsWith("program-question-")),
   );
 
@@ -123,10 +124,12 @@ export const isLockedProgramQuestion = (
   question: ProgramQuestion | null | undefined,
 ) =>
   !question ||
-  question.locked === true ||
-  question.is_read_only === true ||
-  question.can_be_modified === false ||
-  !isClientCreatedQuestion(question);
+  (question.can_be_modified === true && question.is_read_only !== true && question.locked !== true
+    ? false
+    : question.locked === true ||
+      question.is_read_only === true ||
+      question.can_be_modified === false ||
+      !isClientCreatedQuestion(question));
 
 export const buildQuestionPreviewUrl = (
   program: Program,
