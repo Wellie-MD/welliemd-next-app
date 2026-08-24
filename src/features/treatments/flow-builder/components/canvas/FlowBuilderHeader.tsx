@@ -100,7 +100,7 @@ export function FlowBuilderHeader({
 
         <div className="flex flex-wrap items-center gap-3 md:justify-end">
           <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
-          <Button variant="secondary" onClick={onOpenDrawer} data-testid="open-add-to-flow-drawer">
+          <Button onClick={onOpenDrawer} data-testid="open-add-to-flow-drawer">
             <Plus className="mr-2 h-4 w-4" />
             Add to flow
           </Button>
