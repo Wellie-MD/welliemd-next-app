@@ -94,6 +94,7 @@ export function TreatmentAssignmentModal({
     () => new Set(permissionValues || []),
     [permissionValues]
   );
+  const isCustomProgram = sourceKind === "custom_program";
 
   const filteredItems = useMemo(() => {
     const query = itemSearch.trim().toLowerCase();
@@ -148,6 +149,7 @@ export function TreatmentAssignmentModal({
   const runPreflight = async () => {
     setWorking(true);
     setPhase("preflight");
+    if (isCustomProgram) setPairs([]);
     const selectedItems = items.filter((item) => itemIds.has(item.id));
     const selectedClients = clients.filter((client) => clientIds.has(client.id));
     const requestedPairs = selectedItems.flatMap((item) =>
@@ -420,7 +422,10 @@ export function TreatmentAssignmentModal({
                   pair={pair}
                   onRetry={() => retry(pair)}
                   onCancel={() => cancel(pair)}
-                  onRecheck={() => recheckPair(pair)}
+                  onRecheck={() =>
+                    isCustomProgram ? runPreflight() : recheckPair(pair)
+                  }
+                  rechecking={isCustomProgram && working}
                   onNavigate={() => changeOpen(false)}
                   permissions={permissions}
                 />

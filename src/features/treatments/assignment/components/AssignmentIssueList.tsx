@@ -16,6 +16,7 @@ export function AssignmentIssueList(props: {
   issues: AssignmentIssue[];
   summary?: AssignmentIssueSummary;
   onRecheck?: () => void;
+  rechecking?: boolean;
   /** Called after a corrective action navigates away, so the modal can close
    * instead of floating over the page it just navigated to. */
   onNavigate?: () => void;
@@ -47,10 +48,12 @@ export function AssignmentIssueList(props: {
       {props.onRecheck && (
         <button
           type="button"
+          disabled={props.rechecking}
           onClick={props.onRecheck}
-          className="mt-3 flex items-center gap-1 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium"
+          className="mt-3 flex items-center gap-1 rounded-md border border-red-200 bg-white px-3 py-1.5 text-xs font-medium disabled:cursor-wait disabled:opacity-60"
         >
-          <RefreshCw className="h-3.5 w-3.5" /> Recheck readiness
+          <RefreshCw className={`h-3.5 w-3.5 ${props.rechecking ? "animate-spin" : ""}`} />
+          {props.rechecking ? "Rechecking…" : "Recheck readiness"}
         </button>
       )}
     </section>
