@@ -518,12 +518,14 @@ export default function ProgramDetailPage() {
         onOpenChange={setIsConsentOpen}
         onAddConsent={handleAddConsentById}
         attachedConsentIds={foundProgram.consentIds || []}
+        visitType={foundProgram.visitType}
       />
 
       <SectionSelectorModal
         open={isSectionOpen}
         onOpenChange={setIsSectionOpen}
         onSelect={handleAttachSection}
+        visitType={foundProgram.visitType}
       />
 
       <QuestionnairePreviewDialog

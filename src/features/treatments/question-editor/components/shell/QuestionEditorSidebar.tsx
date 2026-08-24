@@ -24,7 +24,7 @@ export function QuestionEditorSidebar({
   const filteredQuestions = questions.filter((q) => q.text.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <aside className="z-10 flex h-full w-[280px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-50">
+    <aside className="z-10 hidden h-full min-w-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-50 lg:flex lg:w-[240px] xl:w-[280px]">
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
         <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">FLOW</span>
         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">

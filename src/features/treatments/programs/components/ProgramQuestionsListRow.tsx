@@ -38,9 +38,10 @@ export function ProgramQuestionsListRow({
   const isEffectiveSectionField = question.elementConfig?.effectiveSectionField === true;
   const sourceSectionId = String(question.elementConfig?.sourceSectionId || "");
   const sourceSectionName = String(question.elementConfig?.sourceSectionName || "Common Section");
-  const canDetachSection = isEffectiveSectionField
+  const isExplicitSectionPlacement = (isSection || isEffectiveSectionField)
     && question.elementConfig?.sourceType === "program"
-    && Boolean(sourceSectionId)
+    && Boolean(sourceSectionId);
+  const canDetachSection = isExplicitSectionPlacement
     && Boolean(onDetachSection);
 
   const {
@@ -181,7 +182,7 @@ export function ProgramQuestionsListRow({
         {/* The author added Patient Authentication, so they can configure and
             remove it. It still cannot be dragged — it is pinned first — and
             publication requires it, so removing it blocks publish. */}
-        {isEffectiveSectionField ? (
+        {isEffectiveSectionField || isExplicitSectionPlacement ? (
           <>
             <Button
               variant="ghost"

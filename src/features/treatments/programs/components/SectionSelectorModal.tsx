@@ -10,6 +10,7 @@ interface SectionSelectorModalProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (section: CommonSection) => void;
   excludeSectionId?: string;
+  visitType?: string;
 }
 
 export function SectionSelectorModal({
@@ -17,10 +18,17 @@ export function SectionSelectorModal({
   onOpenChange,
   onSelect,
   excludeSectionId,
+  visitType,
 }: SectionSelectorModalProps) {
   const { data: sections = [], isLoading } = useSections();
   const [selectedSectionId, setSelectedSectionId] = useState<string>("");
-  const selectableSections = sections.filter((section) => section.id !== excludeSectionId);
+  const normalizedVisitType = String(visitType || "").trim().toLowerCase();
+  const selectableSections = sections.filter((section) =>
+    section.id !== excludeSectionId
+    && (section.scope === "global" || (section.visitTypeKeys || []).some(
+      (key) => String(key).trim().toLowerCase() === normalizedVisitType,
+    ))
+  );
 
   const handleSelect = () => {
     const selected = selectableSections.find((s) => s.id === selectedSectionId);
@@ -41,7 +49,7 @@ export function SectionSelectorModal({
             </DialogTitle>
           </div>
           <p className="text-xs text-slate-500 leading-relaxed">
-            Choose a pre-defined, reusable Common Section to insert. Common Sections contain pre-configured clinical fields (like Demographic Baseline or Medical History) and automatically keep their data updated across different programs.
+            Explicitly attach a compatible reusable Common Section. Scope controls where the Section may be used; it does not add it automatically.
           </p>
         </DialogHeader>
 
@@ -51,7 +59,7 @@ export function SectionSelectorModal({
               <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
             </div>
           ) : selectableSections.length === 0 ? (
-            <div className="text-center text-xs text-slate-400 italic">No common sections available.</div>
+            <div className="text-center text-xs text-slate-400 italic">No Common Sections are compatible with this Program's Visit Type.</div>
           ) : (
             <div className="space-y-2">
               {selectableSections.map((section) => (

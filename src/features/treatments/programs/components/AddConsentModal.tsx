@@ -8,6 +8,7 @@ interface AddConsentModalProps {
   onOpenChange: (open: boolean) => void;
   onAddConsent: (consentId: string) => void;
   attachedConsentIds: string[];
+  visitType?: string;
 }
 
 const CONSENT_DESCRIPTIONS: Record<string, { tag: string; desc: string }> = {
@@ -33,10 +34,13 @@ const CONSENT_DESCRIPTIONS: Record<string, { tag: string; desc: string }> = {
   }
 };
 
-export function AddConsentModal({ open, onOpenChange, onAddConsent, attachedConsentIds }: AddConsentModalProps) {
+export function AddConsentModal({ open, onOpenChange, onAddConsent, attachedConsentIds, visitType }: AddConsentModalProps) {
   const { data: allConsents = [] } = useConsents();
-  // We only show treatment-specific consents in this library modal (global ones are automatically applied)
-  const treatmentSpecificConsents = allConsents.filter((c) => c.scope === "visit_type");
+  const normalizedVisitType = String(visitType || "").trim().toLowerCase();
+  const compatibleConsents = allConsents.filter((consent) =>
+    consent.scope === "global"
+    || (consent.visitTypeKeys || []).some((key) => String(key).trim().toLowerCase() === normalizedVisitType)
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -46,7 +50,7 @@ export function AddConsentModal({ open, onOpenChange, onAddConsent, attachedCons
           <div>
             <h2 className="text-[16px] font-bold text-slate-900 leading-tight">Add Consent</h2>
             <div className="text-[12px] text-slate-400 mt-1.5 leading-relaxed">
-              Pick a treatment-specific consent from the library to require before patients can start this eligibility.
+              Explicitly attach a compatible Universal or Treatment-specific consent to this Program.
             </div>
           </div>
           <button onClick={() => onOpenChange(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -56,7 +60,7 @@ export function AddConsentModal({ open, onOpenChange, onAddConsent, attachedCons
 
         {/* Scrollable list body */}
         <div className="flex-1 p-6 overflow-y-auto max-h-[50vh] space-y-3.5 bg-slate-50/30">
-          {treatmentSpecificConsents.map((consent) => {
+          {compatibleConsents.map((consent) => {
             const meta = CONSENT_DESCRIPTIONS[consent.id] || { tag: "GENERAL", desc: "Treatment-specific consent form requirements." };
             const isAlreadyAttached = attachedConsentIds.includes(consent.id);
 
@@ -69,7 +73,7 @@ export function AddConsentModal({ open, onOpenChange, onAddConsent, attachedCons
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[13px] font-bold text-slate-900">{consent.name}</span>
                     <span className="bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded text-[9.5px] uppercase tracking-wide">
-                      {meta.tag}
+                      {consent.scope === "global" ? "UNIVERSAL" : meta.tag}
                     </span>
                   </div>
                   <p className="text-[11.5px] text-slate-400 leading-normal line-clamp-2">

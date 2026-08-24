@@ -68,7 +68,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
   } : null;
 
   return (
-    <div className="flex flex-col space-y-4">
+    <div className="flex h-full min-h-0 w-full flex-col space-y-4 overflow-hidden">
       <FlowBuilderHeader
         name={customProgram.name}
         slug={customProgram.slug}
@@ -149,7 +149,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
       )}
 
       {builder.viewMode === "flow" && (
-        <div className="grid h-[calc(100vh-260px)] min-h-[500px] grid-cols-[280px_1fr] gap-4 overflow-hidden">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(220px,280px)_minmax(0,1fr)] gap-4 overflow-hidden">
           <FlowBuilderSidebar
             items={builder.filteredLibraryItems}
             filter={builder.sidebarFilter}

@@ -110,6 +110,11 @@ function getItemSubtitle(item: AdminCustomProgramStageItem) {
     return `${formatQuestionKind(question?.questionKind)}${choices.length ? ` · ${choices.length} option${choices.length === 1 ? "" : "s"}` : ""}`;
   }
   if (item.kind === "section") {
+    if (item.derived) {
+      const count = item.section?.fieldCount;
+      const fields = count === undefined ? "Reusable section" : `${count} field${count === 1 ? "" : "s"}`;
+      return `${fields} · Auto from ${item.matchedProgramNames?.join(", ") || "included Program"}`;
+    }
     return item.section
       ? `${item.section.fieldCount} field${item.section.fieldCount === 1 ? "" : "s"}, asked as one block`
       : item.subtitle || "Reusable section";

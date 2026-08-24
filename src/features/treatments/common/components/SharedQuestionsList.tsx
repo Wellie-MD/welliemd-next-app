@@ -887,6 +887,7 @@ export function SharedQuestionsList({
           open={isSectionOpen}
           onOpenChange={setIsSectionOpen}
           excludeSectionId={entityType === "section" ? entityId : undefined}
+          visitType={effectiveProgram.visitType}
           onSelect={attachSection}
         />
         <ConsentSelectorModal
@@ -997,6 +998,7 @@ export function SharedQuestionsList({
         open={isSectionOpen}
         onOpenChange={setIsSectionOpen}
         excludeSectionId={entityType === "section" ? entityId : undefined}
+        visitType={effectiveProgram.visitType}
           onSelect={attachSection}
       />
 

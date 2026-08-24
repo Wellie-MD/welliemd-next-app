@@ -293,7 +293,9 @@ export function buildAdminCustomProgramStages(
       id: persisted?.id || `effective-section-${sectionNode.sourceId}-v${sectionNode.sourceVersion}`,
       kind: "section",
       title: sectionNode.name,
-      subtitle: section?.scope === "global" ? "Universal · automatically inherited" : "Effective reusable section",
+      subtitle: persisted
+        ? (section?.scope === "global" ? "Explicit · Universal" : "Explicit · Treatment specific")
+        : "Auto from included Program",
       persistedItem: persisted,
       derived: !persisted,
       section,
@@ -325,7 +327,7 @@ export function buildAdminCustomProgramStages(
       id: persisted?.id || `effective-consent-${node.sourceId}-v${node.sourceVersion}`,
       kind: "consent",
       title: node.name,
-      subtitle: node.sourceType === "global" ? "Universal" : "Automatically inherited",
+      subtitle: persisted ? "Explicit Custom Program placement" : "Auto from included Program",
       persistedItem: persisted,
       derived: !persisted,
       consent,

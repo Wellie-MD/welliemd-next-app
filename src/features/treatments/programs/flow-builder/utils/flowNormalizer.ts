@@ -77,8 +77,7 @@ export function normalizeProgramFlowData(questions: ProgramQuestion[]): Normaliz
   const graphQuestions = questions.filter(
     (question) =>
       question.kind !== "patient_authentication" &&
-      question.kind !== "checkout" &&
-      question.elementConfig?.system !== true
+      question.kind !== "checkout"
   );
   const sortedQuestions = [...graphQuestions].sort((a, b) => {
     const orderDiff = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);

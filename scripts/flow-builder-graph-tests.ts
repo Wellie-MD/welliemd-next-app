@@ -59,6 +59,13 @@ const program = (products: ProgramCheckoutProduct[] = []): Program => ({
     : [],
 });
 
+{
+  const inheritedField = question({ id: "inherited-field", order: 1 });
+  inheritedField.elementConfig = { system: true, inheritedFromSection: "Medical Baseline" };
+  const normalized = normalizeProgramFlowData([inheritedField]);
+  assert.deepEqual(normalized.sortedQuestions.map((item) => item.id), ["inherited-field"]);
+}
+
 const edge = (graph: ReturnType<typeof buildStaticProgramFlowGraph>, idPrefix: string) =>
   graph.edges.find((candidate) => candidate.id.startsWith(idPrefix));
 

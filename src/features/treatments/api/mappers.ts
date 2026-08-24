@@ -186,6 +186,9 @@ export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): Pr
   includeInQa: record.includeInQa ?? record.include_in_qa_section ?? true,
   hiddenFromPatient: record.hiddenFromPatient ?? false,
   prefillFromPrevious: record.prefillFromPrevious ?? false,
+  lockClientChanges: record.locked
+    ?? record.is_read_only
+    ?? (record.can_be_modified !== undefined ? !record.can_be_modified : undefined),
   elementConfig: record.elementConfig ?? record.element_config ??
     record.validation_rules?.element_config ?? record.validation?.element_config,
 });
@@ -206,6 +209,11 @@ export const questionToRecord = (question: ProgramQuestion): ProgramQuestionReco
     visibilityRules: question.visibilityRuleGroup,
     visibility_rules: question.visibilityRuleGroup,
     include_in_qa_section: question.includeInQa,
+    can_be_modified: question.lockClientChanges === false,
+    is_read_only: question.lockClientChanges !== false,
+    is_from_admin: true,
+    is_client_custom: false,
+    locked: question.lockClientChanges !== false,
     element_config: elementConfig,
   };
 };

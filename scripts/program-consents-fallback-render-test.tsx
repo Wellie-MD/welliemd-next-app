@@ -20,9 +20,10 @@ const html = renderToStaticMarkup(
   </StaticRouter>,
 );
 
-assert.match(html, /3 Total/);
-assert.match(html, /Telehealth Consent/);
-assert.match(html, /Weight Loss Consent/);
+assert.match(html, /1 Total/);
+assert.doesNotMatch(html, /Telehealth Consent/);
+assert.doesNotMatch(html, /Weight Loss Consent/);
 assert.match(html, /Program Consent/);
 assert.doesNotMatch(html, /Unrelated Consent/);
-console.log("PASS renders effective consent fallback groups consistently");
+assert.doesNotMatch(html, /Inherited/);
+console.log("PASS renders only explicitly placed Program Consents");

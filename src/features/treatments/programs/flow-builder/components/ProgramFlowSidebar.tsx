@@ -35,8 +35,7 @@ export function ProgramFlowSidebar({
       (a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER)
     ).filter((question) =>
       question.kind !== "patient_authentication" &&
-      question.kind !== "checkout" &&
-      question.elementConfig?.system !== true
+      question.kind !== "checkout"
     );
 
     const hasAuth = hasPatientAuthentication(program);

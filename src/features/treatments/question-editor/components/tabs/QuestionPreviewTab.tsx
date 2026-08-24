@@ -125,7 +125,7 @@ export function QuestionPreviewTab({
   );
 
   return (
-    <aside className="bg-[#1c2333] h-full flex flex-col overflow-hidden">
+    <aside className="hidden h-full min-w-0 flex-col overflow-hidden bg-[#1c2333] xl:flex">
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />

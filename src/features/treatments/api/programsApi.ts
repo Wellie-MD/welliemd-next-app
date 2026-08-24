@@ -28,6 +28,7 @@ export interface EffectiveSectionItem {
   source_version?: number;
   source_type: "global" | "visit_type" | "program" | "custom_program";
   scope: "common" | "program";
+  section_scope?: "global" | "visit_type";
   name: string;
   version?: number;
   fields: Array<{

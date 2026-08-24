@@ -124,6 +124,19 @@ export default function ConsentsPage() {
         });
         setDeleteConsentId(null);
       },
+      onError: (error: any) => {
+        const data = error?.response?.data;
+        const blockers = Array.isArray(data?.blockers)
+          ? data.blockers.map((item: any) => item.name).filter(Boolean)
+          : [];
+        toast({
+          title: "Consent is in use",
+          description: blockers.length
+            ? `Remove it from ${blockers.join(", ")} before deleting.`
+            : data?.detail || "The consent could not be deleted.",
+          variant: "destructive",
+        });
+      },
     });
   };
 

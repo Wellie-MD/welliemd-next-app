@@ -124,7 +124,7 @@ export function CategorySelector({
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0">
+            <PopoverContent className="w-[min(400px,calc(100vw-2rem))] max-w-[var(--radix-popover-content-available-width)] p-0">
               <Command>
                 <CommandInput placeholder="Search categories..." />
                 <CommandEmpty>No category found.</CommandEmpty>
@@ -172,7 +172,7 @@ export function CategorySelector({
               )}
 
               {showAddForm && (
-                <div className="border-t p-4 space-y-3">
+                <div className="max-h-[min(420px,var(--radix-popover-content-available-height))] space-y-3 overflow-y-auto border-t p-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-sm">Add New Category</h4>
                     <Button

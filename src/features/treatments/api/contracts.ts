@@ -189,4 +189,9 @@ export type ProgramQuestionRecord = Partial<ProgramQuestion> & {
   visibilityRuleGroup?: unknown;
   include_in_qa_section?: boolean;
   element_config?: Record<string, unknown>;
+  can_be_modified?: boolean;
+  is_read_only?: boolean;
+  is_from_admin?: boolean;
+  is_client_custom?: boolean;
+  locked?: boolean;
 };

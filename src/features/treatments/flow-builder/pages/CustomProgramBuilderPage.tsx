@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 import { AddToFlowDrawer } from "@/features/treatments/flow-builder/components/modals/AddToFlowDrawer";
 import { CustomProgramFlowBuilder } from "@/features/treatments/flow-builder/components/CustomProgramFlowBuilder";
 import { Button } from "@/components/ui/button";
@@ -199,17 +199,7 @@ export default function CustomProgramBuilderPage() {
   };
 
   return (
-    <div className="h-full max-h-screen flex flex-col p-6 space-y-4">
-      <div className="shrink-0">
-        <Link
-          to="/dashboard/treatments/custom-programs"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-          aria-label="Back to Custom Programs"
-          title="Back to Custom Programs"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-      </div>
+    <div className="flex h-full min-h-0 flex-col space-y-4 overflow-hidden p-4 sm:p-6">
       {validationBlockers.length > 0 && (
         <section className="shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950" role="alert">
           <div className="font-bold">Resolve Custom Program validation issues before publishing</div>
@@ -261,7 +251,7 @@ export default function CustomProgramBuilderPage() {
         </section>
       )}
 
-      <div>
+      <div className="min-h-0 flex-1 overflow-hidden">
         <CustomProgramFlowBuilder
           customProgram={customProgram}
           onOpenDrawer={() => setIsDrawerOpen(true)}

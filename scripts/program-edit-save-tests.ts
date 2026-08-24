@@ -7,11 +7,34 @@ import {
   sectionEditorChoices,
   sectionEditorDqChoices,
 } from "../src/features/treatments/common/utils/sectionFieldConfiguration.ts";
+import { questionFromRecord, questionToRecord } from "../src/features/treatments/api/mappers.ts";
 
 const test = (name: string, run: () => void) => {
   run();
   console.log(`PASS ${name}`);
 };
+
+test("question editability survives API mapping in both directions", () => {
+  const editable = questionFromRecord({
+    id: "admin-question",
+    question_text: "Editable inherited question",
+    question_type: "text",
+    can_be_modified: true,
+    is_read_only: false,
+    is_from_admin: true,
+    locked: false,
+  });
+  assert.equal(editable.lockClientChanges, false);
+
+  const persisted = questionToRecord({
+    ...editable,
+    lockClientChanges: true,
+  });
+  assert.equal(persisted.can_be_modified, false);
+  assert.equal(persisted.is_read_only, true);
+  assert.equal(persisted.is_from_admin, true);
+  assert.equal(persisted.locked, true);
+});
 
 test("a generic Program-save 400 is not presented as a duplicate slug", () => {
   assert.equal(

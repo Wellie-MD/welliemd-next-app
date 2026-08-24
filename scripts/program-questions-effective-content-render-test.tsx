@@ -73,6 +73,7 @@ const effectiveContent: ProgramEffectiveContent = {
       source_id: "section-program-1",
       source_type: "program",
       scope: "program",
+      section_scope: "visit_type",
       name: "Program Safety Questions",
       version: 3,
       fields: [
@@ -92,31 +93,14 @@ const html = renderToStaticMarkup(
   </QueryClientProvider>,
 );
 
-assert.match(html, /Truthfulness Consent/);
-assert.match(html, /GLP Consent/);
-assert.match(html, /Inherited — Global/);
-assert.match(html, /Inherited — Visit Type · weightloss/);
-assert.match(html, /Current medical conditions/);
-assert.match(html, /Current medications/);
-assert.match(html, /Inherited — Global · Medical Baseline/);
-assert.match(html, /Weight management goal/);
-assert.match(html, /Inherited — Visit Type · weightloss · Weight Management History/);
-assert.match(html, /Program safety answer/);
-assert.match(html, /Program-specific Section · Program Safety Questions/);
-assert.match(html, /Manage Medical Baseline/);
+assert.doesNotMatch(html, /Truthfulness Consent/);
+assert.doesNotMatch(html, /GLP Consent/);
+assert.doesNotMatch(html, /Current medical conditions/);
+assert.doesNotMatch(html, /Weight management goal/);
+assert.match(html, />Program Safety Questions</);
+assert.match(html, /1 field · Reusable from library · Treatment specific/);
+assert.doesNotMatch(html, /Program safety answer/);
 assert.match(html, /Detach Program Safety Questions from Program/);
-assert.match(html, /Medical Conditions/);
-assert.match(html, /Self Reported Meds/);
-assert.match(html, /Optional/);
-assert.match(html, /System/);
 assert.doesNotMatch(html, />Medical Baseline</);
 assert.doesNotMatch(html, />Referenced Clinical Section</);
-const clinicalIndex = html.indexOf("Date of Birth");
-const sectionConsentIndex = html.indexOf("NAD+ Consent");
-const effectiveConsentIndex = html.indexOf("Truthfulness Consent");
-const checkoutIndex = html.indexOf("Product Options — NAD+");
-assert.ok(clinicalIndex > 0);
-assert.ok(sectionConsentIndex > clinicalIndex);
-assert.ok(effectiveConsentIndex > sectionConsentIndex);
-assert.ok(checkoutIndex > effectiveConsentIndex);
-console.log("PASS Program questions page projects inherited effective content");
+console.log("PASS Program questions page renders only explicit content and consolidates Common Sections");
