@@ -16,7 +16,7 @@ interface CustomProgramFlowBuilderProps {
   onSave?: (updated: CustomProgram) => void;
   onPublish: () => void;
   isPublishing?: boolean;
-  onUpdateFlow?: (updatedItems: CustomProgramFlowItem[]) => void;
+  onUpdateFlow?: (updatedItems: CustomProgramFlowItem[]) => Promise<void>;
   programs: Program[];
   sections: CommonSection[];
   consents: ConsentForm[];
@@ -37,6 +37,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
     section: "Program Matching",
     required: editingQuestion.required ?? true,
     choices: editingQuestion.choices || editingQuestion.answerOptions || [],
+    dqChoices: editingQuestion.dqChoices || [],
     visibilityRuleGroup: editingQuestion.visibilityRules as ProgramQuestion["visibilityRuleGroup"],
     includeInQa: editingQuestion.includeInQa,
     hiddenFromPatient: editingQuestion.hiddenFromPatient,
@@ -81,9 +82,9 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
         onOpenChange={(open) => { if (!open) setEditingQuestion(null); }}
         questions={editorQuestion ? [editorQuestion] : []}
         initialQuestionId={editorQuestion?.id || null}
-        onSave={(question) => {
+        onSave={async (question) => {
           if (!editingQuestion || !onUpdateFlow) return;
-          onUpdateFlow(customProgram.flowItems.map((item) => item.id === editingQuestion.id ? {
+          await onUpdateFlow(customProgram.flowItems.map((item) => item.id === editingQuestion.id ? {
             ...item,
             title: question.text,
             subtitle: `Matching input (${question.kind})`,
@@ -91,6 +92,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
             questionKind: question.kind,
             choices: question.choices || [],
             answerOptions: question.choices || [],
+            dqChoices: question.dqChoices || [],
             required: question.required,
             visibilityRules: question.visibilityRuleGroup,
             includeInQa: question.includeInQa,

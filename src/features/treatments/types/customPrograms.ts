@@ -23,6 +23,7 @@ export interface CustomProgramFlowItem {
   questionKind?: QuestionKind | "single" | "multiple";
   answerOptions?: string[];
   choices?: string[];
+  dqChoices?: string[];
   required?: boolean;
   mappedField?: string;
   visibilityRules?: VisibilityRuleGroup | Record<string, unknown>;

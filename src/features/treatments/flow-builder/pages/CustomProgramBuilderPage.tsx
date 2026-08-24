@@ -84,25 +84,23 @@ export default function CustomProgramBuilderPage() {
   })).filter((entry) => entry.blockers.length > 0);
   const generalBlockers = validationBlockers.filter((blocker) => !blocker.source_id);
 
-  const handleUpdateFlow = (updatedItems: CustomProgramFlowItem[]) => {
-    saveCustomProgram(
-      synchronizeCustomProgramStructure(customProgram, updatedItems),
-      {
-        onSuccess: () => {
-          toast({
-            title: "Flow Updated",
-            description: "Intake flow sequence updated successfully.",
-          });
-        },
-        onError: (error) => {
-          toast({
-            title: "Unable to update flow",
-            description: customProgramMutationErrorMessage(error, "The flow could not be saved. Please try again."),
-            variant: "destructive",
-          });
-        },
-      }
-    );
+  const handleUpdateFlow = async (updatedItems: CustomProgramFlowItem[]) => {
+    try {
+      await saveCustomProgramMutation.mutateAsync(
+        synchronizeCustomProgramStructure(customProgram, updatedItems),
+      );
+      toast({
+        title: "Flow Updated",
+        description: "Intake flow sequence updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to update flow",
+        description: customProgramMutationErrorMessage(error, "The flow could not be saved. Please try again."),
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
 
   const handleAddItem = (item: CustomProgramBuilderAddItem) => {
