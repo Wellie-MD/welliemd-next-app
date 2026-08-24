@@ -2,7 +2,10 @@ import { strict as assert } from "node:assert";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StaticRouter } from "react-router-dom/server";
-import { ProgramMatchingRuleEditor } from "../src/features/treatments/flow-builder/components/modals/ProgramMatchingRuleEditor";
+import {
+  MATCHING_EDITOR_SELECT_LAYER_CLASS,
+  ProgramMatchingRuleEditor,
+} from "../src/features/treatments/flow-builder/components/modals/ProgramMatchingRuleEditor";
 import type { CustomProgram, Program } from "../src/features/treatments/types";
 
 const program: Program = {
@@ -64,4 +67,5 @@ assert.match(html, /Patient Preview/);
 assert.match(html, /Treatment match/i);
 assert.match(html, /Test Patient Flow/);
 assert.match(html, /Changes save automatically/);
+assert.match(MATCHING_EDITOR_SELECT_LAYER_CLASS, /z-\[2100\]/);
 console.log("PASS renders the prototype-faithful Program visibility-rule workspace");

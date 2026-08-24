@@ -12,6 +12,7 @@ import {
   getCustomProgramConsentSubtitle,
   describeCustomProgramReorderBlock,
   reorderCustomProgramItemWithinStage,
+  removeCustomProgramStageItem,
   synchronizeCustomProgramStructure,
 } from "../src/features/treatments/flow-builder/utils/customProgramStages.ts";
 import {
@@ -147,6 +148,23 @@ test("keeps a parent section when only reusable fields are selected", () => {
 
   assert.deepEqual(synced.sectionIds, ["section-1"]);
   assert.equal(synced.flowItems.find((candidate) => candidate.id === "field-row")?.kind, "section_field");
+});
+
+test("removes a consolidated Section block and every hidden field projection", () => {
+  const flow = canonicalizeCustomProgramFlowItems([
+    item("question", "routing_question"),
+    item("section-row", "section", "section-1"),
+    { ...item("section-field-row", "section_field", "section-1"), mappedField: "field-1" },
+    item("program-row", "program", "program-1"),
+  ]);
+
+  const removed = removeCustomProgramStageItem(flow, "section-row");
+
+  assert.equal(removed.some((candidate) => candidate.sourceId === "section-1"), false);
+  assert.deepEqual(
+    removed.filter((candidate) => !candidate.locked).map((candidate) => candidate.id),
+    ["question", "program-row"],
+  );
 });
 
 test("reorders within a stage and rejects cross-stage movement", () => {

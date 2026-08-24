@@ -30,6 +30,7 @@ import {
   describeCustomProgramReorderBlock,
   getCustomProgramConsentSubtitle,
   reorderCustomProgramItemWithinStage,
+  removeCustomProgramStageItem,
   type AdminCustomProgramStage,
   type AdminCustomProgramStageItem,
 } from "@/features/treatments/flow-builder/utils/customProgramStages";
@@ -361,7 +362,7 @@ export function FlowBuilderListView({
   let nextItemNumber = 2;
 
   const update = (items: CustomProgramFlowItem[]) => onUpdateFlow?.(items);
-  const remove = (itemId: string) => update(customProgram.flowItems.filter((item) => item.id !== itemId));
+  const remove = (itemId: string) => update(removeCustomProgramStageItem(customProgram.flowItems, itemId));
   const drop = (sourceId: string, targetId: string) => {
     if (sourceId === targetId) return;
     const blockReason = describeCustomProgramReorderBlock(customProgram.flowItems, sourceId, targetId);

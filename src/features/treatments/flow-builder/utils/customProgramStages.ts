@@ -220,6 +220,30 @@ export function reorderCustomProgramItemWithinStage(
   return canonicalizeCustomProgramFlowItems(next);
 }
 
+/**
+ * Remove one visible stage row from the persisted authoring graph.
+ *
+ * A consolidated reusable Section can be backed by both a `section` row and
+ * one or more legacy `section_field` projections. The builder displays that
+ * family as one block, so deleting the block must remove the entire family.
+ */
+export function removeCustomProgramStageItem(
+  flowItems: CustomProgramFlowItem[],
+  itemId: string,
+): CustomProgramFlowItem[] {
+  const target = flowItems.find((item) => item.id === itemId);
+  if (!target) return canonicalizeCustomProgramFlowItems(flowItems);
+
+  const isSectionFamily = target.kind === "section" || target.kind === "section_field";
+  const sourceId = String(target.sourceId || "");
+  const remaining = flowItems.filter((item) => {
+    if (!isSectionFamily || !sourceId) return item.id !== itemId;
+    const itemIsSectionFamily = item.kind === "section" || item.kind === "section_field";
+    return !(itemIsSectionFamily && String(item.sourceId || "") === sourceId);
+  });
+  return canonicalizeCustomProgramFlowItems(remaining);
+}
+
 const persistedDisplayItem = (
   item: CustomProgramFlowItem,
   programsById: Map<string, Program>,

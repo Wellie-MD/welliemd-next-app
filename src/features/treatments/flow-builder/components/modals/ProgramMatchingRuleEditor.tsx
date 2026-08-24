@@ -64,6 +64,10 @@ interface Props {
 
 const pathKey = (path: RulePath) => path.join(".");
 
+// Radix Select content is portalled to document.body. It must sit above this
+// editor's z-[2000] modal layer or the dropdown looks open but cannot be used.
+export const MATCHING_EDITOR_SELECT_LAYER_CLASS = "z-[2100]";
+
 export function ProgramMatchingRuleEditor({
   open,
   onOpenChange,
@@ -392,7 +396,7 @@ function RuleGroupEditor({
             }
           >
             <SelectTrigger className="h-7 w-[110px] text-[11px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
+            <SelectContent className={MATCHING_EDITOR_SELECT_LAYER_CLASS}>
               <SelectItem value="and">AND group</SelectItem>
               <SelectItem value="or">OR group</SelectItem>
             </SelectContent>
@@ -528,7 +532,7 @@ function ConditionEditor({
             <SelectTrigger className="h-8 text-[11px]">
               <SelectValue placeholder="Select a field" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={MATCHING_EDITOR_SELECT_LAYER_CLASS}>
               {grouped.length === 0 ? (
                 <SelectItem value="__none" disabled>No inputs available before Stage 2</SelectItem>
               ) : (
@@ -552,7 +556,7 @@ function ConditionEditor({
             onValueChange={(operator: ProgramMatchingOperator) => patch({ operator })}
           >
             <SelectTrigger className="h-8 text-[11px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
+            <SelectContent className={MATCHING_EDITOR_SELECT_LAYER_CLASS}>
               {operators.map((item) => (
                 <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
               ))}
@@ -586,7 +590,7 @@ function ConditionEditor({
               <SelectTrigger className="h-8 text-[11px]">
                 <SelectValue placeholder="Select an answer" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={MATCHING_EDITOR_SELECT_LAYER_CLASS}>
                 {(source?.choices || []).map((choice) => (
                   <SelectItem key={choice} value={choice}>{choice}</SelectItem>
                 ))}
