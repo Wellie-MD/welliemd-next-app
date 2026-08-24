@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { QuestionEditorHeader } from "@/features/treatments/question-editor/components/shell/QuestionEditorHeader";
 import { QuestionSetupTab } from "@/features/treatments/question-editor/components/tabs/QuestionSetupTab";
 import { QuestionContentTab } from "@/features/treatments/question-editor/components/tabs/QuestionContentTab";
@@ -6,7 +7,9 @@ import { QuestionVisibilityTab } from "@/features/treatments/question-editor/com
 import { QuestionPreviewTab } from "@/features/treatments/question-editor/components/tabs/QuestionPreviewTab";
 import { Switch } from "@/components/ui/switch";
 import { Activity, RefreshCcw } from "lucide-react";
-import type { ProgramQuestion, QuestionKind, VisibilityRuleGroup } from "@/features/treatments/types";
+import type { ConsentForm, ProgramQuestion, QuestionKind, VisibilityRuleGroup } from "@/features/treatments/types";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
+import { getConsentPreviewData, isLibraryConsentReference } from "@/features/treatments/common/utils/consentPreview";
 import { toBuilderGroup } from "@/features/treatments/utils/visibilityBuilderAdapters";
 import {
   validateVisibilityGroup,
@@ -21,6 +24,7 @@ interface StandardEditorProps {
   onSave: (question: ProgramQuestion) => Promise<void>;
   onClose: () => void;
   onTestFlow?: () => void;
+  libraryConsent?: ConsentForm;
 }
 
 const SUPPORTED_UPLOAD_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"];
@@ -53,6 +57,7 @@ export function StandardEditor({
   onSave,
   onClose,
   onTestFlow,
+  libraryConsent,
 }: StandardEditorProps) {
   const [questionText, setQuestionText] = useState("");
   const [questionType, setQuestionType] = useState<QuestionKind>("single_choice");
@@ -83,6 +88,10 @@ export function StandardEditor({
       : [],
     [visibilityRuleGroup],
   );
+  const isLibraryReference = isLibraryConsentReference(activeQuestion);
+  const libraryPreview = activeQuestion && isLibraryReference
+    ? getConsentPreviewData(activeQuestion, libraryConsent)
+    : undefined;
 
   useEffect(() => {
     setVisibilityValidationAttempted(false);
@@ -242,6 +251,7 @@ export function StandardEditor({
         title={programName}
         subtitle={`Question ${questionOrder} of ${questions.length || 1} ${isEditMode ? "- Edit" : "- Draft"}`}
         isEditMode={isEditMode}
+        hideSave={isLibraryReference}
         isSaving={isSaving}
         justSaved={justSaved}
         onClose={onClose}
@@ -251,6 +261,22 @@ export function StandardEditor({
       <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_380px]">
         {sidebar}
         <main className="overflow-y-auto p-8 bg-white relative">
+          {isLibraryReference ? (
+            <div className="mx-auto max-w-2xl space-y-4 rounded-xl border border-indigo-200 bg-indigo-50 p-6 text-indigo-950">
+              <h3 className="text-sm font-bold">This is a library reference</h3>
+              <p className="text-xs leading-relaxed text-indigo-800">
+                Edit it in the Consents library page.
+              </p>
+              {activeQuestion?.elementConfig?.sourceId && (
+                <Link
+                  to={`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${activeQuestion.elementConfig.sourceId}`}
+                  className="inline-flex text-xs font-bold text-indigo-700 underline underline-offset-2 hover:text-indigo-900"
+                >
+                  Open Consents library
+                </Link>
+              )}
+            </div>
+          ) : (
           <div className="max-w-2xl mx-auto space-y-10 pb-12">
             <QuestionSetupTab text={questionText} setText={setQuestionText} kind={questionType} setKind={setQuestionType} />
             <div className="h-px bg-slate-100 w-full" />
@@ -335,13 +361,16 @@ export function StandardEditor({
               </div>
             </div>
           </div>
+          )}
         </main>
         <QuestionPreviewTab
           text={questionText}
           kind={questionType}
           choices={choices}
           dqChoices={dqChoices}
-          consentText={consentText}
+          consentText={libraryPreview?.body || consentText}
+          consentOptions={libraryPreview?.options}
+          isLibraryConsent={isLibraryReference}
           order={questionOrder}
           totalQuestions={questions.length || 1}
         />

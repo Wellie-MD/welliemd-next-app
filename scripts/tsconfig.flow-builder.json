@@ -8,6 +8,7 @@
   },
   "include": [
     "./flow-builder-graph-tests.ts",
+    "./consent-editor-boundary-tests.ts",
     "./custom-program-stage-tests.ts",
     "./visibility-rule-validation-tests.ts",
     "../src/components/questionnaires/visibilityRuleValidation.ts",

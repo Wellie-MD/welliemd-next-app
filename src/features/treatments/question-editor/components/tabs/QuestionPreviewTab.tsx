@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { QuestionKind } from "@/features/treatments/types";
+import type { ConsentPreviewOption } from "@/features/treatments/common/utils/consentPreview";
+import { getCleanConsentBody } from "@/features/treatments/common/utils/consentPreview";
 
 interface QuestionPreviewTabProps {
   text: string;
@@ -11,6 +13,8 @@ interface QuestionPreviewTabProps {
   choices: string[];
   dqChoices: string[];
   consentText: string;
+  consentOptions?: ConsentPreviewOption[];
+  isLibraryConsent?: boolean;
   order: number;
   totalQuestions: number;
 }
@@ -21,6 +25,8 @@ export function QuestionPreviewTab({
   choices,
   dqChoices,
   consentText,
+  consentOptions = [],
+  isLibraryConsent = false,
   order,
   totalQuestions,
 }: QuestionPreviewTabProps) {
@@ -96,6 +102,40 @@ export function QuestionPreviewTab({
     </div>
   );
 
+  const renderLibraryConsentOptions = () => (
+    <div className="space-y-2">
+      {consentOptions.map((option) => {
+        const isSelected = singleValue === option.id;
+
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => setSingleValue(option.id)}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors",
+              isSelected ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50",
+              option.disqualifies && "border-red-200 bg-red-50 hover:bg-red-50",
+            )}
+            data-testid={`preview-consent-option-${option.id}`}
+          >
+            <span
+              className={cn(
+                "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border bg-white",
+                isSelected ? "border-blue-500 text-blue-600" : "border-slate-300 text-transparent",
+              )}
+            >
+              {isSelected ? <Check className="h-3 w-3" /> : null}
+            </span>
+            <span className={cn("text-sm font-medium", option.disqualifies ? "text-red-700" : "text-slate-700")}>
+              {option.text}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <aside className="bg-[#1c2333] h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
@@ -160,21 +200,32 @@ export function QuestionPreviewTab({
               renderChoiceList()
             ) : kind === "consent" ? (
               <div className="space-y-4">
-                <div className="relative h-32 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
-                  {consentText || "Consent document text appears here..."}
-                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-slate-50 to-transparent" />
-                </div>
-                <label className="flex cursor-pointer items-start gap-3">
-                  <Checkbox
-                    checked={consentAccepted}
-                    onCheckedChange={(checked) => setConsentAccepted(checked === true)}
-                    className="mt-0.5"
-                    data-testid="preview-consent-checkbox"
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div
+                    className={cn(
+                      "text-xs leading-relaxed text-slate-600 [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4",
+                      isLibraryConsent && "prose prose-sm max-w-none text-xs text-slate-800 [&_h1]:text-base [&_h1]:font-bold [&_h2]:text-sm [&_h2]:font-bold [&_h3]:text-xs [&_h3]:font-semibold [&_h4]:text-xs [&_h4]:font-semibold [&_h5]:text-xs [&_h5]:font-semibold [&_h6]:text-xs [&_h6]:font-semibold [&_p]:mb-2.5 [&_p:last-child]:mb-0 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic",
+                    )}
+                    dangerouslySetInnerHTML={{
+                      __html: getCleanConsentBody(consentText || "Consent document text appears here...", [text]),
+                    }}
                   />
-                  <span className="text-xs font-medium text-slate-700">
-                    I have read and agree to the terms above.
-                  </span>
-                </label>
+                </div>
+                {isLibraryConsent ? (
+                  renderLibraryConsentOptions()
+                ) : (
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <Checkbox
+                      checked={consentAccepted}
+                      onCheckedChange={(checked) => setConsentAccepted(checked === true)}
+                      className="mt-0.5"
+                      data-testid="preview-consent-checkbox"
+                    />
+                    <span className="text-xs font-medium text-slate-700">
+                      I have read and agree to the terms above.
+                    </span>
+                  </label>
+                )}
               </div>
             ) : (
               <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-center text-xs text-slate-400">

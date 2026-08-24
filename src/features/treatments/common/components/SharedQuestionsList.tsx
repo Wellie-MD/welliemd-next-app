@@ -827,6 +827,7 @@ export function SharedQuestionsList({
           programId={entityId}
           programName={entityName}
           programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
+          consents={effectiveConsents}
         />
         <CheckoutQuestionModal
           open={isCheckoutOpen}
@@ -923,6 +924,7 @@ export function SharedQuestionsList({
         programId={entityId}
         programName={entityName}
         programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
+        consents={effectiveConsents}
       />
 
       <CheckoutQuestionModal

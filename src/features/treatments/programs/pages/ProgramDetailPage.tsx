@@ -488,6 +488,7 @@ export default function ProgramDetailPage() {
         programId={foundProgram.id}
         programName={foundProgram.name}
         programTreatmentTypeKey={foundProgram.treatmentTypeKey}
+        consents={allConsents}
         initialQuestionId={editingScreeningId || null}
         onSave={(updatedQuestion: ProgramQuestion) => {
           if (editingScreeningId) {

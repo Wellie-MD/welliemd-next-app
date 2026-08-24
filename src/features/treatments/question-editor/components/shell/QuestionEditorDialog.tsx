@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import type { ProgramQuestion } from "@/features/treatments/types";
+import type { ConsentForm, ProgramQuestion } from "@/features/treatments/types";
 
 import { QuestionEditorSidebar } from "./QuestionEditorSidebar";
 import { StandardEditor } from "../editors/StandardEditor";
 import { CheckoutEditor } from "../editors/CheckoutEditor";
 import { AuthEditor } from "../editors/AuthEditor";
 import { PatientFlowInlineSimulator } from "@/features/treatments/flow-builder/components/modals/PatientFlowInlineSimulator";
+import { getLibraryConsentId, isLibraryConsentReference } from "@/features/treatments/common/utils/consentPreview";
 
 export interface QuestionEditorDialogProps {
   open: boolean;
@@ -17,6 +18,7 @@ export interface QuestionEditorDialogProps {
   programId?: string;
   programName?: string;
   programTreatmentTypeKey?: string | null;
+  consents?: ConsentForm[];
 }
 
 export function QuestionEditorDialog({
@@ -28,6 +30,7 @@ export function QuestionEditorDialog({
   programId = "",
   programName = "WellieMD Initial Assessment",
   programTreatmentTypeKey,
+  consents = [],
 }: QuestionEditorDialogProps) {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -42,6 +45,9 @@ export function QuestionEditorDialog({
   }, [open, initialQuestionId]);
 
   const activeQuestion = questions.find((q) => q.id === activeQuestionId);
+  const activeLibraryConsent = isLibraryConsentReference(activeQuestion)
+    ? consents.find((consent) => consent.id === getLibraryConsentId(activeQuestion))
+    : undefined;
 
   const sidebar = (
     <QuestionEditorSidebar
@@ -95,6 +101,7 @@ export function QuestionEditorDialog({
               onSave={onSave}
               onClose={() => onOpenChange(false)}
               onTestFlow={handleTestFlow}
+              libraryConsent={activeLibraryConsent}
             />
           )}
         </DialogContent>
