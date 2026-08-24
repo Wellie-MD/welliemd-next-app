@@ -4,19 +4,25 @@ import { Button } from "@/components/ui/button";
 import { useConsents } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { FileText, Loader2, Sparkles } from "lucide-react";
 import type { ConsentForm } from "@/features/treatments/types";
+import {
+  compatibleProgramConsents,
+  programConsentScopeLabel,
+} from "@/features/treatments/programs/utils/programConsentPlacement";
 
 interface ConsentSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (consent: ConsentForm) => void;
+  visitType: string;
 }
 
-export function ConsentSelectorModal({ open, onOpenChange, onSelect }: ConsentSelectorModalProps) {
+export function ConsentSelectorModal({ open, onOpenChange, onSelect, visitType }: ConsentSelectorModalProps) {
   const { data: consents = [], isLoading } = useConsents();
   const [selectedConsentId, setSelectedConsentId] = useState<string>("");
+  const compatibleConsents = compatibleProgramConsents(consents, visitType);
 
   const handleSelect = () => {
-    const selected = consents.find((c) => c.id === selectedConsentId);
+    const selected = compatibleConsents.find((c) => c.id === selectedConsentId);
     if (selected) {
       onSelect(selected);
       onOpenChange(false);
@@ -43,11 +49,11 @@ export function ConsentSelectorModal({ open, onOpenChange, onSelect }: ConsentSe
             <div className="flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
             </div>
-          ) : consents.length === 0 ? (
-            <div className="text-center text-xs text-slate-400 italic">No consent forms available.</div>
+          ) : compatibleConsents.length === 0 ? (
+            <div className="text-center text-xs text-slate-400 italic">No compatible consent forms available for this Program&apos;s Visit Type.</div>
           ) : (
             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-              {consents.map((consent) => (
+              {compatibleConsents.map((consent) => (
                 <div
                   key={consent.id}
                   onClick={() => setSelectedConsentId(consent.id)}
@@ -60,7 +66,7 @@ export function ConsentSelectorModal({ open, onOpenChange, onSelect }: ConsentSe
                   <div className="flex flex-col gap-0.5">
                     <span className="text-xs font-bold text-slate-800">{consent.name}</span>
                     <span className="text-[10px] text-slate-400">
-                      Scope: <span className="capitalize font-semibold text-slate-500">{consent.scope}</span>
+                      <span className="font-semibold text-slate-500">{programConsentScopeLabel(consent)}</span>
                     </span>
                   </div>
                   {consent.scope === "global" && (

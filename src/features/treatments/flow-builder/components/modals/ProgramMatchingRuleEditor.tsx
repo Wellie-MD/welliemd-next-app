@@ -152,7 +152,17 @@ export function ProgramMatchingRuleEditor({
   };
 
   const closeEditor = useCallback(async () => {
-    if (dirty && hasIssues) return;
+    // An incomplete draft is intentionally not persisted, but it must never
+    // trap the operator in the editor. Back/Escape discard only those local,
+    // invalid edits and leave the last saved rule untouched.
+    if (dirty && hasIssues) {
+      setRule(normalizeRule(storedConfig?.rule));
+      setEnabled(storedConfig?.enabled !== false);
+      setDirty(false);
+      setSaveState("saved");
+      onOpenChange(false);
+      return;
+    }
     if (dirty && !hasIssues) {
       try {
         await persist();
@@ -161,7 +171,7 @@ export function ProgramMatchingRuleEditor({
       }
     }
     onOpenChange(false);
-  }, [dirty, hasIssues, onOpenChange, persist]);
+  }, [dirty, hasIssues, onOpenChange, persist, storedConfig]);
 
   useEffect(() => {
     if (!open) return;
@@ -269,7 +279,7 @@ export function ProgramMatchingRuleEditor({
 
                   <div className={cn("mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-[11px]", saveState === "error" ? "bg-rose-50 text-rose-700" : hasIssues ? "bg-amber-50 text-amber-800" : "bg-slate-50 text-slate-500")}>
                     {saveState === "error" ? <CircleHelp className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5 text-emerald-500" />}
-                    {saveState === "saving" ? "Saving changes…" : saveState === "error" ? "Changes could not be saved. Correct the issue or try again." : hasIssues ? `${issues.length} rule ${issues.length === 1 ? "issue" : "issues"} must be resolved before saving.` : "Changes save automatically"}
+                    {saveState === "saving" ? "Saving changes…" : saveState === "error" ? "Changes could not be saved. Correct the issue or try again." : hasIssues ? `${issues.length} rule ${issues.length === 1 ? "issue" : "issues"} must be resolved before saving. Back discards this incomplete rule.` : "Changes save automatically"}
                   </div>
                 </div>
               </div>

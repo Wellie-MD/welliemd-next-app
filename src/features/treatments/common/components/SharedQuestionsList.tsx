@@ -893,6 +893,7 @@ export function SharedQuestionsList({
         <ConsentSelectorModal
           open={isConsentOpen}
           onOpenChange={setIsConsentOpen}
+          visitType={effectiveProgram.visitType}
           onSelect={(consent) => {
             saveElement({
               id: createMockId("q-consent"),
@@ -1005,6 +1006,7 @@ export function SharedQuestionsList({
       <ConsentSelectorModal
         open={isConsentOpen}
         onOpenChange={setIsConsentOpen}
+        visitType={effectiveProgram.visitType}
         onSelect={(consent) => {
           const consentQuestion: ProgramQuestion = {
             id: createMockId("q-consent"),

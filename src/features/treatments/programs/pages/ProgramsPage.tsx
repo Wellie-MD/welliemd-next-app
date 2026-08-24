@@ -15,7 +15,6 @@ import { ProgramCard } from "@/features/treatments/programs/components/ProgramCa
 import { ProgramListTable } from "@/features/treatments/programs/components/ProgramListTable";
 import {
   useArchiveProgram,
-  useConsents,
   useDuplicateProgram,
   usePrograms,
   useSaveProgram,
@@ -31,6 +30,7 @@ import type { PreviewContext } from "@/features/treatments/types";
 import { ProgramsFilters, type ProgramsViewMode, type ProgramTabFilter } from "@/features/treatments/programs/components/ProgramsFilters";
 import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
 import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
+import { countExplicitProgramConsents } from "@/features/treatments/programs/utils/programConsentPlacement";
 
 
 type ApiErrorData = {
@@ -79,7 +79,6 @@ export default function ProgramsPage() {
   const navigate = useNavigate();
   const { data: programs = [], refetch: refetchPrograms, isLoading: isProgramsLoading } = usePrograms();
   const { data: treatmentTypes = [], isLoading: isTreatmentTypesLoading } = useTreatmentTypes();
-  const { data: allConsents = [] } = useConsents();
   const saveProgramMutation = useSaveProgram();
   const duplicateProgramMutation = useDuplicateProgram();
   const archiveProgramMutation = useArchiveProgram();
@@ -127,21 +126,15 @@ export default function ProgramsPage() {
     return map;
   }, [treatmentTypes]);
 
-  // Compute consent count per program based on scope + visit type
+  // A Program contains only content explicitly attached by an author. Scope
+  // validates placement compatibility; it never auto-populates the Program.
   const consentCountMap = useMemo(() => {
     const map = new Map<string, number>();
-    const activeConsents = allConsents.filter(c => !c.isArchived);
-    const globalCount = activeConsents.filter(c => c.scope === "global").length;
-
     for (const program of activePrograms) {
-      const treatmentSpecific = activeConsents.filter(
-        c => c.scope === "visit_type" && c.visitTypeKeys.includes(program.visitType)
-      ).length;
-      map.set(program.id, globalCount + treatmentSpecific);
+      map.set(program.id, countExplicitProgramConsents(program.consentIds));
     }
-
     return map;
-  }, [allConsents, activePrograms]);
+  }, [activePrograms]);
 
   // Usage counts per program (from backend fields)
   const usageMap = useMemo(() => {

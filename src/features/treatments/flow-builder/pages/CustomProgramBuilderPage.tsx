@@ -64,10 +64,10 @@ export default function CustomProgramBuilderPage() {
     );
   }
 
-  if (isError || effectiveContentQuery.isError) {
+  if (isError || (effectiveContentQuery.isError && !effectiveContentQuery.data)) {
     return (
       <div className="p-6 space-y-3">
-        <div>Failed to load the complete effective Custom Program flow. Inherited content is not being hidden.</div>
+        <div>Failed to load the complete Custom Program flow. Explicit child-release content could not be composed.</div>
         <Button onClick={() => { refetch(); effectiveContentQuery.refetch(); }}>Retry</Button>
       </div>
     );
