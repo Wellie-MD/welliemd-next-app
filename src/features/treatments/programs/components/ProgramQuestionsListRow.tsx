@@ -31,6 +31,8 @@ export function ProgramQuestionsListRow({
 }: ProgramQuestionsListRowProps) {
   const navigate = useNavigate();
   const isAuth = question.kind === "patient_authentication";
+  const isStateRouting = question.kind === "state_routing";
+  const isShippingAddress = question.kind === "shipping_address";
   const isCheckout = question.kind === "checkout";
   const isConsent = question.kind === "consent";
   const isSection = question.kind === "section";
@@ -53,7 +55,7 @@ export function ProgramQuestionsListRow({
     isDragging,
   } = useSortable({
     id: question.id,
-    disabled: !isReorderActive || isAuth || isSystem,
+    disabled: !isReorderActive || isAuth || isSystem || isStateRouting || isShippingAddress,
   });
 
   const style = {
