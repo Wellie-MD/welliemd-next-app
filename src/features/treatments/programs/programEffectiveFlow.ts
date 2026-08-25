@@ -57,6 +57,7 @@ export function projectEffectiveProgramFlow(
   if (!effectiveContent) return authoredQuestions;
   const authoredIds = new Set(
     authoredQuestions.flatMap((question) => [
+      question.id,
       question.elementConfig?.sourceId,
       question.elementConfig?.sourceSectionId,
     ]).filter(Boolean).map(String),

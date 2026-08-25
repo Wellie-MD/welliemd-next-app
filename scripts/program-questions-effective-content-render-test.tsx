@@ -27,7 +27,13 @@ const effectiveContent: ProgramEffectiveContent = {
     inherited_global: [{ id: "global-1", source_id: "global-1", source_type: "global", name: "Truthfulness Consent", required: true }],
     inherited_visit_type: [{ id: "visit-1", source_id: "visit-1", source_type: "visit_type", name: "GLP Consent", required: true }],
     explicit_program: [],
-    inline_conditional: [],
+    inline_conditional: [{
+      id: "inline-consent-question",
+      source_id: "inline-consent-question",
+      source_type: "inline",
+      name: "Inline journey consent",
+      required: true,
+    }],
   },
   sections: {
     inherited_global: [{
@@ -88,7 +94,19 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { enabled: fals
 const html = renderToStaticMarkup(
   <QueryClientProvider client={queryClient}>
     <StaticRouter location={`/dashboard/treatments/programs/${program.id}/questions`}>
-      <ProgramQuestionsList program={program} initialQuestions={[]} effectiveContent={effectiveContent} />
+      <ProgramQuestionsList
+        program={program}
+        initialQuestions={[{
+          id: "inline-consent-question",
+          order: 1,
+          text: "Inline journey consent",
+          kind: "consent",
+          section: "Consents",
+          required: true,
+          consentText: "I agree",
+        }]}
+        effectiveContent={effectiveContent}
+      />
     </StaticRouter>
   </QueryClientProvider>,
 );
@@ -103,4 +121,9 @@ assert.doesNotMatch(html, /Program safety answer/);
 assert.match(html, /Detach Program Safety Questions from Program/);
 assert.doesNotMatch(html, />Medical Baseline</);
 assert.doesNotMatch(html, />Referenced Clinical Section</);
+assert.equal(
+  html.match(/Inline journey consent/g)?.length,
+  1,
+  "an authored inline Consent must not be projected a second time",
+);
 console.log("PASS Program questions page renders only explicit content and consolidates Common Sections");

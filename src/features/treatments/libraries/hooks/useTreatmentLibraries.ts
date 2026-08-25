@@ -190,6 +190,10 @@ export const useSaveProgram = () => {
         })
       );
       await queryClient.refetchQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
+      await queryClient.invalidateQueries({
+        queryKey: [...treatmentQueryKeys.programs(), updatedProgram.id, "effective-content"],
+      });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
   });
@@ -300,6 +304,7 @@ export const useSaveProgramQuestion = (programId: string) => {
       queryClient.invalidateQueries({
         queryKey: [...treatmentQueryKeys.programs(), programId, "effective-content"],
       });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
     },
   });
@@ -311,6 +316,10 @@ export const useDeleteProgramQuestion = (programId: string) => {
     mutationFn: (questionId: string) => treatmentsApi.deleteProgramQuestion(programId, questionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+      queryClient.invalidateQueries({
+        queryKey: [...treatmentQueryKeys.programs(), programId, "effective-content"],
+      });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
     },
   });
@@ -322,6 +331,10 @@ export const useReorderProgramQuestions = (programId: string) => {
     mutationFn: (questionIds: string[]) => treatmentsApi.reorderProgramQuestions(programId, questionIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+      queryClient.invalidateQueries({
+        queryKey: [...treatmentQueryKeys.programs(), programId, "effective-content"],
+      });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
     },
   });
@@ -345,6 +358,10 @@ export const useSaveProgramQuestions = (programId: string) => {
         )
       );
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+      queryClient.invalidateQueries({
+        queryKey: [...treatmentQueryKeys.programs(), programId, "effective-content"],
+      });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() });
       await queryClient.refetchQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
