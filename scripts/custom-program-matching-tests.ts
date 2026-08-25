@@ -361,6 +361,7 @@ test("the picker offers Custom Program questions, shared Section fields and prof
   assert.ok(groups.has("Custom Program questions"));
   assert.ok(groups.has("Medical Baseline"));
   assert.ok(groups.has("Patient profile"));
+  assert.ok(groups.has("Journey-derived facts"));
   assert.ok(groups.has("Location"));
 
   const concern = built.find((item) => item.id === "primary_concern");
@@ -369,6 +370,7 @@ test("the picker offers Custom Program questions, shared Section fields and prof
 
   // Shared Section fields are legal matching inputs and carry their type.
   assert.equal(built.find((item) => item.id === "fld-bmi")?.kind, "number");
+  assert.equal(built.find((item) => item.id === "bmi")?.group, "Journey-derived facts");
 });
 
 test("the picker excludes Program clinical questions and non-question flow items", () => {
