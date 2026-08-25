@@ -78,9 +78,14 @@ export function projectAuthoredFlow(
   const authored = authoredQuestions.filter(
     (question) => question.kind !== PROGRAM_SYSTEM_NODE_KIND
   );
+  const stateRouting = authored.filter((question) => question.kind === "state_routing");
+  const shippingAddress = authored.filter((question) => question.kind === "shipping_address");
+  const screening = authored.filter(
+    (question) => question.kind !== "state_routing" && question.kind !== "shipping_address",
+  );
   const elements = hasPatientAuthentication(program)
-    ? [patientAuthenticationNode(program), ...authored]
-    : authored;
+    ? [patientAuthenticationNode(program), ...stateRouting, ...screening, ...shippingAddress]
+    : [...stateRouting, ...screening, ...shippingAddress];
   return elements.map((question, index) => ({
     ...question,
     order: index + 1,
@@ -109,7 +114,9 @@ export function persistableQuestionIds(
  * actually runs.
  */
 export function isDraggableElement(question: ProgramQuestion): boolean {
-  return !isSystemBoundary(question);
+  return !isSystemBoundary(question)
+    && question.kind !== "state_routing"
+    && question.kind !== "shipping_address";
 }
 
 /**
