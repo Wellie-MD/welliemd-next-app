@@ -319,7 +319,7 @@ export function buildAdminCustomProgramStages(
       title: sectionNode.name,
       subtitle: persisted
         ? (section?.scope === "global" ? "Explicit · Universal" : "Explicit · Treatment specific")
-        : "Auto from included Program",
+        : "Explicit Custom Program placement",
       persistedItem: persisted,
       derived: !persisted,
       section,

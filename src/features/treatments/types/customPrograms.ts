@@ -161,6 +161,7 @@ export interface EffectiveCustomProgramContent {
       matchingState: "always_offered" | "conditional" | "not_offered";
       effectiveConsentCount: number;
       effectiveSectionCount: number;
+      sectionOccurrences: EffectiveCustomProgramNode[];
       checkoutCount: number;
     }> };
     stage3: { consents: EffectiveCustomProgramNode[] };

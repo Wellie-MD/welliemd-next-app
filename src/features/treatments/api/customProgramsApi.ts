@@ -80,6 +80,7 @@ export const customProgramsApi = {
             matchingState: program.matching_state,
             effectiveConsentCount: Number(program.effective_consent_count || 0),
             effectiveSectionCount: Number(program.effective_section_count || 0),
+            sectionOccurrences: (program.section_occurrences || []).map(node),
             checkoutCount: Number(program.checkout_count || 0),
           })),
         },
