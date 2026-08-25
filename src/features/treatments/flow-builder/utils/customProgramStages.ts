@@ -20,6 +20,7 @@ export interface AdminCustomProgramStageItem {
   section?: CommonSection;
   consent?: ConsentForm;
   sourceType?: string;
+  libraryScope?: string;
   matchedProgramNames?: string[];
   checkoutCount?: number;
 }
@@ -27,13 +28,15 @@ export interface AdminCustomProgramStageItem {
 export function getCustomProgramConsentSubtitle(
   item: AdminCustomProgramStageItem
 ): string {
-  if (item.sourceType === "global") return "Universal";
-  if (item.derived) {
-    return `Auto · for ${item.matchedProgramNames?.join(", ") || "attached Program"}`;
+  const libraryScope = item.libraryScope || item.consent?.scope;
+  const scopeLabel = libraryScope === "global" ? "Global" : "Visit Type";
+  if (item.kind === "consent" && (libraryScope || item.sourceType !== "inline")) {
+    const placement = item.derived
+      ? `Auto for ${item.matchedProgramNames?.join(", ") || "attached Program"}`
+      : "Explicit Custom Program";
+    return `Library Consent · ${scopeLabel} · ${placement}`;
   }
-  if (item.consent) {
-    return item.consent.scope === "global" ? "Universal" : "Treatment-specific";
-  }
+  if (item.sourceType === "inline") return "Inline Consent · Conditional";
   return item.subtitle || "Consent form capture";
 }
 
@@ -356,6 +359,7 @@ export function buildAdminCustomProgramStages(
       derived: !persisted,
       consent,
       sourceType: node.sourceType,
+      libraryScope: node.libraryScope,
       matchedProgramNames: node.applicableProgramIds.map((id) => namesByProgramId.get(id) || id),
     };
   });

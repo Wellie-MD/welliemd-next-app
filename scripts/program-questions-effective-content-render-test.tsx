@@ -26,7 +26,14 @@ const effectiveContent: ProgramEffectiveContent = {
   consents: {
     inherited_global: [{ id: "global-1", source_id: "global-1", source_type: "global", name: "Truthfulness Consent", required: true }],
     inherited_visit_type: [{ id: "visit-1", source_id: "visit-1", source_type: "visit_type", name: "GLP Consent", required: true }],
-    explicit_program: [],
+    explicit_program: [{
+      id: "library-consent-global",
+      source_id: "library-consent-global",
+      source_type: "program",
+      library_scope: "global",
+      name: "Reusable HIPAA Consent",
+      required: true,
+    }],
     inline_conditional: [{
       id: "inline-consent-question",
       source_id: "inline-consent-question",
@@ -119,6 +126,7 @@ assert.match(html, />Program Safety Questions</);
 assert.match(html, /1 field · Reusable from library · Treatment specific/);
 assert.doesNotMatch(html, /Program safety answer/);
 assert.match(html, /Detach Program Safety Questions from Program/);
+assert.match(html, /Library Consent · Global/);
 assert.doesNotMatch(html, />Medical Baseline</);
 assert.doesNotMatch(html, />Referenced Clinical Section</);
 assert.equal(

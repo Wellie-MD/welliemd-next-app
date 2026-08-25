@@ -1,7 +1,13 @@
 import type { EffectiveSectionItem, ProgramEffectiveContent } from "@/features/treatments/api/programsApi";
 import type { ProgramQuestion } from "@/features/treatments/types";
 
-type EffectiveConsent = { id?: string; source_id?: string; name?: string; required?: boolean };
+type EffectiveConsent = {
+  id?: string;
+  source_id?: string;
+  name?: string;
+  required?: boolean;
+  library_scope?: "global" | "visit_type";
+};
 const sourceId = (node: { id?: string; source_id?: string }) => String(node.source_id || node.id || "");
 
 function explicitSectionRow(section: EffectiveSectionItem): ProgramQuestion {
@@ -32,6 +38,7 @@ function explicitSectionRow(section: EffectiveSectionItem): ProgramQuestion {
 
 function explicitConsentRow(consent: EffectiveConsent, sourceType: "program" | "inline"): ProgramQuestion {
   const id = sourceId(consent);
+  const libraryScope = consent.library_scope === "global" ? "Global" : "Visit Type";
   return {
     id: `effective-consent:${sourceType}:${id}`,
     order: 0,
@@ -44,7 +51,7 @@ function explicitConsentRow(consent: EffectiveConsent, sourceType: "program" | "
       sourceType,
       effective: true,
       locked: true,
-      description: sourceType === "inline" ? "Inline · Conditional" : "Explicit · Program",
+      description: sourceType === "inline" ? "Inline Consent · Conditional" : `Library Consent · ${libraryScope}`,
     },
   };
 }

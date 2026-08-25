@@ -223,8 +223,8 @@ test("projects authoritative effective stages and never derives inheritance from
           { inclusionId: "program-row-2", programId: "program-2", name: "program-2", displayOrder: 2, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 1, effectiveSectionCount: 1, sectionOccurrences: [], checkoutCount: 2 },
         ] },
         stage3: { consents: [
-          { sourceId: "consent-1", sourceVersion: 1, name: "consent-1", scope: "common", sourceType: "global", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "global" }] },
-          { sourceId: "consent-2", sourceVersion: 1, name: "consent-2", scope: "common", sourceType: "visit_type", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "visit_type", key: "weightloss" }] },
+          { sourceId: "consent-1", sourceVersion: 1, name: "consent-1", scope: "common", sourceType: "program", libraryScope: "global", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "global" }] },
+          { sourceId: "consent-2", sourceVersion: 1, name: "consent-2", scope: "program", sourceType: "program", libraryScope: "visit_type", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "visit_type", key: "weightloss" }] },
         ] },
         stage4: { checkout: { count: 1, locked: true } },
       },
@@ -241,8 +241,8 @@ test("projects authoritative effective stages and never derives inheritance from
   assert.deepEqual(automatic?.matchedProgramNames, ["program-1", "program-2"]);
   assert.equal(projection.stages[1].items[0]?.checkoutCount, 2);
   const inheritedGlobal = projection.stages[2].items.find((candidate) => candidate.title === "consent-1");
-  assert.equal(getCustomProgramConsentSubtitle(inheritedGlobal!), "Universal");
-  assert.equal(getCustomProgramConsentSubtitle(automatic!), "Auto · for program-1, program-2");
+  assert.equal(getCustomProgramConsentSubtitle(inheritedGlobal!), "Library Consent · Global · Explicit Custom Program");
+  assert.equal(getCustomProgramConsentSubtitle(automatic!), "Library Consent · Visit Type · Auto for program-1, program-2");
   assert.equal(projection.totalItemCount, 8);
 });
 
