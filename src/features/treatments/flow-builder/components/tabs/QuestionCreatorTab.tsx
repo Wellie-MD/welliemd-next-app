@@ -26,6 +26,7 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
     text: string;
     kind: ProgramQuestion["kind"] | "single" | "multiple";
     choices?: string[];
+    dqChoices?: string[];
     required?: boolean;
     mappedField?: string;
     visibilityRuleGroup?: ProgramQuestion["visibilityRuleGroup"];
@@ -40,6 +41,7 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
     sourceId: q.id,
     questionKind: q.kind,
     answerOptions: q.choices || [],
+    dqChoices: q.dqChoices || [],
     required: q.required ?? true,
     mappedField: q.mappedField,
     visibilityRules: q.visibilityRuleGroup,
