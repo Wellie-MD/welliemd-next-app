@@ -111,6 +111,14 @@ const html = renderToStaticMarkup(
           section: "Consents",
           required: true,
           consentText: "I agree",
+        }, {
+          id: "linked-library-consent-question",
+          order: 2,
+          text: "Reusable HIPAA Consent",
+          kind: "consent",
+          section: "Consents",
+          required: true,
+          elementConfig: { sourceId: "library-consent-global" },
         }]}
         effectiveContent={effectiveContent}
       />
@@ -134,4 +142,7 @@ assert.equal(
   1,
   "an authored inline Consent must not be projected a second time",
 );
+assert.match(html, />Library Consent</);
+assert.match(html, />Inline Consent</);
+assert.equal(html.match(/Reusable HIPAA Consent/g)?.length, 1);
 console.log("PASS Program questions page renders only explicit content and consolidates Common Sections");

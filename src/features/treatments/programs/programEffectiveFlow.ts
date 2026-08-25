@@ -56,6 +56,34 @@ function explicitConsentRow(consent: EffectiveConsent, sourceType: "program" | "
   };
 }
 
+function annotateAuthoredConsent(
+  question: ProgramQuestion,
+  explicitBySourceId: Map<string, EffectiveConsent>,
+): ProgramQuestion {
+  const linkedSourceId = String(question.elementConfig?.sourceId || "");
+  if (!linkedSourceId) {
+    return {
+      ...question,
+      elementConfig: {
+        ...(question.elementConfig || {}),
+        consentProvenance: "inline",
+        description: "Inline Consent · Conditional",
+      },
+    };
+  }
+  const libraryConsent = explicitBySourceId.get(linkedSourceId);
+  const libraryScope = libraryConsent?.library_scope === "global" ? "Global" : "Visit Type";
+  return {
+    ...question,
+    elementConfig: {
+      ...(question.elementConfig || {}),
+      consentProvenance: "library",
+      libraryScope: libraryConsent?.library_scope,
+      description: `Library Consent · ${libraryScope}`,
+    },
+  };
+}
+
 /** Library scope validates compatibility; only explicit placements render. */
 export function projectEffectiveProgramFlow(
   authoredQuestions: ProgramQuestion[],
@@ -71,7 +99,12 @@ export function projectEffectiveProgramFlow(
   );
   const authentication = authoredQuestions.filter((item) => item.kind === "patient_authentication");
   const checkout = authoredQuestions.filter((item) => item.kind === "checkout");
-  const authoredConsents = authoredQuestions.filter((item) => item.kind === "consent");
+  const explicitBySourceId = new Map(
+    effectiveContent.consents.explicit_program.map((consent) => [sourceId(consent), consent]),
+  );
+  const authoredConsents = authoredQuestions
+    .filter((item) => item.kind === "consent")
+    .map((item) => annotateAuthoredConsent(item, explicitBySourceId));
   const clinical = authoredQuestions.filter(
     (item) => !["patient_authentication", "checkout", "consent"].includes(item.kind),
   );
