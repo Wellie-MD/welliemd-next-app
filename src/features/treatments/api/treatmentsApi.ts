@@ -384,6 +384,10 @@ export const treatmentsApi = {
       {
         questions: questions.map((question, index) => ({
           ...question,
+          question_text: question.text,
+          question_type: question.kind,
+          answer_choices: question.choices ?? [],
+          is_required: question.required,
           order: index + 1,
         })),
       }
