@@ -347,15 +347,14 @@ export function SharedQuestionsList({
   const typeCounts = useMemo(() => countQuestionTypes(displayQuestions), [displayQuestions]);
 
   // Editing dispatch — every element kind (question, checkout, auth) opens
-  // the same QuestionEditorDialog "Question Builder"; it switches its
-  // middle/right panels internally based on the active question's kind.
-  // Sections and consents redirect to their dedicated library pages for editing.
+  // the existing editor for that kind; sections and consents redirect to
+  // their dedicated library pages.
   const handleEditClick = (q: ProgramQuestion) => {
-    // Patient Authentication is configured through its own modal; it is a system
-    // boundary, not an authorable question, so it never opens the question editor.
+    // Patient Authentication is a system boundary, but its existing full editor
+    // is already handled by QuestionEditorDialog/AuthEditor.
     if (q.kind === PROGRAM_SYSTEM_NODE_KIND) {
-      setActiveEditingQuestion(null);
-      setIsAuthOpen(true);
+      setActiveEditingQuestion(q);
+      setIsQuestionOpen(true);
       return;
     }
     if (q.kind === "section") {
