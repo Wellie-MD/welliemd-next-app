@@ -173,10 +173,10 @@ export default function DashboardFrame() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
+      <div className="h-svh min-h-0 flex w-full min-w-0 overflow-hidden">
         <AppSidebar unseenCount={unseenCount} />
 
-        <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+        <div className="h-full min-h-0 flex-1 flex flex-col min-w-0 overflow-x-hidden">
           <MessageChime conversations={conversations} />
 
           <Header />
@@ -193,7 +193,7 @@ export default function DashboardFrame() {
               the viewport. Note: 80px is less than the launcher's 116px
               footprint, so some overlap can still occur; bump to pb-32
               (128px) if that's seen in practice. */}
-          <main className="flex-1 bg-background min-w-0 overflow-x-hidden pb-20">
+          <main className="min-h-0 flex-1 bg-background min-w-0 overflow-x-hidden overflow-y-auto pb-20">
             <IntercomInlineBanner className="mx-6 mt-4" />
             <Suspense fallback={<PageLoadingFallback />}>
             <Routes>

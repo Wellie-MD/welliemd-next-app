@@ -38,6 +38,7 @@ export function SharedQuestionDialog({
   const [answerOptions, setAnswerOptions] = useState("");
   const [required, setRequired] = useState(true);
   const [questionError, setQuestionError] = useState("");
+  const supportsAnswerOptions = questionType === "single_choice" || questionType === "multiple_choice";
 
   useEffect(() => {
     if (open && editingQuestion) {
@@ -71,7 +72,7 @@ export function SharedQuestionDialog({
     const draft = {
       questionText,
       questionType,
-      answerOptions: answerOptions.split("\n"),
+      answerOptions: supportsAnswerOptions ? answerOptions.split("\n") : [],
       required,
     };
     const validationError = validateSharedQuestionDraft(draft);
@@ -99,13 +100,6 @@ export function SharedQuestionDialog({
                   : `${programName} · your team can add questions on top of the WellieMD set`}
               </DialogDescription>
             </div>
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="inline-flex h-8 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:outline-none focus-visible:ring-0 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-50"
-            >
-              Cancel
-            </button>
           </div>
         </DialogHeader>
 
@@ -130,7 +124,11 @@ export function SharedQuestionDialog({
               <select
                 value={questionType}
                 onChange={(event) => {
-                  setQuestionType(event.target.value as QuestionKind);
+                  const nextQuestionType = event.target.value as QuestionKind;
+                  setQuestionType(nextQuestionType);
+                  if (nextQuestionType !== "single_choice" && nextQuestionType !== "multiple_choice") {
+                    setAnswerOptions("");
+                  }
                   if (questionError) setQuestionError("");
                 }}
                 className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition-colors focus:border-slate-300 focus:ring-0 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-100 dark:focus:border-slate-600"
@@ -155,20 +153,22 @@ export function SharedQuestionDialog({
             </div>
           </div>
 
-          <label className="block">
-            <span className="text-[12px] font-bold text-slate-600 dark:text-slate-400">
-              Answer options <span className="font-medium text-slate-400 dark:text-slate-500">(one per line)</span>
-            </span>
-            <textarea
-              value={answerOptions}
-              onChange={(event) => {
-                setAnswerOptions(event.target.value);
-                if (questionError) setQuestionError("");
-              }}
-              placeholder="One option per line"
-              className="mt-2 min-h-[90px] w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-500 focus:border-slate-300 focus:ring-0 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-600"
-            />
-          </label>
+          {supportsAnswerOptions && (
+            <label className="block">
+              <span className="text-[12px] font-bold text-slate-600 dark:text-slate-400">
+                Answer options <span className="font-medium text-slate-400 dark:text-slate-500">(one per line)</span>
+              </span>
+              <textarea
+                value={answerOptions}
+                onChange={(event) => {
+                  setAnswerOptions(event.target.value);
+                  if (questionError) setQuestionError("");
+                }}
+                placeholder="One option per line"
+                className="mt-2 min-h-[90px] w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-500 focus:border-slate-300 focus:ring-0 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
+            </label>
+          )}
         </div>
 
         <DialogFooter className="mt-5 flex-row justify-end gap-2 space-x-0">
