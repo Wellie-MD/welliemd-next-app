@@ -47,6 +47,7 @@ export const LAB_GATE_STATUS_LABELS: Record<string, string> = {
 export const PROVIDER_REVIEW_STATUS_LABELS: Record<string, string> = {
     not_required: 'No provider review gate',
     held_for_labs: 'Provider review begins after labs',
+    critical_results_review: 'Critical results require clinical review',
     ready_for_submission: 'Ready for provider review',
     submitted: 'Submitted for provider review',
     complete: 'Provider review complete',
