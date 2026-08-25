@@ -1,12 +1,15 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import type { ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { ProgramCheckoutQuestion, ProgramLabRequirement, ProgramQuestion } from "@/features/treatments/types";
 import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-question/components/CheckoutPatientPreview";
 import { CheckoutProductsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutProductsSection";
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
-import { useState } from "react";
+import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
+import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
+import type { LabPanel } from "@/api/labs";
+import { useEffect, useState } from "react";
 
 type CheckoutVisibilityQuestion = Pick<ProgramQuestion, "id" | "text"> & Partial<ProgramQuestion>;
 
@@ -18,6 +21,9 @@ interface CheckoutQuestionModalProps {
   programName?: string;
   programTreatmentTypeKey?: string | null;
   screeningQuestions?: CheckoutVisibilityQuestion[];
+  programLabRequirements?: ProgramLabRequirement[];
+  onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
+  initialMode?: CheckoutOfferMode;
 }
 
 export function CheckoutQuestionModal({
@@ -28,9 +34,22 @@ export function CheckoutQuestionModal({
   programName = "GLP Microdose Intake",
   programTreatmentTypeKey,
   screeningQuestions = [],
+  programLabRequirements = [],
+  onSaveLabRequirements,
+  initialMode = "medicine",
 }: CheckoutQuestionModalProps) {
   const form = useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange });
   const [incompatibleProducts, setIncompatibleProducts] = useState<string[]>([]);
+  const [labRequirements, setLabRequirements] = useState<ProgramLabRequirement[]>(programLabRequirements);
+  const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
+  const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      setLabRequirements(programLabRequirements);
+      setMode(initialMode);
+    }
+  }, [open, programLabRequirements, initialMode]);
   const visibilityQuestions: ProgramQuestion[] = screeningQuestions.map((question, index) => ({
     id: question.id,
     order: question.order ?? index + 1,
@@ -70,23 +89,36 @@ export function CheckoutQuestionModal({
 
         <div className="grid min-h-0 flex-1 grid-cols-[1fr,340px] overflow-hidden">
           <div className="min-h-0 space-y-5 overflow-y-auto border-r border-slate-150 p-6">
-            <CheckoutProductsSection
-              products={form.products}
-              eligibleQuestions={visibilityQuestions}
-              programTreatmentTypeKey={programTreatmentTypeKey}
-              onAddProduct={form.handleAddProduct}
-              onRemoveProduct={form.handleRemoveProduct}
-              onProductFieldChange={form.handleProductFieldChange}
-              onProductPriceChange={form.handleProductPriceChange}
-              onProductVisibilityChange={form.handleProductVisibilityChange}
-              onCompatibilityChange={setIncompatibleProducts}
-            />
-            <QuestionVisibilityTab
+            <CheckoutOfferTypeSection mode={mode} onChange={setMode} disabled={form.isSaving} />
+            {mode === "medicine" ? (
+              <CheckoutProductsSection
+                products={form.products}
+                eligibleQuestions={visibilityQuestions}
+                programTreatmentTypeKey={programTreatmentTypeKey}
+                onAddProduct={form.handleAddProduct}
+                onRemoveProduct={form.handleRemoveProduct}
+                onProductFieldChange={form.handleProductFieldChange}
+                onProductPriceChange={form.handleProductPriceChange}
+                onProductVisibilityChange={form.handleProductVisibilityChange}
+                onCompatibilityChange={setIncompatibleProducts}
+              />
+            ) : onSaveLabRequirements ? (
+              <CheckoutLabsSection
+                requirements={labRequirements}
+                onChange={setLabRequirements}
+                onPanelsLoaded={setLabPanels}
+                disabled={form.isSaving}
+              />
+            ) : null}
+            {mode === "medicine" && onSaveLabRequirements && (
+              <p className="-mt-2 text-[11px] text-slate-400">Required Junction labs are configured as a separate Lab checkout step.</p>
+            )}
+            {mode === "medicine" && <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}
               setVisibilityRuleGroup={form.handleVisibilityRuleGroupChange}
               questions={visibilityQuestions}
               currentQuestionId=""
-            />
+            />}
           </div>
 
           <CheckoutPatientPreview
@@ -94,6 +126,9 @@ export function CheckoutQuestionModal({
             selectedPreviewIdx={form.selectedPreviewIdx}
             visibilityRuleGroup={form.visibilityRuleGroup}
             onSelectedPreviewChange={form.setSelectedPreviewIdx}
+            mode={mode}
+            labRequirements={labRequirements}
+            labPanels={labPanels}
           />
         </div>
 
@@ -103,12 +138,19 @@ export function CheckoutQuestionModal({
             Cancel
           </Button>
           <Button
-            disabled={form.isSaving || incompatibleProducts.length > 0}
-            onClick={form.handleSaveModal}
+            disabled={form.isSaving || (mode === "medicine" && incompatibleProducts.length > 0)}
+            onClick={async () => {
+              if (mode === "lab") {
+                if (!onSaveLabRequirements) return;
+                await form.handleSaveLab(() => onSaveLabRequirements(labRequirements));
+                return;
+              }
+              await form.handleSaveModal();
+            }}
             className="h-9 rounded-lg bg-[#1d4ed8] px-5 text-xs font-bold text-white shadow-sm hover:bg-blue-700"
             data-testid="save-checkout-question"
           >
-            {form.isSaving ? "Saving…" : initialQuestion ? "Save Changes" : "Add Checkout Question"}
+            {form.isSaving ? "Saving…" : mode === "lab" ? "Save Lab Checkout" : initialQuestion ? "Save Changes" : "Add Checkout Question"}
           </Button>
         </div>
       </DialogContent>

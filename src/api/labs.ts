@@ -1,6 +1,5 @@
 import axiosInstance from "./axiosInstance";
 import { adminLabEndpoints } from "@/features/labs/api/endpoints";
-import { junctionMockEnabled, mockLabOrderResults, mockLabOrders, updateMockLabOrder } from "./junctionMockData";
 import type {
   Biomarker,
   CatalogItem,
@@ -397,13 +396,11 @@ export const labsApi = {
   },
 
   getAdminLabOrders: async (): Promise<LabOrder[]> => {
-    if (junctionMockEnabled) return mockLabOrders;
     const { data } = await axiosInstance.get(adminLabEndpoints.orders);
     return (data.results || data || []).map(normalizeOrder);
   },
 
   getAdminLabOrderResults: async (orderId: string, clientId?: string) => {
-    if (junctionMockEnabled) return mockLabOrderResults(orderId);
     const { data } = await axiosInstance.get(adminLabEndpoints.orderResults(orderId), {
       params: clientId ? { client_id: clientId } : undefined,
     });
@@ -414,7 +411,6 @@ export const labsApi = {
     orderId: string,
     payload: { status?: string; tracking_number?: string }
   ): Promise<LabOrder> => {
-    if (junctionMockEnabled) return updateMockLabOrder(orderId, payload);
     const { data } = await axiosInstance.patch(adminLabEndpoints.orderManualUpdate(orderId), payload);
     return normalizeOrder(data.order || data);
   },

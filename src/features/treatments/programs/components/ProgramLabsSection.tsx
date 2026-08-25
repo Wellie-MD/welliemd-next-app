@@ -41,7 +41,9 @@ export function ProgramLabsSection({ program }: Props) {
     [requirements],
   );
   const available = panels.filter(
-    (panel) => panel.is_active && !selected.has(panel.id),
+    (panel) => panel.is_active
+      && panel.is_assignable !== false
+      && !selected.has(panel.id),
   );
 
   const persist = async (next: ProgramLabRequirement[]) => {
@@ -100,7 +102,7 @@ export function ProgramLabsSection({ program }: Props) {
               onChange={(event) => addPanel(event.target.value)}
               disabled={saveProgramLabs.isPending || available.length === 0}
             >
-              <option value="">{available.length ? "Add lab panel…" : "No panels available"}</option>
+            <option value="">{available.length ? "Add lab panel…" : "No panels available"}</option>
               {available.map((panel) => (
                 <option key={panel.id} value={panel.id}>{panel.name}</option>
               ))}
@@ -111,6 +113,11 @@ export function ProgramLabsSection({ program }: Props) {
       </div>
 
       <div className="mt-4 space-y-3">
+        {panels.some((panel) => panel.is_active && panel.is_assignable === false) && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            Some active catalog panels are hidden until their Junction configuration and billing fields are complete. Configure them under Labs before adding them to a Program.
+          </div>
+        )}
         {requirements.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-500">
             No lab is required for this Program.

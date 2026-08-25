@@ -6,7 +6,6 @@ import type { Program, ProgramQuestion } from "@/features/treatments/types";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
 import { useConsents, useSaveProgramQuestions } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
-import { ProgramLabsSection } from "./ProgramLabsSection";
 import { PROGRAM_AUTHORING_COPY } from "@/features/treatments/programs/programAuthoringConstants";
 import { projectAuthoredFlow } from "@/features/treatments/programs/programSystemBoundary";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
@@ -32,6 +31,23 @@ export function ProgramQuestionsList({ program, initialQuestions, effectiveConte
       // A new Program is empty; Patient Authentication appears only once the
       // author adds it from the Add Element menu, and is then pinned first.
       const flowQuestions = projectAuthoredFlow(program, authoredQuestions);
+      const labCheckoutQuestions: ProgramQuestion[] = (program.labRequirements || []).length > 0
+        ? [{
+            id: `lab-checkout:${program.id}`,
+            order: flowQuestions.length + 1,
+            text: "Order Your Labs",
+            kind: "checkout",
+            section: PROGRAM_AUTHORING_COPY.checkoutSection,
+            required: true,
+            checkoutProducts: [],
+            checkoutProductIds: [],
+            elementConfig: {
+              labCheckout: true,
+              checkoutMode: "lab",
+              labRequirements: program.labRequirements,
+            },
+          }]
+        : [];
       const checkoutQuestions = (program.checkoutQuestions || []).map((checkout, index): ProgramQuestion => ({
         id: checkout.id,
         order: flowQuestions.length + index + 1,
@@ -57,7 +73,7 @@ export function ProgramQuestionsList({ program, initialQuestions, effectiveConte
         },
       }));
       return projectEffectiveProgramFlow(
-        [...flowQuestions, ...checkoutQuestions],
+        [...flowQuestions, ...labCheckoutQuestions, ...checkoutQuestions],
         effectiveContent,
       );
     },
@@ -140,8 +156,6 @@ export function ProgramQuestionsList({ program, initialQuestions, effectiveConte
         allConsents={allConsents}
         onDetachSection={detachSection}
       />
-      {viewMode === "list" && <ProgramLabsSection program={program} />}
-
       <QuestionnairePreviewDialog
         open={isSimulateOpen}
         onOpenChange={setIsSimulateOpen}

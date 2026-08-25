@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import type { ProgramQuestion } from "@/features/treatments/types";
+import type { ProgramLabRequirement, ProgramQuestion } from "@/features/treatments/types";
 
 import { QuestionEditorSidebar } from "./QuestionEditorSidebar";
 import { StandardEditor } from "../editors/StandardEditor";
@@ -17,6 +17,8 @@ export interface QuestionEditorDialogProps {
   programId?: string;
   programName?: string;
   programTreatmentTypeKey?: string | null;
+  programLabRequirements?: ProgramLabRequirement[];
+  onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
 }
 
 export function QuestionEditorDialog({
@@ -28,6 +30,8 @@ export function QuestionEditorDialog({
   programId = "",
   programName = "WellieMD Initial Assessment",
   programTreatmentTypeKey,
+  programLabRequirements = [],
+  onSaveLabRequirements,
 }: QuestionEditorDialogProps) {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,6 +86,9 @@ export function QuestionEditorDialog({
               questions={questions}
               programName={programName}
               programTreatmentTypeKey={programTreatmentTypeKey}
+              programLabRequirements={programLabRequirements}
+              onSaveLabRequirements={onSaveLabRequirements}
+              initialMode={activeQuestion?.elementConfig?.checkoutMode === "lab" || activeQuestion?.elementConfig?.labCheckout === true ? "lab" : "medicine"}
               sidebar={sidebar}
               onSave={onSave}
               onClose={() => onOpenChange(false)}

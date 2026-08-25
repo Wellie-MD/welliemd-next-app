@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Eye, RefreshCw, Search } from "lucide-react";
 import { labsApi, type LabOrder } from "@/api/labs";
-import { junctionMockEnabled } from "@/api/junctionMockData";
 import { OrderDetailDrawer as LabOrderDetailDrawer } from "@/features/labs/components/LabOrderDetailDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { labPillTone } from "@/features/labs/constants/tones";
@@ -70,7 +69,7 @@ export default function LabOrders() {
         <div>
           <h1 className="text-2xl font-bold">Lab Orders</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {junctionMockEnabled ? "Junction mock mode enabled" : "Control-plane lab order view"}
+            Control-plane lab order view
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={loadOrders} className="gap-2">
