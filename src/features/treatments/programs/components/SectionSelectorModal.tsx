@@ -32,7 +32,7 @@ export function SectionSelectorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6">
+      <DialogContent className="max-w-md max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-white border border-slate-200 rounded-2xl shadow-xl p-6">
         <DialogHeader>
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <LayoutTemplate className="h-5 w-5" />
@@ -45,7 +45,7 @@ export function SectionSelectorModal({
           </p>
         </DialogHeader>
 
-        <div className="py-4 min-h-[160px] flex flex-col justify-center">
+        <div className="min-h-0 overflow-y-auto py-4 pr-1">
           {isLoading ? (
             <div className="flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
