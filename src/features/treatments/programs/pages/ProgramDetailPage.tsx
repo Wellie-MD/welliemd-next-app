@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 
@@ -62,10 +62,37 @@ export default function ProgramDetailPage() {
 
   const foundProgram = programs.find((p) => p.id === activeProgramId || p.slug === activeProgramId);
   const { data: allQuestions = [], isLoading: isQuestionsLoading } = useProgramQuestions(foundProgram?.id || "");
-  const { data: effectiveContent } = useProgramEffectiveContent(
+  const {
+    data: effectiveContent,
+    error: effectiveContentError,
+    isError: isEffectiveContentError,
+  } = useProgramEffectiveContent(
     foundProgram?.id || "",
     foundProgram?.phase
   );
+
+  useEffect(() => {
+    const blockers = effectiveContent?.blockers || [];
+    if (blockers.length > 0) {
+      toast({
+        title: "Program configuration needs attention",
+        description: blockers.map((blocker) => blocker.message).filter(Boolean).join(" "),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isEffectiveContentError) {
+      toast({
+        title: "Unable to load Program flow",
+        description: getApiErrorMessage(
+          effectiveContentError,
+          "The complete Program flow could not be loaded.",
+        ),
+        variant: "destructive",
+      });
+    }
+  }, [effectiveContent, effectiveContentError, isEffectiveContentError]);
 
   const saveProgramMutation = useSaveProgram();
   const updateProgramSlugMutation = useUpdateProgramSlug();

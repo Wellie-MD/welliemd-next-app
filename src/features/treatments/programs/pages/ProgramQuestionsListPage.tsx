@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "@/components/ui/use-toast";
 import { ProgramQuestionsList } from "@/features/treatments/programs/components/ProgramQuestionsList";
 import { useProgramEffectiveContent, useProgramQuestions, usePrograms } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { Loader2 } from "lucide-react";
+import { getApiErrorMessage } from "@/features/treatments/programs/utils/programDetailErrors";
 
 export default function ProgramQuestionsListPage() {
   const { programId = "" } = useParams();
@@ -18,6 +21,29 @@ export default function ProgramQuestionsListPage() {
     program?.stage === "follow_up" ? "follow_up" : "onboarding",
   );
   const effectiveContent = effectiveContentQuery.data;
+
+  useEffect(() => {
+    const blockers = effectiveContent?.blockers || [];
+    if (blockers.length > 0) {
+      toast({
+        title: "Program configuration needs attention",
+        description: blockers.map((blocker) => blocker.message).filter(Boolean).join(" "),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (effectiveContentQuery.isError) {
+      toast({
+        title: "Unable to load Program flow",
+        description: getApiErrorMessage(
+          effectiveContentQuery.error,
+          "The complete Program flow could not be loaded.",
+        ),
+        variant: "destructive",
+      });
+    }
+  }, [effectiveContent, effectiveContentQuery.error, effectiveContentQuery.isError]);
 
   // Loading state handling to prevent false-positives on first render
   if (isLoadingPrograms || isLoadingQuestions || (Boolean(program) && effectiveContentQuery.isLoading)) {
