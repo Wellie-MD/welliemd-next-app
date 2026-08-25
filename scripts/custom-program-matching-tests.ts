@@ -394,16 +394,16 @@ test("location is present in the picker", () => {
   assert.ok(built.some((item) => item.id === "service_state"));
 });
 
-test("the picker includes fields from automatically inherited effective Sections", () => {
+test("the picker includes fields from explicitly placed effective Stage-1 Sections", () => {
   const built = buildMatchingSources({
     flowItems: [], sections: [], sectionFields: {},
     effectiveSections: [{
-      sourceId: "section-inherited", sourceVersion: 3, name: "Medical Baseline",
-      applicableProgramIds: ["program-1"], resolvedFrom: [{ type: "global" }],
-      fields: [{ sourceId: "inherited-bmi", label: "BMI", kind: "number", order: 1 }],
+      sourceId: "section-explicit", sourceVersion: 3, name: "Medical Baseline",
+      applicableProgramIds: ["program-1"], resolvedFrom: [{ type: "custom_program" }],
+      fields: [{ sourceId: "explicit-bmi", label: "BMI", kind: "number", order: 1 }],
     }],
   });
-  const field = built.find((item) => item.id === "inherited-bmi");
+  const field = built.find((item) => item.id === "explicit-bmi");
   assert.equal(field?.group, "Section fields");
   assert.equal(field?.label, "Medical Baseline · BMI");
   assert.equal(field?.kind, "number");

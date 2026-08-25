@@ -219,8 +219,8 @@ test("projects authoritative effective stages and never derives inheritance from
           sections: [{ sourceId: "section-1", sourceVersion: 1, name: "Medical Baseline", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "global" }] }],
         },
         stage2: { programs: [
-          { inclusionId: "program-row-1", programId: "program-1", name: "program-1", displayOrder: 1, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 2, effectiveSectionCount: 1, checkoutCount: 2 },
-          { inclusionId: "program-row-2", programId: "program-2", name: "program-2", displayOrder: 2, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 1, effectiveSectionCount: 1, checkoutCount: 2 },
+          { inclusionId: "program-row-1", programId: "program-1", name: "program-1", displayOrder: 1, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 2, effectiveSectionCount: 1, sectionOccurrences: [], checkoutCount: 2 },
+          { inclusionId: "program-row-2", programId: "program-2", name: "program-2", displayOrder: 2, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 1, effectiveSectionCount: 1, sectionOccurrences: [], checkoutCount: 2 },
         ] },
         stage3: { consents: [
           { sourceId: "consent-1", sourceVersion: 1, name: "consent-1", scope: "common", sourceType: "global", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "global" }] },
@@ -255,7 +255,7 @@ test("uses effective Program names for consent applicability when catalogs are s
       systemSteps: { authentication: { count: 1, locked: true } },
       stages: {
         stage1: { questions: [], sections: [] },
-        stage2: { programs: [{ inclusionId: "program-row", programId: "program-1", name: "Actual Program", displayOrder: 1, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 1, effectiveSectionCount: 0, checkoutCount: 1 }] },
+        stage2: { programs: [{ inclusionId: "program-row", programId: "program-1", name: "Actual Program", displayOrder: 1, matchingEnabled: true, matchingRule: {}, matchingState: "always_offered", effectiveConsentCount: 1, effectiveSectionCount: 0, sectionOccurrences: [], checkoutCount: 1 }] },
         stage3: { consents: [{ sourceId: "consent-1", sourceVersion: 1, name: "Terms", scope: "common", sourceType: "visit_type", applicableProgramIds: ["program-1"], resolvedFrom: [] }] },
         stage4: { checkout: { count: 1, locked: true } },
       }, blockers: [],
