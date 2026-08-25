@@ -326,6 +326,9 @@ export interface TreatmentOrderAggregate {
     ready_for_provider_review: boolean
     has_partial_results: boolean
     recollection_required: boolean
+    critical_review_required?: boolean
+    critical_review_approved?: boolean
+    critical_reviewed_at?: string | null
     provider_review_state: string
     items: Array<{
       lab_order_id: string
@@ -700,6 +703,25 @@ export const updateOrder = async (id: string, payload: Partial<Order>): Promise<
   }
 }
 
+export interface CriticalLabReviewResponse {
+  case_id: string
+  critical_lab_review_status: string
+  critical_result_fingerprint: string
+  release_queued: boolean
+  reviewed_at: string
+}
+
+export const approveCriticalLabReview = async (
+  caseId: string,
+  note = "",
+): Promise<CriticalLabReviewResponse> => {
+  const { data } = await api.post<CriticalLabReviewResponse>(
+    `/orders/treatment-cases/${caseId}/critical-lab-review/`,
+    { note },
+  )
+  return data
+}
+
 export const archiveOrder = async (id: string): Promise<Order> => {
   try {
     const { data } = await api.post<Order>(`${ENDPOINT}${id}/archive/`)
@@ -866,6 +888,7 @@ export const ordersApi = {
   fetchPrescriptionHistory,
   createOrder,
   updateOrder,
+  approveCriticalLabReview,
   archiveOrder,
   unarchiveOrder,
   deleteOrder,
