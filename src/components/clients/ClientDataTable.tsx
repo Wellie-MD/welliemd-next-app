@@ -6,7 +6,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Client } from '@/api/clientApi';
-import { Building2, CheckCircle, XCircle, Pencil, AlertTriangle, Ban, ExternalLink, Activity } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Pencil, Ban, ExternalLink, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import axiosInstance from '@/api/axiosInstance';
 import { startSuperAdminAccess, type SuperAdminPortalType } from '@/api/superAdminAccessApi';
@@ -51,13 +51,9 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({
     }
   };
 
-  const handleBrokerLaunch = async (
-    client: Client,
-    portalType: SuperAdminPortalType,
-    targetContext: Record<string, unknown> = {},
-  ) => {
+  const handleBrokerLaunch = async (client: Client, portalType: SuperAdminPortalType) => {
     try {
-      const data = await startSuperAdminAccess(client.id, portalType, targetContext);
+      const data = await startSuperAdminAccess(client.id, portalType);
       window.open(data.launch_url, '_blank', 'noopener,noreferrer');
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ error?: string }>;
@@ -220,17 +216,6 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({
           >
             <Pencil className="w-4 h-4" />
             Edit
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleBrokerLaunch(row, 'client', { landing_path: '/dashboard/orders/resolution-queue' })}
-            disabled={!row.admin_panel_domain || !canLaunchSuperAdminAccess}
-            className="flex items-center gap-1 text-amber-700 hover:bg-amber-50 hover:text-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30"
-            title={canLaunchSuperAdminAccess ? 'Open this tenant checkout recovery queue' : 'Admin or Super Admin role required'}
-          >
-            <AlertTriangle className="w-4 h-4" />
-            Checkout Recovery
           </Button>
           <Button
             variant="ghost"
