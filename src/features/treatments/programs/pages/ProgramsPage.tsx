@@ -29,7 +29,7 @@ import { QuestionnairePreviewDialog } from "@/features/treatments/preview/compon
 import type { PreviewContext } from "@/features/treatments/types";
 import { ProgramsFilters, type ProgramsViewMode, type ProgramTabFilter } from "@/features/treatments/programs/components/ProgramsFilters";
 import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
-import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
+import { ASSIGNMENT_SOURCE, safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 import { countExplicitProgramConsents } from "@/features/treatments/programs/utils/programConsentPlacement";
 
 
@@ -66,13 +66,13 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
     ?.map((issue) => issue.message)
     .filter(Boolean)
     .join(" ");
-  return checkoutMessage
+  return safeAssignmentMessage(checkoutMessage
     || data?.checkout_summary?.headline
     || data?.error
     || data?.detail
     || data?.message
     || apiError.message
-    || fallback;
+    || fallback);
 };
 
 export default function ProgramsPage() {
@@ -312,7 +312,7 @@ export default function ProgramsPage() {
       onError: (error: unknown) => {
         const responseData = getApiErrorData(error);
         const blockerMessage = Array.isArray(responseData?.blockers)
-          ? responseData.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(" ")
+          ? safeAssignmentMessage(responseData.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(" "))
           : "";
         toast({
           title: "Error",

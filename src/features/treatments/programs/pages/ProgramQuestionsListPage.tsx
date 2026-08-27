@@ -5,6 +5,7 @@ import { ProgramQuestionsList } from "@/features/treatments/programs/components/
 import { useProgramEffectiveContent, useProgramQuestions, usePrograms } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { Loader2 } from "lucide-react";
 import { getApiErrorMessage } from "@/features/treatments/programs/utils/programDetailErrors";
+import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 
 export default function ProgramQuestionsListPage() {
   const { programId = "" } = useParams();
@@ -27,7 +28,7 @@ export default function ProgramQuestionsListPage() {
     if (blockers.length > 0) {
       toast({
         title: "Program configuration needs attention",
-        description: blockers.map((blocker) => blocker.message).filter(Boolean).join(" "),
+        description: safeAssignmentMessage(blockers.map((blocker) => blocker.message).filter(Boolean).join(" ")),
         variant: "destructive",
       });
       return;

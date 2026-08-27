@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import type { EffectiveSectionItem } from "@/features/treatments/api/programsApi";
+import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 
 export interface ProgramSectionsGrouped {
   inherited_global: EffectiveSectionItem[];
@@ -78,7 +79,7 @@ export function ProgramEffectiveSections({ sections, blockers = [] }: Props) {
           <div className="space-y-2">
             {blockers.map((blocker) => (
               <div key={`${blocker.code}:${blocker.message}`} className="flex items-center justify-between gap-3 text-xs text-amber-900">
-                <span>{blocker.message}</span>
+                <span>{safeAssignmentMessage(blocker.message)}</span>
                 {blocker.corrective_action?.route?.startsWith("/") && (
                   <Link className="shrink-0 font-bold underline" to={blocker.corrective_action.route}>
                     Fix dependency

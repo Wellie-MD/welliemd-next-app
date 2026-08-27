@@ -6,6 +6,7 @@ import {
   CONFIGURE_PRODUCT_PERMISSION,
   issueCheckoutLocation,
   issueSelectionLabels,
+  safeAssignmentMessage,
   type AssignmentIssue,
   type AssignmentIssueSummary,
 } from "@/features/treatments/assignment/constants";
@@ -82,7 +83,7 @@ function AssignmentIssueRow(props: {
         <p className="text-[11px] text-red-700">{selectors.join(" · ")}</p>
       )}
       {issue.label && <p className="text-[11px] text-red-700">{issue.label}</p>}
-      <p className="mt-1">Problem: {issue.message}</p>
+      <p className="mt-1">Problem: {safeAssignmentMessage(issue.message)}</p>
       {issue.action_route && !actionBlocked && (
         <button
           type="button"

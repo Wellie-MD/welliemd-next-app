@@ -19,6 +19,7 @@ import {
   OPERATION_STATUS,
   PREFLIGHT_STATUS,
   RUNTIME_STATE,
+  safeAssignmentMessage,
   TERMINAL_OPERATION_STATUSES,
 } from "@/features/treatments/assignment/constants";
 import {
@@ -49,7 +50,7 @@ const errorMessage = (error: unknown) => {
     response?: { data?: { detail?: string; error?: string; code?: string } };
     message?: string;
   };
-  return (
+  return safeAssignmentMessage(
     value.response?.data?.detail ||
     value.response?.data?.error ||
     value.response?.data?.code ||

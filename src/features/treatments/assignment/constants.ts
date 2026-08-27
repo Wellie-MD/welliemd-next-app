@@ -93,6 +93,34 @@ const ASSIGNMENT_ERROR_MESSAGES: Record<string, string> = {
     "A required Product or supply could not be assigned to the client. Confirm it is active, assigned to this client, linked to the correct Treatment Type, and has complete pricing or fulfillment configuration. Recheck readiness and retry.",
 };
 
+const UUID_REFERENCE = /(?<![0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![0-9a-f])/gi;
+const RELEASE_REFERENCE = /\b(?:program|section|consent|question|occurrence|release)(?::|[_-])[0-9a-f]{8}-[0-9a-f-]{27,}(?::v?[0-9]+)?\b/gi;
+
+/**
+ * Last-line UI guard for legacy/API error payloads. Backend responses should
+ * provide safe copy, but historical operations and proxy failures can still
+ * contain database identities. Those identities remain support-only.
+ */
+export function safeAssignmentMessage(value: unknown): string {
+  const render = (item: unknown): string => {
+    if (item === null || item === undefined) return "";
+    if (Array.isArray(item)) return item.map(render).filter(Boolean).join(" ");
+    if (typeof item === "object") {
+      return Object.entries(item as Record<string, unknown>)
+        .map(([key, nested]) => {
+          const rendered = render(nested);
+          return rendered ? `${key}: ${rendered}` : "";
+        })
+        .filter(Boolean)
+        .join("; ");
+    }
+    return String(item)
+      .replace(RELEASE_REFERENCE, "the referenced dependency")
+      .replace(UUID_REFERENCE, "the referenced item");
+  };
+  return render(value).trim();
+}
+
 export function assignmentOperationErrorMessage(code?: string, step?: string): string {
   if (code && ASSIGNMENT_ERROR_MESSAGES[code]) return ASSIGNMENT_ERROR_MESSAGES[code];
   if (step === "activate") {
@@ -113,7 +141,7 @@ export function assignmentOperationErrorMessage(code?: string, step?: string): s
  * checkout configuration contract; do not render arbitrary transport errors.
  */
 export function assignmentOperationDetailMessage(detail?: string): string | null {
-  const value = detail?.trim();
+  const value = safeAssignmentMessage(detail);
   if (!value) return null;
   if (/^Checkout question \d+,\s*Product option \d+:/i.test(value)) {
     return value;

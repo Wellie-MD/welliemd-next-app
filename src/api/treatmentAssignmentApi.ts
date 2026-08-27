@@ -132,6 +132,8 @@ export interface AssignmentOperation {
   preflight: AssignmentPreflight;
   result: Record<string, unknown>;
   impact: AssignmentImpact;
+  /** Raw transport evidence shown only inside collapsed support diagnostics. */
+  support_diagnostics?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   steps: AssignmentStep[];

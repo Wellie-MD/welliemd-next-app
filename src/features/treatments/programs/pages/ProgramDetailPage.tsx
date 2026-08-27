@@ -35,6 +35,7 @@ import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes"
 import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
 import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 import { getApiErrorMessage } from "@/features/treatments/programs/utils/programDetailErrors";
+import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 const normalizeQuestionKind = (type: string): QuestionKind => {
   switch (type) {
     case "single":
@@ -76,7 +77,7 @@ export default function ProgramDetailPage() {
     if (blockers.length > 0) {
       toast({
         title: "Program configuration needs attention",
-        description: blockers.map((blocker) => blocker.message).filter(Boolean).join(" "),
+        description: safeAssignmentMessage(blockers.map((blocker) => blocker.message).filter(Boolean).join(" ")),
         variant: "destructive",
       });
       return;

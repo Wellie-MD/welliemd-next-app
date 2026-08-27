@@ -1,3 +1,5 @@
+import { safeAssignmentMessage } from "../assignment/constants";
+
 const responseData = (error: unknown): Record<string, unknown> => {
   const response = (error as { response?: { data?: unknown } } | null)?.response;
   return response?.data && typeof response.data === "object"
@@ -49,5 +51,7 @@ export const customProgramMutationErrorMessage = (
     ...diagnosticText(data.unpublished_programs).map((message) => `Included Program: ${message}`),
   ];
   const uniqueMessages = [...new Set(messages)];
-  return uniqueMessages.length > 0 ? uniqueMessages.join(" ") : fallback;
+  return uniqueMessages.length > 0
+    ? safeAssignmentMessage(uniqueMessages.join(" "))
+    : safeAssignmentMessage(fallback);
 };

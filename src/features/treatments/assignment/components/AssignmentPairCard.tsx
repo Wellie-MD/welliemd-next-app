@@ -20,6 +20,7 @@ import {
   TERMINAL_OPERATION_STATUSES,
   assignmentOperationDetailMessage,
   assignmentOperationErrorMessage,
+  safeAssignmentMessage,
 } from "@/features/treatments/assignment/constants";
 import { AssignmentIssueList } from "@/features/treatments/assignment/components/AssignmentIssueList";
 import { navigateToAssignmentAction } from "@/features/treatments/assignment/navigation";
@@ -49,9 +50,9 @@ const publishErrorMessage = (error: unknown): string => {
         ? Object.values(details as Record<string, unknown>).flat()
         : [details];
     const message = flattened.filter(Boolean).join(" ");
-    if (message) return message;
+    if (message) return safeAssignmentMessage(message);
   }
-  return (
+  return safeAssignmentMessage(
     data?.detail ||
     data?.error ||
     (error as { message?: string })?.message ||
@@ -136,7 +137,7 @@ export function AssignmentPairCard(props: {
       </div>
       {pair.error && (
         <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
-          <p>{pair.error}</p>
+          <p>{safeAssignmentMessage(pair.error)}</p>
           {pair.errorAction === "configure_client" && (
             <button
               type="button"
@@ -219,7 +220,7 @@ export function AssignmentPairCard(props: {
                       key={`${node.kind}:${node.source_id}`}
                       className="ml-8 mt-1 text-[11px] text-amber-700"
                     >
-                      {node.name}: {node.message}
+                      {node.name}: {safeAssignmentMessage(node.message)}
                     </p>
                   ))}
                 {stage.action === "publish" && publishError && (
@@ -317,6 +318,11 @@ export function AssignmentPairCard(props: {
               <p>Correlation ID: {operation.correlation_id}</p>
               <p>Attempt: {operation.attempt_count}</p>
               <p>Current step: {operation.current_step || "waiting"}</p>
+              {operation.support_diagnostics && (
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-50 p-2 font-mono text-[10px] text-slate-600">
+                  {JSON.stringify(operation.support_diagnostics, null, 2)}
+                </pre>
+              )}
             </div>
           </details>
           <div className="mt-3 flex gap-2">

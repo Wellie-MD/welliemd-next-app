@@ -22,12 +22,13 @@ import {
   isCustomProgramRevisionConflict,
 } from "@/features/treatments/api/customProgramsApi";
 import { synchronizeCustomProgramStructure } from "@/features/treatments/flow-builder/utils/customProgramStages";
+import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 import type { CustomProgram, CustomProgramBuilderAddItem, CustomProgramFlowItem } from "@/features/treatments/types";
 
 const blockerMessage = (message: string | Record<string, unknown>) => {
-  if (typeof message === "string") return message;
+  if (typeof message === "string") return safeAssignmentMessage(message);
   return Object.entries(message)
-    .flatMap(([field, value]) => Array.isArray(value) ? value.map((item) => `${field}: ${String(item)}`) : [`${field}: ${String(value)}`])
+    .flatMap(([field, value]) => Array.isArray(value) ? value.map((item) => `${field}: ${safeAssignmentMessage(item)}`) : [`${field}: ${safeAssignmentMessage(value)}`])
     .join("; ");
 };
 
