@@ -213,6 +213,24 @@ export interface AdminOrderLineItem {
   shipment_provider?: string | null;
 }
 
+export interface AdminProductPaymentReservation {
+  id: string;
+  line_item_id: string;
+  product_id?: number | string | null;
+  product_name?: string | null;
+  amount?: string | number | null;
+  currency?: string | null;
+  authorized_amount?: string | number | null;
+  captured_amount?: string | number | null;
+  voided_amount?: string | number | null;
+  refunded_amount?: string | number | null;
+  status?: string | null;
+  processor?: string | null;
+  provider_transaction_id?: string | null;
+  patient_action?: "do_not_resubmit" | "complete_required_action" | "contact_support" | null;
+  safe_to_retry?: boolean;
+}
+
 export interface AdminOrderActivityEvent {
   id: string;
   event_type: string;
@@ -226,6 +244,7 @@ export interface AdminOrderActivityEvent {
 
 export interface AdminOrderDetail extends AdminOrderSummary {
   line_items: AdminOrderLineItem[];
+  product_payment_reservations?: AdminProductPaymentReservation[];
   activity_events: AdminOrderActivityEvent[];
   requested_medicines?: Array<Record<string, unknown>>;
   prescribed_medicines?: Array<Record<string, unknown>>;
