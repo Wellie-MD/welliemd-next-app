@@ -1,5 +1,6 @@
 import type { ProgramCheckoutQuestion } from "./checkout";
 import type { ProgramQuestion } from "./questions";
+import type { VisibilityRuleGroup } from "./questions";
 
 export type ProgramStage = "intake" | "follow_up";
 
@@ -57,6 +58,8 @@ export interface Program {
   };
   shippingDestinationPolicy?: "service_location_only" | "separate_verified_allowed";
   labRequirements?: ProgramLabRequirement[];
+  /** One conditional visibility rule for the synthetic lab checkout question. */
+  labCheckoutVisibilityRule?: VisibilityRuleGroup;
   assignmentRuntimeState?: string;
   runtimeReadyAt?: string | null;
   sourceAssignmentChecksum?: string;

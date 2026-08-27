@@ -5,6 +5,7 @@ import type {
   CustomProgram,
   Program,
   ProgramQuestion,
+  VisibilityRuleGroup,
 } from "@/features/treatments/types";
 
 export type PaginatedResponse<T> = {
@@ -159,6 +160,7 @@ export type ProgramRecord = {
     warning?: string | null;
   };
   shipping_destination_policy?: Program["shippingDestinationPolicy"];
+  lab_checkout_visibility_rule?: VisibilityRuleGroup;
   lab_requirements?: Array<{
     id?: string;
     panel_id: string;

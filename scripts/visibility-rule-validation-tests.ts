@@ -7,6 +7,10 @@ import {
   visibilityPathLabel,
 } from "../src/components/questionnaires/visibilityRuleValidation.ts";
 import { resolveChoiceValue } from "../src/utils/choiceValue.ts";
+import {
+  filterVisibilitySourceQuestions,
+  isCheckoutVisibilitySource,
+} from "../src/components/questionnaires/visibilitySourceFilter.ts";
 
 const test = (name: string, run: () => void) => {
   run();
@@ -116,6 +120,27 @@ test("ambiguous dose prefixes are left unchanged", () => {
     ),
     "Semaglutide",
   );
+});
+
+test("checkout and lab checkout nodes cannot be visibility sources", () => {
+  assert.equal(isCheckoutVisibilitySource({ kind: "checkout" }), true);
+  assert.equal(isCheckoutVisibilitySource({ question_type: "product_selection" }), true);
+  assert.equal(isCheckoutVisibilitySource({ kind: "program-lab-checkout" }), true);
+  assert.equal(isCheckoutVisibilitySource({ kind: "shipping_address" }), true);
+  assert.equal(isCheckoutVisibilitySource({ elementConfig: { labCheckout: true } }), true);
+  assert.equal(isCheckoutVisibilitySource({ kind: "text" }), false);
+});
+
+test("filter removes checkout variants while preserving screening questions", () => {
+  const filtered = filterVisibilitySourceQuestions([
+    { id: "screening-1", kind: "single_choice" },
+    { id: "product-checkout", kind: "checkout" },
+    { id: "lab-checkout", kind: "checkout", elementConfig: { labCheckout: true } },
+    { id: "section-product", kind: "section", configuration: { questionType: "product_selection" } },
+    { id: "shipping", question_type: "shipping_address" },
+  ]);
+
+  assert.deepEqual(filtered.map((question) => question.id), ["screening-1"]);
 });
 
 test("long choice labels remain selectable as-is", () => {

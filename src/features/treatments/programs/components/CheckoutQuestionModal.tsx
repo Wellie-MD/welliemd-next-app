@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import type { ProgramCheckoutQuestion, ProgramLabRequirement, ProgramQuestion } from "@/features/treatments/types";
+import type { ProgramCheckoutQuestion, ProgramLabRequirement, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-question/components/CheckoutPatientPreview";
 import { CheckoutProductsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutProductsSection";
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
@@ -9,6 +9,7 @@ import { QuestionVisibilityTab } from "@/features/treatments/question-editor/com
 import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
 import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
 import type { LabPanel } from "@/api/labs";
+import { filterVisibilitySourceQuestions } from "@/components/questionnaires/visibilitySourceFilter";
 import { useEffect, useState } from "react";
 
 type CheckoutVisibilityQuestion = Pick<ProgramQuestion, "id" | "text"> & Partial<ProgramQuestion>;
@@ -22,7 +23,7 @@ interface CheckoutQuestionModalProps {
   programTreatmentTypeKey?: string | null;
   screeningQuestions?: CheckoutVisibilityQuestion[];
   programLabRequirements?: ProgramLabRequirement[];
-  onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
+  onSaveLabRequirements?: (requirements: ProgramLabRequirement[], visibilityRules?: VisibilityRuleGroup) => Promise<void>;
   initialMode?: CheckoutOfferMode;
 }
 
@@ -69,6 +70,7 @@ export function CheckoutQuestionModal({
     prefillFromPrevious: question.prefillFromPrevious,
     elementConfig: question.elementConfig,
   }));
+  const visibilitySourceQuestions = filterVisibilitySourceQuestions(visibilityQuestions);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -93,7 +95,7 @@ export function CheckoutQuestionModal({
             {mode === "medicine" ? (
               <CheckoutProductsSection
                 products={form.products}
-                eligibleQuestions={visibilityQuestions}
+                eligibleQuestions={visibilitySourceQuestions}
                 programTreatmentTypeKey={programTreatmentTypeKey}
                 onAddProduct={form.handleAddProduct}
                 onRemoveProduct={form.handleRemoveProduct}
@@ -113,12 +115,13 @@ export function CheckoutQuestionModal({
             {mode === "medicine" && onSaveLabRequirements && (
               <p className="-mt-2 text-[11px] text-slate-400">Required Junction labs are configured as a separate Lab checkout step.</p>
             )}
-            {mode === "medicine" && <QuestionVisibilityTab
+            <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}
               setVisibilityRuleGroup={form.handleVisibilityRuleGroupChange}
               questions={visibilityQuestions}
               currentQuestionId=""
-            />}
+              subjectLabel={mode === "lab" ? "lab checkout question" : "checkout question"}
+            />
           </div>
 
           <CheckoutPatientPreview
@@ -142,7 +145,7 @@ export function CheckoutQuestionModal({
             onClick={async () => {
               if (mode === "lab") {
                 if (!onSaveLabRequirements) return;
-                await form.handleSaveLab(() => onSaveLabRequirements(labRequirements));
+                await form.handleSaveLab((visibilityRules) => onSaveLabRequirements(labRequirements, visibilityRules));
                 return;
               }
               await form.handleSaveModal();

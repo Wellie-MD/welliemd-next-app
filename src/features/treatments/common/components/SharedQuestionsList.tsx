@@ -9,7 +9,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
-import type { CommonSectionField, ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSectionField, ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
@@ -138,11 +138,15 @@ export function SharedQuestionsList({
   const deleteSectionFieldMutation = useDeleteSectionField(entityId);
   const reorderSectionFieldsMutation = useReorderSectionFields(entityId);
 
-  const saveProgramLabs = async (requirements: ProgramLabRequirement[]) => {
+  const saveProgramLabs = async (
+    requirements: ProgramLabRequirement[],
+    visibilityRules?: VisibilityRuleGroup,
+  ) => {
     if (!program || entityType !== "program") return;
     await saveProgramLabRequirementsMutation.mutateAsync({
       programId: program.id,
       requirements,
+      labCheckoutVisibilityRule: visibilityRules,
     });
     setQuestions((previous) => {
       const withoutLabCheckout = previous.filter((question) => question.elementConfig?.labCheckout !== true);
@@ -158,7 +162,13 @@ export function SharedQuestionsList({
           required: true,
           checkoutProducts: [],
           checkoutProductIds: [],
-          elementConfig: { labCheckout: true, checkoutMode: "lab", labRequirements: requirements },
+          visibilityRuleGroup: visibilityRules,
+          elementConfig: {
+            labCheckout: true,
+            checkoutMode: "lab",
+            labRequirements: requirements,
+            visibilityRuleGroup: visibilityRules,
+          },
         },
       ].sort((left, right) => left.order - right.order);
     });
@@ -558,7 +568,7 @@ export function SharedQuestionsList({
     // uses, or the delete silently no-ops and the item reappears on reload.
     if (questionToDelete?.kind === "checkout" && entityType === "program" && program) {
       if (questionToDelete.elementConfig?.labCheckout === true) {
-        saveProgramLabs([]).then(() => {
+        saveProgramLabs([], { mode: "simple", rules: [] }).then(() => {
           toast({ title: "Lab checkout removed", description: "The required Junction panels were detached from this Program." });
         }).catch((error) => {
           toast({

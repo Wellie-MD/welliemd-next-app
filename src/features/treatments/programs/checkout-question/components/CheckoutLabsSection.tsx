@@ -107,31 +107,31 @@ export function CheckoutLabsSection({
         {selectablePanels.map((panel) => {
           const selected = selectedIds.has(panel.id);
           return (
-            <label
+            <div
               key={panel.id}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors ${
-                selected
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-slate-200 bg-white hover:border-slate-300"
-              } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+              className={`space-y-3 rounded-lg border px-3 py-3 transition-colors ${
+                selected ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"
+              } ${disabled ? "opacity-60" : ""}`}
             >
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-blue-600"
-                checked={selected}
-                disabled={disabled}
-                onChange={() => togglePanel(panel)}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12.5px] font-bold text-slate-900">
-                  {panel.name}
+              <label className={`flex items-start gap-3 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-blue-600"
+                  checked={selected}
+                  disabled={disabled}
+                  onChange={() => togglePanel(panel)}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12.5px] font-bold text-slate-900">
+                    {panel.name}
+                  </span>
+                  <span className="mt-0.5 block text-[10.5px] text-slate-500">
+                    {panel.biomarkers?.length || 0} markers · {panel.lab_provider || "Junction"}
+                    {panel.collection_method ? ` · ${panel.collection_method.replaceAll("_", " ")}` : ""}
+                  </span>
                 </span>
-                <span className="mt-0.5 block text-[10.5px] text-slate-500">
-                  {panel.biomarkers?.length || 0} markers · {panel.lab_provider || "Junction"}
-                  {panel.collection_method ? ` · ${panel.collection_method.replaceAll("_", " ")}` : ""}
-                </span>
-              </span>
-            </label>
+              </label>
+            </div>
           );
         })}
       </div>

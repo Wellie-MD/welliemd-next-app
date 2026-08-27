@@ -3,13 +3,14 @@ import { CheckoutProductsSection } from "@/features/treatments/programs/checkout
 import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-question/components/CheckoutPatientPreview";
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
-import type { ProgramQuestion, ProgramCheckoutQuestion, ProgramCheckoutProduct } from "@/features/treatments/types";
+import type { ProgramQuestion, ProgramCheckoutQuestion, ProgramCheckoutProduct, VisibilityRuleGroup } from "@/features/treatments/types";
 import { toast } from "@/components/ui/use-toast";
 import { useEffect, useMemo, useState } from "react";
 import type { ProgramLabRequirement } from "@/features/treatments/types";
 import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
 import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
 import type { LabPanel } from "@/api/labs";
+import { filterVisibilitySourceQuestions } from "@/components/questionnaires/visibilitySourceFilter";
 
 interface CheckoutEditorProps {
   activeQuestion?: ProgramQuestion;
@@ -21,7 +22,7 @@ interface CheckoutEditorProps {
   onClose: () => void;
   onTestFlow?: () => void;
   programLabRequirements?: ProgramLabRequirement[];
-  onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
+  onSaveLabRequirements?: (requirements: ProgramLabRequirement[], visibilityRules?: VisibilityRuleGroup) => Promise<void>;
   initialMode?: CheckoutOfferMode;
 }
 
@@ -120,10 +121,11 @@ export function CheckoutEditor({
 
   // Earlier (already-answered) questions can drive per-product visibility.
   const eligibleQuestions = useMemo(
-    () =>
+    () => filterVisibilitySourceQuestions(
       questions.filter(
         (question) => question.id !== activeQuestion?.id && question.order < questionOrder
       ),
+    ),
     [questions, activeQuestion?.id, questionOrder]
   );
 
@@ -146,7 +148,7 @@ export function CheckoutEditor({
               });
               return;
             }
-            void form.handleSaveLab(() => onSaveLabRequirements(labRequirements));
+            void form.handleSaveLab((visibilityRules) => onSaveLabRequirements(labRequirements, visibilityRules));
             return;
           }
           if (incompatibleProducts.length > 0) {
@@ -188,12 +190,13 @@ export function CheckoutEditor({
                 disabled={form.isSaving}
               />
             ) : null}
-            {mode === "medicine" && <QuestionVisibilityTab
+            <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}
               setVisibilityRuleGroup={form.handleVisibilityRuleGroupChange}
               questions={questions}
               currentQuestionId={activeQuestion?.id || ""}
-            />}
+              subjectLabel={mode === "lab" ? "lab checkout question" : "checkout question"}
+            />
             {form.formError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11.5px] font-semibold text-red-700">
                 {form.formError}

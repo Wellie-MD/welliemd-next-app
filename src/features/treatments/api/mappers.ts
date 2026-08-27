@@ -8,6 +8,7 @@ import type {
   ProgramCheckoutQuestion,
   ProgramQuestion,
   TreatmentType,
+  VisibilityRuleGroup,
 } from "@/features/treatments/types";
 import {
   isCheckoutQuestionRequired,
@@ -62,16 +63,16 @@ const visibilityGroup = (record: ProgramQuestionRecord): ProgramQuestion["visibi
 
 type CheckoutRecord = Record<string, unknown>;
 
-const checkoutVisibilityGroup = (raw: unknown): ProgramCheckoutProduct["visibilityRules"] => {
+const visibilityGroupFromRecord = (raw: unknown): VisibilityRuleGroup | undefined => {
   if (!raw || typeof raw !== "object") {
     return undefined;
   }
 
-  const candidate = raw as Partial<ProgramCheckoutQuestion["visibilityRules"]>;
+  const candidate = raw as Partial<VisibilityRuleGroup>;
   const subgroups = Array.isArray(candidate.subgroups)
     ? candidate.subgroups
-        .map(checkoutVisibilityGroup)
-        .filter((group): group is NonNullable<ProgramCheckoutProduct["visibilityRules"]> => Boolean(group))
+        .map(visibilityGroupFromRecord)
+        .filter((group): group is VisibilityRuleGroup => Boolean(group))
     : [];
   const rules = Array.isArray(candidate.rules) ? candidate.rules : [];
   if (rules.length === 0 && subgroups.length === 0) return undefined;
@@ -114,7 +115,7 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
   patientLabel: record.patientLabel || record.patient_label
     ? String(record.patientLabel ?? record.patient_label)
     : undefined,
-  visibilityRules: checkoutVisibilityGroup(
+  visibilityRules: visibilityGroupFromRecord(
     record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule,
   ),
 });
@@ -135,7 +136,7 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
     id: String(record.id ?? record.source_id ?? `checkout-question-${index + 1}`),
     text: String(record.text ?? record.question_text ?? record.prompt ?? "Checkout Options"),
     products,
-    visibilityRules: checkoutVisibilityGroup(
+    visibilityRules: visibilityGroupFromRecord(
       record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule ?? record.conditional_logic,
     ) ?? { mode: "simple", rules: [], subgroups: [] },
     required: Boolean(record.required ?? record.is_required)
@@ -412,6 +413,7 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
     }
     : undefined,
   shippingDestinationPolicy: record.shipping_destination_policy || "service_location_only",
+  labCheckoutVisibilityRule: visibilityGroupFromRecord(record.lab_checkout_visibility_rule),
   labRequirements: (record.lab_requirements || []).map((requirement) => ({
     id: requirement.id,
     panelId: requirement.panel_id,
@@ -502,6 +504,9 @@ export const programToRecord = (program: Partial<Program>, treatmentTypes: Treat
   }
   if (program.shippingDestinationPolicy !== undefined) {
     payload.shipping_destination_policy = program.shippingDestinationPolicy;
+  }
+  if (program.labCheckoutVisibilityRule !== undefined) {
+    payload.lab_checkout_visibility_rule = program.labCheckoutVisibilityRule || {};
   }
   if (program.labRequirements !== undefined) {
     payload.lab_requirements = (program.labRequirements || []).map((requirement, index) => ({

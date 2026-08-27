@@ -13,7 +13,7 @@ import {
   useSaveProgramQuestions,
   useSaveProgramLabRequirements,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
-import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramLabRequirement, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramLabRequirement, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 import { ProgramDetailHeader } from "@/features/treatments/programs/components/ProgramDetailHeader";
 import { ProgramConfigurationAccess } from "@/features/treatments/programs/components/ProgramConfigurationAccess";
@@ -479,10 +479,11 @@ export default function ProgramDetailPage() {
         programTreatmentTypeKey={foundProgram.treatmentTypeKey}
         screeningQuestions={allQuestions}
         programLabRequirements={foundProgram.labRequirements || []}
-        onSaveLabRequirements={async (requirements: ProgramLabRequirement[]) => {
+        onSaveLabRequirements={async (requirements: ProgramLabRequirement[], visibilityRules?: VisibilityRuleGroup) => {
           await saveProgramLabRequirementsMutation.mutateAsync({
             programId: foundProgram.id,
             requirements,
+            labCheckoutVisibilityRule: visibilityRules,
           });
         }}
         initialQuestion={

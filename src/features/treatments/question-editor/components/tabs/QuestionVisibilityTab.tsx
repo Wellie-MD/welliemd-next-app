@@ -21,6 +21,10 @@ import { treatmentConfigurationApi } from "@/features/treatments/api/configurati
 import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { isPersistedUuid } from "@/features/treatments/api/mappers";
 import { resolveChoiceValue } from "@/utils/choiceValue";
+import {
+  filterVisibilitySourceQuestions,
+  isCheckoutVisibilitySource,
+} from "@/components/questionnaires/visibilitySourceFilter";
 
 interface QuestionVisibilityTabProps {
   visibilityRuleGroup: VisibilityRuleGroup | undefined;
@@ -28,6 +32,8 @@ interface QuestionVisibilityTabProps {
   questions: ProgramQuestion[];
   currentQuestionId: string;
   validationIssues?: VisibilityValidationIssue[];
+  subjectLabel?: string;
+  testIdPrefix?: string;
 }
 
 const NUMERIC_VISIBILITY_OPERATORS = new Set(["gt", "gte", "lt", "lte", "between"]);
@@ -50,11 +56,15 @@ export function QuestionVisibilityTab({
   questions,
   currentQuestionId,
   validationIssues = [],
+  subjectLabel = "question",
+  testIdPrefix,
 }: QuestionVisibilityTabProps) {
   const currentQuestionOrder = questions.find((question) => question.id === currentQuestionId)?.order || 999;
-  const eligibleQuestions = questions.filter((question) => (
-    question.id !== currentQuestionId && question.order < currentQuestionOrder
-  ));
+  const eligibleQuestions = filterVisibilitySourceQuestions(
+    questions.filter((question) => (
+      question.id !== currentQuestionId && question.order < currentQuestionOrder
+    )),
+  );
   const sectionQuestions = eligibleQuestions.filter((question) => question.kind === "section");
   const sectionFieldQueries = useQueries({
     queries: sectionQuestions.map((question) => {
@@ -86,7 +96,7 @@ export function QuestionVisibilityTab({
   sectionQuestions.forEach((sectionQuestion, index) => {
     const fields = sectionFieldQueries[index]?.data || [];
     fields
-      .filter((field) => field.kind !== "checkout")
+      .filter((field) => !isCheckoutVisibilitySource(field))
       .forEach((field) => {
         const configuredChoices = field.configuration?.choices;
         const answerChoices = Array.isArray(configuredChoices)
@@ -164,6 +174,7 @@ export function QuestionVisibilityTab({
   const hasRules = !!visibilityRuleGroup && (
     (visibilityRuleGroup.rules?.length || 0) > 0 || (visibilityRuleGroup.subgroups || []).length > 0
   );
+  const testId = (suffix: string) => (testIdPrefix ? `${testIdPrefix}-${suffix}` : suffix);
 
   return (
     <div className="space-y-4" data-visibility-section>
@@ -177,7 +188,7 @@ export function QuestionVisibilityTab({
       </div>
 
       <div className="mb-4 text-xs leading-relaxed text-slate-500">
-        By default, every question shows to every patient. Add rules below to limit when this question appears - e.g., only show it when an earlier question has a specific answer. Combine conditions with AND / OR groups.
+        By default, every {subjectLabel} shows to every patient. Add rules below to limit when this {subjectLabel} appears - e.g., only show it when an earlier question has a specific answer. Combine conditions with AND / OR groups.
       </div>
 
       {validationIssues.length > 0 && (
@@ -202,14 +213,14 @@ export function QuestionVisibilityTab({
 
       {!hasRules ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-xs text-slate-400">
-          No visibility rules - this question is always shown.
+          No visibility rules - this {subjectLabel} is always shown.
           <div className="mt-4 flex justify-center">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setVisibilityRuleGroup(createTreatmentRuleGroup())}
               className="h-8 border-slate-200 bg-white text-xs font-semibold text-slate-600 shadow-sm"
-              data-testid="add-first-visibility-rule"
+              data-testid={testId("add-first-visibility-rule")}
             >
               + Add visibility rule
             </Button>
@@ -230,7 +241,7 @@ export function QuestionVisibilityTab({
               size="sm"
               className="text-xs font-semibold text-red-500 hover:text-red-700"
               onClick={() => setVisibilityRuleGroup(undefined)}
-              data-testid="clear-visibility-rules"
+              data-testid={testId("clear-visibility-rules")}
             >
               Remove visibility rules
             </Button>

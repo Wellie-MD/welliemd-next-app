@@ -41,10 +41,12 @@ export function ProgramQuestionsList({ program, initialQuestions, effectiveConte
             required: true,
             checkoutProducts: [],
             checkoutProductIds: [],
+            visibilityRuleGroup: program.labCheckoutVisibilityRule,
             elementConfig: {
               labCheckout: true,
               checkoutMode: "lab",
               labRequirements: program.labRequirements,
+              visibilityRuleGroup: program.labCheckoutVisibilityRule,
             },
           }]
         : [];

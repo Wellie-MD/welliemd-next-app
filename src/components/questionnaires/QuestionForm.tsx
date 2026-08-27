@@ -47,6 +47,7 @@ import {
 } from "./VisibilityRuleBuilder";
 import { SubQuestion } from "@/api/questionnaires";
 import { normalizeChoiceDisplay } from "@/utils/choiceValue";
+import { filterVisibilitySourceQuestions } from "@/components/questionnaires/visibilitySourceFilter";
 
 interface QuestionFormProps {
   open: boolean;
@@ -1381,8 +1382,8 @@ export function QuestionForm({
   const triggerOptions = selectedParent?.answer_choices || [];
 
   // Filter out current question from parent options (when editing)
-  const parentQuestionOptions = existingQuestions.filter(
-    (q) => q.id !== question?.id
+  const parentQuestionOptions = filterVisibilitySourceQuestions(
+    existingQuestions.filter((q) => q.id !== question?.id),
   );
 
   return (

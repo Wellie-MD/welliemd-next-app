@@ -205,10 +205,16 @@ export const useSaveProgramLabRequirements = () => {
     mutationFn: ({
       programId,
       requirements,
+      labCheckoutVisibilityRule,
     }: {
       programId: string;
       requirements: Program["labRequirements"];
-    }) => treatmentsApi.saveProgramLabRequirements(programId, requirements || []),
+      labCheckoutVisibilityRule?: Program["labCheckoutVisibilityRule"];
+    }) => treatmentsApi.saveProgramLabRequirements(
+      programId,
+      requirements || [],
+      labCheckoutVisibilityRule,
+    ),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() }),

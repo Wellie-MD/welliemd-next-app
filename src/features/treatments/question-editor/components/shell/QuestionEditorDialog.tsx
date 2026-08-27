@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import type { ProgramLabRequirement, ProgramQuestion } from "@/features/treatments/types";
+import type { ProgramLabRequirement, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 
 import { QuestionEditorSidebar } from "./QuestionEditorSidebar";
 import { StandardEditor } from "../editors/StandardEditor";
@@ -18,7 +18,7 @@ export interface QuestionEditorDialogProps {
   programName?: string;
   programTreatmentTypeKey?: string | null;
   programLabRequirements?: ProgramLabRequirement[];
-  onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
+  onSaveLabRequirements?: (requirements: ProgramLabRequirement[], visibilityRules?: VisibilityRuleGroup) => Promise<void>;
 }
 
 export function QuestionEditorDialog({

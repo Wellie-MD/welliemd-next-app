@@ -7,6 +7,7 @@ import type {
   ProgramStatus,
   TreatmentType,
   QuestionKind,
+  VisibilityRuleGroup,
 } from "@/features/treatments/types";
 import type { PaginatedResponse, ProgramQuestionRecord, ProgramRecord } from "./contracts";
 import {
@@ -102,6 +103,7 @@ export const programsApi = {
   saveLabRequirements: async (
     programId: string,
     requirements: ProgramLabRequirement[],
+    labCheckoutVisibilityRule?: VisibilityRuleGroup,
   ): Promise<Program> => {
     if (!isPersistedUuid(programId)) throw new Error("Save the Program before editing labs.");
     const labRequirements = requirements.map((requirement, index) => ({
@@ -111,9 +113,13 @@ export const programsApi = {
       is_active: requirement.isActive,
       instructions: requirement.instructions || "",
     }));
+    const payload: Record<string, unknown> = { lab_requirements: labRequirements };
+    if (labCheckoutVisibilityRule !== undefined) {
+      payload.lab_checkout_visibility_rule = labCheckoutVisibilityRule || {};
+    }
     const { data } = await axiosInstance.patch<ProgramRecord>(
       TREATMENT_PROGRAM_ENDPOINTS.detail(programId),
-      { lab_requirements: labRequirements },
+      payload,
     );
     return programFromRecord(data);
   },

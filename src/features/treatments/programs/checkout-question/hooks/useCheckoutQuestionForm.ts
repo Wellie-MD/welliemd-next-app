@@ -14,6 +14,18 @@ const isProductComplete = (product: ProductForm): boolean => Boolean(
   product.category && product.regimen && product.doseLabel && product.productId,
 );
 
+const normalizeVisibilityGroup = (
+  group: VisibilityRuleGroupForm | undefined,
+): VisibilityRuleGroupForm | undefined => {
+  if (!group) return undefined;
+  const rules = group.rules.filter((rule) => rule.questionId && rule.operator && rule.value);
+  const subgroups = (group.subgroups || [])
+    .map(normalizeVisibilityGroup)
+    .filter((subgroup): subgroup is VisibilityRuleGroupForm => Boolean(subgroup));
+  if (rules.length === 0 && subgroups.length === 0) return undefined;
+  return { mode: group.mode, rules, subgroups };
+};
+
 const createEmptyProducts = (): ProductForm[] => [
   checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.optionalAddon }),
 ];
@@ -195,16 +207,6 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       }
     }
 
-    const normalizeGroup = (group: VisibilityRuleGroupForm | undefined): VisibilityRuleGroupForm | undefined => {
-      if (!group) return undefined;
-      const rules = group.rules.filter((rule) => rule.questionId && rule.operator && rule.value);
-      const subgroups = (group.subgroups || [])
-        .map(normalizeGroup)
-        .filter((subgroup): subgroup is VisibilityRuleGroupForm => Boolean(subgroup));
-      if (rules.length === 0 && subgroups.length === 0) return undefined;
-      return { mode: group.mode, rules, subgroups };
-    };
-
     const normalizeProduct = (product: ProductForm): ProductForm => {
       const sourceProductId =
         product.sourceProductId && product.sourceProductId !== product.productId
@@ -227,7 +229,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           ...normalizeProduct(product),
           visibilityRules: normalizeGroup(product.visibilityRules),
         })),
-        visibilityRules: normalizeGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
+        visibilityRules: normalizeVisibilityGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
         required: false,
         selectionMode: "multiple",
         minSelections: 1,
@@ -271,11 +273,13 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     }
   };
 
-  const handleSaveLab = async (save: () => Promise<void>) => {
+  const handleSaveLab = async (
+    save: (visibilityRules: VisibilityRuleGroupForm | undefined) => Promise<void>,
+  ) => {
     setIsSaving(true);
     setFormError(null);
     try {
-      await save();
+      await save(normalizeVisibilityGroup(visibilityRuleGroup) || { mode: "simple", rules: [] });
       onOpenChange(false);
     } catch (error) {
       setFormError(
