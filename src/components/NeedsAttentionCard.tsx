@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CreditCard, ClipboardList, CalendarDays } from "lucide-react";
+import { CreditCard, ClipboardList, CalendarDays, ShieldAlert } from "lucide-react";
 import { getOrdersByStatus, type PatientOrder, type PaginatedOrdersResponse } from "@/shared/api/ordersApi";
+import { getPatientCheckoutRecovery, type PatientCheckoutRecoveryItem } from "@/shared/api/checkoutRecoveryApi";
 import { getPatientFollowUps, type FollowUp } from "@/features/followups/api";
 import { getStandaloneLabSubmissions, type StandaloneLabSubmission } from "@/features/labs/api/index";
 
@@ -25,16 +26,18 @@ export default function NeedsAttentionCard() {
   const [pendingOrders, setPendingOrders] = useState<PatientOrder[]>([]);
   const [pendingFollowUps, setPendingFollowUps] = useState<FollowUp[]>([]);
   const [pendingLab, setPendingLab] = useState<StandaloneLabSubmission | null>(null);
+  const [checkoutRecovery, setCheckoutRecovery] = useState<PatientCheckoutRecoveryItem[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       const emptyOrders: PaginatedOrdersResponse = { count: 0, next: null, previous: null, results: [] };
-      const [ordersRes, followUps, labSubmissions] = await Promise.all([
+      const [ordersRes, followUps, labSubmissions, recoveryItems] = await Promise.all([
         getOrdersByStatus("payment_pending").catch(() => emptyOrders),
         getPatientFollowUps(),
         getStandaloneLabSubmissions(),
+        getPatientCheckoutRecovery().catch(() => []),
       ]);
       if (cancelled) return;
 
@@ -45,6 +48,7 @@ export default function NeedsAttentionCard() {
         )
       );
       setPendingLab((labSubmissions || []).find(isLabAwaitingBooking) || null);
+      setCheckoutRecovery(recoveryItems || []);
       setLoading(false);
     };
 
@@ -59,16 +63,22 @@ export default function NeedsAttentionCard() {
   const hasOrders = pendingOrders.length > 0;
   const hasFollowUps = pendingFollowUps.length > 0;
   const hasLab = Boolean(pendingLab);
+  const hasCheckoutRecovery = checkoutRecovery.length > 0;
 
-  if (!hasOrders && !hasFollowUps && !hasLab) return null;
+  if (!hasOrders && !hasFollowUps && !hasLab && !hasCheckoutRecovery) return null;
 
   const totalDue = pendingOrders.reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
   const orderNames = Array.from(new Set(pendingOrders.map((o) => o.product_name).filter(Boolean)));
   const followUpTypes = Array.from(new Set(pendingFollowUps.map((f) => f.treatment_type).filter(Boolean)));
 
   const handlePayNow = () => {
-    if (pendingOrders.length === 1 && pendingOrders[0].checkout_url) {
-      window.location.assign(pendingOrders[0].checkout_url);
+    if (hasCheckoutRecovery) {
+      navigate("/dashboard/orders");
+      return;
+    }
+    const onlyOrder = pendingOrders.length === 1 ? pendingOrders[0] : undefined;
+    if (onlyOrder?.checkout_url) {
+      window.location.assign(onlyOrder.checkout_url);
     } else {
       navigate("/dashboard/orders");
     }
@@ -97,6 +107,31 @@ export default function NeedsAttentionCard() {
       </div>
 
       <div>
+        {hasCheckoutRecovery && (
+          <>
+            {checkoutRecovery.map((item) => (
+              <div className="km-attn-item" key={item.submission_id}>
+                <div className="km-attn-icon amber">
+                  <ShieldAlert size={17} strokeWidth={2} />
+                </div>
+                <div className="km-attn-body">
+                  <div className="km-attn-title">We are confirming your payment</div>
+                  <div className="km-attn-sub">
+                    {item.message || "Please do not submit another payment unless support asks you to."}
+                    {item.support_reference ? ` Support reference: ${item.support_reference}.` : ""}
+                  </div>
+                </div>
+                <div className="km-attn-action">
+                  <button className="km-btn km-btn-outline" style={{ fontSize: 11, padding: "6px 12px" }} onClick={() => navigate("/dashboard/orders")}>
+                    View Orders
+                  </button>
+                </div>
+              </div>
+            ))}
+            {(hasOrders || hasFollowUps || hasLab) && <div className="km-attn-divider" />}
+          </>
+        )}
+
         {hasOrders && (
           <>
             <div className="km-attn-item">
@@ -107,12 +142,16 @@ export default function NeedsAttentionCard() {
                 <div className="km-attn-title">
                   {pendingOrders.length} order{pendingOrders.length > 1 ? "s" : ""} awaiting payment
                 </div>
-                <div className="km-attn-sub">{orderNames.join(" & ")}</div>
+                <div className="km-attn-sub">
+                  {hasCheckoutRecovery
+                    ? "Payment options are paused while the earlier checkout is confirmed."
+                    : orderNames.join(" & ")}
+                </div>
               </div>
               <div className="km-attn-action">
                 <div className="km-attn-amount">{formatCurrency(totalDue)}</div>
                 <button className="km-btn km-btn-primary" style={{ fontSize: 11, padding: "6px 12px" }} onClick={handlePayNow}>
-                  Pay Now
+                  {hasCheckoutRecovery ? "View Orders" : "Pay Now"}
                 </button>
               </div>
             </div>
