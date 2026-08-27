@@ -66,14 +66,9 @@ const SuperAdminAccessLaunch = () => {
         useAuthStore.getState().setUser(user);
         useAuthStore.getState().setAccessToken("");
 
-        const requestedLandingPath = user?.superadmin_access?.target_context?.landing_path;
-        const landingPath = requestedLandingPath === "/dashboard/orders/resolution-queue"
-          ? requestedLandingPath
-          : "/dashboard";
-
         window.sessionStorage.setItem(handoffKey, "completed");
         window.history.replaceState({}, document.title, "/superadmin-access/launch");
-        navigate(landingPath, { replace: true });
+        navigate("/dashboard", { replace: true });
       } catch (error) {
         console.error("Super Admin access handoff exchange failed:", error);
         window.sessionStorage.removeItem(handoffKey);

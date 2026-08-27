@@ -20,7 +20,6 @@ interface User {
     portal_type?: string;
     access_mode?: string;
     role?: string;
-    target_context?: Record<string, unknown>;
     expires_at?: string;
   };
 }
