@@ -3,6 +3,8 @@ import { ShieldCheck } from "lucide-react";
 
 type ConsentNodeData = {
   label: string;
+  consentProvenance?: "library" | "inline";
+  consentScopeLabel?: string;
   hasActiveFocus?: boolean;
   isFocusedPath?: boolean;
   isFocused?: boolean;
@@ -37,7 +39,7 @@ export default function ConsentNode({ data }: { data: ConsentNodeData }) {
       <div className="border-b border-slate-200 bg-[#eef2ff] px-3 py-[5px]">
         <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.05em] text-[#4338ca]">
           <ShieldCheck className="h-2.5 w-2.5" />
-          CONSENT
+          {data.consentProvenance === "library" ? "LIBRARY CONSENT" : "INLINE CONSENT"}
         </span>
       </div>
 
@@ -45,6 +47,11 @@ export default function ConsentNode({ data }: { data: ConsentNodeData }) {
         <h4 className="text-[12.5px] font-semibold leading-[1.35] text-slate-900">
           {data.label}
         </h4>
+        <p className="mt-1 text-[10px] font-medium text-slate-500">
+          {data.consentProvenance === "library"
+            ? `${data.consentScopeLabel || "Visit Type"} scope · Reusable legal document`
+            : "Conditional · Defined in this Program"}
+        </p>
       </div>
 
       <div className="space-y-[5px] px-2.5 pb-2.5">

@@ -35,6 +35,7 @@ export const customProgramsApi = {
       name: String(value.name || value.title || "Unavailable referenced block"),
       scope: value.scope,
       sourceType: value.source_type,
+      libraryScope: value.library_scope,
       applicableProgramIds: (value.applicable_program_ids || []).map(String),
       resolvedFrom: (value.resolved_from || []).map((reason: Record<string, any>) => ({
         type: reason.type,

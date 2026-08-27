@@ -95,6 +95,26 @@ test("empty program has no synthetic flow nodes", () => {
   assert.deepEqual(graph.edges, []);
 });
 
+test("consent nodes preserve library versus inline provenance", () => {
+  const linked = question({ id: "linked-consent", order: 1, kind: "consent" });
+  linked.elementConfig = { sourceId: "consent-global" };
+  const inline = question({ id: "inline-consent", order: 2, kind: "consent" });
+
+  const currentProgram = program();
+  currentProgram.consentIds = ["consent-visit-type"];
+  const graph = buildStaticProgramFlowGraph(currentProgram, [linked, inline], [
+    { id: "consent-global", name: "Global terms", scope: "global" },
+    { id: "consent-visit-type", name: "Treatment terms", scope: "visit_type" },
+  ]);
+
+  assert.equal(node(graph, "linked-consent").data.consentProvenance, "library");
+  assert.equal(node(graph, "linked-consent").data.consentScopeLabel, "Global");
+  assert.equal(node(graph, "inline-consent").data.consentProvenance, "inline");
+  assert.equal(node(graph, "inline-consent").data.consentScopeLabel, "Conditional");
+  assert.equal(node(graph, "consent-form-consent-visit-type").data.consentProvenance, "library");
+  assert.equal(node(graph, "consent-form-consent-visit-type").data.consentScopeLabel, "Visit Type");
+});
+
 test("conditional child uses exact answer handle", () => {
   const questions = [
     question({ id: "parent", order: 1, choices: ["Yes", "No"] }),

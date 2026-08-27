@@ -1,7 +1,13 @@
 import type { EffectiveSectionItem, ProgramEffectiveContent } from "@/features/treatments/api/programsApi";
 import type { ProgramQuestion } from "@/features/treatments/types";
 
-type EffectiveConsent = { id?: string; source_id?: string; name?: string; required?: boolean };
+type EffectiveConsent = {
+  id?: string;
+  source_id?: string;
+  name?: string;
+  required?: boolean;
+  library_scope?: "global" | "visit_type";
+};
 const sourceId = (node: { id?: string; source_id?: string }) => String(node.source_id || node.id || "");
 
 function explicitSectionRow(section: EffectiveSectionItem): ProgramQuestion {
@@ -32,6 +38,7 @@ function explicitSectionRow(section: EffectiveSectionItem): ProgramQuestion {
 
 function explicitConsentRow(consent: EffectiveConsent, sourceType: "program" | "inline"): ProgramQuestion {
   const id = sourceId(consent);
+  const libraryScope = consent.library_scope === "global" ? "Global" : "Visit Type";
   return {
     id: `effective-consent:${sourceType}:${id}`,
     order: 0,
@@ -44,7 +51,35 @@ function explicitConsentRow(consent: EffectiveConsent, sourceType: "program" | "
       sourceType,
       effective: true,
       locked: true,
-      description: sourceType === "inline" ? "Inline · Conditional" : "Explicit · Program",
+      description: sourceType === "inline" ? "Inline Consent · Conditional" : `Library Consent · ${libraryScope}`,
+    },
+  };
+}
+
+function annotateAuthoredConsent(
+  question: ProgramQuestion,
+  explicitBySourceId: Map<string, EffectiveConsent>,
+): ProgramQuestion {
+  const linkedSourceId = String(question.elementConfig?.sourceId || "");
+  if (!linkedSourceId) {
+    return {
+      ...question,
+      elementConfig: {
+        ...(question.elementConfig || {}),
+        consentProvenance: "inline",
+        description: "Inline Consent · Conditional",
+      },
+    };
+  }
+  const libraryConsent = explicitBySourceId.get(linkedSourceId);
+  const libraryScope = libraryConsent?.library_scope === "global" ? "Global" : "Visit Type";
+  return {
+    ...question,
+    elementConfig: {
+      ...(question.elementConfig || {}),
+      consentProvenance: "library",
+      libraryScope: libraryConsent?.library_scope,
+      description: `Library Consent · ${libraryScope}`,
     },
   };
 }
@@ -64,6 +99,7 @@ export function projectEffectiveProgramFlow(
   }
   const authoredIds = new Set(
     authoredQuestions.flatMap((question) => [
+      question.id,
       question.elementConfig?.sourceId,
       question.elementConfig?.sourceSectionId,
     ]).filter(Boolean).map(String),
@@ -71,7 +107,12 @@ export function projectEffectiveProgramFlow(
   const authentication = authoredQuestions.filter((item) => item.kind === "patient_authentication");
   const labCheckout = authoredQuestions.filter((item) => item.kind === "checkout" && item.elementConfig?.labCheckout === true);
   const checkout = authoredQuestions.filter((item) => item.kind === "checkout" && item.elementConfig?.labCheckout !== true);
-  const authoredConsents = authoredQuestions.filter((item) => item.kind === "consent");
+  const explicitBySourceId = new Map(
+    effectiveContent.consents.explicit_program.map((consent) => [sourceId(consent), consent]),
+  );
+  const authoredConsents = authoredQuestions
+    .filter((item) => item.kind === "consent")
+    .map((item) => annotateAuthoredConsent(item, explicitBySourceId));
   const clinical = authoredQuestions.filter(
     (item) => !["patient_authentication", "checkout", "consent"].includes(item.kind),
   );

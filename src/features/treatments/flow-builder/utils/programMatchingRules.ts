@@ -458,7 +458,7 @@ export function buildMatchingSources(inputs: MatchingSourceInputs): MatchingSour
 
   sources.push(
     { id: "age", label: "Age", kind: "number", group: "Patient profile" },
-    { id: "bmi", label: "BMI (calculated)", kind: "number", group: "Patient profile" },
+    { id: "bmi", label: "BMI (calculated in Stage 1)", kind: "number", group: "Journey-derived facts" },
     { id: "sex", label: "Sex at birth", kind: "single", group: "Patient profile", choices: ["Male", "Female", "Intersex"] },
     { id: "gender", label: "Gender", kind: "single", group: "Patient profile", choices: ["Male", "Female", "Other"] },
     { id: "service_state", label: "State of residence", kind: "text", group: "Location" },

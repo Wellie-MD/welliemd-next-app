@@ -106,6 +106,9 @@ export function ProgramQuestionsListRow({
   // Linked consents are edited in the shared consent library. Inline consents
   // are owned by the program and must use the normal question editor.
   const hasLinkedConsent = isConsent && Boolean(question.elementConfig?.sourceId);
+  const typeLabel = isConsent
+    ? (hasLinkedConsent ? "Library Consent" : "Inline Consent")
+    : PROGRAM_QUESTION_KIND_LABELS[question.kind];
   const handleEdit = () => {
     if (isSection || isEffectiveSectionField) {
       navigateToSection();
@@ -180,7 +183,7 @@ export function ProgramQuestionsListRow({
       {/* 4. Type & Tags */}
       <div className="flex items-start">
         <div className={`inline-flex items-center rounded border px-2 py-1 text-[10px] font-medium ${tone.badge}`}>
-          {PROGRAM_QUESTION_KIND_LABELS[question.kind]}
+          {typeLabel}
         </div>
       </div>
 

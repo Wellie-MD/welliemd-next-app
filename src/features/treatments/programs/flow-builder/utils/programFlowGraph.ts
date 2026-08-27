@@ -100,7 +100,7 @@ const depthForReturn = (questionId: string, parentOf: Map<string, string>): numb
 export function buildStaticProgramFlowGraph(
   program: Program,
   questions: ProgramQuestion[],
-  allConsents: Array<{ id: string; name: string }>,
+  allConsents: Array<{ id: string; name: string; scope?: string }>,
   _direction: "TB" | "LR" = "TB"
 ): GraphData {
   const nodes: Node[] = [];
@@ -466,12 +466,32 @@ export function buildStaticProgramFlowGraph(
       productChoices: Array.from(productChoices),
       returnChoices: Array.from(returnChoices),
       isFocused: false,
+      ...(question.kind === "consent"
+        ? (() => {
+            const sourceId = String(question.elementConfig?.sourceId || "").trim();
+            const source = sourceId
+              ? allConsents.find((consent) => consent.id === sourceId)
+              : undefined;
+            return {
+              consentProvenance: sourceId ? "library" : "inline",
+              consentScopeLabel: sourceId
+                ? source?.scope === "global" ? "Global" : "Visit Type"
+                : "Conditional",
+            };
+          })()
+        : {}),
     });
   });
 
   programConsents.forEach((consent) => {
     const id = `consent-form-${consent.id}`;
-    pushNode(id, "consent", { label: consent.name, consents: [consent], isFocused: false });
+    pushNode(id, "consent", {
+      label: consent.name,
+      consents: [consent],
+      consentProvenance: "library",
+      consentScopeLabel: consent.scope === "global" ? "Global" : "Visit Type",
+      isFocused: false,
+    });
   });
 
   if (hasCheckout) {

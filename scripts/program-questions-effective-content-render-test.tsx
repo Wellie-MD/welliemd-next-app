@@ -26,8 +26,21 @@ const effectiveContent: ProgramEffectiveContent = {
   consents: {
     inherited_global: [{ id: "global-1", source_id: "global-1", source_type: "global", name: "Truthfulness Consent", required: true }],
     inherited_visit_type: [{ id: "visit-1", source_id: "visit-1", source_type: "visit_type", name: "GLP Consent", required: true }],
-    explicit_program: [],
-    inline_conditional: [],
+    explicit_program: [{
+      id: "library-consent-global",
+      source_id: "library-consent-global",
+      source_type: "program",
+      library_scope: "global",
+      name: "Reusable HIPAA Consent",
+      required: true,
+    }],
+    inline_conditional: [{
+      id: "inline-consent-question",
+      source_id: "inline-consent-question",
+      source_type: "inline",
+      name: "Inline journey consent",
+      required: true,
+    }],
   },
   sections: {
     inherited_global: [{
@@ -88,7 +101,27 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { enabled: fals
 const html = renderToStaticMarkup(
   <QueryClientProvider client={queryClient}>
     <StaticRouter location={`/dashboard/treatments/programs/${program.id}/questions`}>
-      <ProgramQuestionsList program={program} initialQuestions={[]} effectiveContent={effectiveContent} />
+      <ProgramQuestionsList
+        program={program}
+        initialQuestions={[{
+          id: "inline-consent-question",
+          order: 1,
+          text: "Inline journey consent",
+          kind: "consent",
+          section: "Consents",
+          required: true,
+          consentText: "I agree",
+        }, {
+          id: "linked-library-consent-question",
+          order: 2,
+          text: "Reusable HIPAA Consent",
+          kind: "consent",
+          section: "Consents",
+          required: true,
+          elementConfig: { sourceId: "library-consent-global" },
+        }]}
+        effectiveContent={effectiveContent}
+      />
     </StaticRouter>
   </QueryClientProvider>,
 );
@@ -101,6 +134,15 @@ assert.match(html, />Program Safety Questions</);
 assert.match(html, /1 field · Reusable from library · Treatment specific/);
 assert.doesNotMatch(html, /Program safety answer/);
 assert.match(html, /Detach Program Safety Questions from Program/);
+assert.match(html, /Library Consent · Global/);
 assert.doesNotMatch(html, />Medical Baseline</);
 assert.doesNotMatch(html, />Referenced Clinical Section</);
+assert.equal(
+  html.match(/Inline journey consent/g)?.length,
+  1,
+  "an authored inline Consent must not be projected a second time",
+);
+assert.match(html, />Library Consent</);
+assert.match(html, />Inline Consent</);
+assert.equal(html.match(/Reusable HIPAA Consent/g)?.length, 1);
 console.log("PASS Program questions page renders only explicit content and consolidates Common Sections");

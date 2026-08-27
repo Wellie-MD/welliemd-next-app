@@ -138,6 +138,7 @@ export interface EffectiveCustomProgramNode {
   name: string;
   scope?: string;
   sourceType?: string;
+  libraryScope?: "global" | "visit_type" | string;
   applicableProgramIds: string[];
   resolvedFrom: EffectiveContentReason[];
   fields?: Array<{ sourceId: string; label: string; kind: string; order: number }>;
