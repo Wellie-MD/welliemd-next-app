@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
@@ -12,6 +12,7 @@ import { customProgramMutationErrorMessage } from "@/features/treatments/api/cus
 export type CustomProgramsViewMode = "card" | "list";
 export type CustomProgramsFilter = "all" | "multi" | "single";
 export type CatalogTab = "medicine" | "checkout" | "labs" | "supplies" | "hub";
+const EMPTY_CUSTOM_PROGRAMS: CustomProgram[] = [];
 
 export function isCustomProgramMulti(program: CustomProgram) {
   const linkedProgramCount = Math.max(
@@ -67,7 +68,7 @@ function buildNewCustomProgram(data: CustomProgramFormData): CustomProgram {
 
 export function useCustomProgramsPage() {
   const customProgramsQuery = useCustomPrograms();
-  const customPrograms = customProgramsQuery.data ?? [];
+  const customPrograms = customProgramsQuery.data ?? EMPTY_CUSTOM_PROGRAMS;
   const { mutate: saveCustomProgram } = useSaveCustomProgram();
   const { mutate: deleteCustomProgram } = useDeleteCustomProgram();
 
@@ -83,6 +84,8 @@ export function useCustomProgramsPage() {
   const [catalogProgram, setCatalogProgram] = useState<CustomProgram | null>(null);
   const [catalogTab, setCatalogTab] = useState<CatalogTab>("medicine");
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 12;
 
   const multiCount = useMemo(() => customPrograms.filter(isCustomProgramMulti).length, [customPrograms]);
   const singleCount = useMemo(() => customPrograms.filter((program) => !isCustomProgramMulti(program)).length, [customPrograms]);
@@ -102,8 +105,13 @@ export function useCustomProgramsPage() {
     });
   }, [customPrograms, filter, searchQuery]);
 
-  const groupedPrograms = useMemo(() => {
-    return filteredPrograms.reduce(
+  const totalPages = Math.max(1, Math.ceil(filteredPrograms.length / pageSize));
+  const pagedPrograms = useMemo(
+    () => filteredPrograms.slice((page - 1) * pageSize, page * pageSize),
+    [filteredPrograms, page],
+  );
+  const pagedGroupedPrograms = useMemo(() => {
+    return pagedPrograms.reduce(
       (groups, program) => {
         if (isCustomProgramMulti(program)) groups.multi.push(program);
         else groups.single.push(program);
@@ -111,7 +119,15 @@ export function useCustomProgramsPage() {
       },
       { multi: [] as CustomProgram[], single: [] as CustomProgram[] }
     );
-  }, [filteredPrograms]);
+  }, [pagedPrograms]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, searchQuery, viewMode]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const handlePreview = (program: CustomProgram) => {
     setPreviewContext({
@@ -199,7 +215,12 @@ export function useCustomProgramsPage() {
     error: customProgramsQuery.error,
     refetch: customProgramsQuery.refetch,
     filteredPrograms,
-    groupedPrograms,
+    pagedPrograms,
+    pagedGroupedPrograms,
+    page,
+    setPage,
+    pageSize,
+    totalPages,
     multiCount,
     singleCount,
     viewMode,

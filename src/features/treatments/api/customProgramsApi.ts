@@ -17,8 +17,20 @@ export const customProgramsApi = {
   list: async (): Promise<CustomProgram[]> => {
     const { data } = await axiosInstance.get<PaginatedResponse<CustomProgramRecord> | CustomProgramRecord[]>(
       "treatments/custom-programs/",
+      { params: { page_size: 100 } },
     );
-    return records(data).map(customProgramFromRecord);
+    if (Array.isArray(data)) return data.map(customProgramFromRecord);
+
+    const allRecords = [...records(data)];
+    let next = data.next;
+    let pageGuard = 0;
+    while (next && pageGuard < 100) {
+      const response = await axiosInstance.get<PaginatedResponse<CustomProgramRecord>>(next);
+      allRecords.push(...records(response.data));
+      next = response.data.next;
+      pageGuard += 1;
+    }
+    return allRecords.map(customProgramFromRecord);
   },
   get: async (id: string): Promise<CustomProgram | null> => {
     if (!isPersistedUuid(id)) return null;
