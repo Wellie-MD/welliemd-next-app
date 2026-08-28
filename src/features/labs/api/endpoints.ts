@@ -11,7 +11,6 @@ import type {
     StandaloneLabSubmission,
 } from './types';
 import { patientStandaloneLabEndpoints, visitLabEndpoints } from './endpointRegistry';
-import { junctionMockEnabled, mockStandaloneSubmissions, mockStandaloneResults } from './junctionMockData';
 
 // ---------- Beluga/visit-based lab results ----------
 
@@ -63,7 +62,6 @@ export async function getPatientLabResults(patientId: string): Promise<LabResult
 // ---------- Standalone Junction lab orders (post-checkout history) ----------
 
 export async function getStandaloneLabSubmissions(): Promise<StandaloneLabSubmission[]> {
-    if (junctionMockEnabled) return mockStandaloneSubmissions as any;
     try {
         const response = await apiClient.get<
             PaginatedResponse<StandaloneLabSubmission> | StandaloneLabSubmission[]
@@ -77,7 +75,6 @@ export async function getStandaloneLabSubmissions(): Promise<StandaloneLabSubmis
 }
 
 export async function getStandaloneLabResults(): Promise<StandaloneLabResult[]> {
-    if (junctionMockEnabled) return mockStandaloneResults as any;
     try {
         const response = await apiClient.get<
             PaginatedResponse<StandaloneLabResult> | StandaloneLabResult[]
