@@ -5,6 +5,7 @@ import { QuestionEditorDialog } from "@/features/treatments/question-editor/comp
 import type { CustomProgramBuilderAddItem, ProgramQuestion } from "@/features/treatments/types";
 
 interface QuestionCreatorTabProps {
+  searchQuery?: string;
   onAddItem: (item: CustomProgramBuilderAddItem) => void;
   flowItems?: Array<{ kind: string; title: string }>;
 }
@@ -18,8 +19,19 @@ const AVAILABLE_QUESTIONS = [
   { id: "rq-6", title: "One last thing — to recommend the right hormone path, what sex were you assigned at birth?", type: "single" },
 ];
 
-export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreatorTabProps) {
+export function QuestionCreatorTab({
+  searchQuery = "",
+  onAddItem,
+  flowItems = [],
+}: QuestionCreatorTabProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const query = searchQuery.trim().toLowerCase();
+  const filteredQuestions = AVAILABLE_QUESTIONS.filter(
+    (question) =>
+      !query ||
+      question.title.toLowerCase().includes(query) ||
+      question.type.toLowerCase().includes(query),
+  );
 
   const buildQuestionItem = (q: {
     id?: string;
@@ -71,7 +83,7 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
           Existing questions in this plan
         </div>
 
-        {AVAILABLE_QUESTIONS.map((q) => {
+        {filteredQuestions.map((q) => {
           const added = flowItems.some((item) => item.title === q.title);
           return (
             <div
@@ -118,6 +130,11 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
             </div>
           );
         })}
+        {query && !filteredQuestions.length && (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
+            No custom questions matched your search.
+          </p>
+        )}
       </div>
 
       <QuestionEditorDialog
