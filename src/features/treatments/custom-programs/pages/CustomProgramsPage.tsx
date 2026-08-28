@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog, TreatmentPageHeader } from "@/features/treatments/common/components";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { CatalogConnectionsDialog } from "@/features/treatments/custom-programs/components/CatalogConnectionsDialog";
@@ -62,7 +63,8 @@ export default function CustomProgramsPage() {
         error={page.error}
         onRetry={() => void page.refetch()}
         filteredPrograms={page.filteredPrograms}
-        groupedPrograms={page.groupedPrograms}
+        pagedPrograms={page.pagedPrograms}
+        pagedGroupedPrograms={page.pagedGroupedPrograms}
         viewMode={page.viewMode}
         onEdit={page.handleEdit}
         onDelete={page.handleDelete}
@@ -70,6 +72,40 @@ export default function CustomProgramsPage() {
         onViewCatalog={page.handleViewCatalog}
         onClearFilters={page.handleClearFilters}
       />
+
+      {page.filteredPrograms.length > 0 && (
+        <div className="mt-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-600">
+            Showing {(page.page - 1) * page.pageSize + 1}–{Math.min(page.page * page.pageSize, page.filteredPrograms.length)} of{" "}
+            {page.filteredPrograms.length} custom programs
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => page.setPage((current) => Math.max(1, current - 1))}
+              disabled={page.page === 1}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Previous
+            </Button>
+            <span className="min-w-24 text-center text-sm text-slate-600">
+              Page {page.page} of {page.totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => page.setPage((current) => Math.min(page.totalPages, current + 1))}
+              disabled={page.page === page.totalPages}
+            >
+              Next
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <CustomProgramModal open={page.isModalOpen} onOpenChange={page.setIsModalOpen} onSubmit={page.handleCreateOrEditSubmit} program={page.selectedProgram} />
 

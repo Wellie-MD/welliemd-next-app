@@ -13,7 +13,8 @@ interface CustomProgramsContentProps {
   error: unknown;
   onRetry: () => void;
   filteredPrograms: CustomProgram[];
-  groupedPrograms: { multi: CustomProgram[]; single: CustomProgram[] };
+  pagedPrograms: CustomProgram[];
+  pagedGroupedPrograms: { multi: CustomProgram[]; single: CustomProgram[] };
   viewMode: CustomProgramsViewMode;
   onEdit: (program: CustomProgram) => void;
   onDelete: (id: string) => void;
@@ -65,7 +66,8 @@ export function CustomProgramsContent({
   error,
   onRetry,
   filteredPrograms,
-  groupedPrograms,
+  pagedPrograms,
+  pagedGroupedPrograms,
   viewMode,
   onEdit,
   onDelete,
@@ -114,7 +116,7 @@ export function CustomProgramsContent({
   }
 
   if (viewMode === "list") {
-    return <CustomProgramTable customPrograms={filteredPrograms} onEdit={onEdit} onDelete={onDelete} onPreview={onPreview} />;
+    return <CustomProgramTable customPrograms={pagedPrograms} onEdit={onEdit} onDelete={onDelete} onPreview={onPreview} />;
   }
 
   return (
@@ -122,7 +124,7 @@ export function CustomProgramsContent({
       <ProgramGroup
         title="Multi-treatment forms"
         description="Route patients to one or more treatments based on their answers"
-        programs={groupedPrograms.multi}
+        programs={pagedGroupedPrograms.multi}
         onEdit={onEdit}
         onDelete={onDelete}
         onPreview={onPreview}
@@ -131,7 +133,7 @@ export function CustomProgramsContent({
       <ProgramGroup
         title="Single-treatment forms"
         description="Each form customizes one treatment with its own eligibility screening"
-        programs={groupedPrograms.single}
+        programs={pagedGroupedPrograms.single}
         onEdit={onEdit}
         onDelete={onDelete}
         onPreview={onPreview}
