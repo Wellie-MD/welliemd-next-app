@@ -7,7 +7,6 @@
 
 import axiosInstance from "@/api/axiosInstance";
 import { clientLabEndpoints } from "@/features/labs/api/endpoints";
-import { junctionMockEnabled, mockLabOrderDetail, mockLabOrders } from "@/features/labs/junctionMockData";
 
 // ---------------------------------------------------------------------------
 // Shared types
@@ -404,7 +403,6 @@ export const clientLabsApi = {
    * Backend: GET /api/v1/client/labs/orders/
    */
   getLabOrders: async (params?: { search?: string; status?: string; lab_panel_id?: string }): Promise<LabOrder[]> => {
-    if (junctionMockEnabled) return mockLabOrders;
     const { data } = await axiosInstance.get(clientLabEndpoints.orders, { params });
     return ((data.results ?? data ?? []) as Record<string, unknown>[]).map(normalizeOrder);
   },
@@ -414,10 +412,6 @@ export const clientLabsApi = {
    * Backend: GET /api/v1/client/labs/orders/{id}/
    */
   getLabOrderDetail: async (orderId: string): Promise<LabOrderDetail> => {
-    if (junctionMockEnabled) {
-      const detail = mockLabOrderDetail(orderId);
-      if (detail) return detail;
-    }
     const { data } = await axiosInstance.get(clientLabEndpoints.orderDetail(orderId));
     return {
       order: normalizeOrder(data.order as Record<string, unknown>),

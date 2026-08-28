@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { AlertTriangle, CheckCircle2, Clock3, FlaskConical, Stethoscope } from "lucide-react"
 import { Link } from "react-router-dom"
 
@@ -5,6 +6,8 @@ import type {
   TreatmentAggregateProduct,
   TreatmentOrderAggregate as TreatmentOrderAggregateContract,
 } from "@/api/ordersApi"
+import { approveCriticalLabReview } from "@/api/ordersApi"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes"
 
@@ -82,6 +85,8 @@ export function TreatmentOrderAggregate({
   currentOrderId,
   compact = false,
 }: TreatmentOrderAggregateProps) {
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewQueued, setReviewQueued] = useState(false)
   const clinicalLabel =
     TREATMENT_CLINICAL_STATUS_LABELS[aggregate.clinical_status] ||
     aggregate.clinical_status.replaceAll("_", " ")
@@ -200,6 +205,33 @@ export function TreatmentOrderAggregate({
           <p className="mt-2 text-xs font-medium text-foreground">
             {PROVIDER_REVIEW_STATUS_LABELS[aggregate.lab_gate.provider_review_state] || aggregate.lab_gate.provider_review_state.replaceAll("_", " ")}
           </p>
+          {aggregate.lab_gate.critical_review_required && !aggregate.lab_gate.critical_review_approved && !reviewQueued && !compact && (
+            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-3 text-xs text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
+              <p>Critical results require authorized clinical review before the treatment can be released to Beluga.</p>
+              <Button
+                type="button"
+                size="sm"
+                className="mt-2"
+                disabled={reviewSubmitting}
+                onClick={async () => {
+                  setReviewSubmitting(true)
+                  try {
+                    await approveCriticalLabReview(aggregate.treatment_case_id)
+                    setReviewQueued(true)
+                  } finally {
+                    setReviewSubmitting(false)
+                  }
+                }}
+              >
+                {reviewSubmitting ? "Approving…" : "Approve critical results"}
+              </Button>
+            </div>
+          )}
+          {(aggregate.lab_gate.critical_review_approved || reviewQueued) && (
+            <p className="mt-2 text-xs font-medium text-emerald-700">
+              Critical results approved. The guarded Beluga release has been queued.
+            </p>
+          )}
         </div>
       )}
 

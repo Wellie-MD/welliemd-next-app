@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { clientLabsApi, type LabOrder } from "@/features/labs/api";
 import { humanizeLabStatus } from "@/features/labs/constants/status";
 import { labPillTone } from "@/features/labs/constants/tones";
-import { junctionMockEnabled } from "@/features/labs/junctionMockData";
 import { cn } from "@/lib/utils";
 
 const rowFromOrder = (order: LabOrder) => ({
@@ -81,7 +80,7 @@ export default function LabOrders() {
       <div>
         <h1 className="text-2xl font-bold">Lab Orders</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {junctionMockEnabled ? "Junction mock mode enabled" : "Live tenant lab orders"}
+          Live tenant lab orders
         </p>
       </div>
 
