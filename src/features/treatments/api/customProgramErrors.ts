@@ -36,6 +36,21 @@ const diagnosticText = (value: unknown): string[] => {
   );
 };
 
+const NON_FIELD_ERROR_KEYS = new Set([
+  "details",
+  "blockers",
+  "unpublished_programs",
+  "detail",
+  "error",
+  "message",
+  "code",
+  "status",
+  "status_code",
+  "success",
+  "correlation_id",
+  "request_id",
+]);
+
 export const customProgramMutationErrorMessage = (
   error: unknown,
   fallback: string,
@@ -49,6 +64,9 @@ export const customProgramMutationErrorMessage = (
     ...diagnosticText(data.details),
     ...diagnosticText(data.blockers),
     ...diagnosticText(data.unpublished_programs).map((message) => `Included Program: ${message}`),
+    ...Object.entries(data)
+      .filter(([field]) => !NON_FIELD_ERROR_KEYS.has(field))
+      .flatMap(([, value]) => diagnosticText(value)),
   ];
   const uniqueMessages = [...new Set(messages)];
   return uniqueMessages.length > 0
