@@ -65,6 +65,7 @@ const useAuthStore = create<AuthState>()(
       clearExpiredSession: () =>
         set({
           accessToken: null,
+          refreshToken: null,
           user: null,
           isAuthenticated: false,
           isLoading: true,
@@ -101,14 +102,12 @@ const useAuthStore = create<AuthState>()(
     {
       name: 'admin-auth-storage-v2',
       // Refresh tokens are scoped per browser tab. The backend rotates and
-      // blacklists them, so sharing one token across tabs creates refresh races.
+      // blacklists them. Durable session state is now the HTTP-only admin
+      // cookie, so a new tab/reload can restore the session safely.
       storage: createJSONStorage(() => sessionStorage),
-      partialize: (state) => ({
-        user: state.user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-        isAuthenticated: state.isAuthenticated,
-      }),
+      partialize: () => ({}),
+      version: 2,
+      migrate: () => ({}),
     },
   ),
 );
