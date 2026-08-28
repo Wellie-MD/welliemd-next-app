@@ -4,6 +4,7 @@ import type { ConsentForm } from "@/features/treatments/types";
 
 interface ConsentLibraryTabProps {
   consents: ConsentForm[];
+  searchQuery?: string;
   onAddItem: (item: {
     kind: "consent";
     title: string;
@@ -13,10 +14,24 @@ interface ConsentLibraryTabProps {
   flowItems?: Array<{ kind: string; title: string }>;
 }
 
-export function ConsentLibraryTab({ consents, onAddItem, flowItems = [] }: ConsentLibraryTabProps) {
+export function ConsentLibraryTab({
+  consents,
+  searchQuery = "",
+  onAddItem,
+  flowItems = [],
+}: ConsentLibraryTabProps) {
   const isConsentAdded = (consentName: string) => {
     return flowItems.some((fi) => fi.kind === "consent" && fi.title === consentName);
   };
+  const query = searchQuery.trim().toLowerCase();
+  const filteredConsents = consents.filter((consent) => {
+    const scopeLabel = consent.scope === "global" ? "universal" : "treatment-specific";
+    return (
+      !query ||
+      consent.name.toLowerCase().includes(query) ||
+      scopeLabel.includes(query)
+    );
+  });
 
   return (
     <div className="space-y-4">
@@ -25,7 +40,7 @@ export function ConsentLibraryTab({ consents, onAddItem, flowItems = [] }: Conse
       </div>
 
       <div className="space-y-2">
-        {consents.map((consent) => {
+        {filteredConsents.map((consent) => {
           const added = isConsentAdded(consent.name);
 
           return (
@@ -66,6 +81,11 @@ export function ConsentLibraryTab({ consents, onAddItem, flowItems = [] }: Conse
             </div>
           );
         })}
+        {query && !filteredConsents.length && (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
+            No consents matched your search.
+          </p>
+        )}
       </div>
     </div>
   );

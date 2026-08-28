@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Search } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -6,6 +7,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
 import type { ConsentForm, Program, CommonSection, CustomProgramBuilderAddItem } from "@/features/treatments/types";
 
 import { FieldLibraryTab } from "../tabs/FieldLibraryTab";
@@ -36,19 +38,60 @@ export function AddToFlowDrawer({
   flowItems = [],
 }: AddToFlowDrawerProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("fields");
+  const [searchQuery, setSearchQuery] = useState("");
+  const tabLabels: Record<TabKey, string> = {
+    fields: "section fields",
+    question: "custom questions",
+    eligibility: "programs",
+    consent: "consents",
+    checkout: "checkout options",
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
       case "fields":
-        return <FieldLibraryTab sections={sections} onAddItem={onAddItem} flowItems={flowItems} />;
+        return (
+          <FieldLibraryTab
+            sections={sections}
+            searchQuery={searchQuery}
+            onAddItem={onAddItem}
+            flowItems={flowItems}
+          />
+        );
       case "question":
-        return <QuestionCreatorTab onAddItem={onAddItem} flowItems={flowItems} />;
+        return (
+          <QuestionCreatorTab
+            searchQuery={searchQuery}
+            onAddItem={onAddItem}
+            flowItems={flowItems}
+          />
+        );
       case "eligibility":
-        return <ProgramLibraryTab programs={programs} onAddItem={onAddItem} flowItems={flowItems} />;
+        return (
+          <ProgramLibraryTab
+            programs={programs}
+            searchQuery={searchQuery}
+            onAddItem={onAddItem}
+            flowItems={flowItems}
+          />
+        );
       case "consent":
-        return <ConsentLibraryTab consents={consents} onAddItem={onAddItem} flowItems={flowItems} />;
+        return (
+          <ConsentLibraryTab
+            consents={consents}
+            searchQuery={searchQuery}
+            onAddItem={onAddItem}
+            flowItems={flowItems}
+          />
+        );
       case "checkout":
-        return <CheckoutOptionTab programs={programs} flowItems={flowItems} />;
+        return (
+          <CheckoutOptionTab
+            programs={programs}
+            searchQuery={searchQuery}
+            flowItems={flowItems}
+          />
+        );
       default:
         return null;
     }
@@ -91,6 +134,19 @@ export function AddToFlowDrawer({
                 )}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="px-6 py-3 bg-white border-b border-slate-200">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder={`Search ${tabLabels[activeTab]}...`}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="pl-9 w-full h-9 text-xs bg-white border-slate-200 rounded-lg shadow-sm"
+              data-testid="add-to-flow-search"
+            />
           </div>
         </div>
 

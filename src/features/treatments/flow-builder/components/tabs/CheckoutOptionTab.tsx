@@ -5,6 +5,7 @@ import type { Program } from "@/features/treatments/types";
 
 interface CheckoutOptionTabProps {
   programs: Program[];
+  searchQuery?: string;
   flowItems?: Array<{ kind: string; title: string; sourceId?: string }>;
 }
 
@@ -13,11 +14,24 @@ interface CheckoutOptionTabProps {
  * Custom Program-level product and price overrides are intentionally not
  * authorable here; this tab preserves the existing inherited-module links.
  */
-export function CheckoutOptionTab({ programs, flowItems = [] }: CheckoutOptionTabProps) {
+export function CheckoutOptionTab({
+  programs,
+  searchQuery = "",
+  flowItems = [],
+}: CheckoutOptionTabProps) {
   const attachedProgramIds = new Set(
     flowItems.filter((fi) => fi.kind === "program" && fi.sourceId).map((fi) => fi.sourceId),
   );
   const inheritedModules = programs.filter((program) => attachedProgramIds.has(program.id));
+  const query = searchQuery.trim().toLowerCase();
+  const filteredModules = inheritedModules.filter(
+    (program) =>
+      !query ||
+      program.name.toLowerCase().includes(query) ||
+      program.treatmentTypeKey.toLowerCase().includes(query) ||
+      program.visitType.toLowerCase().includes(query) ||
+      (program.description || "").toLowerCase().includes(query),
+  );
 
   return (
     <div className="space-y-4">
@@ -31,7 +45,7 @@ export function CheckoutOptionTab({ programs, flowItems = [] }: CheckoutOptionTa
 
       <div className="space-y-2">
         <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Inherited from attached Eligibility modules</div>
-        {inheritedModules.map((program) => (
+        {filteredModules.map((program) => (
           <div key={program.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
             <div>
               <div className="text-xs font-semibold leading-tight text-slate-700">{program.name}</div>
@@ -48,6 +62,11 @@ export function CheckoutOptionTab({ programs, flowItems = [] }: CheckoutOptionTa
         {!inheritedModules.length && (
           <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
             No Programs are attached to this flow yet. Attach one from the Programs tab to inherit its checkout questions.
+          </p>
+        )}
+        {inheritedModules.length > 0 && query && !filteredModules.length && (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
+            No inherited checkout options matched your search.
           </p>
         )}
       </div>

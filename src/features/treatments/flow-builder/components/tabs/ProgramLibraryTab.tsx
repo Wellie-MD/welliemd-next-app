@@ -5,6 +5,7 @@ import { RUNTIME_STATE } from "@/features/treatments/assignment/constants";
 
 interface ProgramLibraryTabProps {
   programs: Program[];
+  searchQuery?: string;
   onAddItem: (item: {
     kind: "program";
     title: string;
@@ -15,12 +16,26 @@ interface ProgramLibraryTabProps {
   flowItems?: Array<{ kind: string; title: string; sourceId?: string }>;
 }
 
-export function ProgramLibraryTab({ programs, onAddItem, flowItems = [] }: ProgramLibraryTabProps) {
+export function ProgramLibraryTab({
+  programs,
+  searchQuery = "",
+  onAddItem,
+  flowItems = [],
+}: ProgramLibraryTabProps) {
   const isProgramAdded = (programId: string) => {
     return flowItems.some((fi) => fi.kind === "program" && fi.sourceId === programId);
   };
   const attachablePrograms = programs.filter(
     (program) => program.assignmentRuntimeState === RUNTIME_STATE.ready,
+  );
+  const query = searchQuery.trim().toLowerCase();
+  const filteredPrograms = attachablePrograms.filter(
+    (program) =>
+      !query ||
+      program.name.toLowerCase().includes(query) ||
+      program.treatmentTypeKey.toLowerCase().includes(query) ||
+      program.visitType.toLowerCase().includes(query) ||
+      (program.description || "").toLowerCase().includes(query),
   );
 
   return (
@@ -35,7 +50,7 @@ export function ProgramLibraryTab({ programs, onAddItem, flowItems = [] }: Progr
           Available Intake modules
         </div>
 
-        {attachablePrograms.map((program) => {
+        {filteredPrograms.map((program) => {
           const added = isProgramAdded(program.id);
 
           return (
@@ -80,6 +95,11 @@ export function ProgramLibraryTab({ programs, onAddItem, flowItems = [] }: Progr
         {!attachablePrograms.length && (
           <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
             No Programs are ready to attach. Publish and complete runtime setup for a Program first.
+          </p>
+        )}
+        {attachablePrograms.length > 0 && query && !filteredPrograms.length && (
+          <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
+            No Programs matched your search.
           </p>
         )}
       </div>

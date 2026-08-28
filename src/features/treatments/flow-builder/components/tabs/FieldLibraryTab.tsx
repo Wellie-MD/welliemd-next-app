@@ -7,11 +7,17 @@ import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTre
 
 interface FieldLibraryTabProps {
   sections: CommonSection[];
+  searchQuery?: string;
   onAddItem: (item: CustomProgramBuilderAddItem) => void;
   flowItems?: Array<{ kind: string; title: string; sourceId?: string; mappedField?: string }>;
 }
 
-export function FieldLibraryTab({ sections, onAddItem, flowItems = [] }: FieldLibraryTabProps) {
+export function FieldLibraryTab({
+  sections,
+  searchQuery = "",
+  onAddItem,
+  flowItems = [],
+}: FieldLibraryTabProps) {
   const fieldQueries = useQueries({
     queries: sections.map((section) => ({
       queryKey: treatmentQueryKeys.sectionFields(section.id),
@@ -30,10 +36,24 @@ export function FieldLibraryTab({ sections, onAddItem, flowItems = [] }: FieldLi
     );
   };
 
+  const query = searchQuery.trim().toLowerCase();
+  const filteredSections = sections.flatMap((section, sectionIndex) => {
+    const fields = fieldQueries[sectionIndex]?.data || [];
+    const sectionMatches = !query || section.name.toLowerCase().includes(query);
+    const visibleFields = sectionMatches
+      ? fields
+      : fields.filter((field) =>
+          `${field.label} ${field.kind}`.toLowerCase().includes(query),
+        );
+
+    return sectionMatches || visibleFields.length > 0
+      ? [{ section, sectionIndex, fields: visibleFields }]
+      : [];
+  });
+
   return (
     <div className="space-y-6 mt-4">
-      {sections.map((section, sectionIndex) => {
-        const fields = fieldQueries[sectionIndex]?.data || [];
+      {filteredSections.map(({ section, sectionIndex, fields }) => {
         const added = isSectionAdded(section.id);
 
         return (
@@ -123,6 +143,11 @@ export function FieldLibraryTab({ sections, onAddItem, flowItems = [] }: FieldLi
           </div>
         );
       })}
+      {query && !filteredSections.length && !fieldQueries.some((queryResult) => queryResult.isLoading) && (
+        <p className="rounded-lg border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
+          No section fields matched your search.
+        </p>
+      )}
     </div>
   );
 }
