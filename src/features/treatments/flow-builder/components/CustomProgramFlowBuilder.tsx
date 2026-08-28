@@ -137,17 +137,19 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
       />
 
       {builder.viewMode === "list" && (
-        <FlowBuilderListView
-          customProgram={customProgram}
-          programs={programs}
-          sections={sections}
-          consents={consents}
-          effectiveContent={effectiveContent}
-          onUpdateFlow={onUpdateFlow}
-          onEditQuestion={setEditingQuestion}
-          onOpenPreview={() => builder.setIsTestModalOpen(true)}
-          onConfigureMatching={(programId) => setMatchingProgramId(programId)}
-        />
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <FlowBuilderListView
+            customProgram={customProgram}
+            programs={programs}
+            sections={sections}
+            consents={consents}
+            effectiveContent={effectiveContent}
+            onUpdateFlow={onUpdateFlow}
+            onEditQuestion={setEditingQuestion}
+            onOpenPreview={() => builder.setIsTestModalOpen(true)}
+            onConfigureMatching={(programId) => setMatchingProgramId(programId)}
+          />
+        </div>
       )}
 
       {builder.viewMode === "flow" && (
