@@ -11,8 +11,9 @@ import {
   useSaveProgram,
   useUpdateProgramSlug,
   useSaveProgramQuestions,
+  useSaveProgramLabRequirements,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
-import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramLabRequirement, ProgramQuestion } from "@/features/treatments/types";
 import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 import { ProgramDetailHeader } from "@/features/treatments/programs/components/ProgramDetailHeader";
 import { ProgramConfigurationAccess } from "@/features/treatments/programs/components/ProgramConfigurationAccess";
@@ -98,6 +99,7 @@ export default function ProgramDetailPage() {
   const saveProgramMutation = useSaveProgram();
   const updateProgramSlugMutation = useUpdateProgramSlug();
   const saveProgramQuestionsMutation = useSaveProgramQuestions(foundProgram?.id || "");
+  const saveProgramLabRequirementsMutation = useSaveProgramLabRequirements();
 
   const isFlowBuilderRoute =
     new URLSearchParams(location.search).get("view") === "flow";
@@ -477,6 +479,13 @@ export default function ProgramDetailPage() {
         programName={foundProgram.name}
         programTreatmentTypeKey={foundProgram.treatmentTypeKey}
         screeningQuestions={allQuestions}
+        programLabRequirements={foundProgram.labRequirements || []}
+        onSaveLabRequirements={async (requirements: ProgramLabRequirement[]) => {
+          await saveProgramLabRequirementsMutation.mutateAsync({
+            programId: foundProgram.id,
+            requirements,
+          });
+        }}
         initialQuestion={
           editingCheckoutId
             ? (foundProgram.checkoutQuestions || []).find(cq => cq.id === editingCheckoutId)
@@ -514,6 +523,13 @@ export default function ProgramDetailPage() {
         programId={foundProgram.id}
         programName={foundProgram.name}
         programTreatmentTypeKey={foundProgram.treatmentTypeKey}
+        programLabRequirements={foundProgram.labRequirements || []}
+        onSaveLabRequirements={async (requirements: ProgramLabRequirement[]) => {
+          await saveProgramLabRequirementsMutation.mutateAsync({
+            programId: foundProgram.id,
+            requirements,
+          });
+        }}
         initialQuestionId={editingScreeningId || null}
         onSave={(updatedQuestion: ProgramQuestion) => {
           if (editingScreeningId) {

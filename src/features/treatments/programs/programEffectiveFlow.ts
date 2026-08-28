@@ -89,7 +89,14 @@ export function projectEffectiveProgramFlow(
   authoredQuestions: ProgramQuestion[],
   effectiveContent?: ProgramEffectiveContent,
 ): ProgramQuestion[] {
-  if (!effectiveContent) return authoredQuestions;
+  if (!effectiveContent) {
+    const labCheckout = authoredQuestions.filter((item) => item.kind === "checkout" && item.elementConfig?.labCheckout === true);
+    const medicineCheckout = authoredQuestions.filter((item) => item.kind === "checkout" && item.elementConfig?.labCheckout !== true);
+    const consents = authoredQuestions.filter((item) => item.kind === "consent");
+    const nonConsentFlow = authoredQuestions.filter((item) => item.kind !== "checkout" && item.kind !== "consent");
+    return [...nonConsentFlow, ...labCheckout, ...consents, ...medicineCheckout]
+      .map((item, index) => ({ ...item, order: index + 1 }));
+  }
   const authoredIds = new Set(
     authoredQuestions.flatMap((question) => [
       question.id,
@@ -98,7 +105,8 @@ export function projectEffectiveProgramFlow(
     ]).filter(Boolean).map(String),
   );
   const authentication = authoredQuestions.filter((item) => item.kind === "patient_authentication");
-  const checkout = authoredQuestions.filter((item) => item.kind === "checkout");
+  const labCheckout = authoredQuestions.filter((item) => item.kind === "checkout" && item.elementConfig?.labCheckout === true);
+  const checkout = authoredQuestions.filter((item) => item.kind === "checkout" && item.elementConfig?.labCheckout !== true);
   const explicitBySourceId = new Map(
     effectiveContent.consents.explicit_program.map((consent) => [sourceId(consent), consent]),
   );
@@ -115,6 +123,6 @@ export function projectEffectiveProgramFlow(
     ...effectiveContent.consents.explicit_program.map((item) => explicitConsentRow(item, "program")),
     ...effectiveContent.consents.inline_conditional.map((item) => explicitConsentRow(item, "inline")),
   ].filter((item) => !authoredIds.has(String(item.elementConfig?.sourceId || "")));
-  return [...authentication, ...clinical, ...sections, ...authoredConsents, ...consents, ...checkout]
+  return [...authentication, ...clinical, ...sections, ...labCheckout, ...authoredConsents, ...consents, ...checkout]
     .map((item, index) => ({ ...item, order: index + 1 }));
 }

@@ -23,6 +23,7 @@ import {
   useReorderSectionFields,
   useReorderProgramQuestions,
   useSaveProgram,
+  useSaveProgramLabRequirements,
   useConsents,
   treatmentQueryKeys,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
@@ -49,6 +50,7 @@ import { AuthSetupModal } from "@/features/treatments/programs/components/AuthSe
 import { SectionSelectorModal } from "@/features/treatments/programs/components/SectionSelectorModal";
 import { ConsentSelectorModal } from "@/features/treatments/programs/components/ConsentSelectorModal";
 import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
+import type { ProgramLabRequirement } from "@/features/treatments/types";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
 import { QuestionListFilters } from "@/features/treatments/common/components/QuestionListFilters";
 import { QuestionListHeader } from "@/features/treatments/common/components/QuestionListHeader";
@@ -129,11 +131,38 @@ export function SharedQuestionsList({
   const queryClient = useQueryClient();
   const saveQuestionMutation = useSaveProgramQuestion(entityId);
   const saveProgramMutation = useSaveProgram();
+  const saveProgramLabRequirementsMutation = useSaveProgramLabRequirements();
   const deleteQuestionMutation = useDeleteProgramQuestion(entityId);
   const reorderQuestionsMutation = useReorderProgramQuestions(entityId);
   const saveSectionFieldMutation = useSaveSectionField(entityId);
   const deleteSectionFieldMutation = useDeleteSectionField(entityId);
   const reorderSectionFieldsMutation = useReorderSectionFields(entityId);
+
+  const saveProgramLabs = async (requirements: ProgramLabRequirement[]) => {
+    if (!program || entityType !== "program") return;
+    await saveProgramLabRequirementsMutation.mutateAsync({
+      programId: program.id,
+      requirements,
+    });
+    setQuestions((previous) => {
+      const withoutLabCheckout = previous.filter((question) => question.elementConfig?.labCheckout !== true);
+      if (requirements.length === 0) return withoutLabCheckout;
+      return [
+        ...withoutLabCheckout,
+        {
+          id: `lab-checkout:${program.id}`,
+          order: Math.min(...withoutLabCheckout.map((question) => question.order || 1), 1),
+          text: "Order Your Labs",
+          kind: "checkout",
+          section: PROGRAM_AUTHORING_COPY.checkoutSection,
+          required: true,
+          checkoutProducts: [],
+          checkoutProductIds: [],
+          elementConfig: { labCheckout: true, checkoutMode: "lab", labRequirements: requirements },
+        },
+      ].sort((left, right) => left.order - right.order);
+    });
+  };
 
   // Nothing is created automatically. Patient Authentication appears only after
   // the author adds it from the Add Element menu, and Programs project it in
@@ -265,9 +294,15 @@ export function SharedQuestionsList({
 
     if (entityType === "program" && sourceQuestion.kind !== targetQuestion.kind &&
         (sourceQuestion.kind === "checkout" || targetQuestion.kind === "checkout")) {
+      const isShippingAddressMove =
+        sourceQuestion.kind === "shipping_address" || targetQuestion.kind === "shipping_address";
       toast({
-        title: "Checkout stays at the end of the intake",
-        description: "Reorder screening questions and checkout options within their own groups.",
+        title: isShippingAddressMove
+          ? "Shipping Address stays above checkout"
+          : "Checkout stays at the end of the intake",
+        description: isShippingAddressMove
+          ? "Keep Shipping Address before checkout/product options."
+          : "Reorder screening questions and checkout options within their own groups.",
       });
       return;
     }
@@ -286,6 +321,39 @@ export function SharedQuestionsList({
       ...q,
       order: idx + 1,
     }));
+
+    const authIndex = reordered.findIndex(
+      (question) => question.kind === PROGRAM_SYSTEM_NODE_KIND,
+    );
+    const stateRoutingIndex = reordered.findIndex(
+      (question) => question.kind === "state_routing",
+    );
+    if (authIndex !== -1 && stateRoutingIndex !== -1 && stateRoutingIndex !== authIndex + 1) {
+      toast({
+        title: "Service Area Check stays below Patient Authentication",
+        description: "This question must remain directly after the first step of the intake.",
+      });
+      return;
+    }
+
+    const shippingIndex = reordered.findIndex(
+      (question) => question.kind === "shipping_address",
+    );
+    const checkoutIndex = reordered.findIndex(
+      (question) => question.kind === "checkout",
+    );
+    if (
+      entityType === "program" &&
+      shippingIndex !== -1 &&
+      checkoutIndex !== -1 &&
+      shippingIndex + 1 !== checkoutIndex
+    ) {
+      toast({
+        title: "Shipping Address stays above checkout",
+        description: "Shipping Address must remain immediately before checkout/product options.",
+      });
+      return;
+    }
 
     setQuestions(reordered);
 
@@ -489,6 +557,19 @@ export function SharedQuestionsList({
     // Route their removal through the same save path handleAddCheckoutSave
     // uses, or the delete silently no-ops and the item reappears on reload.
     if (questionToDelete?.kind === "checkout" && entityType === "program" && program) {
+      if (questionToDelete.elementConfig?.labCheckout === true) {
+        saveProgramLabs([]).then(() => {
+          toast({ title: "Lab checkout removed", description: "The required Junction panels were detached from this Program." });
+        }).catch((error) => {
+          toast({
+            title: "Error",
+            description: getApiErrorMessage(error, "Failed to remove the lab checkout question."),
+            variant: "destructive",
+          });
+        });
+        setIsDeleteDialogOpen(false);
+        return;
+      }
       const updatedCheckout = questions
         .filter((question) => question.kind === "checkout" && question.id !== questionToDeleteId)
         .map(listItemToCheckoutQuestion);
@@ -609,10 +690,29 @@ export function SharedQuestionsList({
         const persistedElement = entityType === "section"
           ? applyPersistedSectionField(element, saved as CommonSectionField)
           : element;
-        setQuestions((previous) => isEditing
-          ? previous.map((question) =>
-              question.id === element.id ? persistedElement : question)
-          : [...previous, persistedElement]);
+        setQuestions((previous) => {
+          if (isEditing) {
+            return previous.map((question) =>
+              question.id === element.id ? persistedElement : question);
+          }
+          if (element.kind !== "state_routing" && element.kind !== "shipping_address") {
+            return [...previous, persistedElement];
+          }
+
+          const boundaryIndex = previous.findIndex((question) =>
+            element.kind === "state_routing"
+              ? question.kind === PROGRAM_SYSTEM_NODE_KIND
+              : question.kind === "checkout"
+          );
+          const insertAt = boundaryIndex === -1
+            ? previous.length
+            : boundaryIndex + (element.kind === "state_routing" ? 1 : 0);
+          return [
+            ...previous.slice(0, insertAt),
+            persistedElement,
+            ...previous.slice(insertAt),
+          ];
+        });
         toast({ title: successTitle });
       },
       onError: (error) => {
@@ -682,7 +782,7 @@ export function SharedQuestionsList({
 
     if (entityType === "program" && program) {
       const localCheckout = questions
-        .filter((question) => question.kind === "checkout")
+        .filter((question) => question.kind === "checkout" && question.elementConfig?.labCheckout !== true)
         .map(listItemToCheckoutQuestion);
       const currentCheckout = localCheckout.length > 0
         ? localCheckout
@@ -861,6 +961,8 @@ export function SharedQuestionsList({
           programId={entityId}
           programName={entityName}
           programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
+          programLabRequirements={program?.labRequirements || []}
+          onSaveLabRequirements={program ? saveProgramLabs : undefined}
         />
         <CheckoutQuestionModal
           open={isCheckoutOpen}
@@ -875,6 +977,9 @@ export function SharedQuestionsList({
           programName={entityName}
           programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
           screeningQuestions={questions}
+          programLabRequirements={program?.labRequirements || []}
+          onSaveLabRequirements={program ? saveProgramLabs : undefined}
+          initialMode={activeEditingQuestion?.elementConfig?.labCheckout === true ? "lab" : "medicine"}
         />
         <AuthSetupModal
           open={isAuthOpen}
@@ -963,6 +1068,8 @@ export function SharedQuestionsList({
         programId={entityId}
         programName={entityName}
         programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
+        programLabRequirements={program?.labRequirements || []}
+        onSaveLabRequirements={program ? saveProgramLabs : undefined}
       />
 
       <CheckoutQuestionModal
@@ -985,6 +1092,9 @@ export function SharedQuestionsList({
         programName={entityName}
         programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
         screeningQuestions={questions}
+        programLabRequirements={program?.labRequirements || []}
+        onSaveLabRequirements={program ? saveProgramLabs : undefined}
+        initialMode={activeEditingQuestion?.elementConfig?.labCheckout === true ? "lab" : "medicine"}
       />
 
       <AuthSetupModal

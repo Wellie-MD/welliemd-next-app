@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { labsApi, type CatalogItem, type CatalogLab } from "@/api/labs";
@@ -12,6 +12,7 @@ import {
 
 export default function TestCatalog() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [catalogLabs, setCatalogLabs] = useState<CatalogLab[]>([]);
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
   const [catalogItemIds, setCatalogItemIds] = useState<string[]>([]);
@@ -80,6 +81,12 @@ export default function TestCatalog() {
     setCreateOpen(true);
     setCreateExpanded(false);
   };
+
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      handleCreateOpen();
+    }
+  }, [searchParams]);
 
   const handleAddToTest = (item: CatalogItem) => {
     setCatalogItemIds((prev) =>

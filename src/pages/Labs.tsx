@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { Settings, UserPlus } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { labsApi, type ClientAssignment, type LabPanel } from "@/api/labs";
 import {
   LabCombinedModal,
@@ -426,16 +426,6 @@ export default function Labs() {
         <div className="flex items-center gap-2.5">
           <Button
             variant="outline"
-            onClick={() => navigate("/dashboard/products/labs/settings")}
-            className="h-9 min-w-[140px] px-3 sm:px-4 border border-input bg-background hover:bg-muted font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5"
-          >
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Manage Junction</span>
-            <span className="sm:hidden">Junction</span>
-          </Button>
-
-          <Button
-            variant="outline"
             onClick={handleAssignOpenMultiple}
             className="border border-input bg-background hover:bg-muted font-semibold text-xs h-9 inline-flex items-center gap-1.5"
           >
@@ -452,10 +442,11 @@ export default function Labs() {
           </Button>
 
           <Button
-            onClick={() => navigate("/dashboard/products/labs/catalog")}
+            onClick={() => navigate("/dashboard/products/labs/catalog?create=1")}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-9 inline-flex items-center gap-1 px-4"
           >
-            Open Test Catalog
+            <Plus className="h-4 w-4" />
+            Create Lab Panel
           </Button>
         </div>
       </div>

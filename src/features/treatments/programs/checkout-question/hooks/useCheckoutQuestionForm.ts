@@ -137,7 +137,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     setVisibilityRuleGroup(group);
   };
 
-  const handleSaveModal = async () => {
+  const handleSaveModal = async (options?: { onAfterSave?: () => Promise<void> }) => {
     const incompleteRows = products
       .map((product, index) => ({ product, index }))
       .filter(({ product }) => !isProductComplete(product));
@@ -233,6 +233,9 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
         minSelections: 1,
         maxSelections: undefined,
       });
+      if (options?.onAfterSave) {
+        await options.onAfterSave();
+      }
       onOpenChange(false);
     } catch (error) {
       const responseData = (error as { response?: { data?: unknown } })?.response?.data;
@@ -268,6 +271,23 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     }
   };
 
+  const handleSaveLab = async (save: () => Promise<void>) => {
+    setIsSaving(true);
+    setFormError(null);
+    try {
+      await save();
+      onOpenChange(false);
+    } catch (error) {
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save the Junction lab checkout question."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return {
     products,
     visibilityRuleGroup,
@@ -284,5 +304,6 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     handleVisibilityRuleGroupChange,
     resetForm,
     handleSaveModal,
+    handleSaveLab,
   };
 }

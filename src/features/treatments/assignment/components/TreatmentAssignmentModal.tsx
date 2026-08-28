@@ -277,6 +277,10 @@ export function TreatmentAssignmentModal({
             ? {
                 ...value,
                 preflight,
+                // A failed operation is immutable history. Once readiness is
+                // rechecked, detach that terminal operation so the refreshed
+                // preflight can be confirmed as a new assignment attempt.
+                operation: undefined,
                 error: undefined,
                 errorCode: undefined,
                 errorAction: undefined,
@@ -284,6 +288,8 @@ export function TreatmentAssignmentModal({
             : value
         )
       );
+      setPhase("preflight");
+      setPollAttempts({});
     } catch (error) {
       updatePairError(pair.key, errorMessage(error));
     }

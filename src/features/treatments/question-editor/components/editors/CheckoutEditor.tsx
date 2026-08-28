@@ -5,7 +5,11 @@ import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
 import type { ProgramQuestion, ProgramCheckoutQuestion, ProgramCheckoutProduct } from "@/features/treatments/types";
 import { toast } from "@/components/ui/use-toast";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ProgramLabRequirement } from "@/features/treatments/types";
+import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
+import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
+import type { LabPanel } from "@/api/labs";
 
 interface CheckoutEditorProps {
   activeQuestion?: ProgramQuestion;
@@ -16,6 +20,9 @@ interface CheckoutEditorProps {
   onSave: (question: ProgramQuestion) => Promise<void>;
   onClose: () => void;
   onTestFlow?: () => void;
+  programLabRequirements?: ProgramLabRequirement[];
+  onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
+  initialMode?: CheckoutOfferMode;
 }
 
 export function CheckoutEditor({
@@ -27,6 +34,9 @@ export function CheckoutEditor({
   onSave,
   onClose,
   onTestFlow,
+  programLabRequirements = [],
+  onSaveLabRequirements,
+  initialMode = "medicine",
 }: CheckoutEditorProps) {
   // Map ProgramQuestion to the shape useCheckoutQuestionForm expects
   const initialCheckoutQuestion = useMemo<ProgramCheckoutQuestion | null>(() => {
@@ -54,6 +64,11 @@ export function CheckoutEditor({
 
   const [justSaved, setJustSaved] = useState(false);
   const [incompatibleProducts, setIncompatibleProducts] = useState<string[]>([]);
+  const [labRequirements, setLabRequirements] = useState<ProgramLabRequirement[]>(programLabRequirements);
+
+  useEffect(() => {
+    setLabRequirements(programLabRequirements);
+  }, [programLabRequirements]);
 
   const form = useCheckoutQuestionForm({
     open: true,
@@ -96,6 +111,12 @@ export function CheckoutEditor({
 
   const questionOrder = activeQuestion ? activeQuestion.order : questions.length + 1;
   const isEditMode = !!activeQuestion;
+  const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
+  const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   // Earlier (already-answered) questions can drive per-product visibility.
   const eligibleQuestions = useMemo(
@@ -116,6 +137,18 @@ export function CheckoutEditor({
         justSaved={justSaved}
         onClose={onClose}
         onSave={() => {
+          if (mode === "lab") {
+            if (!onSaveLabRequirements) {
+              toast({
+                title: "Junction labs are unavailable",
+                description: "Configure the Junction catalog before adding a lab checkout step.",
+                variant: "destructive",
+              });
+              return;
+            }
+            void form.handleSaveLab(() => onSaveLabRequirements(labRequirements));
+            return;
+          }
           if (incompatibleProducts.length > 0) {
             toast({
               title: "Fix checkout products before saving",
@@ -134,23 +167,33 @@ export function CheckoutEditor({
 
         <main className="overflow-y-auto p-6 bg-white border-r border-slate-150">
           <div className="space-y-5">
-            <CheckoutProductsSection
-              products={form.products}
-              eligibleQuestions={eligibleQuestions}
-              programTreatmentTypeKey={programTreatmentTypeKey}
-              onCompatibilityChange={setIncompatibleProducts}
-              onAddProduct={form.handleAddProduct}
-              onRemoveProduct={form.handleRemoveProduct}
-              onProductFieldChange={form.handleProductFieldChange}
-              onProductPriceChange={form.handleProductPriceChange}
-              onProductVisibilityChange={form.handleProductVisibilityChange}
-            />
-            <QuestionVisibilityTab
+            <CheckoutOfferTypeSection mode={mode} onChange={setMode} disabled={form.isSaving} />
+            {mode === "medicine" ? (
+              <CheckoutProductsSection
+                products={form.products}
+                eligibleQuestions={eligibleQuestions}
+                programTreatmentTypeKey={programTreatmentTypeKey}
+                onCompatibilityChange={setIncompatibleProducts}
+                onAddProduct={form.handleAddProduct}
+                onRemoveProduct={form.handleRemoveProduct}
+                onProductFieldChange={form.handleProductFieldChange}
+                onProductPriceChange={form.handleProductPriceChange}
+                onProductVisibilityChange={form.handleProductVisibilityChange}
+              />
+            ) : onSaveLabRequirements ? (
+              <CheckoutLabsSection
+                requirements={labRequirements}
+                onChange={setLabRequirements}
+                onPanelsLoaded={setLabPanels}
+                disabled={form.isSaving}
+              />
+            ) : null}
+            {mode === "medicine" && <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}
               setVisibilityRuleGroup={form.handleVisibilityRuleGroupChange}
               questions={questions}
               currentQuestionId={activeQuestion?.id || ""}
-            />
+            />}
             {form.formError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11.5px] font-semibold text-red-700">
                 {form.formError}
@@ -164,6 +207,9 @@ export function CheckoutEditor({
           selectedPreviewIdx={form.selectedPreviewIdx}
           visibilityRuleGroup={form.visibilityRuleGroup}
           onSelectedPreviewChange={form.setSelectedPreviewIdx}
+          mode={mode}
+          labRequirements={labRequirements}
+          labPanels={labPanels}
         />
       </div>
     </div>

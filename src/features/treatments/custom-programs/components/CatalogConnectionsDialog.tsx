@@ -64,6 +64,7 @@ function CheckoutTab({ program, onClose }: { program: CustomProgram; onClose: ()
 
 function LabsTab({ program }: { program: CustomProgram }) {
   const labCount = program.runtimeSummary?.labCount;
+  const releaseStatus = program.runtimeSummary?.status;
   return (
     <div className="space-y-3">
       <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Clinical Labs</span>
@@ -72,6 +73,14 @@ function LabsTab({ program }: { program: CustomProgram }) {
           ? "Publish this Custom Program to calculate its immutable lab requirements."
           : `${labCount} lab requirement${labCount === 1 ? "" : "s"} are connected through the published included Programs.`}
       </p>
+      <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        Labs are inherited from the published included Programs. They are not editable at the Custom Program level, and required lab results remain a gate before consents and product selection can complete.
+      </div>
+      {releaseStatus === "republish_required" && (
+        <p className="text-xs font-semibold text-amber-700">
+          Republish this Custom Program after changing an included Program&apos;s lab requirements.
+        </p>
+      )}
     </div>
   );
 }

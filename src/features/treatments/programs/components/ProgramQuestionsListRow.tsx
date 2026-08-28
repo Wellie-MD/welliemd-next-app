@@ -31,7 +31,10 @@ export function ProgramQuestionsListRow({
 }: ProgramQuestionsListRowProps) {
   const navigate = useNavigate();
   const isAuth = question.kind === "patient_authentication";
+  const isStateRouting = question.kind === "state_routing";
+  const isShippingAddress = question.kind === "shipping_address";
   const isCheckout = question.kind === "checkout";
+  const isLabCheckout = isCheckout && question.elementConfig?.labCheckout === true;
   const isConsent = question.kind === "consent";
   const isSection = question.kind === "section";
   const isSystem = question.elementConfig?.system === true;
@@ -53,7 +56,7 @@ export function ProgramQuestionsListRow({
     isDragging,
   } = useSortable({
     id: question.id,
-    disabled: !isReorderActive || isAuth || isSystem,
+    disabled: !isReorderActive || isAuth || isSystem || isStateRouting || isShippingAddress,
   });
 
   const style = {
@@ -72,12 +75,16 @@ export function ProgramQuestionsListRow({
           ? PROGRAM_ELEMENT_TONES.section
           : PROGRAM_ELEMENT_TONES.question;
   const ElementIcon = isAuth ? LockKeyhole : isCheckout ? ShoppingCart : isConsent ? FileCheck : isSection ? Layers3 : null;
-  const primaryText = isCheckout
+  const primaryText = isLabCheckout
+    ? "Order Your Labs"
+    : isCheckout
     ? formatCheckoutQuestionText(question.checkoutProducts, question.text)
     : question.text;
   const secondaryText = isAuth
     ? PROGRAM_AUTHORING_COPY.authDescription
-    : isCheckout
+    : isLabCheckout
+      ? `${Array.isArray(question.elementConfig?.labRequirements) ? question.elementConfig?.labRequirements.length : 0} labs`
+      : isCheckout
       ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen}` : "", product.rxDaysSupply ? `${product.rxDaysSupply}-day supply` : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
       : question.elementConfig?.description;
 
