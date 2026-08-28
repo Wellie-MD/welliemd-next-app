@@ -82,26 +82,6 @@ const normalizeUrl = (url: string = ''): string => {
   return url.endsWith('/') ? url : `${url}/`;
 };
 
-const getPersistedAccessToken = (): string | null => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem('auth-store');
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-    const accessToken = parsed?.state?.tokens?.accessToken;
-    return typeof accessToken === 'string' && accessToken.trim() ? accessToken : null;
-  } catch (error) {
-    debugLog('Failed to read persisted auth token:', error);
-    return null;
-  }
-};
-
 const getPersistedSuperAdminSession = (): { apiBaseUrl: string } | null => {
   const activeSession = getActiveSuperAdminSession();
   if (activeSession) {
@@ -179,7 +159,7 @@ const createApiClient = (): AxiosInstance => {
       }
 
       // Add access token if available
-      const accessToken = tokenManager.getAccessToken() || getPersistedAccessToken();
+      const accessToken = tokenManager.getAccessToken();
       if (accessToken) {
         tokenManager.setAccessToken(accessToken);
         config.headers = config.headers || {};

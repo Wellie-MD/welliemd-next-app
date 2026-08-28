@@ -37,27 +37,8 @@ export class AuthService {
 
 
 
-  private getPersistedAccessToken(): string | null {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-
-    try {
-      const raw = window.localStorage.getItem('auth-store');
-      if (!raw) {
-        return null;
-      }
-
-      const parsed = JSON.parse(raw);
-      const accessToken = parsed?.state?.tokens?.accessToken;
-      return typeof accessToken === 'string' && accessToken.trim() ? accessToken : null;
-    } catch {
-      return null;
-    }
-  }
-
   private getActiveAccessToken(): string | null {
-    return tokenManager.getAccessToken() || this.getPersistedAccessToken();
+    return tokenManager.getAccessToken();
   }
 
   /** Normalize email to lowercase for case-insensitive auth (RFC 5321). */
