@@ -124,6 +124,9 @@ export interface PatientTreatmentAggregate {
         required: boolean;
         ready_for_provider_review: boolean;
         has_partial_results: boolean;
+        critical_review_required?: boolean;
+        critical_review_approved?: boolean;
+        critical_reviewed_at?: string | null;
         recollection_required: boolean;
         provider_review_state: string;
         items: Array<{

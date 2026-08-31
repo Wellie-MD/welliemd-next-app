@@ -1,4 +1,5 @@
 import { env } from '@/config/env';
+import { withRefreshLock } from './refresh-coordinator';
 
 interface TokenRefreshResponse {
   access: string;
@@ -49,36 +50,34 @@ class TokenManager {
       return this.refreshPromise;
     }
 
-    this.refreshPromise = new Promise(async (resolve, reject) => {
-      try {
-        const response = await fetch(this.refreshUrl, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Wellie-Portal': 'patient',
-          },
-          body: JSON.stringify({}),
-        });
+    this.refreshPromise = withRefreshLock('patient', async () => {
+      const response = await fetch(this.refreshUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Wellie-Portal': 'patient',
+        },
+        body: JSON.stringify({}),
+      });
 
-        if (!response.ok) {
-          throw new Error(`Failed to refresh token: ${response.status} ${response.statusText}`);
-        }
-
-        const data = (await response.json()) as TokenRefreshResponse;
-        if (!data?.access) {
-          throw new Error('No access token in refresh response');
-        }
-
-        this.setAccessToken(data.access);
-        resolve(data.access);
-      } catch (error) {
-        console.error('Token refresh failed:', error);
-        this.clearTokens();
-        reject(error);
-      } finally {
-        this.refreshPromise = null;
+      if (!response.ok) {
+        throw new Error(`Failed to refresh token: ${response.status} ${response.statusText}`);
       }
+
+      const data = (await response.json()) as TokenRefreshResponse;
+      if (!data?.access) {
+        throw new Error('No access token in refresh response');
+      }
+
+      this.setAccessToken(data.access);
+      return data.access;
+    }).catch((error) => {
+      console.error('Token refresh failed:', error);
+      this.clearTokens();
+      throw error;
+    }).finally(() => {
+      this.refreshPromise = null;
     });
 
     return this.refreshPromise;
