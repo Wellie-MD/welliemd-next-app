@@ -3,6 +3,7 @@ import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, 
 import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
 import { useSectionFieldsMap } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { buildMatchingSources } from "@/features/treatments/flow-builder/utils/programMatchingRules";
+import { buildCustomProgramVisibilityQuestions } from "@/features/treatments/flow-builder/utils/customProgramVisibilityQuestions";
 import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 import { PatientFlowTestModal } from "./modals/PatientFlowTestModal";
 import { FlowBuilderCanvas } from "./canvas/FlowBuilderCanvas";
@@ -52,6 +53,15 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
     [customProgram.flowItems, sections, sectionFields, effectiveContent.stages.stage1.sections],
   );
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
+
+  const allFlowQuestions = useMemo(
+    () => buildCustomProgramVisibilityQuestions({
+      flowItems: customProgram.flowItems,
+      sectionFields,
+    }),
+    [customProgram.flowItems, sectionFields],
+  );
+
   const editorQuestion: ProgramQuestion | null = editingQuestion ? {
     id: editingQuestion.sourceId || editingQuestion.id,
     order: customProgram.flowItems.findIndex((item) => item.id === editingQuestion.id) + 1,
@@ -112,7 +122,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
       <QuestionEditorDialog
         open={Boolean(editingQuestion)}
         onOpenChange={(open) => { if (!open) setEditingQuestion(null); }}
-        questions={editorQuestion ? [editorQuestion] : []}
+        questions={allFlowQuestions}
         initialQuestionId={editorQuestion?.id || null}
         onSave={async (question) => {
           if (!editingQuestion || !onUpdateFlow) return;

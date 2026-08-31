@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Check } from "lucide-react";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
-import type { CustomProgramBuilderAddItem, ProgramQuestion } from "@/features/treatments/types";
+import type { CustomProgramBuilderAddItem, CustomProgramFlowItem, ProgramQuestion } from "@/features/treatments/types";
+import { useSectionFieldsMap } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { buildCustomProgramVisibilityQuestions } from "@/features/treatments/flow-builder/utils/customProgramVisibilityQuestions";
 
 interface QuestionCreatorTabProps {
   searchQuery?: string;
   onAddItem: (item: CustomProgramBuilderAddItem) => void;
-  flowItems?: Array<{ kind: string; title: string }>;
+  flowItems?: CustomProgramFlowItem[];
 }
 
 const AVAILABLE_QUESTIONS = [
@@ -26,6 +28,18 @@ export function QuestionCreatorTab({
 }: QuestionCreatorTabProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const query = searchQuery.trim().toLowerCase();
+
+  const flowSectionIds = useMemo(
+    () => flowItems
+      .filter((item) => item.kind === "section" || item.kind === "section_field")
+      .map((item) => String(item.sourceId || "")),
+    [flowItems],
+  );
+  const sectionFields = useSectionFieldsMap(flowSectionIds);
+  const existingQuestions: ProgramQuestion[] = useMemo(
+    () => buildCustomProgramVisibilityQuestions({ flowItems, sectionFields }),
+    [flowItems, sectionFields],
+  );
   const filteredQuestions = AVAILABLE_QUESTIONS.filter(
     (question) =>
       !query ||
@@ -141,7 +155,7 @@ export function QuestionCreatorTab({
         open={isEditorOpen}
         onOpenChange={setIsEditorOpen}
         onSave={handleCreateQuestion}
-        questions={[]}
+        questions={existingQuestions}
         initialQuestionId={null}
       />
     </div>
