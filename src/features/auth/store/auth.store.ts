@@ -813,26 +813,21 @@ export const useAuthStore = create<AuthState>()(
       ),
       {
         name: 'auth-store',
+        // Auth tokens and the authenticated flag are intentionally not
+        // persisted. A page reload must prove the session from the
+        // portal-specific HTTP-only cookie, not revive stale localStorage.
         partialize: (state) => ({
-          user: state.user,
-          tokens: state.tokens,
-          permissions: state.permissions,
-          features: state.features,
           superAdminApiBaseUrl: state.superAdminApiBaseUrl,
           superAdminTargetContext: state.superAdminTargetContext,
-          isAuthenticated: state.isAuthenticated,
-          isImpersonated: state.isImpersonated,
         }),
-        // Sync persisted token to tokenManager when store is rehydrated
         onRehydrateStorage: () => (state) => {
-          if (state?.tokens?.accessToken) {
-            // Import tokenManager dynamically to avoid circular dependencies
-            import('../services/token-manager').then(({ tokenManager }) => {
-              tokenManager.setAccessToken(state.tokens!.accessToken);
-              debugLog('Token synced to tokenManager from persisted state');
-            }).catch((err) => {
-              debugLog('Failed to sync token to tokenManager on rehydrate:', err);
-            });
+          if (state) {
+            state.user = null;
+            state.tokens = null;
+            state.permissions = [];
+            state.features = {};
+            state.isAuthenticated = false;
+            state.isImpersonated = false;
           }
         },
         // Don't persist loading states and errors
