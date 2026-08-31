@@ -32,6 +32,15 @@ describe('ErrorUtils.getErrorMessage', () => {
     ).toBe('Payment method is invalid');
   });
 
+  it('returns a top-level string API error from the Axios-normalized response', () => {
+    expect(
+      ErrorUtils.getErrorMessage({
+        success: false,
+        error: 'Sandbox merchants are limited to 25 Customer Vault entries REFID:123',
+      }),
+    ).toBe('Sandbox merchants are limited to 25 Customer Vault entries REFID:123');
+  });
+
   it('never returns an object as display content', () => {
     expect(
       ErrorUtils.getErrorMessage({

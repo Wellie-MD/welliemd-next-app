@@ -141,7 +141,7 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
       toast.success('Payment method saved');
       await loadMethods(activeGateway);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to save payment method');
+      toast.error(ErrorUtils.getErrorMessage(error, 'Failed to save payment method'));
     } finally {
       setSaving(false);
     }
