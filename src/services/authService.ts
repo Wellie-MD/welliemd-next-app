@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import api from '../api/axiosInstance';
 import { useAuthStore } from '../store/useAuthStore';
 import { API_REQUEST_TIMEOUT_MS } from '../api/constants';
+import { withRefreshLock } from './refresh-coordinator';
 
 interface LoginCredentials {
   email: string;
@@ -153,7 +154,7 @@ export const authService = {
       return refreshPromise;
     }
 
-    refreshPromise = (async () => {
+    refreshPromise = withRefreshLock('client', async () => {
       try {
         // Create a new axios instance without interceptors to avoid infinite loops
         const refreshAxios = axios.create({
@@ -205,12 +206,12 @@ export const authService = {
           console.error('Token refresh failed (non-auth error):', axiosError?.response?.data || getErrorMessage(error));
         }
         throw error;
-      } finally {
-        refreshPromise = null;
       }
-    })();
+    });
     
-    return refreshPromise;
+    return refreshPromise.finally(() => {
+      refreshPromise = null;
+    });
   },
 
   getMe: async (throwOnError = false): Promise<User | null> => {
@@ -258,48 +259,8 @@ export const authService = {
         }
       }
 
-      // If user is already authenticated with a valid access token, verify it's still valid
-      // instead of immediately trying to refresh (which can fail if cookie isn't ready yet)
-      if (authStore.isAuthenticated && authStore.accessToken) {
-        try {
-          // Try to verify the existing token by calling /auth/me/
-          const directAxios = axios.create({
-            baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
-            withCredentials: true,
-            timeout: API_REQUEST_TIMEOUT_MS,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authStore.accessToken}`
-            },
-          });
-          
-          const { data } = await directAxios.get<User>('/auth/me/');
-          // Token is still valid, update user data and return
-          authStore.setUser(data);
-          setHydratingState(false);
-          authStore.setLoading(false);
-          return;
-        } catch (error) {
-          // Token is invalid, fall through to refresh logic
-          const axiosError = getAxiosError(error);
-          const status = axiosError?.response?.status;
-          if (status === 401 || status === 403) {
-            // Token expired, try to refresh
-            console.log('Access token expired, attempting refresh...');
-          } else {
-            // Network or other error, don't try to refresh
-            console.log('Failed to verify token (non-auth error):', getErrorMessage(error));
-            setHydratingState(false);
-            authStore.setLoading(false);
-            return;
-          }
-        }
-      }
-      
-      // Only try to refresh token if:
-      // 1. User is not authenticated, OR
-      // 2. User is authenticated but token verification failed
-      // On page refresh, access token in memory is lost, but refresh token cookie persists
+      // Access tokens are memory-only. On every boot, restore from the
+      // host-only HTTP-only refresh cookie instead of trusting stale storage.
       const newAccessToken = await authService.refreshAccessToken();
       
       if (newAccessToken) {

@@ -146,10 +146,13 @@ const useAuthStore = create<AuthState>()(
       name: "auth-storage",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        user: state.user,
-        accessToken: state.accessToken,
+        // Access tokens and user identity are deliberately memory-only. The
+        // HTTP-only portal refresh cookie is the durable session authority.
         superAdminApiBaseUrl: state.superAdminApiBaseUrl,
-        isAuthenticated: state.isAuthenticated,
+      }),
+      version: 2,
+      migrate: () => ({
+        superAdminApiBaseUrl: null,
       }),
     }
   )
