@@ -6,6 +6,7 @@ import { QuestionEditorSidebar } from "./QuestionEditorSidebar";
 import { StandardEditor } from "../editors/StandardEditor";
 import { CheckoutEditor } from "../editors/CheckoutEditor";
 import { AuthEditor } from "../editors/AuthEditor";
+import { SectionReferenceEditor } from "../editors/SectionReferenceEditor";
 import { PatientFlowInlineSimulator } from "@/features/treatments/flow-builder/components/modals/PatientFlowInlineSimulator";
 
 export interface QuestionEditorDialogProps {
@@ -102,6 +103,16 @@ export function QuestionEditorDialog({
               programName={programName}
               sidebar={sidebar}
               onSave={onSave}
+              onClose={() => onOpenChange(false)}
+              onTestFlow={handleTestFlow}
+            />
+          ) : activeQuestion?.kind === "section" ? (
+            <SectionReferenceEditor
+              key={`${activeQuestionId || "new"}-${newQuestionRevision}`}
+              activeQuestion={activeQuestion}
+              questions={questions}
+              programName={programName}
+              sidebar={sidebar}
               onClose={() => onOpenChange(false)}
               onTestFlow={handleTestFlow}
             />
