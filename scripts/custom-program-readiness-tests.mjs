@@ -11,6 +11,7 @@ import {
   readinessToneClass,
   resolveCustomProgramReadiness,
 } from "../src/features/treatments/custom-programs/utils/customProgramReadiness.ts";
+import { mapBuilderSectionsFromFlowItems } from "../src/features/treatments/custom-programs/utils/customProgramFlowProjection.ts";
 
 const test = (name, run) => {
   run();
@@ -74,6 +75,37 @@ test("every status has a distinct visual tone", () => {
       .map(readinessToneClass),
   );
   assert.equal(tones.size, 5);
+});
+
+test("selected section fields remain visible as distinct Stage 1 items", () => {
+  const items = mapBuilderSectionsFromFlowItems([
+    {
+      id: "flow-section-1",
+      kind: "section",
+      sourceId: "section-1",
+      metadata: { title: "Patient History", required: true },
+    },
+    {
+      id: "flow-section-field-1",
+      kind: "section_field",
+      sourceId: "section-1",
+      metadata: {
+        title: "Please list all of your known allergies",
+        subtitle: "Section field (allergies)",
+        dependency_label: "Patient History",
+        mapped_field: "field-1",
+        required: true,
+      },
+    },
+  ]);
+
+  assert.equal(items.length, 2);
+  assert.equal(items[0].kind, "section");
+  assert.equal(items[1].kind, "section_field");
+  assert.equal(items[1].title, "Please list all of your known allergies");
+  assert.equal(items[1].sourceId, "section-1");
+  assert.equal(items[1].mappedField, "field-1");
+  assert.equal(items[1].subtitle, "Section field (allergies)");
 });
 
 console.log("\nAll Custom Program readiness tests passed.");

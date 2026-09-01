@@ -23,6 +23,12 @@ const rowMeta: Record<
     iconClass: "bg-violet-50 text-violet-600",
     badgeClass: "border-violet-200 bg-violet-50 text-violet-600 dark:border-violet-400/30 dark:bg-violet-400/10 dark:text-violet-200",
   },
+  section_field: {
+    label: "SECTION FIELD",
+    icon: Layout,
+    iconClass: "bg-sky-50 text-sky-600",
+    badgeClass: "border-sky-200 bg-sky-50 text-sky-600 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-200",
+  },
   program: {
     label: "PROGRAM",
     icon: CheckCircle2,
