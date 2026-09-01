@@ -420,6 +420,7 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
     isRequired: requirement.is_required,
     isActive: requirement.is_active,
     instructions: requirement.instructions || "",
+    visibilityRuleGroup: requirement.visibility_rule as VisibilityRuleGroup | undefined,
   })),
   assignmentRuntimeState: record.assignment_runtime_state,
   runtimeReadyAt: record.runtime_ready_at ?? null,
@@ -510,6 +511,7 @@ export const programToRecord = (program: Partial<Program>, treatmentTypes: Treat
       is_required: requirement.isRequired,
       is_active: requirement.isActive,
       instructions: requirement.instructions || "",
+      visibility_rule: requirement.visibilityRuleGroup || null,
     }));
   }
 
