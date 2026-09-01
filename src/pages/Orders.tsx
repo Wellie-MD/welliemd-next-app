@@ -54,22 +54,37 @@ const ARCHIVE_VIEW_OPTIONS = [
   { label: "All Orders", value: "all" },
 ] as const
 
+const getOrderStatusBadgeClass = (value?: string | null) => {
+  const status = String(value || "").toLowerCase()
+
+  if (["payment_pending", "billing_pending"].includes(status)) {
+    return "bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-100"
+  }
+
+  if (["prescribed", "rx_sent", "shipped", "in_transit", "out_for_delivery", "delivered"].includes(status)) {
+    return "bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+  }
+
+  if (["visit_failed", "consult_canceled", "delivery_failed", "canceled"].includes(status)) {
+    return "bg-red-100 text-red-700 border-red-300 hover:bg-red-100"
+  }
+
+  return "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-100"
+}
+
 const orderColumns = [
-  { key: "order_number", label: "Order #", minWidth: "120px", className: "font-medium" },
-  { key: "patient_name", label: "Patient", minWidth: "160px" },
-  { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
-  { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
-  { key: "pharmacy_display", label: "Pharmacy", minWidth: "150px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
-  { key: "orderDate", label: "Order Date", minWidth: "120px" },
-  { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
-  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
-  { key: "mrn", label: "MRN#", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
-  { key: "paymentStatus", label: "Payment Status", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
-  { key: "visitStatus", label: "Visit Status", minWidth: "120px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
-  { key: "orderStatus", label: "Order Status", minWidth: "150px" },
-  { key: "orderTotal", label: "Order Total", minWidth: "110px" },
-  { key: "tracking_number", label: "Tracking #", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
-  { key: "actions", label: "Actions", minWidth: "110px", render: (_: any, row: any) => null }
+  { key: "order_number", label: "Order #", minWidth: "120px", headerClassName: "whitespace-nowrap", className: "font-medium" },
+  { key: "patient_name", label: "Patient Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
+  { key: "patient_email", label: "Patient Email", minWidth: "130px", headerClassName: "whitespace-nowrap" },
+  { key: "patient_phone", label: "Patient Phone", minWidth: "130px", headerClassName: "whitespace-nowrap" },
+  { key: "product_name", label: "Product Name", minWidth: "170px", headerClassName: "whitespace-nowrap" },
+  { key: "pharmacy_name_only", label: "Pharmacy Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
+  { key: "orderDate", label: "Order Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
+  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
+  { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "whitespace-nowrap" },
+  { key: "orderTotal", label: "Order Amount", minWidth: "110px", headerClassName: "whitespace-nowrap" },
+  { key: "orderStatus", label: "Order Status", minWidth: "150px", headerClassName: "whitespace-nowrap" },
+  { key: "actions", label: "Actions", minWidth: "110px", headerClassName: "whitespace-nowrap", render: (_: any, row: any) => null }
 ]
 
 // Backend order status choices for row editor (value, label) — aligned with Order.ORDER_STATUS_CHOICES
@@ -593,7 +608,7 @@ export default function Orders() {
                   )
                 return (
                   <div className="relative space-y-1">
-                    <Badge variant="outline" className="max-w-full whitespace-normal text-left">
+                    <Badge variant="outline" className={`max-w-full whitespace-normal text-left ${getOrderStatusBadgeClass(currentStatus)}`}>
                       {row.status_display || formatStatusLabel(currentStatus)}
                     </Badge>
                     {hasRecoveryPending ? (
@@ -625,23 +640,6 @@ export default function Orders() {
             }
           }
 
-          if (col.key === 'tracking_number') {
-            return {
-              ...col,
-              render: (_: any, row: any) => {
-                const originalStatus = row.orderStatus
-                const isShipmentFinalized = originalStatus === 'shipped' || originalStatus === 'delivered' // Tracking should stay visible for delivered orders
-
-                if (!isShipmentFinalized) {
-                  return <span className="text-sm text-muted-foreground italic">N/A</span>
-                }
-
-                return (
-                  <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
-                )
-              }
-            }
-          }
           return {
             ...col,
             render: (_: unknown, row: Record<string, unknown>) => formatCellText(row[col.key]),
