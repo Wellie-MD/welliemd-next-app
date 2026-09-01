@@ -346,11 +346,11 @@ export function SharedQuestionsList({
       entityType === "program" &&
       shippingIndex !== -1 &&
       checkoutIndex !== -1 &&
-      shippingIndex + 1 !== checkoutIndex
+      shippingIndex > checkoutIndex
     ) {
       toast({
         title: "Shipping Address stays above checkout",
-        description: "Shipping Address must remain immediately before checkout/product options.",
+        description: "Shipping Address must remain before checkout/product options.",
       });
       return;
     }
