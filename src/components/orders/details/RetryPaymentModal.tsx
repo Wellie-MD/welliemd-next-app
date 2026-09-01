@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Loader2, CreditCard, AlertCircle } from "lucide-react"
+import { getMaskedCardLast4 } from "@/utils/paymentMethodDisplay"
 
 interface RetryPaymentModalProps {
   open: boolean
@@ -86,7 +87,7 @@ export const RetryPaymentModal: React.FC<RetryPaymentModalProps> = ({
                 <SelectContent>
                   {paymentMethods.map((pm) => (
                     <SelectItem key={pm.id} value={pm.id}>
-                      {pm.card_brand || "Card"} ending in {pm.card_last4 || "****"} {pm.is_default ? "(Default)" : ""}
+                      {pm.card_brand || "Card"} ending in {getMaskedCardLast4(pm.masked_card_number)} {pm.is_default ? "(Default)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
