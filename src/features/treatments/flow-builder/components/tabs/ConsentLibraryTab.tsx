@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Plus, Check } from "lucide-react";
 import type { ConsentForm } from "@/features/treatments/types";
+import { hasExplicitConsent } from "../../utils/customProgramStages";
 
 interface ConsentLibraryTabProps {
   consents: ConsentForm[];
@@ -11,7 +12,7 @@ interface ConsentLibraryTabProps {
     subtitle: string;
     sourceId?: string;
   }) => void;
-  flowItems?: Array<{ kind: string; title: string }>;
+  flowItems?: Array<{ kind: string; title: string; sourceId?: string }>;
 }
 
 export function ConsentLibraryTab({
@@ -20,8 +21,8 @@ export function ConsentLibraryTab({
   onAddItem,
   flowItems = [],
 }: ConsentLibraryTabProps) {
-  const isConsentAdded = (consentName: string) => {
-    return flowItems.some((fi) => fi.kind === "consent" && fi.title === consentName);
+  const isConsentAdded = (consentId: string) => {
+    return hasExplicitConsent(flowItems, consentId);
   };
   const query = searchQuery.trim().toLowerCase();
   const filteredConsents = consents.filter((consent) => {
@@ -41,7 +42,7 @@ export function ConsentLibraryTab({
 
       <div className="space-y-2">
         {filteredConsents.map((consent) => {
-          const added = isConsentAdded(consent.name);
+          const added = isConsentAdded(consent.id);
 
           return (
             <div

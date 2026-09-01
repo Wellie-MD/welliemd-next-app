@@ -134,7 +134,7 @@ assert.match(html, />Program Safety Questions</);
 assert.match(html, /1 field · Reusable from library · Treatment specific/);
 assert.doesNotMatch(html, /Program safety answer/);
 assert.match(html, /Detach Program Safety Questions from Program/);
-assert.match(html, /Library Consent · Global/);
+assert.match(html, />Library Consent</);
 assert.doesNotMatch(html, />Medical Baseline</);
 assert.doesNotMatch(html, />Referenced Clinical Section</);
 assert.equal(

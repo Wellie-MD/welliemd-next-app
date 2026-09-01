@@ -9,6 +9,15 @@ import type {
 
 export type AdminCustomProgramStageTone = "question" | "program" | "consent";
 
+export function hasExplicitConsent(
+  flowItems: Array<Pick<CustomProgramFlowItem, "kind" | "sourceId">>,
+  consentId: string,
+): boolean {
+  return flowItems.some(
+    (item) => item.kind === "consent" && String(item.sourceId || "") === String(consentId),
+  );
+}
+
 export interface AdminCustomProgramStageItem {
   id: string;
   kind: "routing_question" | "section" | "section_field" | "program" | "consent";
@@ -29,7 +38,7 @@ export function getCustomProgramConsentSubtitle(
   item: AdminCustomProgramStageItem
 ): string {
   const libraryScope = item.libraryScope || item.consent?.scope;
-  const scopeLabel = libraryScope === "global" ? "Global" : "Visit Type";
+  const scopeLabel = libraryScope === "global" ? "Universal" : "Treatment-specific";
   if (item.kind === "consent" && (libraryScope || item.sourceType !== "inline")) {
     const placement = item.derived
       ? `Auto for ${item.matchedProgramNames?.join(", ") || "attached Program"}`
@@ -226,9 +235,9 @@ export function reorderCustomProgramItemWithinStage(
 /**
  * Remove one visible stage row from the persisted authoring graph.
  *
- * A consolidated reusable Section can be backed by both a `section` row and
- * one or more legacy `section_field` projections. The builder displays that
- * family as one block, so deleting the block must remove the entire family.
+ * A whole reusable Section row owns its occurrence and removes any legacy
+ * field projections for that occurrence. A selected `section_field` row is an
+ * independent placement and must remove only that field.
  */
 export function removeCustomProgramStageItem(
   flowItems: CustomProgramFlowItem[],
@@ -237,7 +246,7 @@ export function removeCustomProgramStageItem(
   const target = flowItems.find((item) => item.id === itemId);
   if (!target) return canonicalizeCustomProgramFlowItems(flowItems);
 
-  const isSectionFamily = target.kind === "section" || target.kind === "section_field";
+  const isSectionFamily = target.kind === "section";
   const sourceId = String(target.sourceId || "");
   const remaining = flowItems.filter((item) => {
     if (!isSectionFamily || !sourceId) return item.id !== itemId;
@@ -257,11 +266,14 @@ const persistedDisplayItem = (
   const section = item.sourceId ? sectionsById.get(String(item.sourceId)) : undefined;
   const consent = item.sourceId ? consentsById.get(String(item.sourceId)) : undefined;
   const resolvedName = program?.name || section?.name || consent?.name;
+  const isSelectedField = item.kind === "section_field";
   return {
     id: item.id,
     kind: item.kind as AdminCustomProgramStageItem["kind"],
-    title: resolvedName || item.title || "Unavailable referenced block",
-    subtitle: item.subtitle || (resolvedName ? `${item.kind.replace("_", " ")} block` : "This referenced block is unavailable"),
+    title: isSelectedField ? (item.title || `${resolvedName || "Section"} field`) : (resolvedName || item.title || "Unavailable referenced block"),
+    subtitle: isSelectedField
+      ? `Selected field from ${resolvedName || "reusable Section"}`
+      : item.subtitle || (resolvedName ? `${item.kind.replace("_", " ")} block` : "This referenced block is unavailable"),
     persistedItem: item,
     derived: false,
     program,
@@ -311,20 +323,28 @@ export function buildAdminCustomProgramStages(
       derived: !persisted,
     };
   });
-  const effectiveSections: AdminCustomProgramStageItem[] = (effective?.stages.stage1.sections || []).map((sectionNode) => {
+  const effectiveSections: AdminCustomProgramStageItem[] = (effective?.stages.stage1.sections || []).flatMap((sectionNode) => {
     const section = sectionsById.get(sectionNode.sourceId);
-    const persisted = canonicalItems.find(
+    const persisted = canonicalItems.filter(
       (item) => (item.kind === "section" || item.kind === "section_field") && String(item.sourceId) === sectionNode.sourceId,
     );
+    const wholeSection = persisted.find((item) => item.kind === "section");
+    const selectedFields = persisted.filter((item) => item.kind === "section_field");
+    if (!wholeSection && selectedFields.length) {
+      return selectedFields.map((item) => ({
+        ...persistedDisplayItem(item, programsById, sectionsById, consentsById),
+        matchedProgramNames: sectionNode.applicableProgramIds.map((id) => namesByProgramId.get(id) || id),
+      }));
+    }
     return {
-      id: persisted?.id || `effective-section-${sectionNode.sourceId}-v${sectionNode.sourceVersion}`,
+      id: wholeSection?.id || `effective-section-${sectionNode.sourceId}-v${sectionNode.sourceVersion}`,
       kind: "section",
       title: sectionNode.name,
-      subtitle: persisted
-        ? (section?.scope === "global" ? "Explicit · Universal" : "Explicit · Treatment specific")
+      subtitle: wholeSection
+        ? (section?.scope === "global" ? "Explicit · Universal" : "Explicit · Treatment-specific")
         : "Explicit Custom Program placement",
-      persistedItem: persisted,
-      derived: !persisted,
+      persistedItem: wholeSection,
+      derived: !wholeSection,
       section,
       matchedProgramNames: sectionNode.applicableProgramIds.map((id) => namesByProgramId.get(id) || id),
     };

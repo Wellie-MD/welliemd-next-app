@@ -14,6 +14,7 @@ import {
   reorderCustomProgramItemWithinStage,
   removeCustomProgramStageItem,
   synchronizeCustomProgramStructure,
+  hasExplicitConsent,
 } from "../src/features/treatments/flow-builder/utils/customProgramStages.ts";
 import {
   customProgramMutationErrorMessage,
@@ -150,6 +151,14 @@ test("keeps a parent section when only reusable fields are selected", () => {
   assert.equal(synced.flowItems.find((candidate) => candidate.id === "field-row")?.kind, "section_field");
 });
 
+test("marks library consents by canonical ID, not by display name", () => {
+  const flow = [
+    { ...item("consent-row", "consent", "consent-1"), title: "Terms" },
+  ];
+  assert.equal(hasExplicitConsent(flow, "consent-1"), true);
+  assert.equal(hasExplicitConsent(flow, "consent-2"), false);
+});
+
 test("removes a consolidated Section block and every hidden field projection", () => {
   const flow = canonicalizeCustomProgramFlowItems([
     item("question", "routing_question"),
@@ -164,6 +173,20 @@ test("removes a consolidated Section block and every hidden field projection", (
   assert.deepEqual(
     removed.filter((candidate) => !candidate.locked).map((candidate) => candidate.id),
     ["question", "program-row"],
+  );
+});
+
+test("removes only the selected Section field when its row is deleted", () => {
+  const flow = canonicalizeCustomProgramFlowItems([
+    { ...item("height", "section_field", "section-1"), mappedField: "field-height" },
+    { ...item("weight", "section_field", "section-1"), mappedField: "field-weight" },
+  ]);
+
+  const removed = removeCustomProgramStageItem(flow, "height");
+
+  assert.deepEqual(
+    removed.filter((candidate) => candidate.kind === "section_field").map((candidate) => candidate.id),
+    ["weight"],
   );
 });
 
@@ -241,9 +264,54 @@ test("projects authoritative effective stages and never derives inheritance from
   assert.deepEqual(automatic?.matchedProgramNames, ["program-1", "program-2"]);
   assert.equal(projection.stages[1].items[0]?.checkoutCount, 2);
   const inheritedGlobal = projection.stages[2].items.find((candidate) => candidate.title === "consent-1");
-  assert.equal(getCustomProgramConsentSubtitle(inheritedGlobal!), "Library Consent · Global · Explicit Custom Program");
-  assert.equal(getCustomProgramConsentSubtitle(automatic!), "Library Consent · Visit Type · Auto for program-1, program-2");
+  assert.equal(getCustomProgramConsentSubtitle(inheritedGlobal!), "Library Consent · Universal · Explicit Custom Program");
+  assert.equal(getCustomProgramConsentSubtitle(automatic!), "Library Consent · Treatment-specific · Auto for program-1, program-2");
   assert.equal(projection.totalItemCount, 8);
+});
+
+test("keeps an explicitly selected Section field as one field row", () => {
+  const cp = customProgram([
+    {
+      ...item("allergies-row", "section_field", "section-1"),
+      title: "Please list all of your known allergies",
+      mappedField: "field-allergies",
+    },
+  ]);
+  const projection = buildAdminCustomProgramStages(cp, {
+    programs: [],
+    sections: [section],
+    consents: [],
+    effectiveContent: {
+      customProgramId: "custom-1",
+      revision: "1",
+      systemSteps: { authentication: { count: 1, locked: true } },
+      stages: {
+        stage1: {
+          questions: [],
+          sections: [{
+            sourceId: "section-1",
+            sourceVersion: 1,
+            name: "Medical Baseline",
+            applicableProgramIds: [],
+            resolvedFrom: [{ type: "custom_program" }],
+            fields: [{
+              sourceId: "field-allergies",
+              label: "Please list all of your known allergies",
+              kind: "allergies",
+              order: 1,
+            }],
+          }],
+        },
+        stage2: { programs: [] },
+        stage3: { consents: [] },
+        stage4: { checkout: { count: 1, locked: true } },
+      },
+      blockers: [],
+    },
+  });
+
+  assert.deepEqual(projection.stages[0].items.map((candidate) => candidate.kind), ["section_field"]);
+  assert.equal(projection.stages[0].items[0]?.title, "Please list all of your known allergies");
 });
 
 test("uses effective Program names for consent applicability when catalogs are stale", () => {
