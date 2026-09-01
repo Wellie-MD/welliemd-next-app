@@ -3,13 +3,43 @@ import { FlaskConical, Loader2 } from "lucide-react";
 import { labsApi, type LabPanel } from "@/api/labs";
 import type { ProgramLabRequirement } from "@/features/treatments/types";
 import { toast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+
+import { useQueries } from "@tanstack/react-query";
+import { treatmentConfigurationApi } from "@/features/treatments/api/configurationApi";
+import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { isPersistedUuid } from "@/features/treatments/api/mappers";
+import {
+  DERIVED_BMI_ID,
+  VisibilityRuleBuilder,
+} from "@/components/questionnaires/VisibilityRuleBuilder";
+import {
+  fromBuilderGroup,
+  PATIENT_PROFILE_AGE_ID,
+  PATIENT_PROFILE_SEX_ID,
+  toBuilderGroup,
+} from "@/features/treatments/utils/visibilityBuilderAdapters";
+import type { ProgramQuestion, VisibilityRuleGroup, VisibilityRule } from "@/features/treatments/types";
 
 interface CheckoutLabsSectionProps {
   requirements: ProgramLabRequirement[];
   onChange: (requirements: ProgramLabRequirement[]) => void;
   onPanelsLoaded?: (panels: LabPanel[]) => void;
   disabled?: boolean;
+  eligibleQuestions?: ProgramQuestion[];
 }
+
+const createEmptyRule = (): VisibilityRule => ({
+  questionId: "",
+  operator: "equals",
+  value: "",
+});
+
+const createTreatmentRuleGroup = (): VisibilityRuleGroup => ({
+  mode: "nested",
+  rules: [createEmptyRule()],
+  subgroups: [],
+});
 
 /**
  * Lab selection belongs visually to the Checkout element, but is persisted
@@ -21,9 +51,92 @@ export function CheckoutLabsSection({
   onChange,
   onPanelsLoaded,
   disabled = false,
+  eligibleQuestions = [],
 }: CheckoutLabsSectionProps) {
   const [panels, setPanels] = useState<LabPanel[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // --- Builder Questions Logic Copied from QuestionVisibilityTab to avoid cross-component coupling ---
+  const sectionQuestions = useMemo(() => eligibleQuestions.filter((question) => question.kind === "section"), [eligibleQuestions]);
+  
+  const sectionFieldQueries = useQueries({
+    queries: sectionQuestions.map((question) => {
+      const sectionId = String(
+        question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || "",
+      );
+      return {
+        queryKey: treatmentQueryKeys.sectionFields(sectionId),
+        queryFn: () => treatmentConfigurationApi.listSectionFields(sectionId),
+        enabled: isPersistedUuid(sectionId),
+        staleTime: 60_000,
+      };
+    }),
+  });
+
+  const builderQuestions = useMemo(() => {
+    const hasBmiQuestion = eligibleQuestions.some(
+      (q) => q.kind === "height_weight" || q.kind === "bmi"
+    );
+
+    const qs = eligibleQuestions
+      .filter((q) => q.kind !== "height_weight" && q.kind !== "bmi" && q.kind !== "section")
+      .map((question) => ({
+        id: question.id,
+        question_text: question.text,
+        order_index: question.order,
+        answer_choices: question.choices,
+      }));
+
+    sectionQuestions.forEach((sectionQuestion, index) => {
+      const fields = sectionFieldQueries[index]?.data || [];
+      fields
+        .filter((field) => field.kind !== "checkout")
+        .forEach((field) => {
+          const configuredChoices = field.configuration?.choices;
+          const answerChoices = Array.isArray(configuredChoices)
+            ? configuredChoices.map((choice) => (
+                typeof choice === "string"
+                  ? choice
+                  : String((choice as Record<string, unknown>).label || (choice as Record<string, unknown>).value || "")
+              )).filter(Boolean)
+            : [];
+          qs.push({
+            id: field.sourceFieldId,
+            question_text: `${sectionQuestion.text} — ${field.label}`,
+            order_index: sectionQuestion.order,
+            answer_choices: answerChoices,
+          });
+        });
+    });
+
+    if (hasBmiQuestion) {
+      const bmiQuestion = eligibleQuestions.find(
+        (q) => q.kind === "height_weight" || q.kind === "bmi"
+      );
+      qs.push({
+        id: DERIVED_BMI_ID,
+        question_text: "BMI (Calculated)",
+        order_index: bmiQuestion?.order ?? 0,
+      });
+    }
+
+    qs.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+    qs.push(
+      {
+        id: PATIENT_PROFILE_SEX_ID,
+        question_text: "Patient profile — Sex assigned at birth",
+        order_index: 10000,
+        answer_choices: ["Male", "Female", "Other"],
+      },
+      {
+        id: PATIENT_PROFILE_AGE_ID,
+        question_text: "Patient profile — Age",
+        order_index: 10001,
+      },
+    );
+    return qs;
+  }, [eligibleQuestions, sectionQuestions, sectionFieldQueries]);
+  // -------------------------------------------------------------------------------------------------
 
   useEffect(() => {
     let cancelled = false;
@@ -75,9 +188,18 @@ export function CheckoutLabsSection({
             isRequired: true,
             isActive: true,
             instructions: "",
+            visibilityRuleGroup: undefined,
           },
         ];
     onChange(next);
+  };
+
+  const updateRequirement = (panelId: string, updates: Partial<ProgramLabRequirement>) => {
+    onChange(
+      requirements.map((req) =>
+        req.panelId === panelId ? { ...req, ...updates } : req
+      )
+    );
   };
 
   return (
@@ -103,35 +225,94 @@ export function CheckoutLabsSection({
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-4">
         {selectablePanels.map((panel) => {
           const selected = selectedIds.has(panel.id);
+          const requirement = requirements.find((r) => r.panelId === panel.id);
+
           return (
-            <label
-              key={panel.id}
-              className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors ${
-                selected
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-slate-200 bg-white hover:border-slate-300"
-              } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
-            >
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-blue-600"
-                checked={selected}
-                disabled={disabled}
-                onChange={() => togglePanel(panel)}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12.5px] font-bold text-slate-900">
-                  {panel.name}
+            <div key={panel.id} className={`rounded-lg border transition-colors ${selected ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+              <label
+                className={`flex cursor-pointer items-start gap-3 px-3 py-3 ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-blue-600"
+                  checked={selected}
+                  disabled={disabled}
+                  onChange={() => togglePanel(panel)}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[12.5px] font-bold text-slate-900">
+                    {panel.name}
+                  </span>
+                  <span className="mt-0.5 block text-[10.5px] text-slate-500">
+                    {panel.biomarkers?.length || 0} markers · {panel.lab_provider || "Junction"}
+                    {panel.collection_method ? ` · ${panel.collection_method.replaceAll("_", " ")}` : ""}
+                  </span>
                 </span>
-                <span className="mt-0.5 block text-[10.5px] text-slate-500">
-                  {panel.biomarkers?.length || 0} markers · {panel.lab_provider || "Junction"}
-                  {panel.collection_method ? ` · ${panel.collection_method.replaceAll("_", " ")}` : ""}
-                </span>
-              </span>
-            </label>
+              </label>
+
+              {selected && requirement && (
+                <div className="border-t border-blue-100 bg-white p-4 space-y-4 rounded-b-lg">
+                  <div className="space-y-1.5">
+                    <label className="text-[11.5px] font-bold text-slate-600">
+                      Patient Instructions
+                    </label>
+                    <textarea
+                      value={requirement.instructions || ""}
+                      onChange={(e) => updateRequirement(panel.id, { instructions: e.target.value })}
+                      disabled={disabled}
+                      placeholder="Special instructions for the patient regarding this lab (e.g. fasting required)"
+                      className="w-full min-h-[80px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-sm outline-none focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11.5px] font-bold text-slate-600">
+                      Visibility Rule
+                    </label>
+                    {!requirement.visibilityRuleGroup ? (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-xs text-slate-400">
+                        Always included.
+                        <div className="mt-4 flex justify-center">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateRequirement(panel.id, { visibilityRuleGroup: createTreatmentRuleGroup() })}
+                            disabled={disabled}
+                            className="h-8 border-slate-200 bg-white text-xs font-semibold text-slate-600 shadow-sm"
+                          >
+                            + Limit when this lab is included
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <VisibilityRuleBuilder
+                          value={toBuilderGroup(requirement.visibilityRuleGroup)}
+                          onChange={(nextGroup) => updateRequirement(panel.id, { visibilityRuleGroup: fromBuilderGroup(nextGroup) })}
+                          questions={builderQuestions}
+                        />
+                        <div className="mt-3 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs font-semibold text-red-500 hover:text-red-700"
+                            onClick={() => updateRequirement(panel.id, { visibilityRuleGroup: undefined })}
+                            disabled={disabled}
+                          >
+                            Remove rule
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
