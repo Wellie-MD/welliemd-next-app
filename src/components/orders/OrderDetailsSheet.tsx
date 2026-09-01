@@ -129,6 +129,37 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelled",
 }
 
+const productPaymentStatusLabels: Record<string, string> = {
+  pending: "Pending",
+  authorization_pending: "Authorization Pending",
+  authorized: "Authorized",
+  capture_pending: "Capture Pending",
+  captured: "Captured",
+  voided: "Voided",
+  refunded: "Refunded",
+  partially_refunded: "Partially Refunded",
+  failed: "Failed",
+  requires_action: "Requires Action",
+  reconciliation_required: "Reconciliation Required",
+  unknown: "Unknown",
+}
+
+const productPaymentStatusClass = (status?: string | null): string => {
+  const normalized = (status || "pending").toLowerCase()
+  if (["failed", "requires_action", "reconciliation_required", "unknown"].includes(normalized)) {
+    return "bg-red-100 text-red-800"
+  }
+  if (["captured", "authorized", "refunded", "voided"].includes(normalized)) {
+    return "bg-green-100 text-green-800"
+  }
+  return "bg-amber-100 text-amber-800"
+}
+
+const productPaymentStatusLabel = (status?: string | null): string => {
+  const normalized = (status || "pending").toLowerCase()
+  return productPaymentStatusLabels[normalized] || statusLabels[normalized] || normalized
+}
+
 function AnswerSnapshot({ label, values }: { label: string; values?: Record<string, unknown> | null }) {
   const entries = Object.entries(values || {})
   if (!entries.length) return null
@@ -434,6 +465,54 @@ export function OrderDetailsSheet({
                   currentOrderId={order.id}
                   compact
                 />
+              )}
+
+              {order.product_payment_reservations && order.product_payment_reservations.length > 0 && (
+                <section>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Product Payment Status
+                  </h3>
+                  <div className="space-y-2">
+                    {order.product_payment_reservations.map((payment) => {
+                      const lineItem = order.line_items?.find((item) => item.id === payment.line_item_id)
+                      const status = (payment.status || "pending").toLowerCase()
+                      return (
+                        <div key={payment.id} className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium">
+                              {payment.product_name || lineItem?.product_name || "Product"}
+                            </span>
+                            <Badge className={productPaymentStatusClass(status)}>
+                              {productPaymentStatusLabel(status)}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {payment.amount == null ? "Amount not recorded" : `${payment.currency || "USD"} ${payment.amount}`}
+                            {payment.authorized_amount != null ? ` · Authorized ${payment.authorized_amount}` : ""}
+                            {payment.captured_amount != null ? ` · Captured ${payment.captured_amount}` : ""}
+                            {payment.refunded_amount != null ? ` · Refunded ${payment.refunded_amount}` : ""}
+                          </div>
+                          {payment.patient_action === "do_not_resubmit" && (
+                            <p className="text-xs font-medium text-red-700">
+                              Do not resubmit; the payment outcome is being reconciled.
+                            </p>
+                          )}
+                          {payment.patient_action === "complete_required_action" && (
+                            <p className="text-xs font-medium text-amber-700">
+                              Additional payment action is required.
+                            </p>
+                          )}
+                          {payment.patient_action === "contact_support" && (
+                            <p className="text-xs font-medium text-red-700">
+                              Contact support before trying this product payment again.
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
               )}
 
               {!order.treatment_aggregate && order.line_items && order.line_items.length > 0 && (
