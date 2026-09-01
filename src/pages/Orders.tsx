@@ -570,7 +570,7 @@ export default function Orders() {
             }
           }
 
-          if (col.key === 'orderDate') {
+          if (col.key === 'orderDate' || col.key === 'datePrescribed' || col.key === 'paymentDate') {
             return {
               ...col,
               render: (_: any, row: any) => formatDateLabel(row[col.key]),
