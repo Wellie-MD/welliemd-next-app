@@ -45,7 +45,7 @@ export function CheckoutPatientPreview({
     .filter((panel): panel is LabPanel => Boolean(panel));
 
   if (mode === "lab") {
-    const labTotal = selectedLabPanels.reduce((total, panel) => total + (panel.patient_price || 0), 0);
+    const labTotal = selectedLabPanels.reduce((total, panel) => total + panel.cost_to_client, 0);
     return (
       <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-[#111827] p-5">
         <div className="mb-4 flex shrink-0 items-center gap-2">
@@ -86,7 +86,7 @@ export function CheckoutPatientPreview({
                         {panel.biomarkers?.length || 0} markers · {panel.lab_provider || "Junction"}
                       </div>
                     </div>
-                    {panel.patient_price > 0 && <div className="text-[12px] font-extrabold text-slate-900">${panel.patient_price.toFixed(2)}</div>}
+                    <div className="text-[12px] font-extrabold text-slate-900">${panel.cost_to_client.toFixed(2)}</div>
                   </div>
                 </div>
               ))}

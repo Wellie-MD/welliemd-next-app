@@ -31,6 +31,8 @@ export default function CustomProgramsPage() {
       <TreatmentPageHeader
         title="Custom Programs"
         subtitle={<>Customized intake programs for clients — compose programs, sections, consents, and checkout into a tailored patient experience.</>}
+        stackActionsAt="2xl"
+        actionsClassName="w-full 2xl:w-auto"
         actions={
           <CustomProgramsHeaderActions
             viewMode={page.viewMode}
@@ -79,29 +81,31 @@ export default function CustomProgramsPage() {
             Showing {(page.page - 1) * page.pageSize + 1}–{Math.min(page.page * page.pageSize, page.filteredPrograms.length)} of{" "}
             {page.filteredPrograms.length} custom programs
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-1 sm:w-auto sm:gap-2">
             <Button
               type="button"
               variant="outline"
+              className="h-8 min-w-0 gap-1 px-2 text-xs sm:h-9 sm:gap-2 sm:px-3 sm:text-sm"
               size="sm"
               onClick={() => page.setPage((current) => Math.max(1, current - 1))}
               disabled={page.page === 1}
             >
-              <ChevronLeft className="mr-1 h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5 sm:mr-1 sm:h-4 sm:w-4" />
               Previous
             </Button>
-            <span className="min-w-24 text-center text-sm text-slate-600">
+            <span className="min-w-20 flex-1 text-center text-xs text-slate-600 sm:min-w-24 sm:flex-none sm:text-sm">
               Page {page.page} of {page.totalPages}
             </span>
             <Button
               type="button"
               variant="outline"
+              className="h-8 min-w-0 gap-1 px-2 text-xs sm:h-9 sm:gap-2 sm:px-3 sm:text-sm"
               size="sm"
               onClick={() => page.setPage((current) => Math.min(page.totalPages, current + 1))}
               disabled={page.page === page.totalPages}
             >
               Next
-              <ChevronRight className="ml-1 h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </div>

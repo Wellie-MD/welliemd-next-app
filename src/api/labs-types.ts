@@ -259,3 +259,34 @@ export interface LabOrder {
     flag: "Normal" | "High" | "Low";
   }>;
 }
+
+export type LabChangeAction = "created" | "updated" | "status" | "deleted";
+
+export interface LabChangeLogEntry {
+  id: string;
+  panel_id: string;
+  panel_name: string;
+  record_type: string;
+  action: LabChangeAction;
+  field_name: string;
+  field_label: string;
+  old_value: unknown;
+  new_value: unknown;
+  old_display: string;
+  new_display: string;
+  changed_by?: string | null;
+  changed_by_name: string;
+  changed_by_email: string;
+  changed_by_role: string;
+  changed_at: string;
+}
+
+export interface LabChangeHistoryResponse {
+  record: {
+    id: string;
+    name: string;
+    type: string;
+  };
+  total_changes: number;
+  results: LabChangeLogEntry[];
+}

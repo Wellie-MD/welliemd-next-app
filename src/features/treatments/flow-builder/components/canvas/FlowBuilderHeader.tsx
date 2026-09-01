@@ -41,9 +41,9 @@ export function FlowBuilderHeader({
   isPublishing = false,
 }: FlowBuilderHeaderProps) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shrink-0">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
+    <div className="shrink-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
+        <div className="flex min-w-0 w-full flex-1 items-start gap-2 sm:gap-3">
           <Button
             asChild
             variant="outline"
@@ -56,15 +56,15 @@ export function FlowBuilderHeader({
           </Button>
 
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-slate-900">{name}</h1>
-            <div className="mt-2 flex items-center gap-3 text-sm">
+            <h1 className="break-words text-lg font-bold text-slate-900 sm:text-xl">{name}</h1>
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-sm sm:gap-3">
               {isEditingSlug ? (
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
-                    <span className="text-slate-400">welliemd.com/start/</span>
+                <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
+                  <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+                    <span className="shrink-0 text-slate-400">welliemd.com/start/</span>
                     <input
                       type="text"
-                      className="w-32 border-b border-blue-600 bg-transparent font-semibold text-slate-900 outline-none"
+                      className="w-32 min-w-0 max-w-full border-b border-blue-600 bg-transparent font-semibold text-slate-900 outline-none"
                       value={slugInput}
                       onChange={(event) => onSlugInputChange(event.target.value)}
                       data-testid="custom-program-slug-input"
@@ -78,10 +78,10 @@ export function FlowBuilderHeader({
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-2 whitespace-nowrap rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
-                    <span className="text-slate-400">welliemd.com/start/</span>
-                    <span className="font-semibold text-slate-900">{slug}</span>
+                <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1.5">
+                  <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+                    <span className="shrink-0 text-slate-400">welliemd.com/start/</span>
+                    <span className="min-w-0 break-all font-semibold text-slate-900">{slug}</span>
                   </div>
                   <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onStartEditSlug} data-testid="edit-custom-program-slug">
                     Edit
@@ -98,21 +98,25 @@ export function FlowBuilderHeader({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 md:justify-end">
-          <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
-          <Button onClick={onOpenDrawer} data-testid="open-add-to-flow-drawer">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:gap-3 2xl:w-auto 2xl:flex-nowrap 2xl:justify-end">
+          <div className="shrink-0">
+            <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
+          </div>
+          <Button size="sm" className="shrink-0 sm:h-10 sm:px-4" onClick={onOpenDrawer} data-testid="open-add-to-flow-drawer">
             <Plus className="mr-2 h-4 w-4" />
             Add to flow
           </Button>
-          <Button variant="outline" onClick={onOpenPreview} data-testid="open-custom-program-preview">
+          <Button size="sm" variant="outline" className="shrink-0 sm:h-10 sm:px-4" onClick={onOpenPreview} data-testid="open-custom-program-preview">
             <Eye className="mr-2 h-4 w-4" />
             Preview
           </Button>
-          <Button onClick={onSave} data-testid="save-custom-program-flow">
+          <Button size="sm" className="shrink-0 sm:h-10 sm:px-4" onClick={onSave} data-testid="save-custom-program-flow">
             <Save className="mr-2 h-4 w-4" />
             Save Plan
           </Button>
           <Button
+            size="sm"
+            className="shrink-0 sm:h-10 sm:px-4"
             onClick={onPublish}
             disabled={isPublishing}
             data-testid="publish-custom-program-flow"

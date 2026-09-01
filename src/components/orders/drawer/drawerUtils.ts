@@ -25,6 +25,11 @@ export function parseStatusLabel(rawStatus?: string | null): string {
   if (clean === "canceled" || clean === "cancelled") return "Canceled"
   if (clean === "paid" || clean === "captured") return "Captured & Paid"
   if (clean === "authorized" || clean === "auth_hold") return "Authorized (Hold)"
+  if (clean === "capture_pending") return "Capture Pending"
+  if (clean === "requires_action") return "Requires Action"
+  if (clean === "reconciliation_required") return "Reconciliation Required"
+  if (clean === "partially_refunded") return "Partially Refunded"
+  if (clean === "voided") return "Voided"
   if (clean === "refunded") return "Refunded"
   if (clean === "recovery_pending") return "Recovery Pending"
   if (clean === "prescribed_medicine") return "Prescribed (Final)"
@@ -42,7 +47,7 @@ export function getPrototypePillClass(rawStatus?: string | null): string {
   if (!rawStatus) return "pill pill-neutral"
   const t = rawStatus.trim().toLowerCase()
 
-  if (/cancel|fail|declin|void/.test(t)) return "pill pill-red"
+  if (/cancel|fail|declin|void|reconciliation|requires?[_-]?action|unknown/.test(t)) return "pill pill-red"
   if (/partial/.test(t)) return "pill pill-amber"
   if (/paid|shipped|delivered|completed|results ready|prescribed/.test(t)) return "pill pill-green"
   if (/authorized|auth|beluga|rx sent|rx_sent|at lab|in process|processing|requisition|appointment|sample collected|received|collecting|with lab/.test(t))

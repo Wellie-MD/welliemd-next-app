@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { History, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import { type LabPanel } from "@/api/labs";
 import { type CombinedLabPanel, type CombinedDerivedStatus } from "@/features/labs/types";
 import { getCollectionMethodLabel, renderJunctionStatusBadge } from "@/features/labs/utils";
@@ -97,6 +97,7 @@ interface Props {
   onAssignOpenCombined?: (combined: CombinedLabPanel) => Promise<void>;
   onArchive: (lab: LabPanel) => Promise<void>;
   onArchiveCombined?: (combined: CombinedLabPanel) => Promise<void>;
+  onViewChangeHistory?: (lab: LabPanel) => void;
 }
 
 export default function LabsTable({
@@ -116,6 +117,7 @@ export default function LabsTable({
   onAssignOpenCombined,
   onArchive,
   onArchiveCombined,
+  onViewChangeHistory,
 }: Props) {
   const filtered = useMemo(() => {
     return labs.filter(lab => {
@@ -323,6 +325,15 @@ export default function LabsTable({
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
+                      {onViewChangeHistory && (
+                        <button
+                          onClick={() => onViewChangeHistory(lab)}
+                          className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                          title="View change history"
+                        >
+                          <History className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => onArchive(lab)}
                         className="p-1.5 hover:bg-rose-50 rounded text-rose-500 hover:text-rose-600 transition-colors"

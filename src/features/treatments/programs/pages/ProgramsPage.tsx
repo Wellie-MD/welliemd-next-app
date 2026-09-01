@@ -415,8 +415,10 @@ export default function ProgramsPage() {
       <TreatmentPageHeader
         title="Programs"
         subtitle="Clinical questionnaires linked to specific treatments. Each treatment has an intake module and (optionally) a follow-up module."
+        stackActionsAt="2xl"
+        actionsClassName="w-full 2xl:w-auto"
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-wrap items-center gap-3 2xl:w-auto 2xl:flex-nowrap">
             <Button
               variant="outline"
               onClick={() => navigate("/dashboard/treatments/programs/assignment-history")}
@@ -580,29 +582,31 @@ export default function ProgramsPage() {
             Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, displayedPrograms.length)} of{" "}
             {displayedPrograms.length} programs
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-center gap-1 sm:w-auto sm:gap-2">
             <Button
               type="button"
               variant="outline"
+              className="h-8 min-w-0 gap-1 px-2 text-xs sm:h-9 sm:gap-2 sm:px-3 sm:text-sm"
               size="sm"
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page === 1}
             >
-              <ChevronLeft className="mr-1 h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5 sm:mr-1 sm:h-4 sm:w-4" />
               Previous
             </Button>
-            <span className="min-w-24 text-center text-sm text-slate-600">
+            <span className="min-w-20 flex-1 text-center text-xs text-slate-600 sm:min-w-24 sm:flex-none sm:text-sm">
               Page {page} of {totalPages}
             </span>
             <Button
               type="button"
               variant="outline"
+              className="h-8 min-w-0 gap-1 px-2 text-xs sm:h-9 sm:gap-2 sm:px-3 sm:text-sm"
               size="sm"
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
               disabled={page === totalPages}
             >
               Next
-              <ChevronRight className="ml-1 h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </div>

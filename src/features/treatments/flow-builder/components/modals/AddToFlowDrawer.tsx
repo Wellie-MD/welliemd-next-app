@@ -8,7 +8,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
-import type { ConsentForm, Program, CommonSection, CustomProgramBuilderAddItem } from "@/features/treatments/types";
+import type { ConsentForm, Program, CommonSection, CustomProgramBuilderAddItem, CustomProgramFlowItem } from "@/features/treatments/types";
 
 import { FieldLibraryTab } from "../tabs/FieldLibraryTab";
 import { QuestionCreatorTab } from "../tabs/QuestionCreatorTab";
@@ -23,7 +23,7 @@ interface AddToFlowDrawerProps {
   sections: CommonSection[];
   consents: ConsentForm[];
   onAddItem: (item: CustomProgramBuilderAddItem) => void;
-  flowItems?: Array<{ kind: string; title: string; sourceId?: string; mappedField?: string }>;
+  flowItems?: CustomProgramFlowItem[];
 }
 
 type TabKey = "fields" | "question" | "eligibility" | "consent" | "checkout";

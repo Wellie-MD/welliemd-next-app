@@ -117,6 +117,39 @@ export const DrawerProductsSection: React.FC<DrawerProductsSectionProps> = ({
         </div>
       )}
 
+      {order.product_payment_reservations && order.product_payment_reservations.length > 0 && (
+        <div className="p-2.5 rounded-lg bg-muted/40 border border-border/40 space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Product payment diagnostics
+          </div>
+          {order.product_payment_reservations.map((payment) => {
+            const lineItem = order.line_items.find((item) => item.id === payment.line_item_id)
+            return (
+              <div key={payment.id} className="rounded-md border bg-background/60 p-2 space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="font-medium truncate">
+                    {payment.product_name || lineItem?.product_name || "Product"}
+                  </span>
+                  <span className={getPrototypePillClass(payment.status)}>
+                    {parseStatusLabel(payment.status)}
+                  </span>
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {payment.amount == null ? "Amount not recorded" : `${payment.currency || "USD"} ${payment.amount}`}
+                  {payment.processor ? ` · ${payment.processor}` : ""}
+                  {payment.provider_transaction_id ? ` · Gateway ref ${payment.provider_transaction_id}` : ""}
+                </div>
+                {payment.patient_action === "do_not_resubmit" && (
+                  <div className="text-[11px] font-medium text-red-700">
+                    Do not resubmit; reconcile the gateway outcome first.
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Product Cards List (Supporting Multiple Products + Bundles) */}
       <div className="space-y-3">
         {productItems.map((prod, idx) => (
