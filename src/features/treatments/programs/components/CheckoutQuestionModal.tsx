@@ -108,6 +108,7 @@ export function CheckoutQuestionModal({
                 onChange={setLabRequirements}
                 onPanelsLoaded={setLabPanels}
                 disabled={form.isSaving}
+                eligibleQuestions={visibilityQuestions}
               />
             ) : null}
             {mode === "medicine" && onSaveLabRequirements && (
