@@ -17,6 +17,7 @@ export const adminLabEndpoints = {
   combinedPanelDetail: (id: string) => `admin/labs/combined-panels/${id}/`,
   combinedValidate: "admin/labs/combined-panels/validate/",
   combinedClients: (id: string) => `admin/labs/combined-panels/${id}/clients/`,
+  panelChangeHistory: (id: string) => `admin/labs/panels/${id}/change-history/`,
   orders: "admin/labs/orders/",
   orderResults: (id: string) => `admin/labs/orders/${id}/results/`,
   orderManualUpdate: (id: string) => `admin/labs/orders/${id}/manual-update/`,
