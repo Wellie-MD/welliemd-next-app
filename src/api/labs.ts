@@ -8,6 +8,9 @@ import type {
   ClientAssignment,
   CreateDraftLabPanelFromCatalogPayload,
   CreateLabPanelPayload,
+  LabChangeAction,
+  LabChangeHistoryResponse,
+  LabChangeLogEntry,
   LabOrder,
   LabPanel,
 } from "./labs-types";
@@ -19,6 +22,9 @@ export type {
   ClientAssignment,
   CreateDraftLabPanelFromCatalogPayload,
   CreateLabPanelPayload,
+  LabChangeAction,
+  LabChangeHistoryResponse,
+  LabChangeLogEntry,
   LabOrder,
   LabPanel,
 } from "./labs-types";
@@ -436,6 +442,16 @@ export const labsApi = {
       responseType: "blob",
       params: clientId ? { client_id: clientId } : undefined,
     });
+    return data;
+  },
+
+  getPanelChangeHistory: async (panelId: string, action?: string): Promise<LabChangeHistoryResponse> => {
+    const { data } = await axiosInstance.get<LabChangeHistoryResponse>(
+      adminLabEndpoints.panelChangeHistory(panelId),
+      {
+        params: action && action !== "all" ? { action } : undefined,
+      }
+    );
     return data;
   },
 

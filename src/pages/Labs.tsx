@@ -9,6 +9,7 @@ import {
   LabEditModal,
   LabAssignModal,
   LabMarkerDetailModal,
+  LabChangeHistoryModal,
   LabsTable,
   type AssignClient,
   type AssignItem,
@@ -63,6 +64,12 @@ export default function Labs() {
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [markerOpen, setMarkerOpen] = useState(false);
+  const [changeHistoryOpen, setChangeHistoryOpen] = useState(false);
+  const [changeHistoryLab, setChangeHistoryLab] = useState<LabPanel | null>(null);
+  const [changeHistoryData, setChangeHistoryData] = useState<import("@/api/labs").LabChangeHistoryResponse | null>(null);
+  const [changeHistoryLoading, setChangeHistoryLoading] = useState(false);
+  const [changeHistoryError, setChangeHistoryError] = useState<string | null>(null);
+  const [changeHistoryFilter, setChangeHistoryFilter] = useState<"all" | import("@/api/labs").LabChangeAction>("all");
 
   const [selectedLab, setSelectedLab] = useState<LabPanel | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<import("@/api/labs").Biomarker | null>(null);
@@ -223,6 +230,33 @@ export default function Labs() {
         description: e?.response?.data?.detail ?? "Failed to archive combined panel.",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchChangeHistory = async (lab: LabPanel, filter: "all" | import("@/api/labs").LabChangeAction = "all") => {
+    setChangeHistoryLoading(true);
+    setChangeHistoryError(null);
+    try {
+      const data = await labsApi.getPanelChangeHistory(lab.id, filter);
+      setChangeHistoryData(data);
+    } catch (err: any) {
+      setChangeHistoryError(err?.response?.data?.detail ?? "Failed to load change history.");
+    } finally {
+      setChangeHistoryLoading(false);
+    }
+  };
+
+  const handleViewChangeHistory = (lab: LabPanel) => {
+    setChangeHistoryLab(lab);
+    setChangeHistoryFilter("all");
+    setChangeHistoryOpen(true);
+    fetchChangeHistory(lab, "all");
+  };
+
+  const handleHistoryFilterChange = (filter: "all" | import("@/api/labs").LabChangeAction) => {
+    setChangeHistoryFilter(filter);
+    if (changeHistoryLab) {
+      fetchChangeHistory(changeHistoryLab, filter);
     }
   };
 
@@ -481,6 +515,7 @@ export default function Labs() {
         onAssignOpenCombined={handleAssignOpenCombined}
         onArchive={handleArchive}
         onArchiveCombined={handleArchiveCombined}
+        onViewChangeHistory={handleViewChangeHistory}
       />
 
 
@@ -528,6 +563,18 @@ export default function Labs() {
         open={markerOpen}
         onOpenChange={setMarkerOpen}
         marker={selectedMarker}
+      />
+
+      <LabChangeHistoryModal
+        open={changeHistoryOpen}
+        onOpenChange={setChangeHistoryOpen}
+        recordName={changeHistoryLab?.name ?? ""}
+        recordType="lab"
+        history={changeHistoryData}
+        loading={changeHistoryLoading}
+        error={changeHistoryError}
+        filter={changeHistoryFilter}
+        onFilterChange={handleHistoryFilterChange}
       />
     </div>
   );
