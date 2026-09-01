@@ -203,6 +203,23 @@ export interface OrderLineItem {
   updated_at?: string | null
 }
 
+export interface ProductPaymentReservation {
+  id: string
+  line_item_id: string
+  product_id?: number | string | null
+  product_name?: string | null
+  amount?: string | number | null
+  currency?: string | null
+  authorized_amount?: string | number | null
+  captured_amount?: string | number | null
+  voided_amount?: string | number | null
+  refunded_amount?: string | number | null
+  status?: string | null
+  patient_action?: "do_not_resubmit" | "complete_required_action" | "contact_support" | null
+  safe_to_retry?: boolean
+  actions?: string[]
+}
+
 export interface TreatmentCaseSummary {
   id: string
   treatment_type_id?: string
@@ -505,6 +522,7 @@ export interface Order {
   activity_events?: OrderActivityEvent[]
   episode_id?: string | null
   line_items?: OrderLineItem[]
+  product_payment_reservations?: ProductPaymentReservation[]
   treatment_case_summary?: TreatmentCaseSummary | null
   combined_payment_summary?: {
     id: string
