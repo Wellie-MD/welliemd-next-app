@@ -75,13 +75,13 @@ const getOrderStatusBadgeClass = (value?: string | null) => {
 const orderColumns = [
   { key: "order_number", label: "Order #", minWidth: "120px", headerClassName: "whitespace-nowrap", className: "font-medium" },
   { key: "patient_name", label: "Patient Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
-  { key: "patient_email", label: "Patient Email", minWidth: "130px", headerClassName: "whitespace-nowrap" },
+  { key: "patient_email", label: "Patient Email", minWidth: "120px", maxWidth: "130px", headerClassName: "whitespace-nowrap", className: "max-w-[130px] break-words" },
   { key: "patient_phone", label: "Patient Phone", minWidth: "130px", headerClassName: "whitespace-nowrap" },
   { key: "product_name", label: "Product Name", minWidth: "170px", headerClassName: "whitespace-nowrap" },
   { key: "pharmacy_name_only", label: "Pharmacy Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
   { key: "orderDate", label: "Order Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
-  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
   { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "whitespace-nowrap" },
+  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
   { key: "orderTotal", label: "Order Amount", minWidth: "110px", headerClassName: "whitespace-nowrap" },
   { key: "orderStatus", label: "Order Status", minWidth: "150px", headerClassName: "whitespace-nowrap" },
   { key: "actions", label: "Actions", minWidth: "110px", headerClassName: "whitespace-nowrap", render: (_: any, row: any) => null }
@@ -607,8 +607,8 @@ export default function Orders() {
                     (remaining != null && remaining > 0)
                   )
                 return (
-                  <div className="relative space-y-1">
-                    <Badge variant="outline" className={`max-w-full whitespace-normal text-left ${getOrderStatusBadgeClass(currentStatus)}`}>
+                  <div className="relative flex flex-col items-center space-y-1">
+                    <Badge variant="outline" className={`whitespace-nowrap text-center ${getOrderStatusBadgeClass(currentStatus)}`}>
                       {row.status_display || formatStatusLabel(currentStatus)}
                     </Badge>
                     {hasRecoveryPending ? (
