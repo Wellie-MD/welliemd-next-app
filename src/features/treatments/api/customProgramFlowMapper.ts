@@ -4,6 +4,7 @@ import type {
   CustomProgramFlowItem,
 } from "@/features/treatments/types";
 import { normalizeCustomProgramSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
+import { mapBuilderSectionsFromFlowItems } from "@/features/treatments/custom-programs/utils/customProgramFlowProjection";
 
 type CustomProgramApiFlowItem = Partial<
   CustomProgramFlowItem & CustomProgramBuilderStageItem
@@ -146,20 +147,6 @@ const mapBuilderTreatmentOptionFromFlowItem = (
   sourceId: item.sourceId,
 });
 
-const mapBuilderSectionFromFlowItem = (
-  item: CustomProgramApiRecord["flow_items"][number]
-): CustomProgramBuilderStageItem => ({
-  id: item.id,
-  kind: "section",
-  title: item.title,
-  subtitle: item.subtitle || "Reusable section fields.",
-  source: item.source || "welliemd",
-  locked: item.locked ?? true,
-  required: item.required ?? true,
-  treatmentTypeKey: item.treatmentTypeKey,
-  sourceId: item.sourceId,
-});
-
 export const mapCustomProgramFromApi = (
   record: CustomProgramApiRecord,
 ): MappedCustomProgram => {
@@ -210,9 +197,9 @@ export const mapCustomProgramFromApi = (
     tags: record.tags || [],
     isMulti: record.is_multi ?? false,
     builderQuestions: flowItems.filter(isBuilderQuestionFlowItem).map(mapBuilderQuestionFromFlowItem),
-    builderSections: flowItems
-      .filter((item) => item.kind === "section")
-      .map(mapBuilderSectionFromFlowItem),
+    builderSections: mapBuilderSectionsFromFlowItems(
+      flowItems as Parameters<typeof mapBuilderSectionsFromFlowItems>[0],
+    ),
     builderTreatmentOptions: flowItems
       .filter((item) => item.kind === "program")
       .map(mapBuilderTreatmentOptionFromFlowItem),

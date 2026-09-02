@@ -8,6 +8,7 @@ export type FlowItemKind =
   | "authentication"
   | "program"
   | "section"
+  | "section_field"
   | "consent"
   | "routing_question"
   | "checkout";
@@ -30,7 +31,12 @@ export interface CustomProgramBuilderAddItem extends CustomProgramFlowItemInput 
 
 export type CustomProgramBuilderItemSource = "admin" | "client" | "welliemd";
 
-export type CustomProgramBuilderItemKind = "question" | "section" | "program" | "consent";
+export type CustomProgramBuilderItemKind =
+  | "question"
+  | "section"
+  | "section_field"
+  | "program"
+  | "consent";
 
 export interface CustomProgramBuilderStageItem {
   id: string;
@@ -45,6 +51,7 @@ export interface CustomProgramBuilderStageItem {
   answerOptions?: string[];
   treatmentTypeKey?: string;
   sourceId?: string;
+  mappedField?: string;
 }
 
 export interface CustomProgramBuilderStage {

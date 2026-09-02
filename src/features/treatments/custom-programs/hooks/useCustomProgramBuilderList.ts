@@ -59,7 +59,7 @@ const enrichQuestionItems = (items: CustomProgramBuilderStageItem[]) =>
 const getBuilderSections = (customProgram: CustomProgram) => {
   if (customProgram.builderSections?.length) return customProgram.builderSections;
   return customProgram.flowItems
-    .filter((item) => item.kind === "section")
+    .filter((item) => item.kind === "section" || item.kind === "section_field")
     .map((item) => toFallbackStageItem(item, true));
 };
 
