@@ -6,7 +6,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Client } from '@/api/clientApi';
-import { Building2, CheckCircle, XCircle, Pencil, Ban, ExternalLink, Activity } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Pencil, Ban, ExternalLink, Activity, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import axiosInstance from '@/api/axiosInstance';
 import { startSuperAdminAccess, type SuperAdminPortalType } from '@/api/superAdminAccessApi';
