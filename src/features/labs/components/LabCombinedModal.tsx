@@ -160,8 +160,8 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl p-0 gap-0">
-        <DialogHeader className="p-6 border-b">
+      <DialogContent className="w-[calc(100vw-24px)] sm:w-full max-w-xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 sm:p-6 border-b shrink-0">
           <DialogTitle className="text-lg font-bold">Create combined panel</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground mt-1 leading-normal">
             Pair an at-home test with a walk-in test so one checkout link lets the patient
@@ -170,7 +170,7 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
           </DialogDescription>
         </DialogHeader>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
           {/* Panel name */}
           <div className="space-y-1.5">
             <Label htmlFor="comb-name" className="font-semibold text-xs text-foreground">
@@ -202,24 +202,26 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
                 : undefined;
               return (
                 <div key={row.method} className="space-y-1 py-1.5">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id={`comb-${row.method}`}
-                      checked={row.checked}
-                      onCheckedChange={(v) => toggleMethod(row.method, !!v)}
-                    />
-                    <label
-                      htmlFor={`comb-${row.method}`}
-                      className="text-xs font-medium text-foreground w-[156px] shrink-0 cursor-pointer"
-                    >
-                      {row.label}
-                    </label>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
+                      <Checkbox
+                        id={`comb-${row.method}`}
+                        checked={row.checked}
+                        onCheckedChange={(v) => toggleMethod(row.method, !!v)}
+                      />
+                      <label
+                        htmlFor={`comb-${row.method}`}
+                        className="text-xs font-medium text-foreground w-[156px] shrink-0 cursor-pointer"
+                      >
+                        {row.label}
+                      </label>
+                    </div>
                     <Select
                       value={row.selectedPanelId}
                       onValueChange={val => setPanel(row.method, val)}
                       disabled={available.length === 0}
                     >
-                      <SelectTrigger className="h-8 text-xs flex-1">
+                      <SelectTrigger className="h-8 text-xs w-full sm:flex-1">
                         <SelectValue
                           placeholder={
                             available.length === 0 ? "No active panels for this method" : "Select a test…"
@@ -262,7 +264,7 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
           )}
         </div>
 
-        <DialogFooter className="gap-2 md:gap-0 px-6 py-4 border-t">
+        <DialogFooter className="gap-2 sm:gap-0 px-4 sm:px-6 py-4 border-t shrink-0">
           <Button
             type="button"
             variant="outline"
