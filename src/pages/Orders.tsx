@@ -16,6 +16,7 @@ import { ordersApi, Order, FilterOption } from "@/api/ordersApi"
 import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
 import { usePermissions } from "@/hooks/usePermissions"
 import { Permissions } from "@/constants/permissions"
+import { EmailCell } from "@/components/orders/EmailCell"
 
 const ORDER_STATUS_OPTIONS = [
   { label: "All", value: "all" },
@@ -75,7 +76,7 @@ const getOrderStatusBadgeClass = (value?: string | null) => {
 const orderColumns = [
   { key: "order_number", label: "Order #", minWidth: "120px", headerClassName: "whitespace-nowrap", className: "font-medium" },
   { key: "patient_name", label: "Patient Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
-  { key: "patient_email", label: "Patient Email", minWidth: "120px", maxWidth: "130px", headerClassName: "whitespace-nowrap", className: "max-w-[130px] break-words" },
+  { key: "patient_email", label: "Patient Email", minWidth: "120px", maxWidth: "130px", headerClassName: "whitespace-nowrap", className: "max-w-[130px]" },
   { key: "patient_phone", label: "Patient Phone", minWidth: "130px", headerClassName: "whitespace-nowrap" },
   { key: "product_name", label: "Product Name", minWidth: "170px", headerClassName: "whitespace-nowrap" },
   { key: "pharmacy_name_only", label: "Pharmacy Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
@@ -585,6 +586,13 @@ export default function Orders() {
             }
           }
 
+          if (col.key === 'patient_email') {
+            return {
+              ...col,
+              render: (value: unknown) => <EmailCell value={value} />,
+            }
+          }
+
           if (col.key === 'orderDate' || col.key === 'datePrescribed' || col.key === 'paymentDate') {
             return {
               ...col,
@@ -646,6 +654,7 @@ export default function Orders() {
           }
         })}
         fitToWidth={true}
+        responsiveScroll={true}
         searchPlaceholder="Search by order number, patient name, email, or phone"
         showDatePicker={true}
         showExport={true}
