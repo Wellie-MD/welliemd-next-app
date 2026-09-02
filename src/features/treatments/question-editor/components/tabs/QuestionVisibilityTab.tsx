@@ -28,6 +28,7 @@ interface QuestionVisibilityTabProps {
   questions: ProgramQuestion[];
   currentQuestionId: string;
   validationIssues?: VisibilityValidationIssue[];
+  visibilitySourceScope?: "default" | "custom_program_stage1";
 }
 
 const NUMERIC_VISIBILITY_OPERATORS = new Set(["gt", "gte", "lt", "lte", "between"]);
@@ -50,7 +51,9 @@ export function QuestionVisibilityTab({
   questions,
   currentQuestionId,
   validationIssues = [],
+  visibilitySourceScope = "default",
 }: QuestionVisibilityTabProps) {
+  const isCustomProgramContext = visibilitySourceScope === "custom_program_stage1";
   const currentQuestionOrder = questions.find((question) => question.id === currentQuestionId)?.order || 999;
   const eligibleQuestions = questions.filter((question) => (
     question.id !== currentQuestionId && question.order < currentQuestionOrder
@@ -70,16 +73,20 @@ export function QuestionVisibilityTab({
     }),
   });
 
-  const hasBmiQuestion = eligibleQuestions.some(
+  const hasBmiQuestion = !isCustomProgramContext && eligibleQuestions.some(
     (q) => q.kind === "height_weight" || q.kind === "bmi"
   );
 
   const builderQuestions = eligibleQuestions
-    .filter((q) => q.kind !== "height_weight" && q.kind !== "bmi" && q.kind !== "section")
+    .filter((q) => (
+      q.kind !== "section"
+      && (isCustomProgramContext || (q.kind !== "height_weight" && q.kind !== "bmi"))
+    ))
     .map((question) => ({
       id: question.id,
       question_text: question.text,
       order_index: question.order,
+      question_type: question.kind === "height_weight" ? "bmi" : question.kind,
       answer_choices: question.choices,
     }));
 
@@ -100,6 +107,7 @@ export function QuestionVisibilityTab({
           id: field.sourceFieldId,
           question_text: `${sectionQuestion.text} — ${field.label}`,
           order_index: sectionQuestion.order,
+          question_type: field.kind,
           answer_choices: answerChoices,
         });
       });
@@ -113,23 +121,27 @@ export function QuestionVisibilityTab({
       id: DERIVED_BMI_ID,
       question_text: "BMI (Calculated)",
       order_index: bmiQuestion?.order ?? 0,
+      question_type: "bmi",
     });
   }
 
   builderQuestions.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
-  builderQuestions.push(
-    {
-      id: PATIENT_PROFILE_SEX_ID,
-      question_text: "Patient profile — Sex assigned at birth",
-      order_index: 10000,
-      answer_choices: ["Male", "Female", "Other"],
-    },
-    {
-      id: PATIENT_PROFILE_AGE_ID,
-      question_text: "Patient profile — Age",
-      order_index: 10001,
-    },
-  );
+
+  if (!isCustomProgramContext) {
+    builderQuestions.push(
+      {
+        id: PATIENT_PROFILE_SEX_ID,
+        question_text: "Patient profile — Sex assigned at birth",
+        order_index: 10000,
+        answer_choices: ["Male", "Female", "Other"],
+      },
+      {
+        id: PATIENT_PROFILE_AGE_ID,
+        question_text: "Patient profile — Age",
+        order_index: 10001,
+      },
+    );
+  }
 
   // Older rules may contain a short semantic answer (for example
   // `Semaglutide`) while the current question choice has a longer display

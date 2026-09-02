@@ -33,7 +33,9 @@ export type VisibilityConditionOperator =
   | "gte"
   | "lt"
   | "lte"
-  | "between";
+  | "between"
+  | "is_empty"
+  | "is_not_empty";
 
 export interface VisibilityCondition {
   type: "condition";
@@ -50,10 +52,11 @@ export interface VisibilityGroup {
   children: Array<VisibilityCondition | VisibilityGroup>;
 }
 
-interface QuestionOption {
+export interface QuestionOption {
   id: string;
   question_text: string;
   order_index?: number;
+  question_type?: string;
   answer_choices?: Array<string | Record<string, unknown>>;
 }
 
@@ -66,7 +69,7 @@ interface VisibilityRuleBuilderProps {
 
 const NUMERIC_OPERATORS = new Set<VisibilityConditionOperator>(["gt", "gte", "lt", "lte", "between"]);
 
-const CONDITION_OPERATORS: Array<{
+export const CONDITION_OPERATORS: Array<{
   value: VisibilityConditionOperator;
   label: string;
 }> = [
@@ -81,7 +84,30 @@ const CONDITION_OPERATORS: Array<{
   { value: "lt", label: "Less than" },
   { value: "lte", label: "Less or equal" },
   { value: "between", label: "In between" },
+  { value: "is_empty", label: "Is empty / unanswered" },
+  { value: "is_not_empty", label: "Is not empty / answered" },
 ];
+
+const TYPE_ALLOWED_OPERATORS: Record<string, VisibilityConditionOperator[]> = {
+  single_choice: ["equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty"],
+  single: ["equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty"],
+  yes_no: ["equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty"],
+  multiple_choice: ["contains", "not_contains", "is_empty", "is_not_empty"],
+  multiple: ["contains", "not_contains", "is_empty", "is_not_empty"],
+  number: ["equals", "not_equals", "gt", "gte", "lt", "lte", "between", "is_empty", "is_not_empty"],
+  bmi: ["equals", "not_equals", "gt", "gte", "lt", "lte", "between", "is_empty", "is_not_empty"],
+  height_weight: ["equals", "not_equals", "gt", "gte", "lt", "lte", "between", "is_empty", "is_not_empty"],
+  text: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
+  textarea: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
+  email: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
+  phone: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
+  zip: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
+  date: ["equals", "not_equals", "is_empty", "is_not_empty"],
+};
+
+export const getAllowedOperators = (kind?: string): VisibilityConditionOperator[] => {
+  return TYPE_ALLOWED_OPERATORS[kind || ""] || ["equals", "not_equals", "is_empty", "is_not_empty"];
+};
 
 function defaultCondition(questionId = ""): VisibilityCondition {
   return {
@@ -214,6 +240,10 @@ function ConditionEditor({
     onChange(path, (current) => ({ ...current, value: nextValue }));
   };
 
+  const questionKind = selectedQuestion?.question_type;
+  const allowedOperators = getAllowedOperators(questionKind);
+  const isEmptyOperator = node.operator === "is_empty" || node.operator === "is_not_empty";
+
   return (
     <div
       className={`space-y-3 rounded-lg border bg-background p-3 ${hasIssue ? "border-red-400 ring-1 ring-red-100" : ""}`}
@@ -233,12 +263,17 @@ function ConditionEditor({
           <Label className="text-xs">Question</Label>
           <Select
             value={questionId}
-            onValueChange={(questionId) => {
-              const isBmi = questionId === DERIVED_BMI_ID;
+            onValueChange={(selectedId) => {
+              const isBmi = selectedId === DERIVED_BMI_ID;
+              const targetQ = questions.find((q) => q.id === selectedId);
+              const qKind = targetQ?.question_type || (isBmi ? "bmi" : undefined);
+              const allowed = getAllowedOperators(qKind);
+              const nextOp = allowed.includes(node.operator) ? node.operator : allowed[0];
               onChange(path, (current) => ({
                 ...current,
-                question_id: questionId,
-                question_type: isBmi ? "bmi" : undefined,
+                question_id: selectedId,
+                question_type: qKind,
+                operator: nextOp,
                 value: "",
               }));
             }}
@@ -335,7 +370,7 @@ function ConditionEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {CONDITION_OPERATORS.map((operator) => (
+              {CONDITION_OPERATORS.filter((op) => allowedOperators.includes(op.value)).map((operator) => (
                 <SelectItem key={operator.value} value={operator.value}>
                   {operator.label}
                 </SelectItem>
@@ -346,7 +381,11 @@ function ConditionEditor({
 
         <div className="space-y-2">
           <Label className="text-xs">Value</Label>
-          {isBetween ? (
+          {isEmptyOperator ? (
+            <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-500">
+              Matches when question is {node.operator === "is_empty" ? "unanswered" : "answered"}
+            </div>
+          ) : isBetween ? (
             <div className="flex items-center gap-2">
               <Input
                 type="number"
