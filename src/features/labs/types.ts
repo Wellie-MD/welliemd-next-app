@@ -25,6 +25,7 @@ export interface AssignItem {
   name: string;
   sub: string;
   checked: boolean;
+  kind: "single" | "combined";
 }
 
 /** A client row in the right pane of the Assign to Clients modal. */
@@ -34,6 +35,7 @@ export interface AssignClient {
   email: string;
   checked: boolean;
   assignment_id?: string | null;
+  assignment_ids?: string[];
   junction_lab_test_id?: string;
   junction_status?: string;
   junction_external_status?: string;

@@ -188,7 +188,13 @@ export default function LabAssignModal({
               {filteredClients.map(c => {
                 const statusNorm = (c.junction_status ?? "").toLowerCase();
                 const operationalNorm = (c.operational_status ?? "").toLowerCase();
-                const busy = !!c.assignment_id && assignmentActionId === c.assignment_id;
+                const assignmentIds = c.assignment_ids?.length
+                  ? c.assignment_ids
+                  : c.assignment_id
+                    ? [c.assignment_id]
+                    : [];
+                const hasAssignment = assignmentIds.length > 0;
+                const busy = hasAssignment && assignmentIds.includes(assignmentActionId ?? "");
                 const accountOptions = c.lab_account_options ?? [];
                 const labAccountRequired = c.lab_account_required ?? false;
                 const usesPlatformAccounts = (c.lab_account_mode ?? "platform") === "platform";
@@ -196,23 +202,23 @@ export default function LabAssignModal({
                   labAccountRequired && (c.lab_account_state === "ambiguous" || accountOptions.length > 1);
                 const needsAccountSelection = hasAmbiguousAccounts && !c.lab_account_id;
                 const canSubmit =
-                  !!c.assignment_id &&
+                  hasAssignment &&
                   c.checked &&
                   !c.junction_lab_test_id &&
                   !needsAccountSelection &&
                   !!c.submission_ready;
                 const canSync =
-                  !!c.assignment_id &&
+                  hasAssignment &&
                   c.checked &&
                   !!c.junction_lab_test_id;
                 const canCheck =
-                  !!c.assignment_id &&
+                  hasAssignment &&
                   c.checked &&
                   !!c.junction_lab_test_id &&
                   !c.is_orderable &&
                   statusNorm !== "active";
                 const canReplace =
-                  !!c.assignment_id &&
+                  hasAssignment &&
                   c.checked &&
                   (statusNorm === "failed" ||
                     statusNorm === "rejected" ||
@@ -234,7 +240,7 @@ export default function LabAssignModal({
                         {c.name}
                       </div>
                       <div className="text-[10px] text-muted-foreground truncate">{c.email}</div>
-                      {c.checked && c.assignment_id && (
+                      {c.checked && hasAssignment && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           {renderJunctionStatusBadge(c.junction_status || "pending_submission")}
                           {c.is_orderable && (
@@ -300,7 +306,7 @@ export default function LabAssignModal({
                           ? "Platform routing"
                           : `${accountOptions.length || (c.linkedLabAccountIds ?? []).length} acct${(accountOptions.length || (c.linkedLabAccountIds ?? []).length) === 1 ? "" : "s"}`}
                       </span>
-                      {c.checked && c.assignment_id && (
+                      {c.checked && hasAssignment && (
                         <div className="flex items-center gap-1">
                           {canSync && (
                             <Button

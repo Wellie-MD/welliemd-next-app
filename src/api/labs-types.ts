@@ -181,6 +181,7 @@ export interface ClientAssignment {
   assigned: boolean;
   assigned_at?: string | null;
   assignment_id?: string | null;
+  assignment_ids?: string[];
   is_current?: boolean;
   junction_lab_test_id?: string;
   junction_status?: string;
@@ -210,6 +211,7 @@ export interface ClientAssignment {
   provider_supported_states?: string[];
   provider_policy_revision?: number | null;
   provider_policy_source?: string;
+  methods?: Array<Record<string, unknown>>;
 }
 
 export interface LabOrder {

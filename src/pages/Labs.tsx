@@ -30,7 +30,8 @@ const toAssignClient = (c: ClientAssignment): AssignClient => ({
   name: (c as any).client_name || c.name,
   email: (c as any).client_email || c.email || "",
   checked: c.assigned,
-  assignment_id: c.assignment_id,
+  assignment_id: c.assignment_id || c.assignment_ids?.[0] || null,
+  assignment_ids: c.assignment_ids || [],
   junction_lab_test_id: c.junction_lab_test_id,
   junction_status: c.junction_status,
   junction_external_status: c.junction_external_status,
@@ -45,7 +46,7 @@ const toAssignClient = (c: ClientAssignment): AssignClient => ({
   blocking_reason: c.blocking_reason,
   patient_price_configured: c.patient_price_configured,
   service_state_options: c.service_state_options,
-  methods: (c as any).methods,
+  methods: c.methods,
 });
 
 export default function Labs() {
@@ -156,6 +157,19 @@ export default function Labs() {
         );
       })
       .map(l => l.id);
+    const q = search.toLowerCase();
+    const visibleCombinedIds = combinedPanels
+      .filter(c => {
+        if (c.is_archived) return false;
+        const providers = c.members.map(member => member.lab_provider).join(" ").toLowerCase();
+        if (q && !c.name.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q) && !providers.includes(q)) return false;
+        if (statusFilter === "Active") return c.is_active && c.is_assignable;
+        if (statusFilter === "Pending approval") return c.configuration_status !== "ready_to_assign";
+        if (statusFilter === "Inactive") return !c.is_active;
+        return true;
+      })
+      .map(c => c.id);
+    visibleIds.push(...visibleCombinedIds);
     setSelectedRowIds(prev =>
       checked
         ? Array.from(new Set([...prev, ...visibleIds]))
@@ -263,7 +277,7 @@ export default function Labs() {
   const refreshAssignClients = async () => {
     const checked = assignItemPool.filter(it => it.checked);
     if (checked.length !== 1) return;
-    const list = assignMode === "combined"
+    const list = checked[0].kind === "combined"
       ? await labsApi.getCombinedPanelClients(checked[0].id)
       : await labsApi.getClientsForLabAssignment(checked[0].id);
     setAssignClients(list.map(toAssignClient));
@@ -280,7 +294,7 @@ export default function Labs() {
     }
     const assignableLabs = labs.filter(l => l.is_assignable);
     setAssignMode("single");
-    setAssignItemPool(assignableLabs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: l.id === lab.id })));
+    setAssignItemPool(assignableLabs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: l.id === lab.id, kind: "single" as const })));
     setAssignItemSearch("");
     setAssignClientSearch("");
     try {
@@ -292,7 +306,7 @@ export default function Labs() {
 
   const handleAssignOpenCombined = async (combined: import("@/features/labs/types").CombinedLabPanel) => {
     setAssignMode("combined");
-    setAssignItemPool(combinedPanels.map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: c.id === combined.id })));
+    setAssignItemPool(combinedPanels.filter(c => c.is_assignable).map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: c.id === combined.id, kind: "combined" as const })));
     setAssignItemSearch("");
     setAssignClientSearch("");
     try {
@@ -308,22 +322,32 @@ export default function Labs() {
       return;
     }
     const selectedLabs = labs.filter(l => selectedRowIds.includes(l.id));
-    const incompleteLabs = selectedLabs.filter(l => !l.is_assignable);
-    if (incompleteLabs.length > 0) {
+    const selectedCombined = combinedPanels.filter(c => selectedRowIds.includes(c.id));
+    const incompleteLabs = selectedLabs.filter(l => !l.is_assignable).map(l => l.name);
+    const incompleteCombined = selectedCombined.filter(c => !c.is_assignable).map(c => c.name);
+    if (incompleteLabs.length > 0 || incompleteCombined.length > 0) {
       toast({
         title: "Configuration in progress",
-        description: `Finish configuration before assigning: ${incompleteLabs.map(l => l.name).join(", ")}.`,
+        description: `Finish configuration before assigning: ${[...incompleteLabs, ...incompleteCombined].join(", ")}.`,
         variant: "destructive",
       });
       return;
     }
     const assignableLabs = labs.filter(l => l.is_assignable);
-    setAssignMode("single");
-    setAssignItemPool(assignableLabs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: selectedRowIds.includes(l.id) })));
+    const assignableCombined = combinedPanels.filter(c => c.is_assignable);
+    const pool: AssignItem[] = [
+      ...assignableLabs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: selectedRowIds.includes(l.id), kind: "single" as const })),
+      ...assignableCombined.map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: selectedRowIds.includes(c.id), kind: "combined" as const })),
+    ];
+    const firstSelected = pool.find(item => item.checked);
+    setAssignMode(firstSelected?.kind === "combined" ? "combined" : "single");
+    setAssignItemPool(pool);
     setAssignItemSearch("");
     setAssignClientSearch("");
     try {
-      const list = await labsApi.getClientsForLabAssignment(selectedRowIds[0]);
+      const list = firstSelected?.kind === "combined"
+        ? await labsApi.getCombinedPanelClients(firstSelected.id)
+        : await labsApi.getClientsForLabAssignment(firstSelected?.id || selectedRowIds[0]);
       setAssignClients(list.map(toAssignClient));
       setAssignOpen(true);
     } catch (e) { console.error(e); }
@@ -336,11 +360,12 @@ export default function Labs() {
       return;
     }
     const selectedClients = assignClients.filter(c => c.checked);
+    const hasSingleSelection = checkedItems.some(item => item.kind === "single");
     const unresolved = selectedClients.filter(c =>
       ((c.lab_account_options?.length ?? 0) > 1 || c.lab_account_state === "ambiguous") &&
       !c.lab_account_id
     );
-    if (unresolved.length > 0 && assignMode === "single") {
+    if (unresolved.length > 0 && hasSingleSelection) {
       toast({
         title: "Lab account selection required",
         description: `Select a Junction lab account for ${unresolved[0].name} before assigning.`,
@@ -354,10 +379,27 @@ export default function Labs() {
         .filter(c => c.lab_account_id)
         .map(c => [c.id, c.lab_account_id as string])
     );
+    let combinedSyncFailures = 0;
     try {
       for (const item of checkedItems) {
-        if (assignMode === "combined") {
-          await labsApi.assignCombinedPanelToClients(item.id, clientIds);
+        if (item.kind === "combined") {
+          const response = await labsApi.assignCombinedPanelToClients(item.id, clientIds);
+          let assignmentIds = (response.results || []).flatMap(client =>
+            client.assignment_ids || (client.assignment_id ? [client.assignment_id] : [])
+          );
+          // Older deployments may acknowledge the assignment without returning
+          // the member rows. Re-read the combined endpoint before giving up on
+          // tenant synchronization.
+          if (assignmentIds.length === 0 && clientIds.length > 0) {
+            const rows = await labsApi.getCombinedPanelClients(item.id);
+            assignmentIds = rows
+              .filter(client => clientIds.includes(client.id))
+              .flatMap(client => client.assignment_ids || (client.assignment_id ? [client.assignment_id] : []));
+          }
+          const syncResults = await Promise.allSettled(
+            Array.from(new Set(assignmentIds)).map(id => labsApi.syncAssignmentToTenant(id))
+          );
+          combinedSyncFailures += syncResults.filter(result => result.status === "rejected").length;
         } else {
           await labsApi.assignLabPanelToClients(item.id, clientIds, labAccountSelections);
         }
@@ -365,14 +407,20 @@ export default function Labs() {
       setSelectedRowIds([]);
       loadData();
       if (checkedItems.length === 1) {
-        const list = assignMode === "combined"
+        const list = checkedItems[0].kind === "combined"
           ? await labsApi.getCombinedPanelClients(checkedItems[0].id)
           : await labsApi.getClientsForLabAssignment(checkedItems[0].id);
         setAssignClients(list.map(toAssignClient));
       } else {
         setAssignOpen(false);
       }
-      toast({ title: "Assignments updated." });
+      toast({
+        title: "Assignments updated.",
+        description: combinedSyncFailures
+          ? `${combinedSyncFailures} combined-panel member sync${combinedSyncFailures === 1 ? "" : "s"} failed. Use Sync on the client row to retry.`
+          : undefined,
+        variant: combinedSyncFailures ? "destructive" : undefined,
+      });
     } catch (e) {
       console.error(e);
       toast({ title: "Error", description: "Failed to assign items.", variant: "destructive" });
@@ -380,12 +428,16 @@ export default function Labs() {
   };
 
   const handleSubmitToJunction = async (client: AssignClient) => {
-    if (!client.assignment_id) return;
-    setAssignmentActionId(client.assignment_id);
+    const assignmentIds = client.assignment_ids?.length ? client.assignment_ids : client.assignment_id ? [client.assignment_id] : [];
+    if (assignmentIds.length === 0) return;
+    setAssignmentActionId(assignmentIds[0]);
     try {
-      const res = await labsApi.submitAssignmentToJunction(client.assignment_id);
+      const responses = [];
+      for (const assignmentId of assignmentIds) {
+        responses.push(await labsApi.submitAssignmentToJunction(assignmentId));
+      }
       await refreshAssignClients();
-      toast({ title: "Submitted to Junction", description: res.message ?? `${client.name}'s panel was submitted.` });
+      toast({ title: "Submitted to Junction", description: responses[0]?.message ?? `${client.name}'s panel was submitted.` });
     } catch (e: any) {
       toast({ title: "Junction submission failed", description: e?.response?.data?.message ?? e?.response?.data?.detail ?? "Failed.", variant: "destructive" });
     } finally {
@@ -394,12 +446,16 @@ export default function Labs() {
   };
 
   const handleSyncToTenant = async (client: AssignClient) => {
-    if (!client.assignment_id) return;
-    setAssignmentActionId(client.assignment_id);
+    const assignmentIds = client.assignment_ids?.length ? client.assignment_ids : client.assignment_id ? [client.assignment_id] : [];
+    if (assignmentIds.length === 0) return;
+    setAssignmentActionId(assignmentIds[0]);
     try {
-      const res = await labsApi.syncAssignmentToTenant(client.assignment_id);
+      const responses = [];
+      for (const assignmentId of assignmentIds) {
+        responses.push(await labsApi.syncAssignmentToTenant(assignmentId));
+      }
       await refreshAssignClients();
-      toast({ title: "Client synced", description: res.message ?? `${client.name}'s panel copy was updated.` });
+      toast({ title: "Client synced", description: responses[0]?.message ?? `${client.name}'s panel copy was updated.` });
     } catch (e: any) {
       toast({ title: "Sync failed", description: e?.response?.data?.message ?? e?.response?.data?.detail ?? "Failed.", variant: "destructive" });
     } finally {
@@ -408,12 +464,16 @@ export default function Labs() {
   };
 
   const handleCheckStatus = async (client: AssignClient) => {
-    if (!client.assignment_id) return;
-    setAssignmentActionId(client.assignment_id);
+    const assignmentIds = client.assignment_ids?.length ? client.assignment_ids : client.assignment_id ? [client.assignment_id] : [];
+    if (assignmentIds.length === 0) return;
+    setAssignmentActionId(assignmentIds[0]);
     try {
-      const res = await labsApi.checkAssignmentJunctionStatus(client.assignment_id);
+      const responses = [];
+      for (const assignmentId of assignmentIds) {
+        responses.push(await labsApi.checkAssignmentJunctionStatus(assignmentId));
+      }
       await refreshAssignClients();
-      toast({ title: "Junction status checked", description: res.message ?? `${client.name}'s status synchronized.` });
+      toast({ title: "Junction status checked", description: responses[0]?.message ?? `${client.name}'s status synchronized.` });
     } catch (e: any) {
       toast({ title: "Status check failed", description: e?.response?.data?.message ?? e?.response?.data?.detail ?? "Failed.", variant: "destructive" });
     } finally {
@@ -422,13 +482,17 @@ export default function Labs() {
   };
 
   const handleReplaceSubmission = async (client: AssignClient) => {
-    if (!client.assignment_id) return;
+    const assignmentIds = client.assignment_ids?.length ? client.assignment_ids : client.assignment_id ? [client.assignment_id] : [];
+    if (assignmentIds.length === 0) return;
     if (!confirm(`Create a replacement Junction submission for ${client.name}?`)) return;
-    setAssignmentActionId(client.assignment_id);
+    setAssignmentActionId(assignmentIds[0]);
     try {
-      const res = await labsApi.replaceAssignmentSubmission(client.assignment_id, "Replacement created from admin portal.");
+      const responses = [];
+      for (const assignmentId of assignmentIds) {
+        responses.push(await labsApi.replaceAssignmentSubmission(assignmentId, "Replacement created from admin portal."));
+      }
       await refreshAssignClients();
-      toast({ title: "Replacement created", description: res.message ?? "Submit the replacement to Junction." });
+      toast({ title: "Replacement created", description: responses[0]?.message ?? "Submit the replacement to Junction." });
     } catch (e: any) {
       toast({ title: "Replacement failed", description: e?.response?.data?.detail ?? "Failed.", variant: "destructive" });
     } finally {

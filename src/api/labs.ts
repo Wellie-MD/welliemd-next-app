@@ -123,6 +123,11 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   assigned: !!raw.assigned,
   assigned_at: raw.assigned_at || null,
   assignment_id: raw.assignment_id || null,
+  assignment_ids: Array.isArray(raw.assignment_ids)
+    ? raw.assignment_ids.map(String)
+    : Array.isArray(raw.methods)
+      ? raw.methods.map((method: any) => method?.assignment_id).filter(Boolean).map(String)
+      : raw.assignment_id ? [String(raw.assignment_id)] : [],
   is_current: raw.is_current,
   junction_lab_test_id: raw.junction_lab_test_id || "",
   junction_status: raw.junction_status || "",
@@ -144,6 +149,7 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   provider_supported_states: Array.isArray(raw.provider_supported_states) ? raw.provider_supported_states : [],
   provider_policy_revision: typeof raw.provider_policy_revision === "number" ? raw.provider_policy_revision : null,
   provider_policy_source: raw.provider_policy_source || "",
+  methods: Array.isArray(raw.methods) ? raw.methods : [],
 });
 
 const fallbackOrderStatus = (raw: any): string => {
@@ -388,17 +394,26 @@ export const labsApi = {
 
   getCombinedPanelClients: async (combinedId: string) => {
     const { data } = await axiosInstance.get(adminLabEndpoints.combinedClients(combinedId));
-    return (data.results || data || []) as Array<Record<string, any>>;
+    return (data.results || data || []).map(normalizeClientAssignment);
   },
 
   assignCombinedPanelToClients: async (
     combinedId: string,
     clientIds: string[]
-  ): Promise<{ success: boolean; assigned_client_count: number }> => {
+  ): Promise<{
+    success: boolean;
+    assigned_client_count: number;
+    results?: ClientAssignment[];
+  }> => {
     const { data } = await axiosInstance.post(adminLabEndpoints.combinedClients(combinedId), {
       client_ids: clientIds,
     });
-    return data;
+    return {
+      ...data,
+      results: Array.isArray(data.results)
+        ? data.results.map(normalizeClientAssignment)
+        : data.results,
+    };
   },
 
   getAdminLabOrders: async (): Promise<LabOrder[]> => {

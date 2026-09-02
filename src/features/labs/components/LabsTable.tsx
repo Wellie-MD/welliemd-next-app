@@ -141,7 +141,23 @@ export default function LabsTable({
     });
   }, [labs, search, statusFilter, assignmentSummary]);
 
-  const allVisible = filtered.length > 0 && filtered.every(l => selectedRowIds.includes(l.id));
+  const filteredCombined = useMemo(() => {
+    return combinedPanels.filter(combined => {
+      if (combined.is_archived) return false;
+      const q = search.toLowerCase();
+      const providers = combined.members.map(member => member.lab_provider).join(" ").toLowerCase();
+      if (q && !combined.name.toLowerCase().includes(q) && !combined.id.toLowerCase().includes(q) && !providers.includes(q)) {
+        return false;
+      }
+      if (statusFilter === "Active") return combined.is_active && combined.is_assignable;
+      if (statusFilter === "Pending approval") return combined.configuration_status !== "ready_to_assign";
+      if (statusFilter === "Inactive") return !combined.is_active;
+      return true;
+    });
+  }, [combinedPanels, search, statusFilter]);
+
+  const allVisibleIds = [...filtered.map(l => l.id), ...filteredCombined.map(c => c.id)];
+  const allVisible = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedRowIds.includes(id));
   const canAssignLab = (lab: LabPanel) => !!lab.is_assignable;
 
   return (
@@ -347,7 +363,7 @@ export default function LabsTable({
               );
             })}
 
-            {filtered.length === 0 && combinedPanels.filter(c => !c.is_archived).length === 0 && (
+            {filtered.length === 0 && filteredCombined.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={7}
@@ -359,7 +375,7 @@ export default function LabsTable({
             )}
 
             {/* Combined panel rows */}
-            {combinedPanels.filter(c => !c.is_archived).map(combined => {
+            {filteredCombined.map(combined => {
               const methodSummary = combined.members
                 .map(m => getCollectionMethodLabel(m.collection_method))
                 .join(" · ");
