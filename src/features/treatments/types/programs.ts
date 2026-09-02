@@ -13,6 +13,8 @@ export interface ProgramAuthConfig {
   enabled?: boolean;
 }
 
+import type { VisibilityRuleGroup } from "./questionnaires";
+
 export interface ProgramLabRequirement {
   id?: string;
   panelId: string;
@@ -21,6 +23,7 @@ export interface ProgramLabRequirement {
   isRequired: boolean;
   isActive: boolean;
   instructions?: string;
+  visibilityRuleGroup?: VisibilityRuleGroup;
 }
 
 export interface Program {

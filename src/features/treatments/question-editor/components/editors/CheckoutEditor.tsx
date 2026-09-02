@@ -122,9 +122,9 @@ export function CheckoutEditor({
   const eligibleQuestions = useMemo(
     () =>
       questions.filter(
-        (question) => question.id !== activeQuestion?.id && question.order < questionOrder
+        (question) => question.id !== activeQuestion?.id && (mode === "lab" || question.order < questionOrder)
       ),
-    [questions, activeQuestion?.id, questionOrder]
+    [questions, activeQuestion?.id, questionOrder, mode]
   );
 
   return (

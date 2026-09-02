@@ -110,6 +110,7 @@ export const programsApi = {
       is_required: requirement.isRequired,
       is_active: requirement.isActive,
       instructions: requirement.instructions || "",
+      visibility_rule: requirement.visibilityRuleGroup || null,
     }));
     const { data } = await axiosInstance.patch<ProgramRecord>(
       TREATMENT_PROGRAM_ENDPOINTS.detail(programId),
