@@ -21,6 +21,7 @@ interface StandardEditorProps {
   onSave: (question: ProgramQuestion) => Promise<void>;
   onClose: () => void;
   onTestFlow?: () => void;
+  visibilitySourceScope?: "default" | "custom_program_stage1";
 }
 
 const SUPPORTED_UPLOAD_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"];
@@ -53,6 +54,7 @@ export function StandardEditor({
   onSave,
   onClose,
   onTestFlow,
+  visibilitySourceScope = "default",
 }: StandardEditorProps) {
   const [questionText, setQuestionText] = useState("");
   const [questionType, setQuestionType] = useState<QuestionKind>("single_choice");
@@ -286,6 +288,7 @@ export function StandardEditor({
               questions={questions}
               currentQuestionId={activeQuestion?.id || ""}
               validationIssues={visibilityValidationAttempted ? visibilityValidationIssues : []}
+              visibilitySourceScope={visibilitySourceScope}
             />
             <div className="h-px bg-slate-100 w-full" />
             <div className="space-y-6">

@@ -152,6 +152,7 @@ export function QuestionCreatorTab({
       </div>
 
       <QuestionEditorDialog
+        visibilitySourceScope="custom_program_stage1"
         open={isEditorOpen}
         onOpenChange={setIsEditorOpen}
         onSave={handleCreateQuestion}
