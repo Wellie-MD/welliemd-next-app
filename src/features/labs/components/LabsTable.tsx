@@ -95,6 +95,7 @@ interface Props {
   onEditOpen: (lab: LabPanel) => void;
   onAssignOpenSingle: (lab: LabPanel) => Promise<void>;
   onAssignOpenCombined?: (combined: CombinedLabPanel) => Promise<void>;
+  onEditOpenCombined?: (combined: CombinedLabPanel) => void;
   onArchive: (lab: LabPanel) => Promise<void>;
   onArchiveCombined?: (combined: CombinedLabPanel) => Promise<void>;
   onViewChangeHistory?: (lab: LabPanel) => void;
@@ -115,6 +116,7 @@ export default function LabsTable({
   onEditOpen,
   onAssignOpenSingle,
   onAssignOpenCombined,
+  onEditOpenCombined,
   onArchive,
   onArchiveCombined,
   onViewChangeHistory,
@@ -442,6 +444,17 @@ export default function LabsTable({
                           title={combined.is_assignable ? "Assign combined panel to clients" : `Complete configuration first: ${(combined.configuration_missing ?? []).join(", ")}`}
                         >
                           <UserPlus className="h-4 w-4" />
+                        </button>
+                      )}
+                      {onEditOpenCombined && (
+                        <button
+                          type="button"
+                          onClick={() => onEditOpenCombined(combined)}
+                          className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                          title="Edit combined panel"
+                          aria-label={`Edit ${combined.name}`}
+                        >
+                          <Pencil className="h-4 w-4" />
                         </button>
                       )}
                       {onArchiveCombined && (

@@ -32,8 +32,14 @@ import { labsApi, type LabPanel } from "@/api/labs";
 import { formatAoeCount } from "@/features/labs/utils/aoeUtils";
 import {
   type CombinedMethodRow,
+  type CombinedLabPanel,
   INITIAL_COMBINED_METHODS,
+  STATES_LIST,
 } from "@/features/labs/types";
+import {
+  combinedPanelEditForm,
+  type CombinedPanelEditForm,
+} from "@/features/treatments/programs/components/programLabRequirementCatalog";
 
 interface Props {
   open: boolean;
@@ -41,6 +47,8 @@ interface Props {
   /** All active single-method lab panels (pre-loaded from parent). */
   labs: LabPanel[];
   onCreated: () => void;
+  initialPanel?: CombinedLabPanel | null;
+  onUpdated?: () => void;
 }
 
 interface ValidationState {
@@ -57,8 +65,17 @@ const EMPTY_VALIDATION: ValidationState = {
   checking: false,
 };
 
-export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }: Props) {
+export default function LabCombinedModal({
+  open,
+  onOpenChange,
+  labs,
+  onCreated,
+  initialPanel = null,
+  onUpdated,
+}: Props) {
+  const isEditing = Boolean(initialPanel);
   const [name, setName] = useState("");
+  const [editForm, setEditForm] = useState<CombinedPanelEditForm | null>(null);
   const [methods, setMethods] = useState<CombinedMethodRow[]>(
     INITIAL_COMBINED_METHODS.map(m => ({ ...m }))
   );
@@ -69,12 +86,24 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
   // Reset on open
   useEffect(() => {
     if (open) {
-      setName("");
-      setMethods(INITIAL_COMBINED_METHODS.map(m => ({ ...m })));
-      setValidation(EMPTY_VALIDATION);
+      if (initialPanel) {
+        const form = combinedPanelEditForm(initialPanel);
+        setEditForm(form);
+        setName(form.name);
+        setMethods(INITIAL_COMBINED_METHODS.map(row => {
+          const member = initialPanel.members.find(m => m.collection_method === row.method);
+          return { ...row, checked: Boolean(member), selectedPanelId: member?.panel_id || "" };
+        }));
+        setValidation({ valid: true, errors: [], warnings: [], checking: false });
+      } else {
+        setEditForm(null);
+        setName("");
+        setMethods(INITIAL_COMBINED_METHODS.map(m => ({ ...m })));
+        setValidation(EMPTY_VALIDATION);
+      }
       setSaveError("");
     }
-  }, [open]);
+  }, [open, initialPanel]);
 
   // Panels available per method (active + same method)
   const panelsForMethod = useMemo(() => {
@@ -136,13 +165,28 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
     ));
   };
 
-  const canSave = name.trim().length > 0 && validation.valid && !saving;
+  const canSave = (isEditing ? editForm?.name.trim() : name.trim())
+    && (isEditing || validation.valid)
+    && !saving;
 
   const handleCreate = async () => {
     if (!canSave) return;
     setSaving(true);
     setSaveError("");
     try {
+      if (isEditing && initialPanel && editForm) {
+        await labsApi.updateCombinedPanel(initialPanel.id, {
+          name: editForm.name.trim(),
+          description: editForm.description,
+          is_active: editForm.is_active,
+          service_states: editForm.service_states,
+          cost_to_client: { amount: editForm.cost_to_client, currency: "USD" },
+          cost_to_welliemd: { amount: editForm.cost_to_welliemd, currency: "USD" },
+        });
+        onOpenChange(false);
+        onUpdated?.();
+        return;
+      }
       await labsApi.createCombinedPanel({
         name: name.trim(),
         member_panel_ids: selectedPanelIds,
@@ -162,11 +206,11 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-24px)] sm:w-full max-w-xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-4 sm:p-6 border-b shrink-0">
-          <DialogTitle className="text-lg font-bold">Create combined panel</DialogTitle>
+          <DialogTitle className="text-lg font-bold">{isEditing ? "Edit combined panel" : "Create combined panel"}</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground mt-1 leading-normal">
-            Pair an at-home test with a walk-in test so one checkout link lets the patient
-            pick by location. Junction locks each test to its method, so a combined panel
-            links two lab tests.
+            {isEditing
+              ? "Update the panel details and availability. The member tests are fixed after creation to protect published releases."
+              : "Pair an at-home test with a walk-in test so one checkout link lets the patient pick by location. Junction locks each test to its method, so a combined panel links two lab tests."}
           </DialogDescription>
         </DialogHeader>
 
@@ -179,11 +223,47 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
             <Input
               id="comb-name"
               placeholder="e.g. Comprehensive Metabolic Panel"
-              value={name}
-              onChange={e => setName(e.target.value)}
+              value={isEditing ? editForm?.name || "" : name}
+              onChange={e => isEditing
+                ? setEditForm(prev => prev ? { ...prev, name: e.target.value } : prev)
+                : setName(e.target.value)}
               className="h-9 text-xs"
             />
           </div>
+
+          {isEditing && editForm && (
+            <div className="space-y-4 rounded-lg border border-slate-200 p-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="comb-description" className="font-semibold text-xs">Description</Label>
+                <Input id="comb-description" value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} className="h-9 text-xs" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="comb-client-cost" className="font-semibold text-xs">Cost to client</Label>
+                  <Input id="comb-client-cost" inputMode="decimal" value={editForm.cost_to_client} onChange={e => setEditForm({ ...editForm, cost_to_client: e.target.value })} className="h-9 text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="comb-welliemd-cost" className="font-semibold text-xs">Cost to WellieMD</Label>
+                  <Input id="comb-welliemd-cost" inputMode="decimal" value={editForm.cost_to_welliemd} onChange={e => setEditForm({ ...editForm, cost_to_welliemd: e.target.value })} className="h-9 text-xs" />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-xs font-semibold">
+                <Checkbox checked={editForm.is_active} onCheckedChange={checked => setEditForm({ ...editForm, is_active: Boolean(checked) })} />
+                Panel enabled
+              </label>
+              <div>
+                <p className="mb-2 text-xs font-semibold">Allowed service states</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {STATES_LIST.map(state => (
+                    <label key={state} className="flex items-center gap-1.5 text-[11px]">
+                      <Checkbox checked={editForm.service_states.includes(state)} onCheckedChange={checked => setEditForm({ ...editForm, service_states: checked ? [...editForm.service_states, state] : editForm.service_states.filter(item => item !== state) })} />
+                      {state}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Methods to combine */}
           <div className="space-y-2">
@@ -207,6 +287,7 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
                       <Checkbox
                         id={`comb-${row.method}`}
                         checked={row.checked}
+                        disabled={isEditing}
                         onCheckedChange={(v) => toggleMethod(row.method, !!v)}
                       />
                       <label
@@ -219,7 +300,7 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
                     <Select
                       value={row.selectedPanelId}
                       onValueChange={val => setPanel(row.method, val)}
-                      disabled={available.length === 0}
+                      disabled={isEditing || available.length === 0}
                     >
                       <SelectTrigger className="h-8 text-xs w-full sm:flex-1">
                         <SelectValue
@@ -279,7 +360,7 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
             disabled={!canSave}
             className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4"
           >
-            {saving ? "Creating…" : "Create combined panel"}
+            {saving ? (isEditing ? "Saving…" : "Creating…") : (isEditing ? "Save changes" : "Create combined panel")}
           </Button>
         </DialogFooter>
       </DialogContent>

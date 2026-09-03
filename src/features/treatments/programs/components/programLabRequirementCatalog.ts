@@ -6,6 +6,26 @@ export type ProgramLabTarget =
   | { kind: "single"; panel: LabPanel }
   | { kind: "combined"; panel: CombinedLabPanel };
 
+export interface CombinedPanelEditForm {
+  name: string;
+  description: string;
+  cost_to_client: string;
+  cost_to_welliemd: string;
+  service_states: string[];
+  is_active: boolean;
+}
+
+export const combinedPanelEditForm = (
+  panel: CombinedLabPanel,
+): CombinedPanelEditForm => ({
+  name: panel.name,
+  description: panel.description || "",
+  cost_to_client: panel.cost_to_client?.amount || "0.00",
+  cost_to_welliemd: panel.cost_to_welliemd?.amount || "0.00",
+  service_states: [...(panel.service_states || [])],
+  is_active: panel.is_active,
+});
+
 export const requirementTargetKey = (requirement: ProgramLabRequirement): string => (
   `${requirement.requirementKind}:${requirement.requirementKind === "single"
     ? requirement.panelId || ""
