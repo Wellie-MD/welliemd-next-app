@@ -14,6 +14,8 @@ import type {
   LabOrder,
   LabPanel,
 } from "./labs-types";
+import type { CombinedLabPanel } from "@/features/labs/types";
+export type { CombinedLabPanel } from "@/features/labs/types";
 export type {
   Biomarker,
   CatalogItem,
@@ -344,9 +346,17 @@ export const labsApi = {
     return data;
   },
 
-  getCombinedPanels: async () => {
+  getCombinedPanels: async (): Promise<CombinedLabPanel[]> => {
     const { data } = await axiosInstance.get(adminLabEndpoints.combinedPanels);
-    return (data.results || data || []) as import("@/features/labs/types").CombinedLabPanel[];
+    return (data.results || data || []).map((raw: any) => ({
+      ...raw,
+      id: String(raw.id),
+      name: raw.name || "",
+      members: Array.isArray(raw.members) ? raw.members : [],
+      is_active: raw.is_active !== false,
+      is_archived: raw.is_archived === true,
+      is_assignable: raw.is_assignable !== false,
+    })) as CombinedLabPanel[];
   },
 
   createCombinedPanel: async (payload: {

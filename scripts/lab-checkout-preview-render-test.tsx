@@ -30,8 +30,8 @@ const html = renderToStaticMarkup(
     onSelectedPreviewChange={() => undefined}
     mode="lab"
     labRequirements={[
-      { panelId: "panel-1", displayOrder: 1, isRequired: true, isActive: true },
-      { panelId: "panel-2", displayOrder: 2, isRequired: true, isActive: true },
+      { requirementKind: "single", panelId: "panel-1", displayOrder: 1, isRequired: true, isActive: true },
+      { requirementKind: "single", panelId: "panel-2", displayOrder: 2, isRequired: true, isActive: true },
     ]}
     labPanels={[
       panel({
@@ -66,7 +66,7 @@ const zeroCostHtml = renderToStaticMarkup(
     visibilityRuleGroup={undefined}
     onSelectedPreviewChange={() => undefined}
     mode="lab"
-    labRequirements={[{ panelId: "panel-1", displayOrder: 1, isRequired: true, isActive: true }]}
+    labRequirements={[{ requirementKind: "single", panelId: "panel-1", displayOrder: 1, isRequired: true, isActive: true }]}
     labPanels={[panel({ cost_to_client: 0, cost_to_welliemd: 12, patient_price: 99 })]}
   />,
 );

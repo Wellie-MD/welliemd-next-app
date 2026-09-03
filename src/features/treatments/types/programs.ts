@@ -17,8 +17,11 @@ import type { VisibilityRuleGroup } from "./questionnaires";
 
 export interface ProgramLabRequirement {
   id?: string;
-  panelId: string;
+  requirementKind: "single" | "combined";
+  panelId?: string;
   panelName?: string;
+  combinedPanelId?: string;
+  combinedPanelName?: string;
   displayOrder: number;
   isRequired: boolean;
   isActive: boolean;

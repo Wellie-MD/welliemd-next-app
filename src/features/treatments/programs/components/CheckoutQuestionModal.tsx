@@ -9,6 +9,7 @@ import { QuestionVisibilityTab } from "@/features/treatments/question-editor/com
 import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
 import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
 import type { LabPanel } from "@/api/labs";
+import type { CombinedLabPanel } from "@/features/labs/types";
 import { useEffect, useState } from "react";
 
 type CheckoutVisibilityQuestion = Pick<ProgramQuestion, "id" | "text"> & Partial<ProgramQuestion>;
@@ -43,6 +44,7 @@ export function CheckoutQuestionModal({
   const [labRequirements, setLabRequirements] = useState<ProgramLabRequirement[]>(programLabRequirements);
   const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
   const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
+  const [combinedLabPanels, setCombinedLabPanels] = useState<CombinedLabPanel[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -107,6 +109,7 @@ export function CheckoutQuestionModal({
                 requirements={labRequirements}
                 onChange={setLabRequirements}
                 onPanelsLoaded={setLabPanels}
+                onCombinedPanelsLoaded={setCombinedLabPanels}
                 disabled={form.isSaving}
                 eligibleQuestions={visibilityQuestions}
               />
@@ -130,6 +133,7 @@ export function CheckoutQuestionModal({
             mode={mode}
             labRequirements={labRequirements}
             labPanels={labPanels}
+            combinedLabPanels={combinedLabPanels}
           />
         </div>
 

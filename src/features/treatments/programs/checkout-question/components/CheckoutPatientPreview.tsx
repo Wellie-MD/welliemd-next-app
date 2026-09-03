@@ -3,7 +3,15 @@ import { FlaskConical } from "lucide-react";
 import type { ProgramCheckoutProduct, VisibilityRuleGroup } from "@/features/treatments/types";
 import type { ProgramLabRequirement } from "@/features/treatments/types";
 import type { LabPanel } from "@/api/labs";
+import type { CombinedLabPanel } from "@/features/labs/types";
 import type { CheckoutOfferMode } from "./CheckoutOfferTypeSection";
+import {
+  targetCostToClient,
+  targetKey,
+  targetMethods,
+  targetName,
+  type ProgramLabTarget,
+} from "../../components/programLabRequirementCatalog";
 
 interface CheckoutPatientPreviewProps {
   validProducts: ProgramCheckoutProduct[];
@@ -13,6 +21,7 @@ interface CheckoutPatientPreviewProps {
   mode?: CheckoutOfferMode;
   labRequirements?: ProgramLabRequirement[];
   labPanels?: LabPanel[];
+  combinedLabPanels?: CombinedLabPanel[];
 }
 
 const countRules = (group: VisibilityRuleGroup | undefined): number => {
@@ -28,6 +37,7 @@ export function CheckoutPatientPreview({
   mode = "medicine",
   labRequirements = [],
   labPanels = [],
+  combinedLabPanels = [],
 }: CheckoutPatientPreviewProps) {
   const groups = Object.values(
     validProducts.reduce<Record<string, ProgramCheckoutProduct[]>>(
@@ -40,12 +50,16 @@ export function CheckoutPatientPreview({
     ),
   );
   const ruleCount = countRules(visibilityRuleGroup);
-  const selectedLabPanels = labRequirements
-    .map((requirement) => labPanels.find((panel) => panel.id === requirement.panelId))
-    .filter((panel): panel is LabPanel => Boolean(panel));
+  const labTargets: ProgramLabTarget[] = [
+    ...labPanels.map((panel) => ({ kind: "single" as const, panel })),
+    ...combinedLabPanels.map((panel) => ({ kind: "combined" as const, panel })),
+  ];
+  const selectedLabTargets = labRequirements
+    .map((requirement) => labTargets.find((target) => targetKey(target) === `${requirement.requirementKind}:${requirement.requirementKind === "single" ? requirement.panelId || "" : requirement.combinedPanelId || ""}`))
+    .filter((target): target is ProgramLabTarget => Boolean(target));
 
   if (mode === "lab") {
-    const labTotal = selectedLabPanels.reduce((total, panel) => total + panel.cost_to_client, 0);
+    const labTotal = selectedLabTargets.reduce((total, target) => total + targetCostToClient(target), 0);
     return (
       <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-[#111827] p-5">
         <div className="mb-4 flex shrink-0 items-center gap-2">
@@ -70,23 +84,25 @@ export function CheckoutPatientPreview({
               Lab panels <span className="font-medium normal-case text-slate-400">collected through Junction</span>
             </p>
             <div className="mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
-              {selectedLabPanels.length === 0 ? (
+              {selectedLabTargets.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-[11px] italic text-slate-400">
                   Select a lab panel to preview the patient step.
                 </div>
-              ) : selectedLabPanels.map((panel) => (
-                <div key={panel.id} className="rounded-lg border border-slate-200 p-3">
+              ) : selectedLabTargets.map((target) => (
+                <div key={targetKey(target)} className="rounded-lg border border-slate-200 p-3">
                   <div className="flex items-start gap-2">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600">
                       <FlaskConical className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[12px] font-extrabold text-slate-800">{panel.name}</div>
+                      <div className="text-[12px] font-extrabold text-slate-800">{targetName(target)}</div>
                       <div className="mt-0.5 text-[10px] text-slate-400">
-                        {panel.biomarkers?.length || 0} markers · {panel.lab_provider || "Junction"}
+                        {target.kind === "combined"
+                          ? `${targetMethods(target).length} collection methods`
+                          : `${target.panel.biomarkers?.length || 0} markers · ${target.panel.lab_provider || "Junction"}`}
                       </div>
                     </div>
-                    <div className="text-[12px] font-extrabold text-slate-900">${panel.cost_to_client.toFixed(2)}</div>
+                    <div className="text-[12px] font-extrabold text-slate-900">${targetCostToClient(target).toFixed(2)}</div>
                   </div>
                 </div>
               ))}

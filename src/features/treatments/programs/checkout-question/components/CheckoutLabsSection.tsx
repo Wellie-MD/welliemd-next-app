@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FlaskConical, Loader2 } from "lucide-react";
 import { labsApi, type LabPanel } from "@/api/labs";
+import type { CombinedLabPanel } from "@/features/labs/types";
 import type { ProgramLabRequirement } from "@/features/treatments/types";
 import { toast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -20,11 +21,21 @@ import {
   toBuilderGroup,
 } from "@/features/treatments/utils/visibilityBuilderAdapters";
 import type { ProgramQuestion, VisibilityRuleGroup, VisibilityRule } from "@/features/treatments/types";
+import {
+  isSelectableTarget,
+  requirementForTarget,
+  requirementTargetKey,
+  targetKey,
+  targetMethods,
+  targetName,
+  type ProgramLabTarget,
+} from "../../components/programLabRequirementCatalog";
 
 interface CheckoutLabsSectionProps {
   requirements: ProgramLabRequirement[];
   onChange: (requirements: ProgramLabRequirement[]) => void;
   onPanelsLoaded?: (panels: LabPanel[]) => void;
+  onCombinedPanelsLoaded?: (panels: CombinedLabPanel[]) => void;
   disabled?: boolean;
   eligibleQuestions?: ProgramQuestion[];
 }
@@ -50,10 +61,12 @@ export function CheckoutLabsSection({
   requirements,
   onChange,
   onPanelsLoaded,
+  onCombinedPanelsLoaded,
   disabled = false,
   eligibleQuestions = [],
 }: CheckoutLabsSectionProps) {
   const [panels, setPanels] = useState<LabPanel[]>([]);
+  const [combinedPanels, setCombinedPanels] = useState<CombinedLabPanel[]>([]);
   const [loading, setLoading] = useState(true);
 
   // --- Builder Questions Logic Copied from QuestionVisibilityTab to avoid cross-component coupling ---
@@ -141,10 +154,12 @@ export function CheckoutLabsSection({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    labsApi.getLabPanels()
-      .then((nextPanels) => {
+    Promise.all([labsApi.getLabPanels(), labsApi.getCombinedPanels()])
+      .then(([nextPanels, nextCombinedPanels]) => {
         if (!cancelled) setPanels(nextPanels);
+        if (!cancelled) setCombinedPanels(nextCombinedPanels);
         if (!cancelled) onPanelsLoaded?.(nextPanels);
+        if (!cancelled) onCombinedPanelsLoaded?.(nextCombinedPanels);
       })
       .catch(() => {
         if (!cancelled) {
@@ -168,36 +183,40 @@ export function CheckoutLabsSection({
     () => panels.filter((panel) => panel.is_active && panel.is_assignable !== false),
     [panels],
   );
+  const selectableTargets = useMemo<ProgramLabTarget[]>(
+    () => [
+      ...selectablePanels.map((panel) => ({ kind: "single" as const, panel })),
+      ...combinedPanels
+        .map((panel) => ({ kind: "combined" as const, panel }))
+        .filter(isSelectableTarget),
+    ],
+    [combinedPanels, selectablePanels],
+  );
   const selectedIds = useMemo(
-    () => new Set(requirements.map((requirement) => requirement.panelId)),
+    () => new Set(requirements.map(requirementTargetKey)),
     [requirements],
   );
 
-  const togglePanel = (panel: LabPanel) => {
+  const toggleTarget = (target: ProgramLabTarget) => {
     if (disabled) return;
-    const next = selectedIds.has(panel.id)
+    const selected = selectedIds.has(targetKey(target));
+    const next = selected
       ? requirements
-          .filter((requirement) => requirement.panelId !== panel.id)
+          .filter((requirement) => requirementTargetKey(requirement) !== targetKey(target))
           .map((requirement, index) => ({ ...requirement, displayOrder: index + 1 }))
       : [
           ...requirements,
-          {
-            panelId: panel.id,
-            panelName: panel.name,
-            displayOrder: requirements.length + 1,
-            isRequired: true,
-            isActive: true,
-            instructions: "",
-            visibilityRuleGroup: undefined,
-          },
+          requirementForTarget(target, requirements.length + 1),
         ];
     onChange(next);
   };
 
-  const updateRequirement = (panelId: string, updates: Partial<ProgramLabRequirement>) => {
+  const updateRequirement = (requirement: ProgramLabRequirement, updates: Partial<ProgramLabRequirement>) => {
     onChange(
       requirements.map((req) =>
-        req.panelId === panelId ? { ...req, ...updates } : req
+        requirementTargetKey(req) === requirementTargetKey(requirement)
+          ? { ...req, ...updates }
+          : req
       )
     );
   };
@@ -218,7 +237,7 @@ export function CheckoutLabsSection({
         {loading && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
       </div>
 
-      {!loading && selectablePanels.length === 0 && (
+      {!loading && selectableTargets.length === 0 && (
         <div className="rounded-lg border border-dashed border-slate-200 px-4 py-5 text-center text-[11.5px] text-slate-500">
           No active, assignable Junction panels are available. Configure the panel
           under Products → Labs first.
@@ -226,12 +245,15 @@ export function CheckoutLabsSection({
       )}
 
       <div className="space-y-4">
-        {selectablePanels.map((panel) => {
-          const selected = selectedIds.has(panel.id);
-          const requirement = requirements.find((r) => r.panelId === panel.id);
+        {selectableTargets.map((target) => {
+          const selected = selectedIds.has(targetKey(target));
+          const requirement = requirements.find(
+            (r) => requirementTargetKey(r) === targetKey(target),
+          );
+          const methods = targetMethods(target);
 
           return (
-            <div key={panel.id} className={`rounded-lg border transition-colors ${selected ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+            <div key={targetKey(target)} className={`rounded-lg border transition-colors ${selected ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
               <label
                 className={`flex cursor-pointer items-start gap-3 px-3 py-3 ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
               >
@@ -240,15 +262,15 @@ export function CheckoutLabsSection({
                   className="mt-0.5 h-4 w-4 accent-blue-600"
                   checked={selected}
                   disabled={disabled}
-                  onChange={() => togglePanel(panel)}
+                  onChange={() => toggleTarget(target)}
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[12.5px] font-bold text-slate-900">
-                    {panel.name}
+                    {targetName(target)}
                   </span>
                   <span className="mt-0.5 block text-[10.5px] text-slate-500">
-                    {panel.biomarkers?.length || 0} markers · {panel.lab_provider || "Junction"}
-                    {panel.collection_method ? ` · ${panel.collection_method.replaceAll("_", " ")}` : ""}
+                    {target.kind === "combined" ? "Combined panel · " : "Single panel · "}
+                    {methods.join(" · ")}
                   </span>
                 </span>
               </label>
@@ -261,7 +283,7 @@ export function CheckoutLabsSection({
                     </label>
                     <textarea
                       value={requirement.instructions || ""}
-                      onChange={(e) => updateRequirement(panel.id, { instructions: e.target.value })}
+                      onChange={(e) => updateRequirement(requirement, { instructions: e.target.value })}
                       disabled={disabled}
                       placeholder="Special instructions for the patient regarding this lab (e.g. fasting required)"
                       className="w-full min-h-[80px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-sm outline-none focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-400"
@@ -280,7 +302,7 @@ export function CheckoutLabsSection({
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => updateRequirement(panel.id, { visibilityRuleGroup: createTreatmentRuleGroup() })}
+                            onClick={() => updateRequirement(requirement, { visibilityRuleGroup: createTreatmentRuleGroup() })}
                             disabled={disabled}
                             className="h-8 border-slate-200 bg-white text-xs font-semibold text-slate-600 shadow-sm"
                           >
@@ -292,7 +314,7 @@ export function CheckoutLabsSection({
                       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <VisibilityRuleBuilder
                           value={toBuilderGroup(requirement.visibilityRuleGroup)}
-                          onChange={(nextGroup) => updateRequirement(panel.id, { visibilityRuleGroup: fromBuilderGroup(nextGroup) })}
+                          onChange={(nextGroup) => updateRequirement(requirement, { visibilityRuleGroup: fromBuilderGroup(nextGroup) })}
                           questions={builderQuestions}
                         />
                         <div className="mt-3 flex justify-end">
@@ -301,7 +323,7 @@ export function CheckoutLabsSection({
                             variant="ghost"
                             size="sm"
                             className="text-xs font-semibold text-red-500 hover:text-red-700"
-                            onClick={() => updateRequirement(panel.id, { visibilityRuleGroup: undefined })}
+                            onClick={() => updateRequirement(requirement, { visibilityRuleGroup: undefined })}
                             disabled={disabled}
                           >
                             Remove rule

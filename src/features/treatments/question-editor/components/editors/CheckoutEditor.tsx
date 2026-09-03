@@ -10,6 +10,7 @@ import type { ProgramLabRequirement } from "@/features/treatments/types";
 import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
 import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
 import type { LabPanel } from "@/api/labs";
+import type { CombinedLabPanel } from "@/features/labs/types";
 
 interface CheckoutEditorProps {
   activeQuestion?: ProgramQuestion;
@@ -113,6 +114,7 @@ export function CheckoutEditor({
   const isEditMode = !!activeQuestion;
   const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
   const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
+  const [combinedLabPanels, setCombinedLabPanels] = useState<CombinedLabPanel[]>([]);
 
   useEffect(() => {
     setMode(initialMode);
@@ -185,6 +187,7 @@ export function CheckoutEditor({
                 requirements={labRequirements}
                 onChange={setLabRequirements}
                 onPanelsLoaded={setLabPanels}
+                onCombinedPanelsLoaded={setCombinedLabPanels}
                 disabled={form.isSaving}
               />
             ) : null}
@@ -210,6 +213,7 @@ export function CheckoutEditor({
           mode={mode}
           labRequirements={labRequirements}
           labPanels={labPanels}
+          combinedLabPanels={combinedLabPanels}
         />
       </div>
     </div>

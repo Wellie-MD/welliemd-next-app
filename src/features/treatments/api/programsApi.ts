@@ -105,7 +105,9 @@ export const programsApi = {
   ): Promise<Program> => {
     if (!isPersistedUuid(programId)) throw new Error("Save the Program before editing labs.");
     const labRequirements = requirements.map((requirement, index) => ({
-      panel_id: requirement.panelId,
+      requirement_kind: requirement.requirementKind,
+      panel_id: requirement.requirementKind === "single" ? requirement.panelId : null,
+      combined_panel_id: requirement.requirementKind === "combined" ? requirement.combinedPanelId : null,
       display_order: requirement.displayOrder || index + 1,
       is_required: requirement.isRequired,
       is_active: requirement.isActive,
