@@ -657,6 +657,13 @@ function RevisionInvoiceModal({
                     </>
                   )}
                   <InvoiceInfoRow label="Capture status" value={captureStatusLabel} />
+                  {(invoice.payment_references || []).map((reference) => (
+                    <InvoiceInfoRow
+                      key={`${reference.operation_id || "legacy"}-${reference.operation_type}`}
+                      label={`${reference.operation_type === "capture" ? "Capture" : "Authorization"} transaction`}
+                      value={<span className="font-mono break-all">{reference.processor_transaction_id}</span>}
+                    />
+                  ))}
                   <InvoiceInfoRow label="Auth retry count" value={invoice.authorization_retry_count ?? 0} />
                   <InvoiceInfoRow label="Next auth retry" value={invoice.authorization_next_retry_at ? formatDate(invoice.authorization_next_retry_at) : "—"} />
                   <InvoiceInfoRow label="Auth error code" value={invoice.authorization_last_error_code || "—"} />
