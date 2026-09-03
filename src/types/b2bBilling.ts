@@ -127,6 +127,18 @@ export interface B2BInvoice {
 
   // Payment processing
   stripe_payment_intent_id?: string;
+  payment_processor?: string | null;
+  payment_references?: Array<{
+    operation_id: string | null;
+    component_key: string | null;
+    component_type: string | null;
+    operation_type: string;
+    status: string;
+    amount: string;
+    processor: string;
+    processor_transaction_id: string;
+    completed_at: string | null;
+  }>;
   stripe_invoice_id?: string;
   external_payment_reference?: string;
   external_invoice_link?: string;
