@@ -260,8 +260,13 @@ export function QuestionnairePreviewDialog({
       } else if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.close) {
         onOpenChange(false);
       } else if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.error) {
-        setStatus("error");
         setErrorMessage(event.data.message || "The questionnaire preview could not continue.");
+        // The iframe can report a diagnostic after it has already rendered.
+        // Keep the visible preview mounted in that case; setting `error` here
+        // would make its opacity zero and leave the Admin Portal blank.
+        if (status !== "ready") {
+          setStatus("error");
+        }
       }
     };
 
