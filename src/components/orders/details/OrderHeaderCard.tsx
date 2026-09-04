@@ -32,6 +32,7 @@ import {
   Loader2,
   AlertTriangle,
 } from "lucide-react"
+import { isCheckoutCompleted } from "./orderCompletion"
 
 const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700",
@@ -123,6 +124,7 @@ export const OrderHeaderCard: React.FC<OrderHeaderCardProps> = ({
   const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
   const paymentRecoveryState = (order.payment_recovery_state || "").toLowerCase()
   const isRecoveryPending = isPrescribedStatus && paymentRecoveryState === "recovery_pending"
+  const checkoutCompleted = isCheckoutCompleted(order)
 
   return (
     <div className="space-y-4 mb-6">
@@ -198,14 +200,18 @@ export const OrderHeaderCard: React.FC<OrderHeaderCardProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={onSendCheckoutLink}
-                disabled={sendCheckoutLinkLoading}
+                disabled={sendCheckoutLinkLoading || checkoutCompleted}
                 className="h-9 px-3 text-xs font-medium gap-1.5 rounded-lg border-primary/20 text-slate-700 dark:text-slate-200 hover:bg-primary/5 hover:text-primary"
               >
                 {sendCheckoutLinkLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-4 w-4 text-primary" />}
                 <span className="hidden sm:inline">Send Checkout Email</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Email patient direct checkout link</TooltipContent>
+            <TooltipContent>
+              {checkoutCompleted
+                ? "Checkout is already completed; no checkout email is needed."
+                : "Email patient direct checkout link"}
+            </TooltipContent>
           </Tooltip>
 
           {canUseReceipt && (
