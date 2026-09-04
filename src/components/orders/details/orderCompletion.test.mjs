@@ -1,5 +1,5 @@
 import assert from "assert"
-import { isCheckoutCompleted } from "./orderCompletion.js"
+import { canCopyCheckoutUrl, isCheckoutCompleted } from "./orderCompletion.js"
 
 assert.equal(
   isCheckoutCompleted({
@@ -18,5 +18,20 @@ assert.equal(
   }),
   false,
 )
+
+assert.equal(
+  canCopyCheckoutUrl({ checkout_url: "https://example.test/checkout/token" }),
+  true,
+)
+
+assert.equal(
+  canCopyCheckoutUrl({
+    checkout_url: "https://example.test/checkout/token",
+    paymentStatus: "authorized",
+  }),
+  false,
+)
+
+assert.equal(canCopyCheckoutUrl({}), false)
 
 console.log("orderCompletion tests passed")

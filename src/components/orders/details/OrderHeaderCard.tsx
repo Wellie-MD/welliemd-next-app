@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 import { Link } from "react-router-dom"
 import { Order } from "@/api/ordersApi"
 import { Button } from "@/components/ui/button"
@@ -31,8 +31,10 @@ import {
   RotateCw,
   Loader2,
   AlertTriangle,
+  Copy,
+  Check,
 } from "lucide-react"
-import { isCheckoutCompleted } from "./orderCompletion"
+import { canCopyCheckoutUrl, isCheckoutCompleted } from "./orderCompletion"
 
 const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700",
@@ -114,6 +116,7 @@ export const OrderHeaderCard: React.FC<OrderHeaderCardProps> = ({
   downloadReceiptLoading,
   canUseReceipt,
 }) => {
+  const [checkoutUrlCopied, setCheckoutUrlCopied] = useState(false)
   const status = order.orderStatus || order.status || "created"
   const statusDisplay = statusLabels[status] || status
   const orderTitle = order.order_id
@@ -125,6 +128,19 @@ export const OrderHeaderCard: React.FC<OrderHeaderCardProps> = ({
   const paymentRecoveryState = (order.payment_recovery_state || "").toLowerCase()
   const isRecoveryPending = isPrescribedStatus && paymentRecoveryState === "recovery_pending"
   const checkoutCompleted = isCheckoutCompleted(order)
+  const canCopyUrl = canCopyCheckoutUrl(order)
+
+  const handleCopyCheckoutUrl = async () => {
+    if (!canCopyUrl || !order.checkout_url) return
+
+    try {
+      await navigator.clipboard.writeText(order.checkout_url)
+      setCheckoutUrlCopied(true)
+      setTimeout(() => setCheckoutUrlCopied(false), 2000)
+    } catch {
+      setCheckoutUrlCopied(false)
+    }
+  }
 
   return (
     <div className="space-y-4 mb-6">
@@ -211,6 +227,29 @@ export const OrderHeaderCard: React.FC<OrderHeaderCardProps> = ({
               {checkoutCompleted
                 ? "Checkout is already completed; no checkout email is needed."
                 : "Email patient direct checkout link"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyCheckoutUrl}
+                disabled={!canCopyUrl}
+                className="h-9 px-3 text-xs font-medium gap-1.5 rounded-lg border-primary/20 text-slate-700 dark:text-slate-200 hover:bg-primary/5 hover:text-primary"
+              >
+                {checkoutUrlCopied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4 text-primary" />}
+                <span className="hidden sm:inline">{checkoutUrlCopied ? "Copied" : "Copy Checkout URL"}</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {checkoutCompleted
+                ? "Checkout is already completed; the link cannot be reused."
+                : canCopyUrl
+                  ? checkoutUrlCopied ? "Checkout URL copied" : "Copy checkout URL"
+                  : "No checkout URL is available for this order."
+              }
             </TooltipContent>
           </Tooltip>
 

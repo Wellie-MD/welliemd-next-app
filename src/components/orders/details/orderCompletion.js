@@ -22,3 +22,7 @@ export const isCheckoutCompleted = (order = {}) => {
     COMPLETED_PAYMENT_STATES.has(normalizeState(state))
   ))
 }
+
+export const canCopyCheckoutUrl = (order = {}) => (
+  Boolean(order.checkout_url) && !isCheckoutCompleted(order)
+)
