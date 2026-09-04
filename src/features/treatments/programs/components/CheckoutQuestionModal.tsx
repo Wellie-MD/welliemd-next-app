@@ -10,6 +10,7 @@ import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-que
 import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
 import type { LabPanel } from "@/api/labs";
 import type { CombinedLabPanel } from "@/features/labs/types";
+import type { Product } from "@/api/products";
 import { useEffect, useState } from "react";
 
 type CheckoutVisibilityQuestion = Pick<ProgramQuestion, "id" | "text"> & Partial<ProgramQuestion>;
@@ -45,6 +46,7 @@ export function CheckoutQuestionModal({
   const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
   const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
   const [combinedLabPanels, setCombinedLabPanels] = useState<CombinedLabPanel[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -103,6 +105,7 @@ export function CheckoutQuestionModal({
                 onProductPriceChange={form.handleProductPriceChange}
                 onProductVisibilityChange={form.handleProductVisibilityChange}
                 onCompatibilityChange={setIncompatibleProducts}
+                onCatalogProductsChange={setCatalogProducts}
               />
             ) : onSaveLabRequirements ? (
               <CheckoutLabsSection
@@ -127,6 +130,7 @@ export function CheckoutQuestionModal({
 
           <CheckoutPatientPreview
             validProducts={form.validProducts}
+            catalogProducts={catalogProducts}
             selectedPreviewIdx={form.selectedPreviewIdx}
             visibilityRuleGroup={form.visibilityRuleGroup}
             onSelectedPreviewChange={form.setSelectedPreviewIdx}

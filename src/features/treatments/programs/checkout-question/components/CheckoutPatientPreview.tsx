@@ -3,8 +3,10 @@ import { FlaskConical } from "lucide-react";
 import type { ProgramCheckoutProduct, VisibilityRuleGroup } from "@/features/treatments/types";
 import type { ProgramLabRequirement } from "@/features/treatments/types";
 import type { LabPanel } from "@/api/labs";
+import type { Product } from "@/api/products";
 import type { CombinedLabPanel } from "@/features/labs/types";
 import type { CheckoutOfferMode } from "./CheckoutOfferTypeSection";
+import { checkoutPatientPreviewTitle } from "../utils/catalogProductDisplay";
 import {
   targetCostToClient,
   targetKey,
@@ -15,6 +17,7 @@ import {
 
 interface CheckoutPatientPreviewProps {
   validProducts: ProgramCheckoutProduct[];
+  catalogProducts?: Product[];
   selectedPreviewIdx: number;
   visibilityRuleGroup: VisibilityRuleGroup | undefined;
   onSelectedPreviewChange: (index: number) => void;
@@ -31,6 +34,7 @@ const countRules = (group: VisibilityRuleGroup | undefined): number => {
 
 export function CheckoutPatientPreview({
   validProducts,
+  catalogProducts = [],
   selectedPreviewIdx,
   visibilityRuleGroup,
   onSelectedPreviewChange,
@@ -159,10 +163,10 @@ export function CheckoutPatientPreview({
                 return (
                   <div key={first.choiceGroup || first.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="text-[12px] font-extrabold text-slate-800">
-                      {first.patientLabel || first.doseLabel}
+                      {checkoutPatientPreviewTitle(first, catalogProducts)}
                     </div>
                     <div className="mt-0.5 text-[10.5px] text-slate-400">
-                      {first.category} · {first.regimen} Regimen
+                      {first.doseLabel} · {first.category} · {first.regimen} Regimen
                     </div>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       {group.map((product) => {

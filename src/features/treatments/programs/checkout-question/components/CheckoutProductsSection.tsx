@@ -23,6 +23,7 @@ interface CheckoutProductsSectionProps {
   onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
   onCompatibilityChange?: (incompatibleProductNames: string[]) => void;
+  onCatalogProductsChange?: (products: Product[]) => void;
 }
 
 export function CheckoutProductsSection({
@@ -35,6 +36,7 @@ export function CheckoutProductsSection({
   onProductPriceChange,
   onProductVisibilityChange,
   onCompatibilityChange,
+  onCatalogProductsChange,
 }: CheckoutProductsSectionProps) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [titrationCategories, setTitrationCategories] = useState<TitrationCategory[]>([]);
@@ -71,12 +73,18 @@ export function CheckoutProductsSection({
   }, [incompatibleProducts, onCompatibilityChange]);
 
   useEffect(() => {
+    onCatalogProductsChange?.(allCatalogProducts);
+  }, [allCatalogProducts, onCatalogProductsChange]);
+
+  useEffect(() => {
     setGroupingSelection((current) => current.filter((index) => index < products.length));
   }, [products.length]);
 
   useEffect(() => {
     let cancelled = false;
     setCatalogLoaded(false);
+    setAllCatalogProducts([]);
+    setCatalogProducts([]);
 
     const fetchCatalogMetadata = async () => {
       try {

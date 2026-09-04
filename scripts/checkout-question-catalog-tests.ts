@@ -17,6 +17,7 @@ import {
   isCheckoutQuestionRequired,
   productRoleForFlexibleSelection,
 } from "../src/features/treatments/programs/checkout-question/constants.js";
+import { checkoutPatientPreviewTitle } from "../src/features/treatments/programs/checkout-question/utils/catalogProductDisplay.js";
 
 const product = (overrides: Partial<Product>): Product => ({
   id: 1,
@@ -200,6 +201,26 @@ assert.equal(isCheckoutQuestionRequired(multiSelectQuestion.products, multiSelec
 assert.equal(multiSelectQuestion.products[0].productRole, "optional_addon");
 assert.equal(productRoleForFlexibleSelection("primary_choice"), "optional_addon");
 assert.equal(productRoleForFlexibleSelection("required_companion"), "required_companion");
+
+const previewProduct = {
+  id: "preview-option",
+  category: "Weight",
+  regimen: "Starter",
+  doseLabel: "0.25 mg",
+  productId: "7",
+  productRole: "primary_choice" as const,
+};
+assert.equal(
+  checkoutPatientPreviewTitle(previewProduct, [product({ id: 7, name: "Admin Product | Starter" })]),
+  "Admin Product | Starter",
+);
+assert.equal(
+  checkoutPatientPreviewTitle(
+    { ...previewProduct, choiceGroup: "supply-group", patientLabel: "Grouped medication" },
+    [product({ id: 7, name: "Admin Product" })],
+  ),
+  "Grouped medication",
+);
 
 const serializedProgram = programToRecord({
   id: "program-1",
