@@ -16,6 +16,7 @@ import { ordersApi, Order, FilterOption } from "@/api/ordersApi"
 import { exportToCSV, fetchAllPaginatedResults } from "@/utils/exportUtils"
 import { usePermissions } from "@/hooks/usePermissions"
 import { Permissions } from "@/constants/permissions"
+import { EmailCell } from "@/components/orders/EmailCell"
 
 const ORDER_STATUS_OPTIONS = [
   { label: "All", value: "all" },
@@ -75,13 +76,13 @@ const getOrderStatusBadgeClass = (value?: string | null) => {
 const orderColumns = [
   { key: "order_number", label: "Order #", minWidth: "120px", headerClassName: "whitespace-nowrap", className: "font-medium" },
   { key: "patient_name", label: "Patient Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
-  { key: "patient_email", label: "Patient Email", minWidth: "130px", headerClassName: "whitespace-nowrap" },
+  { key: "patient_email", label: "Patient Email", minWidth: "120px", maxWidth: "130px", headerClassName: "whitespace-nowrap", className: "max-w-[130px]" },
   { key: "patient_phone", label: "Patient Phone", minWidth: "130px", headerClassName: "whitespace-nowrap" },
   { key: "product_name", label: "Product Name", minWidth: "170px", headerClassName: "whitespace-nowrap" },
   { key: "pharmacy_name_only", label: "Pharmacy Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
   { key: "orderDate", label: "Order Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
-  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
   { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "whitespace-nowrap" },
+  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
   { key: "orderTotal", label: "Order Amount", minWidth: "110px", headerClassName: "whitespace-nowrap" },
   { key: "orderStatus", label: "Order Status", minWidth: "150px", headerClassName: "whitespace-nowrap" },
   { key: "actions", label: "Actions", minWidth: "110px", headerClassName: "whitespace-nowrap", render: (_: any, row: any) => null }
@@ -585,6 +586,13 @@ export default function Orders() {
             }
           }
 
+          if (col.key === 'patient_email') {
+            return {
+              ...col,
+              render: (value: unknown) => <EmailCell value={value} />,
+            }
+          }
+
           if (col.key === 'orderDate' || col.key === 'datePrescribed' || col.key === 'paymentDate') {
             return {
               ...col,
@@ -607,8 +615,8 @@ export default function Orders() {
                     (remaining != null && remaining > 0)
                   )
                 return (
-                  <div className="relative space-y-1">
-                    <Badge variant="outline" className={`max-w-full whitespace-normal text-left ${getOrderStatusBadgeClass(currentStatus)}`}>
+                  <div className="relative flex flex-col items-center space-y-1">
+                    <Badge variant="outline" className={`whitespace-nowrap text-center ${getOrderStatusBadgeClass(currentStatus)}`}>
                       {row.status_display || formatStatusLabel(currentStatus)}
                     </Badge>
                     {hasRecoveryPending ? (
@@ -646,6 +654,7 @@ export default function Orders() {
           }
         })}
         fitToWidth={true}
+        responsiveScroll={true}
         searchPlaceholder="Search by order number, patient name, email, or phone"
         showDatePicker={true}
         showExport={true}
