@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../auth/store/auth.store';
 import { apiClient } from '@/shared/api/client';
-import { useBranding } from '@/features/branding/hooks/useBranding';
 import { env } from '@/config/env';
 
 declare global {
@@ -55,6 +54,7 @@ const POLL_IDLE_MS = 10000;
 const FORCE_FETCH_EVERY = 6; // periodic safety sync if a webhook was missed
 const LAST_SEEN_KEY = 'welliemd_support_last_seen';
 const WS_EVENT_TYPE = 'support_message';
+const WELLIE_MD_LOGO_URL = '/welliemd_logo.png';
 const WIDGET_POS_KEY = 'welliemd_support_widget_pos';
 const WIDGET_SIZE_PX = 56;
 const WIDGET_MARGIN_PX = 8;
@@ -196,7 +196,6 @@ function countUnread(messages: ChatMessage[], since: number): number {
 }
 
 export const IntercomWidget = () => {
-  const { logos } = useBranding();
   const [ready, setReady] = useState(enabled);
   const [panelOpen, setPanelOpen] = useState(false);
   const [view, setView] = useState<'thread' | 'list'>('thread');
@@ -290,9 +289,9 @@ export const IntercomWidget = () => {
     });
   };
 
-  const displayName = env.VITE_APP_NAME || 'WellieMD';
+  const displayName = 'WellieMD';
   const initials = toInitials(displayName);
-  const logoUrl = logos?.round || logos?.square || '';
+  const logoUrl = WELLIE_MD_LOGO_URL;
   const greeting = `Hi there 👋 Welcome to ${displayName} Support. How can we help today?`;
 
   // Render-only: update the visible thread (with optimistic-merge) without
@@ -649,7 +648,6 @@ export const IntercomWidget = () => {
           <div className="ic-head-top">
             <div className="ic-avs">
               {renderAvatar('ic-av')}
-              {logoUrl && <span className="ic-av">{initials}</span>}
             </div>
             <div className="ic-actions">
               {view === 'thread' ? (
@@ -834,8 +832,8 @@ const WIDGET_STYLES = `
   .ic-av{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.22);border:2px solid var(--ic-accent);
     display:grid;place-items:center;font-size:12px;font-weight:700;margin-left:-8px}
   .ic-av:first-child{margin-left:0}
-  .ic-av.ic-has-img,.ic-bav.ic-has-img{background:#fff;overflow:hidden}
-  .ic-av img,.ic-bav img,.ic-lav img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+  .ic-av.ic-has-img,.ic-bav.ic-has-img,.ic-lav.ic-has-img{background:#fff;overflow:hidden;padding:4px}
+  .ic-av img,.ic-bav img,.ic-lav img{width:100%;height:100%;border-radius:0;object-fit:contain}
   .ic-actions{display:flex;align-items:center;gap:2px}
   .ic-iconbtn{background:none;border:none;color:#fff;cursor:pointer;opacity:.85;padding:4px;display:grid;place-items:center}
   .ic-iconbtn:hover{opacity:1}
