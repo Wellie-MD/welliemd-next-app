@@ -85,6 +85,18 @@ export interface Invoice {
   amount?: string | number;
   total_amount?: string | number;
   status?: string;
+  payment_processor?: string | null;
+  payment_references?: Array<{
+    operation_id: string | null;
+    component_key: string | null;
+    component_type: string | null;
+    operation_type: string;
+    status: string;
+    amount: string;
+    processor: string;
+    processor_transaction_id: string;
+    completed_at: string | null;
+  }>;
   is_overdue?: boolean;
   external_invoice_link?: string;
   source_tenant_order_display_id?: string;
