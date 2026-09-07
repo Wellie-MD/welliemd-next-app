@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { FlaskConical, Loader2, Plus, Trash2 } from "lucide-react";
 import { labsApi, type LabPanel } from "@/api/labs";
+import type { CombinedLabPanel } from "@/features/labs/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Program, ProgramLabRequirement } from "@/features/treatments/types";
 import { useSaveProgramLabRequirements } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
+import {
+  isSelectableTarget,
+  requirementForTarget,
+  requirementTargetKey,
+  targetKey,
+  targetMethods,
+  targetName,
+  type ProgramLabTarget,
+} from "./programLabRequirementCatalog";
 
 interface Props {
   program: Program;
@@ -13,6 +23,7 @@ interface Props {
 
 export function ProgramLabsSection({ program }: Props) {
   const [panels, setPanels] = useState<LabPanel[]>([]);
+  const [combinedPanels, setCombinedPanels] = useState<CombinedLabPanel[]>([]);
   const [requirements, setRequirements] = useState<ProgramLabRequirement[]>(
     program.labRequirements || [],
   );
@@ -24,8 +35,11 @@ export function ProgramLabsSection({ program }: Props) {
   }, [program.labRequirements]);
 
   useEffect(() => {
-    labsApi.getLabPanels()
-      .then(setPanels)
+    Promise.all([labsApi.getLabPanels(), labsApi.getCombinedPanels()])
+      .then(([nextPanels, nextCombinedPanels]) => {
+        setPanels(nextPanels);
+        setCombinedPanels(nextCombinedPanels);
+      })
       .catch(() => {
         toast({
           title: "Labs unavailable",
@@ -36,14 +50,23 @@ export function ProgramLabsSection({ program }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
+  const targets = useMemo<ProgramLabTarget[]>(
+    () => [
+      ...panels
+        .filter((panel) => panel.is_active && panel.is_assignable !== false)
+        .map((panel) => ({ kind: "single" as const, panel })),
+      ...combinedPanels
+        .map((panel) => ({ kind: "combined" as const, panel }))
+        .filter(isSelectableTarget),
+    ],
+    [combinedPanels, panels],
+  );
   const selected = useMemo(
-    () => new Set(requirements.map((requirement) => requirement.panelId)),
+    () => new Set(requirements.map(requirementTargetKey)),
     [requirements],
   );
-  const available = panels.filter(
-    (panel) => panel.is_active
-      && panel.is_assignable !== false
-      && !selected.has(panel.id),
+  const available = targets.filter(
+    (target) => !selected.has(targetKey(target)),
   );
 
   const persist = async (next: ProgramLabRequirement[]) => {
@@ -64,19 +87,12 @@ export function ProgramLabsSection({ program }: Props) {
     }
   };
 
-  const addPanel = (panelId: string) => {
-    const panel = panels.find((item) => item.id === panelId);
-    if (!panel) return;
+  const addPanel = (targetKeyValue: string) => {
+    const target = available.find((item) => targetKey(item) === targetKeyValue);
+    if (!target) return;
     void persist([
       ...requirements,
-      {
-        panelId: panel.id,
-        panelName: panel.name,
-        displayOrder: requirements.length + 1,
-        isRequired: true,
-        isActive: true,
-        instructions: "",
-      },
+      requirementForTarget(target, requirements.length + 1),
     ]);
   };
 
@@ -103,8 +119,10 @@ export function ProgramLabsSection({ program }: Props) {
               disabled={saveProgramLabs.isPending || available.length === 0}
             >
             <option value="">{available.length ? "Add lab panel…" : "No panels available"}</option>
-              {available.map((panel) => (
-                <option key={panel.id} value={panel.id}>{panel.name}</option>
+              {available.map((target) => (
+                <option key={targetKey(target)} value={targetKey(target)}>
+                  {targetName(target)} ({target.kind === "combined" ? "Combined panel" : "Single panel"})
+                </option>
               ))}
             </select>
             <Plus className="pointer-events-none absolute right-2 top-2.5 h-4 w-4 text-slate-400" />
@@ -123,11 +141,18 @@ export function ProgramLabsSection({ program }: Props) {
             No lab is required for this Program.
           </div>
         ) : requirements.map((requirement, index) => (
-          <div key={requirement.panelId} className="rounded-lg border border-slate-200 p-4">
+          <div key={requirementTargetKey(requirement)} className="rounded-lg border border-slate-200 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-slate-900">
-                  {requirement.panelName || panels.find((panel) => panel.id === requirement.panelId)?.name || "Lab panel"}
+                  {requirement.panelName || requirement.combinedPanelName || targets.find((target) => targetKey(target) === requirementTargetKey(requirement))?.panel.name || "Lab panel"}
+                </div>
+                <div className="mt-0.5 text-[11px] font-medium text-slate-500">
+                  {requirement.requirementKind === "combined" ? "Combined panel · " : "Single panel · "}
+                  {(() => {
+                    const target = targets.find((item) => targetKey(item) === requirementTargetKey(requirement));
+                    return target ? targetMethods(target).join(" · ") : "Collection method unavailable";
+                  })()}
                 </div>
                 <div className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
                   Required for release
@@ -136,11 +161,11 @@ export function ProgramLabsSection({ program }: Props) {
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={`Remove ${requirement.panelName || "lab panel"}`}
+                aria-label={`Remove ${requirement.panelName || requirement.combinedPanelName || "lab panel"}`}
                 disabled={saveProgramLabs.isPending}
                 onClick={() => void persist(
-                  requirements
-                    .filter((item) => item.panelId !== requirement.panelId)
+                    requirements
+                    .filter((item) => requirementTargetKey(item) !== requirementTargetKey(requirement))
                     .map((item, nextIndex) => ({ ...item, displayOrder: nextIndex + 1 })),
                 )}
               >

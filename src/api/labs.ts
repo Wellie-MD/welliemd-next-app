@@ -14,6 +14,8 @@ import type {
   LabOrder,
   LabPanel,
 } from "./labs-types";
+import type { CombinedLabPanel } from "@/features/labs/types";
+export type { CombinedLabPanel } from "@/features/labs/types";
 export type {
   Biomarker,
   CatalogItem,
@@ -123,6 +125,11 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   assigned: !!raw.assigned,
   assigned_at: raw.assigned_at || null,
   assignment_id: raw.assignment_id || null,
+  assignment_ids: Array.isArray(raw.assignment_ids)
+    ? raw.assignment_ids.map(String)
+    : Array.isArray(raw.methods)
+      ? raw.methods.map((method: any) => method?.assignment_id).filter(Boolean).map(String)
+      : raw.assignment_id ? [String(raw.assignment_id)] : [],
   is_current: raw.is_current,
   junction_lab_test_id: raw.junction_lab_test_id || "",
   junction_status: raw.junction_status || "",
@@ -144,6 +151,7 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   provider_supported_states: Array.isArray(raw.provider_supported_states) ? raw.provider_supported_states : [],
   provider_policy_revision: typeof raw.provider_policy_revision === "number" ? raw.provider_policy_revision : null,
   provider_policy_source: raw.provider_policy_source || "",
+  methods: Array.isArray(raw.methods) ? raw.methods : [],
 });
 
 const fallbackOrderStatus = (raw: any): string => {
@@ -187,6 +195,16 @@ const normalizeOrder = (raw: any): LabOrder => ({
 });
 
 export const labsApi = {
+  getAssignmentSummaries: async (): Promise<Record<string, { assigned: number; submitted: number; live: number }>> => {
+    const { data } = await axiosInstance.get(adminLabEndpoints.assignmentSummary);
+    return Object.fromEntries(
+      (data.results || []).map((row: { panel_id: string; assigned: number; submitted: number; live: number }) => [
+        row.panel_id,
+        { assigned: row.assigned, submitted: row.submitted, live: row.live },
+      ]),
+    );
+  },
+
   getBiomarkers: async (): Promise<Biomarker[]> => {
     const { data } = await axiosInstance.get(adminLabEndpoints.biomarkers);
     return (data.results || data || []).map(normalizeBiomarker);
@@ -338,15 +356,24 @@ export const labsApi = {
     return data;
   },
 
-  getCombinedPanels: async () => {
+  getCombinedPanels: async (): Promise<CombinedLabPanel[]> => {
     const { data } = await axiosInstance.get(adminLabEndpoints.combinedPanels);
-    return (data.results || data || []) as import("@/features/labs/types").CombinedLabPanel[];
+    return (data.results || data || []).map((raw: any) => ({
+      ...raw,
+      id: String(raw.id),
+      name: raw.name || "",
+      members: Array.isArray(raw.members) ? raw.members : [],
+      is_active: raw.is_active !== false,
+      is_archived: raw.is_archived === true,
+      is_assignable: raw.is_assignable !== false,
+    })) as CombinedLabPanel[];
   },
 
   createCombinedPanel: async (payload: {
     name: string;
     description?: string;
     member_panel_ids: string[];
+    review_reason?: string;
     cost_to_client?: { amount: string; currency: string };
     cost_to_welliemd?: { amount: string; currency: string };
     service_states?: string[];
@@ -370,6 +397,26 @@ export const labsApi = {
     return data as import("@/features/labs/types").CombinedLabPanel;
   },
 
+  approveCombinedPanel: async (
+    id: string,
+    payload: { approval_basis: "exact_loinc" | "manual_review"; reason?: string },
+  ) => {
+    const { data } = await axiosInstance.post(adminLabEndpoints.combinedApprove(id), payload);
+    return data.combined_panel as import("@/features/labs/types").CombinedLabPanel;
+  },
+
+  publishCombinedPanel: async (id: string) => {
+    const { data } = await axiosInstance.post(adminLabEndpoints.combinedPublish(id));
+    return data.combined_panel as import("@/features/labs/types").CombinedLabPanel;
+  },
+
+  supersedeCombinedPanel: async (id: string, memberPanelIds: string[]) => {
+    const { data } = await axiosInstance.post(adminLabEndpoints.combinedSupersede(id), {
+      member_panel_ids: memberPanelIds,
+    });
+    return data.successor as import("@/features/labs/types").CombinedLabPanel;
+  },
+
   archiveCombinedPanel: async (id: string): Promise<{ success: boolean; archived: boolean }> => {
     const { data } = await axiosInstance.delete(adminLabEndpoints.combinedPanelDetail(id));
     return data;
@@ -379,6 +426,11 @@ export const labsApi = {
     valid: boolean;
     errors: string[];
     warnings: string[];
+    comparison: {
+      evidence_status: "looks_like_match" | "differences_found" | "not_enough_information";
+      shared_loinc_codes: string[];
+      member_only_loinc_codes: Record<string, string[]>;
+    };
   }> => {
     const { data } = await axiosInstance.post(adminLabEndpoints.combinedValidate, {
       member_panel_ids: panelIds,
@@ -388,17 +440,26 @@ export const labsApi = {
 
   getCombinedPanelClients: async (combinedId: string) => {
     const { data } = await axiosInstance.get(adminLabEndpoints.combinedClients(combinedId));
-    return (data.results || data || []) as Array<Record<string, any>>;
+    return (data.results || data || []).map(normalizeClientAssignment);
   },
 
   assignCombinedPanelToClients: async (
     combinedId: string,
     clientIds: string[]
-  ): Promise<{ success: boolean; assigned_client_count: number }> => {
+  ): Promise<{
+    success: boolean;
+    assigned_client_count: number;
+    results?: ClientAssignment[];
+  }> => {
     const { data } = await axiosInstance.post(adminLabEndpoints.combinedClients(combinedId), {
       client_ids: clientIds,
     });
-    return data;
+    return {
+      ...data,
+      results: Array.isArray(data.results)
+        ? data.results.map(normalizeClientAssignment)
+        : data.results,
+    };
   },
 
   getAdminLabOrders: async (): Promise<LabOrder[]> => {

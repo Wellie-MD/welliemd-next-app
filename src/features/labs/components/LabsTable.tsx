@@ -9,10 +9,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { History, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { ClipboardCheck, History, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import { type LabPanel } from "@/api/labs";
 import { type CombinedLabPanel, type CombinedDerivedStatus } from "@/features/labs/types";
-import { getCollectionMethodLabel, renderJunctionStatusBadge } from "@/features/labs/utils";
+import {
+  getCollectionMethodLabel,
+  isPendingJunctionStatus,
+  renderJunctionStatusBadge,
+} from "@/features/labs/utils";
 
 type AnyPanel = LabPanel | CombinedLabPanel;
 
@@ -36,16 +40,6 @@ function renderDerivedStatusBadge(s: CombinedDerivedStatus) {
       {label}
     </span>
   );
-}
-
-function renderCombinedConfigurationBadge(combined: CombinedLabPanel) {
-  if (combined.configuration_status === "ready_to_assign") {
-    return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#dcfce7] text-[#166534] border-[#bbf7d0]">Ready to assign</span>;
-  }
-  if (combined.configuration_status === "archived") {
-    return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#f1f5f9] text-[#475569] border-[#e2e8f0]">Archived</span>;
-  }
-  return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fef3c7] text-[#92400e] border-[#fde68a]">Configuration in progress</span>;
 }
 
 function renderWellieMdBadge(lab: LabPanel, liveCount: number, onToggleActive: (lab: LabPanel) => Promise<void>) {
@@ -95,6 +89,7 @@ interface Props {
   onEditOpen: (lab: LabPanel) => void;
   onAssignOpenSingle: (lab: LabPanel) => Promise<void>;
   onAssignOpenCombined?: (combined: CombinedLabPanel) => Promise<void>;
+  onEditOpenCombined?: (combined: CombinedLabPanel) => void;
   onArchive: (lab: LabPanel) => Promise<void>;
   onArchiveCombined?: (combined: CombinedLabPanel) => Promise<void>;
   onViewChangeHistory?: (lab: LabPanel) => void;
@@ -115,6 +110,7 @@ export default function LabsTable({
   onEditOpen,
   onAssignOpenSingle,
   onAssignOpenCombined,
+  onEditOpenCombined,
   onArchive,
   onArchiveCombined,
   onViewChangeHistory,
@@ -132,16 +128,29 @@ export default function LabsTable({
       }
       if (statusFilter === "Active") return (assignmentSummary[lab.id]?.live ?? 0) > 0;
       if (statusFilter === "Pending approval")
-        return (
-          lab.junction_status === "pending_approval" ||
-          lab.junction_status === "Pending"
-        );
+        return isPendingJunctionStatus(lab.junction_status);
       if (statusFilter === "Inactive") return (assignmentSummary[lab.id]?.live ?? 0) === 0;
       return true;
     });
   }, [labs, search, statusFilter, assignmentSummary]);
 
-  const allVisible = filtered.length > 0 && filtered.every(l => selectedRowIds.includes(l.id));
+  const filteredCombined = useMemo(() => {
+    return combinedPanels.filter(combined => {
+      if (combined.is_archived) return false;
+      const q = search.toLowerCase();
+      const providers = combined.members.map(member => member.lab_provider).join(" ").toLowerCase();
+      if (q && !combined.name.toLowerCase().includes(q) && !combined.id.toLowerCase().includes(q) && !providers.includes(q)) {
+        return false;
+      }
+      if (statusFilter === "Active") return combined.is_active && combined.is_assignable;
+      if (statusFilter === "Pending approval") return combined.configuration_status !== "ready_to_assign";
+      if (statusFilter === "Inactive") return !combined.is_active;
+      return true;
+    });
+  }, [combinedPanels, search, statusFilter]);
+
+  const allVisibleIds = [...filtered.map(l => l.id), ...filteredCombined.map(c => c.id)];
+  const allVisible = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedRowIds.includes(id));
   const canAssignLab = (lab: LabPanel) => !!lab.is_assignable;
 
   return (
@@ -176,7 +185,7 @@ export default function LabsTable({
           </button>
         </div>
 
-        <div className="relative w-full">
+        <div className="relative w-full sm:max-w-[280px]">
           <svg
             width="14"
             height="14"
@@ -199,8 +208,8 @@ export default function LabsTable({
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg bg-card overflow-hidden">
-        <Table>
+      <div className="border rounded-lg bg-card overflow-x-auto">
+        <Table className="min-w-[960px]">
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="w-[50px] text-center">
@@ -237,8 +246,6 @@ export default function LabsTable({
                 count > 0
                   ? ` · Assigned to ${count} client${count > 1 ? "s" : ""}`
                   : "";
-              const derivedStatus = meta.live > 0 ? "active" : meta.submitted > 0 ? "pending_approval" : lab.junction_status;
-
               return (
                 <TableRow key={lab.id} className="hover:bg-muted/5">
                   <TableCell className="text-center">
@@ -292,13 +299,12 @@ export default function LabsTable({
 
                   <TableCell>
                     <div className="space-y-1">
-                      {renderJunctionStatusBadge(derivedStatus)}
+                      {renderJunctionStatusBadge(lab.junction_status)}
                       {!lab.is_assignable && (
                         <div className="text-[10px] text-amber-700">
                           Missing: {(lab.configuration_missing ?? []).join(", ")}
                         </div>
                       )}
-                      {meta.live > 0 && <div className="text-[10px] text-muted-foreground">{meta.live} client synced</div>}
                     </div>
                   </TableCell>
 
@@ -347,7 +353,7 @@ export default function LabsTable({
               );
             })}
 
-            {filtered.length === 0 && combinedPanels.filter(c => !c.is_archived).length === 0 && (
+            {filtered.length === 0 && filteredCombined.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={7}
@@ -359,13 +365,15 @@ export default function LabsTable({
             )}
 
             {/* Combined panel rows */}
-            {combinedPanels.filter(c => !c.is_archived).map(combined => {
+            {filteredCombined.map(combined => {
               const methodSummary = combined.members
                 .map(m => getCollectionMethodLabel(m.collection_method))
                 .join(" · ");
-              const labSummary = [...new Set(combined.members.map(m => m.lab_provider))].join(", ");
+              const needsWorkflowReview = combined.lifecycle_state
+                ? combined.lifecycle_state !== "published"
+                : !combined.is_assignable;
               return (
-                <TableRow key={combined.id} className="hover:bg-muted/5 bg-sky-50/30">
+                <TableRow key={combined.id} className="hover:bg-muted/5">
                   <TableCell className="text-center">
                     <Checkbox
                       checked={selectedRowIds.includes(combined.id)}
@@ -379,27 +387,42 @@ export default function LabsTable({
                         <div className="font-semibold text-foreground text-[13.5px] flex items-center gap-1.5 leading-normal">
                           {combined.name}
                           <span className="inline-block border px-[8px] py-[1px] rounded-[8px] text-[9.5px] font-bold bg-sky-50 text-sky-700 border-sky-200">
-                            Combined
+                            COMBINED
                           </span>
                         </div>
                         <div className="text-[11px] text-muted-foreground mt-0.5">{methodSummary}</div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-[12.5px] font-medium text-muted-foreground">{labSummary}</TableCell>
+                  <TableCell>
+                    <div className="space-y-0.5 text-[11px] leading-tight text-muted-foreground">
+                      {combined.members.map(member => (
+                        <div key={member.id} title={`${member.panel_name} · ${member.lab_provider}`}>
+                          {member.panel_name}
+                        </div>
+                      ))}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="text-[12.5px] leading-tight">
                       <span className="font-semibold text-foreground block">
                         ${parseFloat(combined.cost_to_client?.amount ?? "0").toFixed(2)}
                       </span>
-                      <span className="text-[10.5px] text-muted-foreground">
-                        client cost
+                      <span className="text-[10px] text-muted-foreground">
+                        cost ${parseFloat(combined.cost_to_welliemd?.amount ?? "0").toFixed(2)}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
-                      {renderCombinedConfigurationBadge(combined)}
+                      <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-blue-50 text-blue-700 border-blue-200">
+                        Linked
+                      </span>
+                      {combined.configuration_status !== "ready_to_assign" && (
+                        <div className="text-[10px] text-amber-700">
+                          {combined.configuration_status === "archived" ? "Archived" : "Configuration in progress"}
+                        </div>
+                      )}
                       {combined.configuration_missing && combined.configuration_missing.length > 0 && (
                         <div className="text-[10px] text-amber-700">
                           Missing: {combined.configuration_missing.join(", ")}
@@ -426,6 +449,17 @@ export default function LabsTable({
                           title={combined.is_assignable ? "Assign combined panel to clients" : `Complete configuration first: ${(combined.configuration_missing ?? []).join(", ")}`}
                         >
                           <UserPlus className="h-4 w-4" />
+                        </button>
+                      )}
+                      {onEditOpenCombined && needsWorkflowReview && (
+                        <button
+                          type="button"
+                          onClick={() => onEditOpenCombined(combined)}
+                          className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                          title="Review combined panel"
+                          aria-label={`Review ${combined.name}`}
+                        >
+                          <ClipboardCheck className="h-4 w-4" />
                         </button>
                       )}
                       {onArchiveCombined && (

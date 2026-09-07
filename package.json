@@ -28,7 +28,9 @@
     "test:custom-program-matching": "tsc --noEmit -p scripts/tsconfig.flow-builder.json && TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/custom-program-matching-tests.ts",
     "test:visibility-rules": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/visibility-rule-validation-tests.ts",
     "test:assignment-navigation": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/assignment-navigation-tests.ts",
-    "test:assignment-error-copy": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/assignment-error-copy-tests.ts"
+    "test:assignment-error-copy": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/assignment-error-copy-tests.ts",
+    "test:labs-contract": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/labs-contract-tests.ts",
+    "test:labs-table-render": "vite build --config scripts/vite.config.custom-program-test.ts --ssr scripts/labs-table-render-test.tsx --outDir node_modules/.cache/welliemd-admin-labs-table-test --emptyOutDir && node node_modules/.cache/welliemd-admin-labs-table-test/custom-program-list-render-test.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

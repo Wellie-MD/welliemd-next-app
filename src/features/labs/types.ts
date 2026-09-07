@@ -25,6 +25,7 @@ export interface AssignItem {
   name: string;
   sub: string;
   checked: boolean;
+  kind: "single" | "combined";
 }
 
 /** A client row in the right pane of the Assign to Clients modal. */
@@ -34,6 +35,7 @@ export interface AssignClient {
   email: string;
   checked: boolean;
   assignment_id?: string | null;
+  assignment_ids?: string[];
   junction_lab_test_id?: string;
   junction_status?: string;
   junction_external_status?: string;
@@ -122,6 +124,13 @@ export interface CombinedLabPanel {
   configuration_missing?: string[];
   is_assignable?: boolean;
   members: CombinedPanelMember[];
+  lineage_id?: string;
+  definition_version?: number;
+  lifecycle_state?: string;
+  compatibility_status?: string;
+  compatibility_evidence_hash?: string;
+  approval_basis?: string;
+  review_reason?: string;
   cost_to_client: { amount: string; currency: string };
   cost_to_welliemd: { amount: string; currency: string };
   is_active: boolean;

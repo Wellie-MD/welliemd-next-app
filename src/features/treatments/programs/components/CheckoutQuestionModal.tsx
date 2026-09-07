@@ -9,6 +9,8 @@ import { QuestionVisibilityTab } from "@/features/treatments/question-editor/com
 import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
 import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
 import type { LabPanel } from "@/api/labs";
+import type { CombinedLabPanel } from "@/features/labs/types";
+import type { Product } from "@/api/products";
 import { useEffect, useState } from "react";
 
 type CheckoutVisibilityQuestion = Pick<ProgramQuestion, "id" | "text"> & Partial<ProgramQuestion>;
@@ -43,6 +45,8 @@ export function CheckoutQuestionModal({
   const [labRequirements, setLabRequirements] = useState<ProgramLabRequirement[]>(programLabRequirements);
   const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
   const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
+  const [combinedLabPanels, setCombinedLabPanels] = useState<CombinedLabPanel[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -101,13 +105,16 @@ export function CheckoutQuestionModal({
                 onProductPriceChange={form.handleProductPriceChange}
                 onProductVisibilityChange={form.handleProductVisibilityChange}
                 onCompatibilityChange={setIncompatibleProducts}
+                onCatalogProductsChange={setCatalogProducts}
               />
             ) : onSaveLabRequirements ? (
               <CheckoutLabsSection
                 requirements={labRequirements}
                 onChange={setLabRequirements}
                 onPanelsLoaded={setLabPanels}
+                onCombinedPanelsLoaded={setCombinedLabPanels}
                 disabled={form.isSaving}
+                eligibleQuestions={visibilityQuestions}
               />
             ) : null}
             {mode === "medicine" && onSaveLabRequirements && (
@@ -123,12 +130,14 @@ export function CheckoutQuestionModal({
 
           <CheckoutPatientPreview
             validProducts={form.validProducts}
+            catalogProducts={catalogProducts}
             selectedPreviewIdx={form.selectedPreviewIdx}
             visibilityRuleGroup={form.visibilityRuleGroup}
             onSelectedPreviewChange={form.setSelectedPreviewIdx}
             mode={mode}
             labRequirements={labRequirements}
             labPanels={labPanels}
+            combinedLabPanels={combinedLabPanels}
           />
         </div>
 

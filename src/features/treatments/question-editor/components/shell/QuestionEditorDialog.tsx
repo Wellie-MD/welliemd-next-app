@@ -20,6 +20,7 @@ export interface QuestionEditorDialogProps {
   programTreatmentTypeKey?: string | null;
   programLabRequirements?: ProgramLabRequirement[];
   onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
+  visibilitySourceScope?: "default" | "custom_program_stage1";
 }
 
 export function QuestionEditorDialog({
@@ -33,6 +34,7 @@ export function QuestionEditorDialog({
   programTreatmentTypeKey,
   programLabRequirements = [],
   onSaveLabRequirements,
+  visibilitySourceScope = "default",
 }: QuestionEditorDialogProps) {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -126,6 +128,7 @@ export function QuestionEditorDialog({
               onSave={onSave}
               onClose={() => onOpenChange(false)}
               onTestFlow={handleTestFlow}
+              visibilitySourceScope={visibilitySourceScope}
             />
           )}
         </DialogContent>

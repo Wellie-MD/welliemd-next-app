@@ -11,6 +11,12 @@ export interface VisibilityValidationIssue {
   message: string;
 }
 
+export const createDefaultVisibilityGroup = (): VisibilityGroup => ({
+  type: "group",
+  operator: "AND",
+  children: [],
+});
+
 /**
  * Visibility rules have existed in both API (snake_case) and domain
  * (camelCase) shapes. Keep the authoring UI tolerant of either shape and of
@@ -44,6 +50,10 @@ const validateCondition = (
       field: "question",
       message: "Select the question that controls this condition.",
     });
+  }
+
+  if (condition.operator === "is_empty" || condition.operator === "is_not_empty") {
+    return issues;
   }
 
   if (condition.operator === "between") {

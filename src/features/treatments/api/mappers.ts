@@ -414,12 +414,16 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
   shippingDestinationPolicy: record.shipping_destination_policy || "service_location_only",
   labRequirements: (record.lab_requirements || []).map((requirement) => ({
     id: requirement.id,
-    panelId: requirement.panel_id,
+    requirementKind: requirement.requirement_kind || (requirement.combined_panel_id ? "combined" : "single"),
+    panelId: requirement.panel_id || undefined,
     panelName: requirement.panel_name,
+    combinedPanelId: requirement.combined_panel_id || undefined,
+    combinedPanelName: requirement.combined_panel_name,
     displayOrder: requirement.display_order,
     isRequired: requirement.is_required,
     isActive: requirement.is_active,
     instructions: requirement.instructions || "",
+    visibilityRuleGroup: requirement.visibility_rule as VisibilityRuleGroup | undefined,
   })),
   assignmentRuntimeState: record.assignment_runtime_state,
   runtimeReadyAt: record.runtime_ready_at ?? null,
@@ -505,11 +509,14 @@ export const programToRecord = (program: Partial<Program>, treatmentTypes: Treat
   }
   if (program.labRequirements !== undefined) {
     payload.lab_requirements = (program.labRequirements || []).map((requirement, index) => ({
-      panel_id: requirement.panelId,
+      requirement_kind: requirement.requirementKind,
+      panel_id: requirement.requirementKind === "single" ? requirement.panelId : null,
+      combined_panel_id: requirement.requirementKind === "combined" ? requirement.combinedPanelId : null,
       display_order: requirement.displayOrder || index + 1,
       is_required: requirement.isRequired,
       is_active: requirement.isActive,
       instructions: requirement.instructions || "",
+      visibility_rule: requirement.visibilityRuleGroup || null,
     }));
   }
 

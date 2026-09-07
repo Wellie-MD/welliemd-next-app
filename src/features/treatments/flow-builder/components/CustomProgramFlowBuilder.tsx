@@ -57,9 +57,8 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
   const allFlowQuestions = useMemo(
     () => buildCustomProgramVisibilityQuestions({
       flowItems: customProgram.flowItems,
-      sectionFields,
     }),
-    [customProgram.flowItems, sectionFields],
+    [customProgram.flowItems],
   );
 
   const editorQuestion: ProgramQuestion | null = editingQuestion ? {
@@ -120,6 +119,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
         onOpenPreview={() => builder.setIsTestModalOpen(true)}
       />
       <QuestionEditorDialog
+        visibilitySourceScope="custom_program_stage1"
         open={Boolean(editingQuestion)}
         onOpenChange={(open) => { if (!open) setEditingQuestion(null); }}
         questions={allFlowQuestions}

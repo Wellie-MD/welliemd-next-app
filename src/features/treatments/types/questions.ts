@@ -50,7 +50,9 @@ export type VisibilityRuleOperator =
   | "less_than"
   | "lte"
   | "less_than_or_equal"
-  | "between";
+  | "between"
+  | "is_empty"
+  | "is_not_empty";
 
 export interface VisibilityRule {
   id?: string;
@@ -59,7 +61,7 @@ export interface VisibilityRule {
   operator: VisibilityRuleOperator;
   /** For "in"/"not_in" the value is a comma-separated list of choices.
       For "between" the value is "min,max". */
-  value: string | string[];
+  value?: string | string[];
   source?: "answer" | "patient_profile";
   field?: string;
 }

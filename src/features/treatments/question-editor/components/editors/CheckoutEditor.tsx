@@ -10,6 +10,8 @@ import type { ProgramLabRequirement } from "@/features/treatments/types";
 import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
 import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
 import type { LabPanel } from "@/api/labs";
+import type { CombinedLabPanel } from "@/features/labs/types";
+import type { Product } from "@/api/products";
 
 interface CheckoutEditorProps {
   activeQuestion?: ProgramQuestion;
@@ -65,6 +67,7 @@ export function CheckoutEditor({
   const [justSaved, setJustSaved] = useState(false);
   const [incompatibleProducts, setIncompatibleProducts] = useState<string[]>([]);
   const [labRequirements, setLabRequirements] = useState<ProgramLabRequirement[]>(programLabRequirements);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     setLabRequirements(programLabRequirements);
@@ -113,6 +116,7 @@ export function CheckoutEditor({
   const isEditMode = !!activeQuestion;
   const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
   const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
+  const [combinedLabPanels, setCombinedLabPanels] = useState<CombinedLabPanel[]>([]);
 
   useEffect(() => {
     setMode(initialMode);
@@ -122,9 +126,9 @@ export function CheckoutEditor({
   const eligibleQuestions = useMemo(
     () =>
       questions.filter(
-        (question) => question.id !== activeQuestion?.id && question.order < questionOrder
+        (question) => question.id !== activeQuestion?.id && (mode === "lab" || question.order < questionOrder)
       ),
-    [questions, activeQuestion?.id, questionOrder]
+    [questions, activeQuestion?.id, questionOrder, mode]
   );
 
   return (
@@ -179,12 +183,14 @@ export function CheckoutEditor({
                 onProductFieldChange={form.handleProductFieldChange}
                 onProductPriceChange={form.handleProductPriceChange}
                 onProductVisibilityChange={form.handleProductVisibilityChange}
+                onCatalogProductsChange={setCatalogProducts}
               />
             ) : onSaveLabRequirements ? (
               <CheckoutLabsSection
                 requirements={labRequirements}
                 onChange={setLabRequirements}
                 onPanelsLoaded={setLabPanels}
+                onCombinedPanelsLoaded={setCombinedLabPanels}
                 disabled={form.isSaving}
               />
             ) : null}
@@ -204,12 +210,14 @@ export function CheckoutEditor({
 
         <CheckoutPatientPreview
           validProducts={form.validProducts}
+          catalogProducts={catalogProducts}
           selectedPreviewIdx={form.selectedPreviewIdx}
           visibilityRuleGroup={form.visibilityRuleGroup}
           onSelectedPreviewChange={form.setSelectedPreviewIdx}
           mode={mode}
           labRequirements={labRequirements}
           labPanels={labPanels}
+          combinedLabPanels={combinedLabPanels}
         />
       </div>
     </div>

@@ -11,6 +11,12 @@ export function getCollectionMethodLabel(method: string): string {
   return map[method] ?? method.replace(/_/g, " ");
 }
 
+export function isPendingJunctionStatus(status: string | undefined): boolean {
+  return ["pending", "pending_approval", "pending_submission"].includes(
+    (status || "").toLowerCase(),
+  );
+}
+
 export function renderJunctionStatusBadge(status: string): React.ReactElement {
   // Importing React here via JSX transform — no explicit import needed in modern TS setups,
   // but we import it explicitly to be safe in environments without the automatic JSX transform.
