@@ -11,6 +11,7 @@ import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-que
 import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
 import type { LabPanel } from "@/api/labs";
 import type { CombinedLabPanel } from "@/features/labs/types";
+import type { Product } from "@/api/products";
 
 interface CheckoutEditorProps {
   activeQuestion?: ProgramQuestion;
@@ -66,6 +67,7 @@ export function CheckoutEditor({
   const [justSaved, setJustSaved] = useState(false);
   const [incompatibleProducts, setIncompatibleProducts] = useState<string[]>([]);
   const [labRequirements, setLabRequirements] = useState<ProgramLabRequirement[]>(programLabRequirements);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     setLabRequirements(programLabRequirements);
@@ -181,6 +183,7 @@ export function CheckoutEditor({
                 onProductFieldChange={form.handleProductFieldChange}
                 onProductPriceChange={form.handleProductPriceChange}
                 onProductVisibilityChange={form.handleProductVisibilityChange}
+                onCatalogProductsChange={setCatalogProducts}
               />
             ) : onSaveLabRequirements ? (
               <CheckoutLabsSection
@@ -207,6 +210,7 @@ export function CheckoutEditor({
 
         <CheckoutPatientPreview
           validProducts={form.validProducts}
+          catalogProducts={catalogProducts}
           selectedPreviewIdx={form.selectedPreviewIdx}
           visibilityRuleGroup={form.visibilityRuleGroup}
           onSelectedPreviewChange={form.setSelectedPreviewIdx}

@@ -771,6 +771,12 @@ export default function Billing() {
                     {hasReleasedHold && infoRow("Captured amount", money(capturedInvoiceTotal))}
                     {hasReleasedHold && infoRow("Hold released", <span className="text-emerald-600">−{money(holdReleasedAmount)}</span>)}
                     {infoRow("Capture status", captureStatusLabel)}
+                    {(invoice.payment_references || []).map((reference) =>
+                      infoRow(
+                        `${reference.operation_type === "capture" ? "Capture" : "Authorization"} transaction`,
+                        <span className="font-mono break-all">{reference.processor_transaction_id}</span>,
+                      ),
+                    )}
                     {infoRow("Auth retry count", invoice.authorization_retry_count ?? 0)}
                     {infoRow("Next auth retry", invoice.authorization_next_retry_at ? new Date(invoice.authorization_next_retry_at).toLocaleString() : "—")}
                     {infoRow("Auth error code", invoice.authorization_last_error_code || "—")}

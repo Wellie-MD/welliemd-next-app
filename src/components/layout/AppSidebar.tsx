@@ -60,6 +60,25 @@ type MenuSection = {
   items: MenuItem[]
 }
 
+const normalizePath = (path: string) => {
+  const normalized = path.replace(/\/+$/, "")
+  return normalized || "/"
+}
+
+const isPathMatch = (currentPath: string, route: string) => {
+  const normalizedPath = normalizePath(currentPath)
+  const normalizedRoute = normalizePath(route)
+
+  return normalizedPath === normalizedRoute || normalizedPath.startsWith(`${normalizedRoute}/`)
+}
+
+const getMostSpecificActiveChildUrl = (currentPath: string) => {
+  return menuSections
+    .flatMap((section) => section.items.flatMap((item) => item.children ?? []))
+    .filter((child) => isPathMatch(currentPath, child.url))
+    .sort((left, right) => right.url.length - left.url.length)[0]?.url
+}
+
 const menuSections: MenuSection[] = [
   {
     label: "MANAGEMENT",
@@ -199,6 +218,7 @@ export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const currentPath = location.pathname
+  const activeChildUrl = getMostSpecificActiveChildUrl(currentPath)
   const [openSections, setOpenSections] = useState<string[]>([])
 
   const collapsed = state === "collapsed"
@@ -209,14 +229,14 @@ export function AppSidebar() {
 
     menuSections.forEach(section => {
       section.items.forEach(item => {
-        if (item.children?.some(child => currentPath.startsWith(child.url))) {
+        if (item.children?.some(child => child.url === activeChildUrl)) {
           activeParents.push(item.title)
         }
       })
     })
 
     setOpenSections(prev => [...new Set([...prev, ...activeParents])])
-  }, [currentPath])
+  }, [activeChildUrl])
 
   const toggleSection = (title: string) => {
     if (collapsed) return
@@ -229,7 +249,7 @@ export function AppSidebar() {
 
   const isItemActive = (item: SidebarItem) => {
     if (item.children) {
-      return item.children.some((child) => currentPath.startsWith(child.url))
+      return item.children.some((child) => child.url === activeChildUrl)
     }
     return currentPath === item.url
   }
@@ -334,7 +354,7 @@ export function AppSidebar() {
                                         to={child.url}
                                         className={`
                                           flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                          ${currentPath === child.url || currentPath.startsWith(`${child.url}/`)
+                                          ${child.url === activeChildUrl
                                             ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
                                             : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
                                           }

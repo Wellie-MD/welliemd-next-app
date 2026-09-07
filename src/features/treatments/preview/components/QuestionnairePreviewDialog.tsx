@@ -260,8 +260,13 @@ export function QuestionnairePreviewDialog({
       } else if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.close) {
         onOpenChange(false);
       } else if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.error) {
-        setStatus("error");
         setErrorMessage(event.data.message || "The questionnaire preview could not continue.");
+        // The iframe can report a diagnostic after it has already rendered.
+        // Keep the visible preview mounted in that case; setting `error` here
+        // would make its opacity zero and leave the Admin Portal blank.
+        if (status !== "ready") {
+          setStatus("error");
+        }
       }
     };
 
@@ -427,8 +432,8 @@ export function QuestionnairePreviewDialog({
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 bg-background p-3">
-          <div className="relative h-full overflow-hidden rounded-lg border border-border bg-white">
+        <div className="flex min-h-0 flex-1 justify-center bg-background p-3">
+          <div className="relative h-full w-full max-w-[360px] overflow-hidden rounded-lg bg-white ring-1 ring-border">
             {status === "loading" || identitySwitching ? (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white p-4">
                 <div className="flex flex-col items-center gap-3 text-xs text-muted-foreground">
