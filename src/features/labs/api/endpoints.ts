@@ -1,4 +1,5 @@
 export const adminLabEndpoints = {
+  assignmentSummary: "admin/labs/assignment-summary/",
   biomarkers: "admin/labs/biomarkers/",
   biomarkerSync: "admin/labs/biomarkers/sync/",
   catalogLabs: "admin/labs/catalog/labs/",
@@ -15,6 +16,9 @@ export const adminLabEndpoints = {
   assignmentReplace: (id: string) => `admin/labs/assignments/${id}/replace-submission/`,
   combinedPanels: "admin/labs/combined-panels/",
   combinedPanelDetail: (id: string) => `admin/labs/combined-panels/${id}/`,
+  combinedApprove: (id: string) => `admin/labs/combined-panels/${id}/approve/`,
+  combinedPublish: (id: string) => `admin/labs/combined-panels/${id}/publish/`,
+  combinedSupersede: (id: string) => `admin/labs/combined-panels/${id}/supersede/`,
   combinedValidate: "admin/labs/combined-panels/validate/",
   combinedClients: (id: string) => `admin/labs/combined-panels/${id}/clients/`,
   panelChangeHistory: (id: string) => `admin/labs/panels/${id}/change-history/`,

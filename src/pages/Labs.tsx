@@ -14,6 +14,7 @@ import {
   type AssignClient,
   type AssignItem,
 } from "@/features/labs";
+import { isPendingJunctionStatus } from "@/features/labs/utils";
 
 type StatusFilter = "All" | "Active" | "Pending approval" | "Inactive";
 type AssignmentSummary = { assigned: number; submitted: number; live: number };
@@ -93,12 +94,14 @@ export default function Labs() {
 
   const loadData = useCallback(async () => {
     try {
-      const [allLabs, allCombined] = await Promise.all([
+      const [allLabs, allCombined, summaries] = await Promise.all([
         labsApi.getLabPanels(),
         labsApi.getCombinedPanels(),
+        labsApi.getAssignmentSummaries(),
       ]);
       setLabs(allLabs);
       setCombinedPanels(allCombined);
+      setAssignmentSummary(summaries);
     } catch (e) {
       console.error(e);
     }
@@ -107,29 +110,6 @@ export default function Labs() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  useEffect(() => {
-    if (labs.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const summary: Record<string, AssignmentSummary> = {};
-      for (const lab of labs) {
-        if (cancelled) break;
-        try {
-          const list = await labsApi.getClientsForLabAssignment(lab.id);
-          summary[lab.id] = {
-            assigned: list.filter(c => c.assigned).length,
-            submitted: list.filter(c => c.assigned && (!!c.junction_lab_test_id || ["pending_approval", "active", "inactive", "failed"].includes((c.junction_status || "").toLowerCase()))).length,
-            live: list.filter(c => c.assigned && (c.is_orderable || (c.junction_status || "").toLowerCase() === "active")).length,
-          };
-        } catch {
-          /* non-critical */
-        }
-      }
-      if (!cancelled) setAssignmentSummary(summary);
-    })();
-    return () => { cancelled = true; };
-  }, [labs]);
 
   const stats = useMemo(() => ({
     total: labs.length + combinedPanels.filter(c => !c.is_archived).length,
@@ -152,10 +132,9 @@ export default function Labs() {
         return (
           (!q || l.name.toLowerCase().includes(q) || l.lab_provider.toLowerCase().includes(q)) &&
           (statusFilter === "All" ||
-            (statusFilter === "Active" && l.is_active) ||
-            (statusFilter === "Inactive" && !l.is_active) ||
-            (statusFilter === "Pending approval" &&
-              (l.junction_status === "pending_approval" || l.junction_status === "Pending")))
+            (statusFilter === "Active" && (assignmentSummary[l.id]?.live ?? 0) > 0) ||
+            (statusFilter === "Inactive" && (assignmentSummary[l.id]?.live ?? 0) === 0) ||
+            (statusFilter === "Pending approval" && isPendingJunctionStatus(l.junction_status)))
         );
       })
       .map(l => l.id);
@@ -403,10 +382,16 @@ export default function Labs() {
               .filter(client => clientIds.includes(client.id))
               .flatMap(client => client.assignment_ids || (client.assignment_id ? [client.assignment_id] : []));
           }
-          const syncResults = await Promise.allSettled(
-            Array.from(new Set(assignmentIds)).map(id => labsApi.syncAssignmentToTenant(id))
-          );
-          combinedSyncFailures += syncResults.filter(result => result.status === "rejected").length;
+          // Combined members share one tenant offering. Serialize their writes so
+          // two members cannot race while creating or reconciling that offering.
+          for (const assignmentId of Array.from(new Set(assignmentIds))) {
+            try {
+              await labsApi.syncAssignmentToTenant(assignmentId);
+            } catch (error) {
+              console.error(error);
+              combinedSyncFailures += 1;
+            }
+          }
         } else {
           await labsApi.assignLabPanelToClients(item.id, clientIds, labAccountSelections);
         }
@@ -559,8 +544,8 @@ export default function Labs() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { label: "Total Labs", value: stats.total },
-          { label: "Active Labs", value: stats.active },
-          { label: "Junction-Synced", value: stats.synced },
+          { label: "Live for Clients", value: stats.active },
+          { label: "Submitted to Junction", value: stats.synced },
         ].map(({ label, value }) => (
           <div key={label} className="bg-card border border-border/60 rounded-xl px-[18px] py-[14px] flex flex-col justify-between shadow-sm min-h-[90px]">
             <span className="text-[11.5px] uppercase font-bold tracking-wider text-muted-foreground">{label}</span>
