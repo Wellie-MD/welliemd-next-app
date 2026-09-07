@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { type AssignItem, type AssignClient } from "@/features/labs/types";
-import { renderJunctionStatusBadge } from "@/features/labs/utils";
+import { getCombinedJunctionStatus, renderJunctionStatusBadge } from "@/features/labs/utils";
 
 interface Props {
   open: boolean;
@@ -212,6 +212,10 @@ export default function LabAssignModal({
                 const pendingCombinedSubmissions = (c.methods ?? []).filter(
                   method => method.submission_ready === true && !method.junction_lab_test_id,
                 );
+                const displayJunctionStatus = getCombinedJunctionStatus(
+                  c.methods,
+                  c.junction_status || "pending_submission",
+                );
                 const canSubmit =
                   hasAssignment &&
                   c.checked &&
@@ -253,7 +257,7 @@ export default function LabAssignModal({
                       <div className="text-[10px] text-muted-foreground truncate">{c.email}</div>
                       {c.checked && hasAssignment && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          {renderJunctionStatusBadge(c.junction_status || "pending_submission")}
+                          {renderJunctionStatusBadge(displayJunctionStatus)}
                           {c.is_orderable && (
                             <span className="inline-block border px-[8px] py-[2px] rounded-[10px] text-[10px] font-semibold bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]">
                               Orderable

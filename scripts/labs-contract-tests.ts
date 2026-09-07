@@ -103,6 +103,14 @@ check(
   ) && /assignmentSubmitting/.test(page),
   "Assign must expose an explicit submitting state and prevent duplicate clicks while requests are running.",
 );
+check(
+  /getCombinedJunctionStatus/.test(
+    readFileSync(new URL("../src/features/labs/utils.tsx", import.meta.url), "utf8"),
+  ) && /getCombinedJunctionStatus\(\s*c\.methods/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ),
+  "Combined client rows must display the aggregate Junction status from their member methods.",
+);
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);

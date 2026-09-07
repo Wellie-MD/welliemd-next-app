@@ -17,6 +17,22 @@ export function isPendingJunctionStatus(status: string | undefined): boolean {
   );
 }
 
+export function getCombinedJunctionStatus(
+  methods: Array<Record<string, unknown>> | undefined,
+  fallback = "pending_submission",
+): string {
+  if (!methods?.length) return fallback;
+  const statuses = methods.map(method => String(method.junction_status ?? "").toLowerCase());
+  if (statuses.some(status => ["failed", "rejected", "needs_support"].includes(status))) {
+    return "failed";
+  }
+  if (methods.every(method => method.is_orderable === true || String(method.operational_status ?? "").toLowerCase() === "active")) {
+    return "active";
+  }
+  if (statuses.some(status => status === "pending_approval")) return "pending_approval";
+  return "pending_submission";
+}
+
 export function renderJunctionStatusBadge(status: string): React.ReactElement {
   // Importing React here via JSX transform — no explicit import needed in modern TS setups,
   // but we import it explicitly to be safe in environments without the automatic JSX transform.
