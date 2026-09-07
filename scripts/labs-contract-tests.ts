@@ -95,6 +95,14 @@ check(
   ) && /getPendingJunctionSubmissionIds\(client\)/.test(page),
   "Combined client rows must derive Submit visibility and submission targets from their member methods.",
 );
+check(
+  /isSubmitting/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ) && /disabled=\{isSubmitting\}/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ) && /assignmentSubmitting/.test(page),
+  "Assign must expose an explicit submitting state and prevent duplicate clicks while requests are running.",
+);
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);

@@ -106,6 +106,7 @@ export default function Labs() {
   const [assignItemSearch, setAssignItemSearch] = useState("");
   const [assignClientSearch, setAssignClientSearch] = useState("");
   const [assignmentActionId, setAssignmentActionId] = useState<string | null>(null);
+  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
   const [assignMode, setAssignMode] = useState<"single" | "combined">("single");
 
   const loadData = useCallback(async () => {
@@ -382,6 +383,7 @@ export default function Labs() {
         .map(c => [c.id, c.lab_account_id as string])
     );
     let combinedSyncFailures = 0;
+    setAssignmentSubmitting(true);
     try {
       for (const item of checkedItems) {
         if (item.kind === "combined") {
@@ -432,6 +434,8 @@ export default function Labs() {
     } catch (e) {
       console.error(e);
       toast({ title: "Error", description: "Failed to assign items.", variant: "destructive" });
+    } finally {
+      setAssignmentSubmitting(false);
     }
   };
 
@@ -637,6 +641,7 @@ export default function Labs() {
         clientSearch={assignClientSearch}
         onClientSearchChange={setAssignClientSearch}
         assignmentActionId={assignmentActionId}
+        isSubmitting={assignmentSubmitting}
         onSubmit={handleAssignSubmit}
         onSyncToTenant={handleSyncToTenant}
         onSubmitToJunction={handleSubmitToJunction}

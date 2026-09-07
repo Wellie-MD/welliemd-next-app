@@ -6,6 +6,7 @@ import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ interface Props {
   clientSearch: string;
   onClientSearchChange: (v: string) => void;
   assignmentActionId: string | null;
+  isSubmitting: boolean;
   onSubmit: () => Promise<void>;
   onSyncToTenant: (client: AssignClient) => Promise<void>;
   onSubmitToJunction: (client: AssignClient) => Promise<void>;
@@ -48,6 +50,7 @@ export default function LabAssignModal({
   clientSearch,
   onClientSearchChange,
   assignmentActionId,
+  isSubmitting,
   onSubmit,
   onSyncToTenant,
   onSubmitToJunction,
@@ -103,7 +106,12 @@ export default function LabAssignModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={nextOpen => {
+        if (!isSubmitting) onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent className="max-w-[760px] w-[94%] p-0 gap-0">
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="text-lg font-bold">Assign to Clients</DialogTitle>
@@ -375,9 +383,11 @@ export default function LabAssignModal({
           </Button>
           <Button
             onClick={onSubmit}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4"
+            disabled={isSubmitting}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4 inline-flex items-center"
           >
-            Assign
+            {isSubmitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+            {isSubmitting ? "Assigning…" : "Assign"}
           </Button>
         </DialogFooter>
       </DialogContent>
