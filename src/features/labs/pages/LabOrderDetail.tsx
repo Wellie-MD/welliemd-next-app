@@ -320,7 +320,7 @@ export default function LabOrderDetail() {
                 createdAt={order.created_at}
                 collectionMethod={order.collection_method}
                 provider={order.pharmacy_display || order.lab_provider}
-                currentLabel={order.ui_lab_event_label || statusLabel}
+                currentLabel={orderStatusLabel === "In Process" ? "Processing" : orderStatusLabel}
                 events={order.lifecycle_events || []}
               />
             </div>
