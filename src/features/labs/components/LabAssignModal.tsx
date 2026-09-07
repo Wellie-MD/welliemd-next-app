@@ -201,12 +201,15 @@ export default function LabAssignModal({
                 const hasAmbiguousAccounts =
                   labAccountRequired && (c.lab_account_state === "ambiguous" || accountOptions.length > 1);
                 const needsAccountSelection = hasAmbiguousAccounts && !c.lab_account_id;
+                const pendingCombinedSubmissions = (c.methods ?? []).filter(
+                  method => method.submission_ready === true && !method.junction_lab_test_id,
+                );
                 const canSubmit =
                   hasAssignment &&
                   c.checked &&
-                  !c.junction_lab_test_id &&
                   !needsAccountSelection &&
-                  !!c.submission_ready;
+                  (pendingCombinedSubmissions.length > 0 ||
+                    ((c.methods?.length ?? 0) === 0 && !c.junction_lab_test_id && !!c.submission_ready));
                 const canSync =
                   hasAssignment &&
                   c.checked &&

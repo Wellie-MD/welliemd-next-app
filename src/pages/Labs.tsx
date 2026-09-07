@@ -50,6 +50,22 @@ const toAssignClient = (c: ClientAssignment): AssignClient => ({
   methods: c.methods,
 });
 
+const getPendingJunctionSubmissionIds = (client: AssignClient): string[] => {
+  const methods = client.methods ?? [];
+  if (methods.length > 0) {
+    return methods
+      .filter(method => method.submission_ready === true && !method.junction_lab_test_id)
+      .map(method => String(method.assignment_id || ""))
+      .filter(Boolean);
+  }
+  if (!client.submission_ready || client.junction_lab_test_id) return [];
+  return client.assignment_ids?.length
+    ? client.assignment_ids
+    : client.assignment_id
+      ? [client.assignment_id]
+      : [];
+};
+
 export default function Labs() {
   const navigate = useNavigate();
 
@@ -420,7 +436,7 @@ export default function Labs() {
   };
 
   const handleSubmitToJunction = async (client: AssignClient) => {
-    const assignmentIds = client.assignment_ids?.length ? client.assignment_ids : client.assignment_id ? [client.assignment_id] : [];
+    const assignmentIds = getPendingJunctionSubmissionIds(client);
     if (assignmentIds.length === 0) return;
     setAssignmentActionId(assignmentIds[0]);
     try {

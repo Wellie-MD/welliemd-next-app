@@ -89,6 +89,12 @@ check(
     /for\s*\(const assignmentId of [^)]+\)[\s\S]{0,180}await labsApi\.syncAssignmentToTenant\(assignmentId\)/.test(page),
   "Combined-panel member tenant sync must run sequentially because members share one offering.",
 );
+check(
+  /pendingCombinedSubmissions/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ) && /getPendingJunctionSubmissionIds\(client\)/.test(page),
+  "Combined client rows must derive Submit visibility and submission targets from their member methods.",
+);
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);
