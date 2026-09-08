@@ -1,7 +1,7 @@
 /** Compact right rail for the client lab-order detail view. */
 import { humanizeLabStatus } from "@/features/labs/constants/status"
 import { labPillTone } from "@/features/labs/constants/tones"
-import { formatLabCollectionMethod } from "@/features/labs/utils/formatting"
+import { formatLabCollectionMethod, formatLabPaymentProvider } from "@/features/labs/utils/formatting"
 import type { LabOrderView } from "@/features/labs/types"
 import { cn } from "@/lib/utils"
 
@@ -84,7 +84,7 @@ export default function LabOrderDetailRightColumn({
 
       <SideCard title="Payment Info">
         <div className="flex justify-between gap-2"><SideLabel>Date</SideLabel><SideValue>{formattedOrderDate}</SideValue></div>
-        <div className="flex justify-between gap-2"><SideLabel>Provider</SideLabel><SideValue>{order.payment_provider || "—"}</SideValue></div>
+        <div className="flex justify-between gap-2"><SideLabel>Provider</SideLabel><SideValue>{formatLabPaymentProvider(order.payment_provider)}</SideValue></div>
         <div className="flex items-center justify-between gap-2"><SideLabel>Status</SideLabel><span className="rounded border border-emerald-100 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">{humanizeLabStatus(order.payment_status || "captured")}</span></div>
         <div className="flex justify-between border-t border-slate-100 pt-3 dark:border-gray-800"><span className="text-xs font-bold text-slate-800 dark:text-gray-200">Amount</span><strong className="text-xs text-slate-800 dark:text-gray-200">${parseFloat(order.orderTotal || order.price || "0").toFixed(2)}</strong></div>
       </SideCard>
