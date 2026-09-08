@@ -84,8 +84,6 @@ export default function Labs() {
 
 
   const [combinedOpen, setCombinedOpen] = useState(false);
-  const [combinedEditOpen, setCombinedEditOpen] = useState(false);
-  const [selectedCombinedPanel, setSelectedCombinedPanel] = useState<import("@/features/labs/types").CombinedLabPanel | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [markerOpen, setMarkerOpen] = useState(false);
@@ -248,11 +246,6 @@ export default function Labs() {
         variant: "destructive",
       });
     }
-  };
-
-  const handleEditOpenCombined = (combined: import("@/features/labs/types").CombinedLabPanel) => {
-    setSelectedCombinedPanel(combined);
-    setCombinedEditOpen(true);
   };
 
   const fetchChangeHistory = async (lab: LabPanel, filter: "all" | import("@/api/labs").LabChangeAction = "all") => {
@@ -570,7 +563,6 @@ export default function Labs() {
         onEditOpen={handleEditOpen}
         onAssignOpenSingle={handleAssignOpenSingle}
         onAssignOpenCombined={handleAssignOpenCombined}
-        onEditOpenCombined={handleEditOpenCombined}
         onArchive={handleArchive}
         onArchiveCombined={handleArchiveCombined}
         onViewChangeHistory={handleViewChangeHistory}
@@ -585,18 +577,6 @@ export default function Labs() {
         onCreated={() => {
           loadData();
           toast({ title: "Combined panel created." });
-        }}
-      />
-
-      <LabCombinedModal
-        open={combinedEditOpen}
-        onOpenChange={setCombinedEditOpen}
-        labs={labs}
-        initialPanel={selectedCombinedPanel}
-        onCreated={() => undefined}
-        onUpdated={() => {
-          loadData();
-          toast({ title: "Combined panel saved." });
         }}
       />
 

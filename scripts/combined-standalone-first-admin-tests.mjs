@@ -12,6 +12,10 @@ const combinedModal = readFileSync(
 );
 const api = readFileSync(new URL("../src/api/labs.ts", import.meta.url), "utf8");
 const types = readFileSync(new URL("../src/features/labs/types.ts", import.meta.url), "utf8");
+const table = readFileSync(
+  new URL("../src/features/labs/components/LabsTable.tsx", import.meta.url),
+  "utf8",
+);
 
 const failures = [];
 const check = (condition, message) => {
@@ -21,6 +25,11 @@ const check = (condition, message) => {
 check(
   /qualification_client_id/.test(api) && /qualification_client_id/.test(combinedModal),
   "Combined authoring must select and submit a qualification client.",
+);
+check(
+  /selectedQualificationCandidate/.test(combinedModal) &&
+    /qualificationCandidate=\{selectedQualificationCandidate\}/.test(combinedModal),
+  "Combined comparison must render readiness from the selected qualification client.",
 );
 check(
   /getCombinedPanelClients/.test(api) && /eligible|readiness/.test(modal),
@@ -44,6 +53,15 @@ check(
 check(
   /data\.combined_panel/.test(api) && !/return data\.successor/.test(api),
   "Supersession must parse the backend combined_panel response key.",
+);
+check(
+  !/onEditOpenCombined/.test(table) && !/ClipboardCheck/.test(table),
+  "Combined table rows must not expose a review/edit action.",
+);
+check(
+  !/combinedEditOpen|selectedCombinedPanel|handleEditOpenCombined/.test(page) &&
+    !/initialPanel=\{selectedCombinedPanel\}/.test(page),
+  "Labs page must not mount the Combined edit modal path.",
 );
 
 if (failures.length) {

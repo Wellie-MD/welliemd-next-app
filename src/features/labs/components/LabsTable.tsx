@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ClipboardCheck, History, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { History, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import { type LabPanel } from "@/api/labs";
 import { type CombinedLabPanel, type CombinedDerivedStatus } from "@/features/labs/types";
 import {
@@ -89,7 +89,6 @@ interface Props {
   onEditOpen: (lab: LabPanel) => void;
   onAssignOpenSingle: (lab: LabPanel) => Promise<void>;
   onAssignOpenCombined?: (combined: CombinedLabPanel) => Promise<void>;
-  onEditOpenCombined?: (combined: CombinedLabPanel) => void;
   onArchive: (lab: LabPanel) => Promise<void>;
   onArchiveCombined?: (combined: CombinedLabPanel) => Promise<void>;
   onViewChangeHistory?: (lab: LabPanel) => void;
@@ -110,7 +109,6 @@ export default function LabsTable({
   onEditOpen,
   onAssignOpenSingle,
   onAssignOpenCombined,
-  onEditOpenCombined,
   onArchive,
   onArchiveCombined,
   onViewChangeHistory,
@@ -369,9 +367,6 @@ export default function LabsTable({
               const methodSummary = combined.members
                 .map(m => getCollectionMethodLabel(m.collection_method))
                 .join(" · ");
-              const needsWorkflowReview = combined.lifecycle_state
-                ? combined.lifecycle_state !== "published"
-                : !combined.is_assignable;
               return (
                 <TableRow key={combined.id} className="hover:bg-muted/5">
                   <TableCell className="text-center">
@@ -454,17 +449,6 @@ export default function LabsTable({
                           title={combined.is_assignable ? "Assign combined panel to clients" : `Complete configuration first: ${(combined.configuration_missing ?? []).join(", ")}`}
                         >
                           <UserPlus className="h-4 w-4" />
-                        </button>
-                      )}
-                      {onEditOpenCombined && needsWorkflowReview && (
-                        <button
-                          type="button"
-                          onClick={() => onEditOpenCombined(combined)}
-                          className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-                          title="Review combined panel"
-                          aria-label={`Review ${combined.name}`}
-                        >
-                          <ClipboardCheck className="h-4 w-4" />
                         </button>
                       )}
                       {onArchiveCombined && (

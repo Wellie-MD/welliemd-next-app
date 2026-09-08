@@ -89,9 +89,11 @@ export function QualificationClientSelection({
 export function ComparisonOverview({
   panels,
   validation,
+  qualificationCandidate,
 }: {
   panels: LabPanel[];
   validation: CombinedValidationState;
+  qualificationCandidate: CombinedQualificationCandidate;
 }) {
   if (validation.checking) {
     return <Notice tone="neutral" title="Comparing selected labs…" />;
@@ -121,7 +123,10 @@ export function ComparisonOverview({
           <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] bg-slate-50 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
             <span>Lab</span><span>Method</span><span>Results</span><span>Setup</span>
           </div>
-          {panels.map(panel => (
+          {panels.map(panel => {
+            const memberReadiness = qualificationCandidate.members.find(member => member.panel_id === panel.id);
+            const memberReady = memberReadiness?.readiness_code === "active_orderable";
+            return (
             <div key={panel.id} className="grid grid-cols-[1.5fr_1fr_1fr_1fr] items-center border-t px-4 py-3 text-xs">
               <div><p className="font-semibold text-slate-900">{panel.name}</p><p className="text-slate-500">{panel.lab_provider || "Provider not supplied"}</p></div>
               <span>{getCollectionMethodLabel(panel.collection_method)}</span>
@@ -130,11 +135,19 @@ export function ComparisonOverview({
                   ? `${comparison.member_only_loinc_codes[panel.id].length} unique result${comparison.member_only_loinc_codes[panel.id].length === 1 ? "" : "s"}`
                   : comparison?.evidence_status === "looks_like_match" ? "Matches selected labs" : "No unique results found"}
               </span>
-              <span className={panel.is_assignable ? "text-emerald-700" : "text-amber-700"}>{panel.is_assignable ? "Ready" : "Setup incomplete"}</span>
+              <span className={memberReady ? "text-emerald-700" : "text-amber-700"}>
+                {memberReady ? "Approved and orderable" : memberReadiness?.readiness_code.replaceAll("_", " ") || "Not assigned"}
+              </span>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+      <Notice
+        tone={qualificationCandidate.eligible ? "success" : "warning"}
+        title={`${qualificationCandidate.client_name}: ${qualificationCandidate.eligible ? "all selected Labs are approved and orderable" : "member readiness needs attention"}`}
+        detail="This readiness check uses only this client's standalone Lab assignments."
+      />
       {validation.errors.map(error => <Notice key={error} tone="danger" title={error} />)}
       {!validation.errors.length && <Notice tone={comparison?.evidence_status === "looks_like_match" ? "success" : "warning"} title={evidence[0]} detail={evidence[1]} />}
       {validation.warnings.map(warning => <Notice key={warning} tone="warning" title="Attention item" detail={warning} />)}

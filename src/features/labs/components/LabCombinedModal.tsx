@@ -512,7 +512,13 @@ export default function LabCombinedModal({
           ) : null}
 
           {!isEditing && createStep === 2 && <QualificationClientSelection candidates={qualificationCandidates} loading={qualificationLoading} selectedClientId={qualificationClientId} onSelect={setQualificationClientId} />}
-          {!isEditing && createStep === 3 && <ComparisonOverview panels={selectedPanels} validation={validation} />}
+          {!isEditing && createStep === 3 && selectedQualificationCandidate && (
+            <ComparisonOverview
+              panels={selectedPanels}
+              validation={validation}
+              qualificationCandidate={selectedQualificationCandidate}
+            />
+          )}
           {!isEditing && createStep === 4 && <DecisionConfirmation panels={selectedPanels} warnings={validation.warnings} reason={reviewReason} onReasonChange={setReviewReason} />}
 
           {saveError && (
