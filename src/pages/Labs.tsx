@@ -47,6 +47,11 @@ const toAssignClient = (c: ClientAssignment): AssignClient => ({
   blocking_reason: c.blocking_reason,
   patient_price_configured: c.patient_price_configured,
   service_state_options: c.service_state_options,
+  sync_status: c.sync_status,
+  sync_attempt_count: c.sync_attempt_count,
+  sync_error: c.sync_error,
+  sync_correlation_id: c.sync_correlation_id,
+  last_synced_at: c.last_synced_at,
   methods: c.methods,
 });
 
@@ -382,34 +387,14 @@ export default function Labs() {
         .filter(c => c.lab_account_id)
         .map(c => [c.id, c.lab_account_id as string])
     );
-    let combinedSyncFailures = 0;
     setAssignmentSubmitting(true);
     try {
       for (const item of checkedItems) {
         if (item.kind === "combined") {
-          const response = await labsApi.assignCombinedPanelToClients(item.id, clientIds);
-          let assignmentIds = (response.results || []).flatMap(client =>
-            client.assignment_ids || (client.assignment_id ? [client.assignment_id] : [])
-          );
-          // Older deployments may acknowledge the assignment without returning
-          // the member rows. Re-read the combined endpoint before giving up on
-          // tenant synchronization.
-          if (assignmentIds.length === 0 && clientIds.length > 0) {
-            const rows = await labsApi.getCombinedPanelClients(item.id);
-            assignmentIds = rows
-              .filter(client => clientIds.includes(client.id))
-              .flatMap(client => client.assignment_ids || (client.assignment_id ? [client.assignment_id] : []));
-          }
-          // Combined members share one tenant offering. Serialize their writes so
-          // two members cannot race while creating or reconciling that offering.
-          for (const assignmentId of Array.from(new Set(assignmentIds))) {
-            try {
-              await labsApi.syncAssignmentToTenant(assignmentId);
-            } catch (error) {
-              console.error(error);
-              combinedSyncFailures += 1;
-            }
-          }
+          // The backend creates one logical offering and performs one grouped
+          // sync. Individual member assignment sync would split the offering
+          // and can never represent the Combined Lab correctly.
+          await labsApi.assignCombinedPanelToClients(item.id, clientIds);
         } else {
           await labsApi.assignLabPanelToClients(item.id, clientIds, labAccountSelections);
         }
@@ -426,10 +411,6 @@ export default function Labs() {
       }
       toast({
         title: "Assignments updated.",
-        description: combinedSyncFailures
-          ? `${combinedSyncFailures} combined-panel member sync${combinedSyncFailures === 1 ? "" : "s"} failed. Use Sync on the client row to retry.`
-          : undefined,
-        variant: combinedSyncFailures ? "destructive" : undefined,
       });
     } catch (e) {
       console.error(e);
@@ -642,11 +623,14 @@ export default function Labs() {
         onClientSearchChange={setAssignClientSearch}
         assignmentActionId={assignmentActionId}
         isSubmitting={assignmentSubmitting}
+        showJunctionActions={assignMode === "single"}
         onSubmit={handleAssignSubmit}
-        onSyncToTenant={handleSyncToTenant}
-        onSubmitToJunction={handleSubmitToJunction}
-        onCheckStatus={handleCheckStatus}
-        onReplaceSubmission={handleReplaceSubmission}
+        {...(assignMode === "single" ? {
+          onSyncToTenant: handleSyncToTenant,
+          onSubmitToJunction: handleSubmitToJunction,
+          onCheckStatus: handleCheckStatus,
+          onReplaceSubmission: handleReplaceSubmission,
+        } : {})}
       />
 
       <LabMarkerDetailModal

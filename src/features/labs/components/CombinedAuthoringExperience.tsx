@@ -2,6 +2,7 @@ import { AlertTriangle, Check, Circle, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { LabPanel } from "@/api/labs";
 import type { CombinedLabPanel } from "@/features/labs/types";
+import type { CombinedQualificationCandidate } from "@/features/labs/types";
 import { getCollectionMethodLabel } from "@/features/labs/utils";
 
 export interface CombinedValidationState {
@@ -16,11 +17,11 @@ export interface CombinedValidationState {
   };
 }
 
-const STEPS = ["Select labs", "Understand comparison", "Confirm decision"];
+const STEPS = ["Choose labs", "Qualification client", "Understand comparison", "Confirm decision"];
 
 export function AuthoringSteps({ current }: { current: number }) {
   return (
-    <ol aria-label="Combined panel creation steps" className="grid grid-cols-3 gap-2">
+    <ol aria-label="Combined panel creation steps" className="grid grid-cols-4 gap-2">
       {STEPS.map((label, index) => {
         const number = index + 1;
         const complete = number < current;
@@ -38,6 +39,50 @@ export function AuthoringSteps({ current }: { current: number }) {
         );
       })}
     </ol>
+  );
+}
+
+export function QualificationClientSelection({
+  candidates,
+  loading,
+  selectedClientId,
+  onSelect,
+}: {
+  candidates: CombinedQualificationCandidate[];
+  loading: boolean;
+  selectedClientId: string;
+  onSelect: (clientId: string) => void;
+}) {
+  if (loading) {
+    return <Notice tone="neutral" title="Checking client assignments…" detail="We are checking whether each selected Lab is already assigned and approved for a client." />;
+  }
+  if (candidates.length === 0) {
+    return <Notice tone="warning" title="No clients to review" detail="Select at least two Labs first. The Combined Panel can use only existing standalone assignments." />;
+  }
+  return (
+    <section aria-labelledby="qualification-client-heading" className="space-y-3">
+      <div>
+        <h3 id="qualification-client-heading" className="text-sm font-semibold text-slate-900">Choose a qualification client</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          This client is used to verify the selected standalone Labs. Every selected Lab must already be assigned to this client and approved by Junction before the Combined Panel can be created.
+        </p>
+      </div>
+      <div className="space-y-2">
+        {candidates.map(candidate => (
+          <label key={candidate.client_id} className={`block rounded-xl border p-3 cursor-pointer ${selectedClientId === candidate.client_id ? "border-blue-500 bg-blue-50/60" : "border-slate-200 bg-white"}`}>
+            <div className="flex items-start gap-3">
+              <input type="radio" name="combined-qualification-client" value={candidate.client_id} checked={selectedClientId === candidate.client_id} onChange={() => onSelect(candidate.client_id)} className="mt-1" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-slate-900">{candidate.client_name}</span>
+                <span className="block text-[11px] text-slate-500">{candidate.client_email}</span>
+                <span className={`mt-2 inline-block text-[11px] font-semibold ${candidate.eligible ? "text-emerald-700" : "text-amber-700"}`}>{candidate.eligible ? "Eligible for Combined Panel qualification" : "Needs attention before qualification"}</span>
+                <span className="mt-2 block space-y-1">{candidate.members.map(member => <span key={member.panel_id} className="block text-[11px] text-slate-600">{member.panel_name}: <span className="font-medium">{member.readiness_code.replaceAll("_", " ")}</span>{member.reason ? ` — ${member.reason}` : ""}</span>)}</span>
+              </span>
+            </div>
+          </label>
+        ))}
+      </div>
+    </section>
   );
 }
 

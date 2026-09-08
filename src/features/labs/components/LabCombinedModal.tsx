@@ -46,6 +46,7 @@ import {
   CombinedMemberMatrix,
   ComparisonOverview,
   DecisionConfirmation,
+  QualificationClientSelection,
   type CombinedValidationState,
 } from "./CombinedAuthoringExperience";
 
@@ -94,6 +95,9 @@ export default function LabCombinedModal({
   const [reviewReason, setReviewReason] = useState("");
   const [saveError, setSaveError] = useState("");
   const [successorMode, setSuccessorMode] = useState(false);
+  const [qualificationClientId, setQualificationClientId] = useState("");
+  const [qualificationCandidates, setQualificationCandidates] = useState<import("@/features/labs/types").CombinedQualificationCandidate[]>([]);
+  const [qualificationLoading, setQualificationLoading] = useState(false);
 
   // Reset on open
   useEffect(() => {
@@ -116,6 +120,9 @@ export default function LabCombinedModal({
       setReviewReason(initialPanel?.review_reason || "");
       setWorkflowBusy(false);
       setSuccessorMode(false);
+      setQualificationClientId("");
+      setQualificationCandidates([]);
+      setQualificationLoading(false);
       setCreateStep(1);
     }
   }, [open, initialPanel]);
@@ -142,6 +149,32 @@ export default function LabCombinedModal({
     () => selectedRows.map(r => r.selectedPanelId),
     [selectedRows]
   );
+
+  useEffect(() => {
+    if (!open || isEditing || selectedPanelIds.length < 2) {
+      setQualificationCandidates([]);
+      setQualificationClientId("");
+      return;
+    }
+    let cancelled = false;
+    setQualificationLoading(true);
+    labsApi.getCombinedQualificationCandidates(selectedPanelIds)
+      .then(candidates => {
+        if (cancelled) return;
+        setQualificationCandidates(candidates);
+        setQualificationClientId(current => candidates.some(candidate => candidate.client_id === current) ? current : "");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setQualificationCandidates([]);
+          setQualificationClientId("");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setQualificationLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [open, isEditing, selectedPanelIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live validation — debounced call to backend
   useEffect(() => {
@@ -183,8 +216,10 @@ export default function LabCombinedModal({
     [labs, selectedPanelIds],
   );
   const reviewReasonRequired = !isEditing && validation.warnings.length > 0;
+  const selectedQualificationCandidate = qualificationCandidates.find(candidate => candidate.client_id === qualificationClientId);
   const canSave = (isEditing ? editForm?.name.trim() : name.trim())
     && ((!isEditing && validation.valid) || (isEditing && successorMode ? validation.valid : true))
+    && (isEditing || (Boolean(qualificationClientId) && selectedQualificationCandidate?.eligible === true))
     && (!reviewReasonRequired || Boolean(reviewReason.trim()))
     && !saving;
 
@@ -216,6 +251,7 @@ export default function LabCombinedModal({
         name: name.trim(),
         member_panel_ids: selectedPanelIds,
         review_reason: reviewReason.trim(),
+        qualification_client_id: qualificationClientId,
       });
       onOpenChange(false);
       onCreated();
@@ -475,8 +511,9 @@ export default function LabCombinedModal({
           </div>
           ) : null}
 
-          {!isEditing && createStep === 2 && <ComparisonOverview panels={selectedPanels} validation={validation} />}
-          {!isEditing && createStep === 3 && <DecisionConfirmation panels={selectedPanels} warnings={validation.warnings} reason={reviewReason} onReasonChange={setReviewReason} />}
+          {!isEditing && createStep === 2 && <QualificationClientSelection candidates={qualificationCandidates} loading={qualificationLoading} selectedClientId={qualificationClientId} onSelect={setQualificationClientId} />}
+          {!isEditing && createStep === 3 && <ComparisonOverview panels={selectedPanels} validation={validation} />}
+          {!isEditing && createStep === 4 && <DecisionConfirmation panels={selectedPanels} warnings={validation.warnings} reason={reviewReason} onReasonChange={setReviewReason} />}
 
           {saveError && (
             <p className="text-xs text-red-600 font-medium">{saveError}</p>
@@ -493,12 +530,15 @@ export default function LabCombinedModal({
             Cancel
           </Button>
           {!isEditing && createStep > 1 && <Button type="button" variant="outline" onClick={() => setCreateStep(step => step - 1)} className="text-xs h-9">Back</Button>}
-          {!isEditing && createStep < 3 ? <Button
+          {!isEditing && createStep < 4 ? <Button
             type="button"
             onClick={() => setCreateStep(step => step + 1)}
-            disabled={(createStep === 1 && (!name.trim() || selectedRows.length < 2 || validation.checking || !validation.valid))}
+            disabled={
+              (createStep === 1 && (!name.trim() || selectedRows.length < 2 || validation.checking || !validation.valid)) ||
+              (createStep === 2 && (!qualificationClientId || selectedQualificationCandidate?.eligible !== true))
+            }
             className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4"
-          >{createStep === 1 ? "Compare selected labs" : "Continue to decision"}</Button> : <Button
+          >{createStep === 1 ? "Check qualification" : createStep === 2 ? "Review comparison" : "Continue to decision"}</Button> : <Button
             type="button"
             onClick={handleCreate}
             disabled={!canSave}

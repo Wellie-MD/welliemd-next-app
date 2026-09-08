@@ -20,6 +20,7 @@ export const adminLabEndpoints = {
   combinedPublish: (id: string) => `admin/labs/combined-panels/${id}/publish/`,
   combinedSupersede: (id: string) => `admin/labs/combined-panels/${id}/supersede/`,
   combinedValidate: "admin/labs/combined-panels/validate/",
+  combinedQualificationClients: "admin/labs/combined-panels/qualification-clients/",
   combinedClients: (id: string) => `admin/labs/combined-panels/${id}/clients/`,
   panelChangeHistory: (id: string) => `admin/labs/panels/${id}/change-history/`,
   orders: "admin/labs/orders/",

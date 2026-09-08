@@ -31,11 +31,13 @@ interface Props {
   onClientSearchChange: (v: string) => void;
   assignmentActionId: string | null;
   isSubmitting: boolean;
+  /** Junction actions belong to standalone Lab assignments only. */
+  showJunctionActions: boolean;
   onSubmit: () => Promise<void>;
-  onSyncToTenant: (client: AssignClient) => Promise<void>;
-  onSubmitToJunction: (client: AssignClient) => Promise<void>;
-  onCheckStatus: (client: AssignClient) => Promise<void>;
-  onReplaceSubmission: (client: AssignClient) => Promise<void>;
+  onSyncToTenant?: (client: AssignClient) => Promise<void>;
+  onSubmitToJunction?: (client: AssignClient) => Promise<void>;
+  onCheckStatus?: (client: AssignClient) => Promise<void>;
+  onReplaceSubmission?: (client: AssignClient) => Promise<void>;
 }
 
 export default function LabAssignModal({
@@ -51,6 +53,7 @@ export default function LabAssignModal({
   onClientSearchChange,
   assignmentActionId,
   isSubmitting,
+  showJunctionActions,
   onSubmit,
   onSyncToTenant,
   onSubmitToJunction,
@@ -321,13 +324,36 @@ export default function LabAssignModal({
                           ? "Platform routing"
                           : `${accountOptions.length || (c.linkedLabAccountIds ?? []).length} acct${(accountOptions.length || (c.linkedLabAccountIds ?? []).length) === 1 ? "" : "s"}`}
                       </span>
-                      {c.checked && hasAssignment && (
+                      {c.checked && hasAssignment && !showJunctionActions && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className={`inline-block rounded-[10px] border px-[8px] py-[2px] text-[10px] font-semibold ${c.sync_status === "synced" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : c.sync_status === "failed" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                            {c.sync_status === "synced" ? "Synced" : c.sync_status === "failed" ? "Sync failed" : "Sync pending"}
+                          </span>
+                          {c.sync_attempt_count ? <span className="text-[10px] text-muted-foreground">Attempt {c.sync_attempt_count}</span> : null}
+                        </div>
+                      )}
+                      {c.checked && !showJunctionActions && (c.methods ?? []).length > 0 && (
+                        <div className="mt-2 space-y-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                          {(c.methods ?? []).map((method, index) => {
+                            const readiness = String(method.readiness_code || "unknown").replaceAll("_", " ");
+                            return (
+                              <div key={String(method.assignment_id || method.panel_id || index)} className="text-[10px] text-slate-700">
+                                <span className="font-semibold">{String(method.panel_name || method.name || "Member Lab")}</span>
+                                {": "}
+                                <span className="capitalize">{readiness}</span>
+                                {method.reason ? ` — ${String(method.reason)}` : ""}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {c.checked && hasAssignment && showJunctionActions && (
                         <div className="flex items-center gap-1">
                           {canSync && (
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => onSyncToTenant(c)}
+                              onClick={() => onSyncToTenant?.(c)}
                               disabled={busy}
                               className="h-6 px-2 text-[10px]"
                               title="Sync latest admin panel changes to this client tenant without submitting a new Junction lab test"
@@ -339,7 +365,7 @@ export default function LabAssignModal({
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => onSubmitToJunction(c)}
+                              onClick={() => onSubmitToJunction?.(c)}
                               disabled={busy}
                               className="h-6 px-2 text-[10px]"
                             >
@@ -350,7 +376,7 @@ export default function LabAssignModal({
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => onCheckStatus(c)}
+                              onClick={() => onCheckStatus?.(c)}
                               disabled={busy}
                               className="h-6 px-2 text-[10px]"
                             >
@@ -361,7 +387,7 @@ export default function LabAssignModal({
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => onReplaceSubmission(c)}
+                              onClick={() => onReplaceSubmission?.(c)}
                               disabled={busy}
                               className="h-6 px-2 text-[10px] text-rose-600 hover:text-rose-700"
                             >

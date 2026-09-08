@@ -14,7 +14,7 @@ import type {
   LabOrder,
   LabPanel,
 } from "./labs-types";
-import type { CombinedLabPanel } from "@/features/labs/types";
+import type { CombinedLabPanel, CombinedQualificationCandidate } from "@/features/labs/types";
 export type { CombinedLabPanel } from "@/features/labs/types";
 export type {
   Biomarker,
@@ -151,6 +151,11 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   provider_supported_states: Array.isArray(raw.provider_supported_states) ? raw.provider_supported_states : [],
   provider_policy_revision: typeof raw.provider_policy_revision === "number" ? raw.provider_policy_revision : null,
   provider_policy_source: raw.provider_policy_source || "",
+  sync_status: raw.sync_status || undefined,
+  sync_attempt_count: typeof raw.sync_attempt_count === "number" ? raw.sync_attempt_count : undefined,
+  sync_error: raw.sync_error || "",
+  sync_correlation_id: raw.sync_correlation_id || "",
+  last_synced_at: raw.last_synced_at || null,
   methods: Array.isArray(raw.methods) ? raw.methods : [],
 });
 
@@ -377,6 +382,7 @@ export const labsApi = {
     cost_to_client?: { amount: string; currency: string };
     cost_to_welliemd?: { amount: string; currency: string };
     service_states?: string[];
+    qualification_client_id: string;
   }) => {
     const { data } = await axiosInstance.post(adminLabEndpoints.combinedPanels, payload);
     return data as import("@/features/labs/types").CombinedLabPanel;
@@ -414,7 +420,7 @@ export const labsApi = {
     const { data } = await axiosInstance.post(adminLabEndpoints.combinedSupersede(id), {
       member_panel_ids: memberPanelIds,
     });
-    return data.successor as import("@/features/labs/types").CombinedLabPanel;
+    return data.combined_panel as import("@/features/labs/types").CombinedLabPanel;
   },
 
   archiveCombinedPanel: async (id: string): Promise<{ success: boolean; archived: boolean }> => {
@@ -441,6 +447,26 @@ export const labsApi = {
   getCombinedPanelClients: async (combinedId: string) => {
     const { data } = await axiosInstance.get(adminLabEndpoints.combinedClients(combinedId));
     return (data.results || data || []).map(normalizeClientAssignment);
+  },
+
+  getCombinedQualificationCandidates: async (panelIds: string[]): Promise<CombinedQualificationCandidate[]> => {
+    const { data } = await axiosInstance.get(adminLabEndpoints.combinedQualificationClients, {
+      params: { panel_ids: panelIds },
+    });
+    return (data.results || data || []).map((raw: any) => ({
+      client_id: String(raw.client_id),
+      client_name: raw.client_name || "",
+      client_email: raw.client_email || "",
+      eligible: raw.eligible === true,
+      members: Array.isArray(raw.members) ? raw.members.map((member: any) => ({
+        panel_id: String(member.panel_id),
+        panel_name: member.panel_name || "",
+        readiness_code: member.readiness_code || "unknown",
+        reason: member.reason || "",
+        assignment_id: member.assignment_id || null,
+        junction_lab_test_id: member.junction_lab_test_id || "",
+      })) : [],
+    }));
   },
 
   assignCombinedPanelToClients: async (

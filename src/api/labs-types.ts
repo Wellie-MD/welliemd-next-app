@@ -211,6 +211,11 @@ export interface ClientAssignment {
   provider_supported_states?: string[];
   provider_policy_revision?: number | null;
   provider_policy_source?: string;
+  sync_status?: "pending" | "synced" | "failed";
+  sync_attempt_count?: number;
+  sync_error?: string;
+  sync_correlation_id?: string;
+  last_synced_at?: string | null;
   methods?: Array<Record<string, unknown>>;
 }
 

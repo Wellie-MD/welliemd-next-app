@@ -428,6 +428,11 @@ export default function LabsTable({
                           Missing: {combined.configuration_missing.join(", ")}
                         </div>
                       )}
+                      {combined.clinical_warnings && combined.clinical_warnings.length > 0 && (
+                        <div className="text-[10px] text-amber-700">
+                          Review: {combined.clinical_warnings.join(", ")}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

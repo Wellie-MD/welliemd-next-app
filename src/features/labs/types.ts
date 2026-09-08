@@ -60,7 +60,27 @@ export interface AssignClient {
   blocking_reason?: string;
   patient_price_configured?: boolean;
   service_state_options?: string[];
+  sync_status?: "pending" | "synced" | "failed";
+  sync_attempt_count?: number;
+  sync_error?: string;
+  sync_correlation_id?: string;
+  last_synced_at?: string | null;
   methods?: Array<Record<string, unknown>>;
+}
+
+export interface CombinedQualificationCandidate {
+  client_id: string;
+  client_name: string;
+  client_email: string;
+  eligible: boolean;
+  members: Array<{
+    panel_id: string;
+    panel_name: string;
+    readiness_code: string;
+    reason: string;
+    assignment_id?: string | null;
+    junction_lab_test_id?: string;
+  }>;
 }
 
 /** Shape used by the Create panel form. */
@@ -122,6 +142,7 @@ export interface CombinedLabPanel {
   derived_status: CombinedDerivedStatus;
   configuration_status?: "configuration_in_progress" | "ready_to_assign" | "archived";
   configuration_missing?: string[];
+  clinical_warnings?: string[];
   is_assignable?: boolean;
   members: CombinedPanelMember[];
   lineage_id?: string;
@@ -131,6 +152,7 @@ export interface CombinedLabPanel {
   compatibility_evidence_hash?: string;
   approval_basis?: string;
   review_reason?: string;
+  qualification_evidence?: Record<string, unknown>;
   cost_to_client: { amount: string; currency: string };
   cost_to_welliemd: { amount: string; currency: string };
   is_active: boolean;
