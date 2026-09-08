@@ -12,6 +12,7 @@ import {
   fetchIntercomBanners,
   type IntercomBanner,
 } from './bannersApi';
+import { env } from '@/config/env';
 
 interface IntercomBannersContextValue {
   /** First banner authored as the inline (top) variant, if any. */
@@ -37,6 +38,7 @@ export function IntercomBannersProvider({ children }: { children: ReactNode }) {
   const fetchedRef = useRef(false);
 
   useEffect(() => {
+    if (!env.VITE_ENABLE_INTERCOM) return;
     if (fetchedRef.current) return;
     if (!useAuthStore.getState().isAuthenticated) return;
     fetchedRef.current = true;

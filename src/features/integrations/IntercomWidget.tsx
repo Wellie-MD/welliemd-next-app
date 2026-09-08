@@ -110,6 +110,7 @@ function subscribeReady(cb: (value: boolean) => void) {
   };
 }
 function ensureProbe() {
+  if (!env.VITE_ENABLE_INTERCOM) return;
   if (probed) return;
   if (!useAuthStore.getState().isAuthenticated) return;
   probed = true;
@@ -129,6 +130,7 @@ function ensureProbe() {
     });
 }
 function ensureStoreListener() {
+  if (!env.VITE_ENABLE_INTERCOM) return;
   if (storeUnsubscribe) return;
   storeUnsubscribe = useAuthStore.subscribe(
     (state) => state.isAuthenticated,
@@ -240,6 +242,7 @@ export const IntercomWidget = () => {
   const suppressClickRef = useRef(false);
 
   useEffect(() => {
+    if (!env.VITE_ENABLE_INTERCOM) return;
     ensureStoreListener();
     ensureProbe();
     return subscribeReady(setReady);
@@ -627,7 +630,7 @@ export const IntercomWidget = () => {
   };
   const onSend = () => sendMessage(draft);
 
-  if (!ready) return null;
+  if (!env.VITE_ENABLE_INTERCOM || !ready) return null;
 
   const launcherActive = panelOpen;
   const renderAvatar = (cls: string) => (
