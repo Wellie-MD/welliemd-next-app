@@ -10,6 +10,7 @@ import { BrandingProvider } from "@/contexts/BrandingContext";
 import { MessagesProvider } from "@/contexts/MessagesContext";
 import { IntercomBannersProvider } from "@/features/announcements/IntercomBannersContext";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { Phase2FlagsProvider } from "@/features/phase2/Phase2Flags";
 
 // pages
 const DashboardFrame = lazyWithRetry(() => import("./components/layout/DashboardFrame"));
@@ -74,6 +75,7 @@ const App = () => {
 
   return (
     <BrowserRouter>
+      <Phase2FlagsProvider>
       <Toaster />
       <Suspense fallback={<RouteLoadingFallback />}>
       <Routes>
@@ -99,6 +101,7 @@ const App = () => {
         <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
+      </Phase2FlagsProvider>
     </BrowserRouter>
   );
 };

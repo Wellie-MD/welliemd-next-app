@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
@@ -12,6 +12,7 @@ import { IntercomWidget } from "@/features/integrations/IntercomWidget";
 import { IntercomCardBanner, IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { Loader2 } from "lucide-react";
 import { ProgramLegacyRouteRedirect } from "@/features/treatments/navigation/ProgramLegacyRouteRedirect";
+import { Phase2Gate, type Phase2Milestone } from "@/features/phase2/Phase2Flags";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Patients = lazy(() => import("@/pages/Patients"));
@@ -171,6 +172,14 @@ export default function DashboardFrame() {
     return count;
   })();
 
+  const gatedRoute = (milestone: Phase2Milestone, page: ReactNode) => (
+    <ProtectedRoute>
+      <Phase2Gate milestone={milestone} fallback={<Navigate to="/dashboard" replace />}>
+        {page}
+      </Phase2Gate>
+    </ProtectedRoute>
+  );
+
   return (
     <SidebarProvider>
       <div className="h-svh min-h-0 flex w-full min-w-0 overflow-hidden">
@@ -183,9 +192,10 @@ export default function DashboardFrame() {
 
           <BillingSuspendedBanner />
 
-          <IntercomWidget />
-
-          <IntercomCardBanner />
+          <Phase2Gate milestone="milestone_1">
+            <IntercomWidget />
+            <IntercomCardBanner />
+          </Phase2Gate>
 
           {/* pb-20 (80px) reserves space for the fixed Intercom launcher
               (bottom:60px + 56px tall = 116px) so it never overlaps page
@@ -194,21 +204,23 @@ export default function DashboardFrame() {
               footprint, so some overlap can still occur; bump to pb-32
               (128px) if that's seen in practice. */}
           <main className="min-h-0 flex-1 bg-background min-w-0 overflow-x-hidden overflow-y-auto pb-20">
-            <IntercomInlineBanner className="mx-6 mt-4" />
+            <Phase2Gate milestone="milestone_1">
+              <IntercomInlineBanner className="mx-6 mt-4" />
+            </Phase2Gate>
             <Suspense fallback={<PageLoadingFallback />}>
             <Routes>
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
               <Route path="/patients/:patientId" element={<ProtectedRoute><PatientDetailPage /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-              <Route path="/orders/labs" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />
-              <Route path="/orders/labs/:orderId" element={<ProtectedRoute><LabOrderDetail /></ProtectedRoute>} />
+              <Route path="/orders/labs" element={gatedRoute("milestone_1", <LabOrders />)} />
+              <Route path="/orders/labs/:orderId" element={gatedRoute("milestone_1", <LabOrderDetail />)} />
               <Route path="/orders/details/:orderId" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
               <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
               <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-              <Route path="/products/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
+              <Route path="/products/labs" element={gatedRoute("milestone_1", <Labs />)} />
               <Route path="/products/supplies" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-              <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
+              <Route path="/products/routing" element={gatedRoute("milestone_3", <ProductsRouting />)} />
               <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
               <Route
                 path="/billing"
@@ -235,12 +247,12 @@ export default function DashboardFrame() {
               <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
               <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
               <Route path="/wearables" element={<ProtectedRoute><Wearables /></ProtectedRoute>} />
-              <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
-              <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
-              <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
-              <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
-              <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
-              <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
+              <Route path="/treatments/programs" element={gatedRoute("milestone_3", <ProgramsPage />)} />
+              <Route path="/treatments/programs/:programId/questions" element={gatedRoute("milestone_3", <ProgramDetailPage />)} />
+              <Route path="/treatments/programs/:programId/flow-builder" element={gatedRoute("milestone_3", <ProgramLegacyRouteRedirect />)} />
+              <Route path="/treatments/programs/:programId" element={gatedRoute("milestone_3", <ProgramLegacyRouteRedirect />)} />
+              <Route path="/treatments/custom-programs" element={gatedRoute("milestone_3", <CustomProgramsPage />)} />
+              <Route path="/treatments/custom-programs/:customProgramId/builder" element={gatedRoute("milestone_3", <CustomProgramBuilderPage />)} />
             </Routes>
             </Suspense>
           </main>

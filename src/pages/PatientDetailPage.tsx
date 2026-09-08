@@ -45,6 +45,7 @@ import { ordersApi, type Order } from "@/api/ordersApi";
 import { patientService, type Patient, type TreatmentEpisode } from "@/services/patientService";
 import { useClients } from "@/hooks/useClients";
 import { useAuthStore } from "@/store/useAuthStore";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 import axiosInstance from "@/api/axiosInstance";
 import api from "@/api/axiosInstance";
 
@@ -210,6 +211,8 @@ export default function PatientDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentClient } = useClients();
+  const { isEnabled } = usePhase2Flags();
+  const milestone2Enabled = isEnabled("milestone_2");
   const authUser = useAuthStore((state) => state.user);
   const [isImpersonating, setIsImpersonating] = useState(false);
 
@@ -555,7 +558,7 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              {canImpersonate && (
+              {milestone2Enabled && canImpersonate && (
                 <Button
                   variant="outline"
                   onClick={handleImpersonate}
@@ -1034,13 +1037,19 @@ export default function PatientDetailPage() {
                                             </div>
                                           )}
                                         </div>
-                                        <div className="text-right text-xs text-slate-500">
-                                          BMI <span className="font-semibold text-slate-900">{points[points.length - 1]?.bmi?.toFixed(1) || 'N/A'}</span>
-                                        </div>
+                                        {milestone2Enabled && (
+                                          <div className="text-right text-xs text-slate-500">
+                                            BMI <span className="font-semibold text-slate-900">{points[points.length - 1]?.bmi?.toFixed(1) || 'N/A'}</span>
+                                          </div>
+                                        )}
                                       </div>
                                       {points.length > 1 ? (
                                         <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                                          <WeightTrendChart points={points as any} targetBmi={null} />
+                                          <WeightTrendChart
+                                            points={points as any}
+                                            targetBmi={null}
+                                            showBmi={milestone2Enabled}
+                                          />
                                         </div>
                                       ) : (
                                         <div className="p-4 text-center text-sm text-slate-500">Not enough history yet for a trend line.</div>
@@ -1293,9 +1302,11 @@ export default function PatientDetailPage() {
 function WeightTrendChart({
   points,
   targetBmi,
+  showBmi = false,
 }: {
   points: { date: string; weight: number; height?: number | null; bmi?: number | null }[];
   targetBmi?: number | null;
+  showBmi?: boolean;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -1443,7 +1454,7 @@ function WeightTrendChart({
           {points[hoveredIndex]!.height != null && (
             <div style={{ color: 'var(--km-t2)' }}>Height: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.height} in</b></div>
           )}
-          {points[hoveredIndex]!.bmi != null && (
+          {showBmi && points[hoveredIndex]!.bmi != null && (
             <div style={{ color: 'var(--km-t2)' }}>BMI: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.bmi}</b></div>
           )}
         </div>

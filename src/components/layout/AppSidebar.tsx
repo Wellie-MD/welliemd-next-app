@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useMemo, Fragment, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   ChartLine,
@@ -45,6 +45,7 @@ import { PermissionGate } from "@/components/auth/PermissionGate";
 import { Permissions } from "@/constants/permissions";
 import { useBranding } from "@/contexts/BrandingContext";
 import { DEFAULT_CLIENT_LOGO_PATH } from "@/constants/branding";
+import { usePhase2Flags, type Phase2Milestone } from "@/features/phase2/Phase2Flags";
 
 type Props = { unseenCount?: number };
 
@@ -65,7 +66,7 @@ const menuSections = [
         permission: Permissions.ORDER_LIST, // All roles
         children: [
           { title: "Rx Orders", url: "/dashboard/orders" },
-          { title: "Lab Orders", url: "/dashboard/orders/labs" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs", milestone: "milestone_1" as const },
         ],
       },
       {
@@ -105,6 +106,7 @@ const menuSections = [
       {
         title: "Treatments",
         icon: Stethoscope,
+        milestone: "milestone_3" as const,
         children: [
           { title: "Custom Programs", url: "/dashboard/treatments/custom-programs" },
           { title: "Programs", url: "/dashboard/treatments/programs" },
@@ -122,9 +124,9 @@ const menuSections = [
         permission: Permissions.PRODUCT_MANAGE, // All roles (view only for CS)
         children: [
           { title: "Medications", url: "/dashboard/products" },
-          { title: "Lab Tests", url: "/dashboard/products/labs" },
+          { title: "Lab Tests", url: "/dashboard/products/labs", milestone: "milestone_1" as const },
           { title: "Supplies", url: "/dashboard/products/supplies" },
-          { title: "Routing", url: "/dashboard/products/routing" },
+          { title: "Routing", url: "/dashboard/products/routing", milestone: "milestone_3" as const },
         ],
       },
     ],
@@ -178,15 +180,35 @@ const menuSections = [
 
 export function AppSidebar({ unseenCount = 0 }: Props) {
   const { state } = useSidebar();
+  const { isEnabled } = usePhase2Flags();
   const location = useLocation();
   const currentPath = location.pathname;
   const [openSections, setOpenSections] = useState<string[]>([]);
   const collapsed = state === "collapsed";
+  const visibleMenuSections = useMemo(
+    () => menuSections.map((section) => ({
+      ...section,
+      items: section.items
+        .filter((item) => {
+          const milestone = ("milestone" in item ? item.milestone : undefined) as Phase2Milestone | undefined;
+          return !milestone || isEnabled(milestone);
+        })
+        .map((item) => ({
+          ...item,
+          children: item.children?.filter((child) => {
+            const milestone = ("milestone" in child ? child.milestone : undefined) as Phase2Milestone | undefined;
+            return !milestone || isEnabled(milestone);
+          }),
+        }))
+        .filter((item) => !item.children || item.children.length > 0),
+    })).filter((section) => section.items.length > 0),
+    [isEnabled]
+  );
 
   // Auto-open sections when a child is active
   useEffect(() => {
     const activeParents: string[] = [];
-    menuSections.forEach((section) => {
+    visibleMenuSections.forEach((section) => {
       section.items.forEach((item) => {
         if (item.children?.some((child) => currentPath.startsWith(child.url))) {
           activeParents.push(item.title);
@@ -194,7 +216,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
       });
     });
     setOpenSections((prev) => [...new Set([...prev, ...activeParents])]);
-  }, [currentPath]);
+  }, [currentPath, visibleMenuSections]);
 
   const toggleSection = (title: string) => {
     if (collapsed) return;
@@ -272,7 +294,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex flex-col h-full">
-          {menuSections.map((section, sectionIndex) => (
+          {visibleMenuSections.map((section, sectionIndex) => (
             <Fragment key={section.label}>
               {!collapsed && (
                 <div className="px-3 pt-4 pb-2 first:pt-2">

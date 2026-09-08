@@ -12,6 +12,7 @@ import {
   fetchIntercomBanners,
   type IntercomBanner,
 } from './bannersApi';
+import { usePhase2Flags } from '@/features/phase2/Phase2Flags';
 
 interface IntercomBannersContextValue {
   /** First banner authored as the inline (top) variant, if any. */
@@ -31,12 +32,15 @@ const IntercomBannersContext = createContext<IntercomBannersContextValue>({
 export const useIntercomBanners = () => useContext(IntercomBannersContext);
 
 export function IntercomBannersProvider({ children }: { children: ReactNode }) {
+  const { isEnabled } = usePhase2Flags();
+  const intercomEnabled = isEnabled('milestone_1');
   const [banners, setBanners] = useState<IntercomBanner[]>([]);
   // Fetch exactly once per session: each GET records impressions in Intercom,
   // so we must not double-fetch (StrictMode / re-renders / route changes).
   const fetchedRef = useRef(false);
 
   useEffect(() => {
+    if (!intercomEnabled) return;
     if (fetchedRef.current) return;
     if (!useAuthStore.getState().isAuthenticated) return;
     fetchedRef.current = true;
@@ -48,7 +52,7 @@ export function IntercomBannersProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // Best-effort: on failure show no banners.
       });
-  }, []);
+  }, [intercomEnabled]);
 
   const dismiss = (viewId: string) => {
     setBanners((prev) => prev.filter((b) => b.view_id !== viewId));
