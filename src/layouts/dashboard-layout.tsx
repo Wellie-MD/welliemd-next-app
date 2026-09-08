@@ -10,6 +10,7 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import { IntercomWidget } from '@/features/integrations/IntercomWidget';
 import { IntercomBannersProvider } from '@/features/announcements/IntercomBannersContext';
 import { IntercomCardBanner, IntercomInlineBanner } from '@/features/announcements/IntercomBanners';
+import { Phase2Gate } from '@/features/phase2/Phase2Flags';
 
 const DashboardLayout: FC = () => {
   const location = useLocation();
@@ -119,15 +120,21 @@ const DashboardLayout: FC = () => {
                   margin: "0 auto",
                 }}
               >
-                {!isMessagesPage && <IntercomInlineBanner className="-mt-2 mb-4" />}
+                {!isMessagesPage && (
+                  <Phase2Gate milestone="milestone_1">
+                    <IntercomInlineBanner className="-mt-2 mb-4" />
+                  </Phase2Gate>
+                )}
                 <Outlet />
               </div>
             </div>
             </main>
           </div>
         </div>
-        <IntercomWidget />
-        <IntercomCardBanner />
+        <Phase2Gate milestone="milestone_1">
+          <IntercomWidget />
+          <IntercomCardBanner />
+        </Phase2Gate>
       </div>
     </NotificationsProvider>
     </IntercomBannersProvider>

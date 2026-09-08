@@ -22,6 +22,7 @@ import LogWeightModal from "@/features/devices/components/LogWeightModal";
 import { WEIGHT_DEFAULT, DEVICE_METRICS_DEFAULT } from "@/features/devices/constants";
 import type { WeightData, DeviceMetrics, VitalsEntry } from "@/features/devices/types";
 import { profileService } from "@/features/profile/services/profile.service";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 /**
  * Build the dashboard's WeightData from the persisted vitals history
@@ -124,6 +125,10 @@ function getGreeting(): string {
 }
 
 export default function Dashboard() {
+  const { isEnabled } = usePhase2Flags();
+  const milestone1Enabled = isEnabled("milestone_1");
+  const milestone2Enabled = isEnabled("milestone_2");
+  const milestone3Enabled = isEnabled("milestone_3");
   const navigate = useNavigate();
   const viewerIdentity = useViewerIdentity();
   const fullName = viewerIdentity.fullName;
@@ -181,7 +186,7 @@ export default function Dashboard() {
           getConnections(),
           getVitalsHistory(),
           profileService.getPatientProfile(),
-          getHealthGoal().catch(() => null),
+          milestone2Enabled ? getHealthGoal().catch(() => null) : Promise.resolve(null),
         ]);
         
         const priorityList = patientProfile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
@@ -217,7 +222,7 @@ export default function Dashboard() {
     };
 
     fetchWearables();
-  }, []);
+  }, [milestone2Enabled]);
 
   // Fetch pending follow-up count
   useEffect(() => {
@@ -345,7 +350,8 @@ export default function Dashboard() {
             {weight.series.length > 0 && (
               <WeightTrendCard
                 weight={weight}
-                onOpenGoalModal={() => navigate("/dashboard/devices")}
+                bmiEnhancementsEnabled={milestone2Enabled}
+                {...(milestone2Enabled ? { onOpenGoalModal: () => navigate("/dashboard/devices") } : {})}
                 bottomAction={{
                   label: "Log today's weight",
                   onClick: () => setLogWeightOpen(true),
@@ -400,8 +406,8 @@ export default function Dashboard() {
           {[
             { icon: MessageSquare, label: "Message", desc: "Contact your care team", path: "/dashboard/messages?prefill=" + encodeURIComponent("Hi, I have a question for my care team.") },
             { icon: Package, label: "Orders", desc: "Track your deliveries", path: "/dashboard/orders" },
-            { icon: TestTubes, label: "Labs", desc: "View lab results", path: "/dashboard/labs" },
-            { icon: Compass, label: "Explore", desc: "Browse treatments", path: "/dashboard/explore" },
+            ...(milestone1Enabled ? [{ icon: TestTubes, label: "Labs", desc: "View lab results", path: "/dashboard/labs" }] : []),
+            ...(milestone3Enabled ? [{ icon: Compass, label: "Explore", desc: "Browse treatments", path: "/dashboard/explore" }] : []),
           ].map((qa) => (
             <div key={qa.label} className="km-qaitem" onClick={() => navigate(qa.path)}>
               <div className="km-qaico">

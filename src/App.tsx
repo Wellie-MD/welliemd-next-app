@@ -4,6 +4,7 @@ import { AppRouter } from './app/router';
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { DropdownProvider } from '@/contexts/DropdownContext';
 import { BrandProvider } from './contexts/BrandingContext';
+import { Phase2FlagsProvider } from '@/features/phase2/Phase2Flags';
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         v7_relativeSplatPath: true,
       }}
     >
+      <Phase2FlagsProvider>
       <BrandProvider>
       <DropdownProvider>
         <div className="min-h-screen bg-background">
@@ -30,6 +32,7 @@ export default function App() {
         </div>
       </DropdownProvider>
       </BrandProvider>
+      </Phase2FlagsProvider>
     </Router>
   );
 }

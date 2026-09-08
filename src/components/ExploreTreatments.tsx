@@ -3,10 +3,12 @@ import { ClipboardCheck, FileText, SearchCheck, ShieldCheck } from 'lucide-react
 import { AvailableTreatmentsList } from '@/features/treatments';
 import { EXPLORE_PAGE_CONTENT as content } from '@/features/treatments/config/pageContent';
 import '@/features/treatments/exploreTreatments.css';
+import { usePhase2Flags } from '@/features/phase2/Phase2Flags';
 
 const stepIcons = [SearchCheck, FileText, ClipboardCheck] as const;
 
 export default function ExploreTreatments() {
+  const { isEnabled } = usePhase2Flags();
   return (
     <section id="pg-explore" className="explore-page" aria-labelledby="explore-page-title">
       <header className="explore-page__header km-fade">
@@ -54,6 +56,7 @@ export default function ExploreTreatments() {
 
       <div className="km-fade">
         <AvailableTreatmentsList
+          categoryFilterEnabled={isEnabled('milestone_2')}
           browseLabel={content.browseLabel}
           searchLabel={content.searchLabel}
           searchPlaceholder={content.searchPlaceholder}

@@ -13,6 +13,7 @@ import {
 } from './constants';
 import type { Connection, WeightData, DeviceMetrics, Consent, Provider } from './types';
 import DeviceModals from './components/DeviceModals';
+import { usePhase2Flags } from '@/features/phase2/Phase2Flags';
 import {
   getConnections,
   getDeviceData,
@@ -125,6 +126,8 @@ function DevicesSkeleton() {
 }
 
 export default function DevicesPage() {
+  const { isEnabled } = usePhase2Flags();
+  const bmiEnhancementsEnabled = isEnabled('milestone_2');
   const { patientProfile, updatePatientProfile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -196,7 +199,7 @@ export default function DevicesPage() {
       const [connectionsResult, vitalsResult, goalResult, profileResult] = await Promise.allSettled([
         skipConnections ? Promise.resolve(null) : getConnections(),
         getVitalsHistory(timeRange),
-        getHealthGoal(),
+        bmiEnhancementsEnabled ? getHealthGoal() : Promise.resolve({ goal: null }),
         profileService.getPatientProfile(),
       ]);
 
@@ -224,7 +227,7 @@ export default function DevicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange]);
+  }, [timeRange, bmiEnhancementsEnabled]);
 
   const checkIsPendingConnect = () => {
     if (searchParams.get('wearable_connect') === 'pending') return true;
@@ -739,7 +742,7 @@ export default function DevicesPage() {
         setPickerQuery={setPickerQuery}
         allowedProviders={allowedProviders}
         onConnect={handleConnect}
-        goalModalOpen={goalModalOpen}
+        goalModalOpen={bmiEnhancementsEnabled && goalModalOpen}
         setGoalModalOpen={setGoalModalOpen}
         goalInput={goalInput}
         setGoalInput={setGoalInput}

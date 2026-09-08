@@ -5,6 +5,7 @@ import { ProtectedRoute } from './protected-route';
 import { LoadingSkeleton } from '@/components/common/loading-skeleton';
 import DashboardLayout from '@/layouts/dashboard-layout';
 import Dashboard from '@/components/Dashboard';
+import { Phase2Gate } from '@/features/phase2/Phase2Flags';
 
 const SignIn = React.lazy(() => import('@/pages/auth/SignIn'));
 const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
@@ -82,9 +83,17 @@ export const AppRouter: React.FC = () => {
             <Route path="orders/:orderId" element={<OrderDetail />} />
             <Route path="blog" element={<Blog />} />
             <Route path="blog/:id" element={<BlogPost />} />
-            <Route path="labs" element={<Labs />} />
+            <Route path="labs" element={
+              <Phase2Gate milestone="milestone_1" fallback={<Navigate to="/dashboard" replace />}>
+                <Labs />
+              </Phase2Gate>
+            } />
             <Route path="devices" element={<Devices />} />
-            <Route path="explore" element={<ExploreTreatments />} />
+            <Route path="explore" element={
+              <Phase2Gate milestone="milestone_3" fallback={<Navigate to="/dashboard" replace />}>
+                <ExploreTreatments />
+              </Phase2Gate>
+            } />
             
             {/* Settings and Help pages */}
             <Route path="settings" element={<Settings />} />

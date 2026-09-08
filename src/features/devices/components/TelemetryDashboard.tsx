@@ -2,6 +2,7 @@ import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import type { WeightData, DeviceMetrics } from '../types';
 import HealthTabs from './HealthTabs';
+import { usePhase2Flags } from '@/features/phase2/Phase2Flags';
 
 interface TelemetryDashboardProps {
   deviceMetrics: DeviceMetrics;
@@ -25,6 +26,8 @@ export default function TelemetryDashboard({
   timeRange,
   onTimeRangeChange,
 }: TelemetryDashboardProps) {
+  const { isEnabled } = usePhase2Flags();
+  const bmiEnhancementsEnabled = isEnabled('milestone_2');
   return (
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -52,7 +55,11 @@ export default function TelemetryDashboard({
           </button>
         ))}
       </div>
-      <WeightTrendCard weight={weight} onOpenGoalModal={onOpenGoalModal} />
+      <WeightTrendCard
+        weight={weight}
+        bmiEnhancementsEnabled={bmiEnhancementsEnabled}
+        {...(bmiEnhancementsEnabled ? { onOpenGoalModal } : {})}
+      />
       <ReadinessCard deviceMetrics={deviceMetrics} />
 
       {/* ─── Health Tabs ─── */}
@@ -173,11 +180,13 @@ export function WeightTrendCard({
   onOpenGoalModal,
   syncedFrom,
   bottomAction,
+  bmiEnhancementsEnabled = false,
 }: {
   weight: WeightData;
   onOpenGoalModal?: () => void;
   syncedFrom?: string;
   bottomAction?: { label: string; onClick: () => void };
+  bmiEnhancementsEnabled?: boolean;
 }) {
   const cur = weight.series[weight.series.length - 1] ?? weight.start;
   const chg = cur != null && weight.start != null ? Math.abs(+(cur - weight.start).toFixed(1)) : null;
@@ -242,12 +251,12 @@ export function WeightTrendCard({
             Change {chg} lb · {pct.toFixed(1)}%
           </span>
         )}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--km-tm)' }}>
+        {bmiEnhancementsEnabled && <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--km-tm)' }}>
           BMI <b style={{ color: 'var(--km-t)' }}>{bmi != null ? bmi.toFixed(1) : 'Unavailable'}</b>{bmiCat ? ` · ${bmiCat}` : ''}
-        </span>
+        </span>}
       </div>
 
-      {onOpenGoalModal && (
+      {bmiEnhancementsEnabled && onOpenGoalModal && (
         <div style={{ padding: '2px 18px 2px', fontSize: 12, color: 'var(--km-t2)' }}>
           {weight.targetBmi && weight.targetBmi > 0 ? (
             <>
@@ -277,7 +286,11 @@ export function WeightTrendCard({
       )}
 
       <div style={{ padding: '4px 14px 0' }}>
-        <WeightTrendChart points={weight.points} targetBmi={weight.targetBmi} />
+        <WeightTrendChart
+          points={weight.points}
+          targetBmi={bmiEnhancementsEnabled ? weight.targetBmi : null}
+          showBmi={bmiEnhancementsEnabled}
+        />
       </div>
 
       {bottomAction && (
@@ -306,9 +319,11 @@ export function WeightTrendCard({
 function WeightTrendChart({
   points,
   targetBmi,
+  showBmi,
 }: {
   points: WeightData['points'];
   targetBmi?: number | null;
+  showBmi: boolean;
 }) {
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
 
@@ -456,7 +471,7 @@ function WeightTrendChart({
           {points[hoveredIndex]!.height != null && (
             <div style={{ color: 'var(--km-t2)' }}>Height: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.height} in</b></div>
           )}
-          {points[hoveredIndex]!.bmi != null && (
+          {showBmi && points[hoveredIndex]!.bmi != null && (
             <div style={{ color: 'var(--km-t2)' }}>BMI: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.bmi}</b></div>
           )}
         </div>

@@ -18,6 +18,7 @@ import {
 import { getAvailableTreatments, startNewTreatment, type AvailableTreatment } from './api';
 
 interface AvailableTreatmentsListProps {
+  categoryFilterEnabled?: boolean;
   browseLabel?: string;
   searchLabel?: string;
   searchPlaceholder?: string;
@@ -59,6 +60,7 @@ function sexRequirementLabel(sex: 'male' | 'female' | null): string | null {
 }
 
 export function AvailableTreatmentsList({
+  categoryFilterEnabled = true,
   browseLabel = 'Browse by category',
   searchLabel = 'Search treatments',
   searchPlaceholder = 'Search treatments…',
@@ -162,8 +164,13 @@ export function AvailableTreatmentsList({
 
   return (
     <section className="explore-browser" aria-labelledby="explore-browser-title">
+      {!categoryFilterEnabled && (
+        <h2 id="explore-browser-title" className="explore-sr-only">
+          Available treatments
+        </h2>
+      )}
       <div className="explore-toolbar">
-        <div className="explore-toolbar__categories">
+        {categoryFilterEnabled && <div className="explore-toolbar__categories">
           <h2 id="explore-browser-title">{browseLabel}</h2>
           <div className="explore-category-list" role="group" aria-label={browseLabel}>
             <CategoryButton
@@ -180,7 +187,7 @@ export function AvailableTreatmentsList({
               />
             ))}
           </div>
-        </div>
+        </div>}
 
         <div className="explore-search">
           <label htmlFor="treatment-search" className="explore-sr-only">
