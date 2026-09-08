@@ -17,6 +17,7 @@ import {
   TestTube2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags"
 
 const settingsMenuItems = [
   { title: "Store Details", url: "/dashboard/settings/store-details", icon: Store },
@@ -27,7 +28,7 @@ const settingsMenuItems = [
   { title: "Payments", url: "/dashboard/settings/payments", icon: CreditCard },
   { title: "Notifications", url: "/dashboard/settings/notifications", icon: Bell },
   { title: "Webhooks & APIs", url: "/dashboard/settings/webhooks-apis", icon: Webhook },
-  { title: "Junction Labs", url: "/dashboard/settings/junction-labs", icon: TestTube2 },
+  { title: "Junction Labs", url: "/dashboard/settings/junction-labs", icon: TestTube2, milestone: "milestone_1" as const },
   { title: "Files", url: "/dashboard/settings/files", icon: FileText },
   { title: "Policies", url: "/dashboard/settings/policies", icon: Shield },
   { title: "Metafields", url: "/dashboard/settings/metafields", icon: Tag },
@@ -37,6 +38,7 @@ const settingsMenuItems = [
 ]
 
 export function SettingsSidebar() {
+  const { isEnabled } = usePhase2Flags()
   const location = useLocation()
   const currentPath = location.pathname
 
@@ -46,7 +48,9 @@ export function SettingsSidebar() {
     <div className="w-64 bg-background border-r border-border">
       <div className="p-6">
         <nav className="space-y-1">
-          {settingsMenuItems.map((item) => (
+          {settingsMenuItems
+            .filter((item) => !item.milestone || isEnabled(item.milestone))
+            .map((item) => (
             <NavLink
               key={item.title}
               to={item.url}

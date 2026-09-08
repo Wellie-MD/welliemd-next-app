@@ -1,4 +1,4 @@
-import { Outlet, Routes, Route } from "react-router-dom"
+import { Outlet, Routes, Route, Navigate } from "react-router-dom"
 import { SettingsSidebar } from "./SettingsSidebar"
 import StoreDetails from "@/pages/settings/StoreDetails"
 import Integrations from "@/pages/settings/Integrations"
@@ -15,6 +15,7 @@ import PrescribingDoctors from "@/pages/settings/PrescribingDoctors"
 import Brand from "@/pages/settings/Brand"
 import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
 import JunctionLabs from "@/pages/settings/JunctionLabs"
+import { Phase2Gate } from "@/features/phase2/Phase2Flags"
 
 export function SettingsLayout() {
   return (
@@ -38,7 +39,11 @@ export function SettingsLayout() {
               <Route path="payments" element={<Payments />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="webhooks-apis" element={<WebhooksApis />} />
-              <Route path="junction-labs" element={<JunctionLabs />} />
+              <Route path="junction-labs" element={
+                <Phase2Gate milestone="milestone_1" fallback={<Navigate to="/dashboard/settings" replace />}>
+                  <JunctionLabs />
+                </Phase2Gate>
+              } />
               <Route path="files" element={<Files />} />
               <Route path="policies" element={<Policies />} />
               <Route path="metafields" element={<Metafields />} />

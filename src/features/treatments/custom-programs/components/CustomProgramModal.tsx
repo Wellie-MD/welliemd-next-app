@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 import type { CustomProgram } from "@/features/treatments/types";
 
 export interface CustomProgramFormData {
@@ -29,6 +30,8 @@ interface CustomProgramModalProps {
 }
 
 export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: CustomProgramModalProps) {
+  const { isEnabled } = usePhase2Flags();
+  const patientAvatarEnabled = isEnabled("milestone_2");
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -124,11 +127,12 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
               />
             </div>
 
-            <div>
-              <Label className="text-xs font-semibold text-slate-700">
-                Patient Avatar<span className="text-red-500">*</span>
-              </Label>
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+            {patientAvatarEnabled && (
+              <div>
+                <Label className="text-xs font-semibold text-slate-700">
+                  Patient Avatar<span className="text-red-500">*</span>
+                </Label>
+                <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* Male Radio Card */}
                 <label
                   className={`flex cursor-pointer flex-col items-center text-center rounded-lg border p-4 shadow-sm transition-all hover:border-slate-300 ${
@@ -227,8 +231,9 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
                     Shown to all patients
                   </div>
                 </label>
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <Label className="text-xs font-semibold text-slate-700">

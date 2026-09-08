@@ -37,6 +37,7 @@ import { QuestionForm } from "@/components/questionnaires/QuestionForm";
 import { ReorderableQuestionRow } from "@/components/questionnaires/ReorderableQuestionRow";
 import { useQuestionReorder } from "@/hooks/useQuestionReorder";
 import { toast } from "@/components/ui/use-toast";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 const questionTypeFilters = [
   "All Types",
@@ -92,6 +93,7 @@ const questionColumns = [
 ];
 
 export default function QuestionnaireQuestions() {
+  const { isEnabled } = usePhase2Flags();
   const { templateId } = useParams<{ templateId: string }>();
   const navigate = useNavigate();
 
@@ -361,14 +363,16 @@ export default function QuestionnaireQuestions() {
                 <ArrowUpDown className="h-4 w-4 mr-2" />
                 Reorder
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleDuplicateTemplate}
-                disabled={duplicatingTemplate}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Duplicate
-              </Button>
+              {isEnabled("milestone_2") && (
+                <Button
+                  variant="outline"
+                  onClick={handleDuplicateTemplate}
+                  disabled={duplicatingTemplate}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Duplicate
+                </Button>
+              )}
               <Button onClick={handleAddQuestion}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Question

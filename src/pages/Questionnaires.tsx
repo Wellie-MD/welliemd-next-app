@@ -20,6 +20,7 @@ import { toast } from "@/components/ui/use-toast";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, parseISO, format } from "date-fns";
 import { useState as useLoadingState } from "react";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 const getTemplateColumns = (
   navigate: ReturnType<typeof useNavigate>,
@@ -132,6 +133,7 @@ const statusFilters = ["All", "Published", "Draft"];
 const questionnaireTypeFilters = ["All", "Onboarding", "Follow-up"];
 
 export default function Questionnaires() {
+  const { isEnabled } = usePhase2Flags();
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -404,15 +406,17 @@ export default function Questionnaires() {
             >
               <Edit className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDuplicate(template)}
-              disabled={duplicatingIds.has(template.id)}
-              title="Duplicate Template"
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
+            {isEnabled("milestone_2") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDuplicate(template)}
+                disabled={duplicatingIds.has(template.id)}
+                title="Duplicate Template"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"

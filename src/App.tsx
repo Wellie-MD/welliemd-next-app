@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense, type ReactNode } from 'react';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
@@ -16,6 +16,11 @@ import SignIn from "./pages/auth/SignIn";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import RegisterInvitation from "./pages/auth/RegisterInvitation";
+import {
+  Phase2FlagsProvider,
+  Phase2Gate,
+  type Phase2Milestone,
+} from "@/features/phase2/Phase2Flags";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clients = lazy(() => import("./pages/Clients"));
@@ -134,8 +139,17 @@ const App = () => {
     </div>
   );
 
+  const gatedRoute = (milestone: Phase2Milestone, page: ReactNode) => (
+    <ProtectedRoute>
+      <Phase2Gate milestone={milestone} fallback={<Navigate to="/dashboard" replace />}>
+        {page}
+      </Phase2Gate>
+    </ProtectedRoute>
+  );
+
   return (
     <BrowserRouter>
+      <Phase2FlagsProvider>
       <Routes>
         <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
 
@@ -154,7 +168,9 @@ const App = () => {
               <AppSidebar />
               <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
                 <Header />
-                <JunctionCatalogSyncProgressAlert />
+                <Phase2Gate milestone="milestone_1">
+                  <JunctionCatalogSyncProgressAlert />
+                </Phase2Gate>
                 <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
                   <ChunkErrorBoundary>
                   <Suspense fallback={<PageLoader />}>
@@ -177,34 +193,34 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
-                    <Route path="/treatments" element={<ProtectedRoute><ContentLibrariesPage /></ProtectedRoute>} />
-                    <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
-                    <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
-                    <Route path="/treatments/custom-programs/assignment-history" element={<ProtectedRoute><CustomProgramAssignmentHistory /></ProtectedRoute>} />
-                    <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
+                    <Route path="/treatments" element={gatedRoute("milestone_3", <ContentLibrariesPage />)} />
+                    <Route path="/treatments/custom-programs" element={gatedRoute("milestone_3", <CustomProgramsPage />)} />
+                    <Route path="/treatments/custom-programs/:customProgramId/builder" element={gatedRoute("milestone_3", <CustomProgramBuilderPage />)} />
+                    <Route path="/treatments/custom-programs/assignment-history" element={gatedRoute("milestone_3", <CustomProgramAssignmentHistory />)} />
+                    <Route path="/treatments/programs" element={gatedRoute("milestone_3", <ProgramsPage />)} />
                     <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramQuestionsListPage /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/assignment-history" element={<ProtectedRoute><ProgramAssignmentHistory /></ProtectedRoute>} />
-                    <Route path="/treatments/sections" element={<ProtectedRoute><SectionsPage /></ProtectedRoute>} />
-                    <Route path="/treatments/consents" element={<ProtectedRoute><ConsentsPage /></ProtectedRoute>} />
-                    <Route path="/treatments/treatment-types" element={<ProtectedRoute><TreatmentTypesPage /></ProtectedRoute>} />
-                    <Route path="/treatments/treatment-types/:treatmentTypeKey" element={<ProtectedRoute><TreatmentTypeDetailPage /></ProtectedRoute>} />
-                    <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId/flow-builder" element={gatedRoute("milestone_3", <ProgramLegacyRouteRedirect />)} />
+                    <Route path="/treatments/programs/:programId" element={gatedRoute("milestone_3", <ProgramLegacyRouteRedirect />)} />
+                    <Route path="/treatments/programs/:programId/questions" element={gatedRoute("milestone_3", <ProgramQuestionsListPage />)} />
+                    <Route path="/treatments/programs/assignment-history" element={gatedRoute("milestone_3", <ProgramAssignmentHistory />)} />
+                    <Route path="/treatments/sections" element={gatedRoute("milestone_3", <SectionsPage />)} />
+                    <Route path="/treatments/consents" element={gatedRoute("milestone_3", <ConsentsPage />)} />
+                    <Route path="/treatments/treatment-types" element={gatedRoute("milestone_3", <TreatmentTypesPage />)} />
+                    <Route path="/treatments/treatment-types/:treatmentTypeKey" element={gatedRoute("milestone_3", <TreatmentTypeDetailPage />)} />
+                    <Route path="/treatments/configurations" element={gatedRoute("milestone_3", <TreatmentConfigurations />)} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-                    <Route path="/orders/labs" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />
+                    <Route path="/orders/labs" element={gatedRoute("milestone_1", <LabOrders />)} />
                     <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
                     {/* <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-2 */}
                     {/* <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />  */} // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                     <Route path="/products/assign" element={<ProtectedRoute><Navigate to="/dashboard/products" replace /></ProtectedRoute>} />
                     <Route path="/products/dose-mappings" element={<ProtectedRoute><ProductDoseMappings /></ProtectedRoute>} />
-                    <Route path="/products/config" element={<ProtectedRoute><ProductConfig /></ProtectedRoute>} />
+                    <Route path="/products/config" element={gatedRoute("milestone_3", <ProductConfig />)} />
                     <Route path="/products/supplies" element={<ProtectedRoute><Supplies /></ProtectedRoute>} />
-                    <Route path="/products/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
-                    <Route path="/products/labs/settings" element={<ProtectedRoute><LabSettings /></ProtectedRoute>} />
-                    <Route path="/products/labs/catalog" element={<ProtectedRoute><TestCatalog /></ProtectedRoute>} />
+                    <Route path="/products/labs" element={gatedRoute("milestone_1", <Labs />)} />
+                    <Route path="/products/labs/settings" element={gatedRoute("milestone_1", <LabSettings />)} />
+                    <Route path="/products/labs/catalog" element={gatedRoute("milestone_1", <TestCatalog />)} />
                     <Route path="/tools/sense" element={<ProtectedRoute><SenseInsights /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                     <Route path="/analytics/performance" element={<ProtectedRoute><ClientPerformance /></ProtectedRoute>} />
@@ -214,7 +230,7 @@ const App = () => {
                     {/* <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} /> */}
                     <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                     <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-                    <Route path="/billing/product-billing/:clientId" element={<ProtectedRoute><ProductBillingConfig /></ProtectedRoute>} />
+                    <Route path="/billing/product-billing/:clientId" element={gatedRoute("milestone_2", <ProductBillingConfig />)} />
                     <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                     <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
                     <Route path="/questionnaires/assign" element={<ProtectedRoute><TemplateAssignment /></ProtectedRoute>} />
@@ -253,7 +269,9 @@ const App = () => {
               <div className="min-h-screen flex w-full">
                 <div className="flex-1 flex flex-col">
                   <Header />
-                  <JunctionCatalogSyncProgressAlert />
+                  <Phase2Gate milestone="milestone_1">
+                    <JunctionCatalogSyncProgressAlert />
+                  </Phase2Gate>
                   <div className="flex flex-1">
                     <SettingsLayout />
                   </div>
@@ -266,6 +284,7 @@ const App = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Phase2FlagsProvider>
     </BrowserRouter>
   );
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
   BarChart3,
@@ -21,6 +21,7 @@ import {
   Archive,
   ShieldCheck,
   Activity,      // <- used for Sense insights
+  type LucideIcon,
 } from "lucide-react"
 
 import {
@@ -36,6 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { usePhase2Flags, type Phase2Milestone } from "@/features/phase2/Phase2Flags"
 import {
   Tooltip,
   TooltipContent,
@@ -46,6 +48,7 @@ import {
 type MenuChild = {
   title: string
   url: string
+  milestone?: Phase2Milestone
 }
 
 type MenuItem = {
@@ -53,6 +56,7 @@ type MenuItem = {
   url?: string
   icon: LucideIcon
   children?: MenuChild[]
+  milestone?: Phase2Milestone
 }
 
 type MenuSection = {
@@ -72,8 +76,8 @@ const isPathMatch = (currentPath: string, route: string) => {
   return normalizedPath === normalizedRoute || normalizedPath.startsWith(`${normalizedRoute}/`)
 }
 
-const getMostSpecificActiveChildUrl = (currentPath: string) => {
-  return menuSections
+const getMostSpecificActiveChildUrl = (currentPath: string, sections: MenuSection[]) => {
+  return sections
     .flatMap((section) => section.items.flatMap((item) => item.children ?? []))
     .filter((child) => isPathMatch(currentPath, child.url))
     .sort((left, right) => right.url.length - left.url.length)[0]?.url
@@ -100,7 +104,7 @@ const menuSections: MenuSection[] = [
         icon: ShoppingBag,
         children: [
           { title: "Rx Orders", url: "/dashboard/orders" },
-          { title: "Lab Orders", url: "/dashboard/orders/labs" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs", milestone: "milestone_1" },
         ],
       },
       { title: "Payments", url: "/dashboard/payments", icon: CreditCard },
@@ -121,6 +125,7 @@ const menuSections: MenuSection[] = [
       {
         title: "Treatments",
         icon: Stethoscope,
+        milestone: "milestone_3",
         children: [
           { title: "Custom Programs", url: "/dashboard/treatments/custom-programs" },
           { title: "Programs", url: "/dashboard/treatments/programs" },
@@ -147,10 +152,10 @@ const menuSections: MenuSection[] = [
         children: [
           { title: "Medicine", url: "/dashboard/products" },
           { title: "Supplies", url: "/dashboard/products/supplies" },
-          { title: "Labs", url: "/dashboard/products/labs" },
-          { title: "Test Catalog", url: "/dashboard/products/labs/catalog" },
-          { title: "Junction Settings", url: "/dashboard/products/labs/settings" },
-          { title: "Configuration", url: "/dashboard/products/config" }
+          { title: "Labs", url: "/dashboard/products/labs", milestone: "milestone_1" },
+          { title: "Test Catalog", url: "/dashboard/products/labs/catalog", milestone: "milestone_1" },
+          { title: "Junction Settings", url: "/dashboard/products/labs/settings", milestone: "milestone_1" },
+          { title: "Configuration", url: "/dashboard/products/config", milestone: "milestone_3" }
         ]
       },
       
@@ -216,9 +221,25 @@ type SidebarItem = {
 
 export function AppSidebar() {
   const { state } = useSidebar()
+  const { isEnabled } = usePhase2Flags()
   const location = useLocation()
   const currentPath = location.pathname
-  const activeChildUrl = getMostSpecificActiveChildUrl(currentPath)
+  const visibleMenuSections = useMemo(
+    () => menuSections.map((section) => ({
+      ...section,
+      items: section.items
+        .filter((item) => !item.milestone || isEnabled(item.milestone))
+        .map((item) => ({
+          ...item,
+          children: item.children?.filter(
+            (child) => !child.milestone || isEnabled(child.milestone)
+          ),
+        }))
+        .filter((item) => !item.children || item.children.length > 0),
+    })).filter((section) => section.items.length > 0),
+    [isEnabled]
+  )
+  const activeChildUrl = getMostSpecificActiveChildUrl(currentPath, visibleMenuSections)
   const [openSections, setOpenSections] = useState<string[]>([])
 
   const collapsed = state === "collapsed"
@@ -227,7 +248,7 @@ export function AppSidebar() {
   useEffect(() => {
     const activeParents: string[] = []
 
-    menuSections.forEach(section => {
+    visibleMenuSections.forEach(section => {
       section.items.forEach(item => {
         if (item.children?.some(child => child.url === activeChildUrl)) {
           activeParents.push(item.title)
@@ -236,7 +257,7 @@ export function AppSidebar() {
     })
 
     setOpenSections(prev => [...new Set([...prev, ...activeParents])])
-  }, [activeChildUrl])
+  }, [activeChildUrl, visibleMenuSections])
 
   const toggleSection = (title: string) => {
     if (collapsed) return
@@ -293,7 +314,7 @@ export function AppSidebar() {
         <SidebarTrigger className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200" />
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
-        {menuSections.map((section, sectionIndex) => (
+        {visibleMenuSections.map((section, sectionIndex) => (
           <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>
             {!collapsed && (
               <SidebarGroupLabel className="text-[10px] font-semibold text-white/25 uppercase tracking-[0.08em]">

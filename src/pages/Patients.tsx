@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuthStore } from "@/store/useAuthStore";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 const statusFilters = [
   { label: "All", value: "all" },
@@ -38,6 +39,7 @@ const statusClassName = (status: string) => {
 };
 
 export default function Patients() {
+  const { isEnabled } = usePhase2Flags();
   const user = useAuthStore((state) => state.user);
   const { clients } = useClients();
   const { toast } = useToast();
@@ -344,14 +346,16 @@ export default function Patients() {
                 <Button variant="outline" onClick={() => setSelectedPatient(null)}>
                   Close
                 </Button>
-                <Button
-                  onClick={() => openPatientPortal(selectedPatient)}
-                  disabled={launching || !selectedPatient.patient_portal_domain || !canLaunchSuperAdminAccess}
-                  title={canLaunchSuperAdminAccess ? undefined : "Admin or Super Admin role required"}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  {launching ? "Opening..." : "View as patient"}
-                </Button>
+                {isEnabled("milestone_2") && (
+                  <Button
+                    onClick={() => openPatientPortal(selectedPatient)}
+                    disabled={launching || !selectedPatient.patient_portal_domain || !canLaunchSuperAdminAccess}
+                    title={canLaunchSuperAdminAccess ? undefined : "Admin or Super Admin role required"}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    {launching ? "Opening..." : "View as patient"}
+                  </Button>
+                )}
               </DialogFooter>
             </>
           )}
