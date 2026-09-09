@@ -246,6 +246,7 @@ export default function PatientDetailPage() {
   const [customInsightsOpen, setCustomInsightsOpen] = useState(false);
   const [timeRange, setTimeRange] = useState(30);
   const [vitalsData, setVitalsData] = useState<any[]>([]);
+  const [targetBmi, setTargetBmi] = useState<number | null>(null);
   const [formState, setFormState] = useState({
     first_name: "",
     last_name: "",
@@ -323,6 +324,31 @@ export default function PatientDetailPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!patientId || !milestone2Enabled) {
+      setTargetBmi(null);
+      return;
+    }
+
+    let active = true;
+    api
+      .get("/medical/health-goal/", { params: { patient_id: patientId } })
+      .then((response) => {
+        if (!active) return;
+        const value = Number(response.data?.goal?.target_bmi);
+        setTargetBmi(Number.isFinite(value) ? value : null);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setTargetBmi(null);
+        console.error("Failed to load patient health goal:", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [milestone2Enabled, patientId]);
 
   useEffect(() => {
     if (!patientId) return;
@@ -1047,7 +1073,7 @@ export default function PatientDetailPage() {
                                         <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                                           <WeightTrendChart
                                             points={points as any}
-                                            targetBmi={null}
+                                            targetBmi={targetBmi}
                                             showBmi={milestone2Enabled}
                                           />
                                         </div>
