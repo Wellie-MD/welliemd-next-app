@@ -2550,6 +2550,7 @@ export function QuestionForm({
                           id: question.id,
                           question_text: question.question_text,
                           order_index: question.order_index,
+                          question_type: question.question_type,
                           answer_choices: question.answer_choices,
                         }));
                       if (hasBmi) {
@@ -2560,6 +2561,7 @@ export function QuestionForm({
                           id: DERIVED_BMI_ID,
                           question_text: "BMI (Calculated)",
                           order_index: bmiQ?.order_index ?? 0,
+                          question_type: "bmi",
                           answer_choices: undefined,
                         });
                       }

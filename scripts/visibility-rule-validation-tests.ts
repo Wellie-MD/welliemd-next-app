@@ -14,6 +14,8 @@ import {
   PATIENT_PROFILE_AGE_ID,
 } from "../src/features/treatments/utils/visibilityBuilderAdapters.ts";
 import { buildCustomProgramVisibilityQuestions } from "../src/features/treatments/flow-builder/utils/customProgramVisibilityQuestions.ts";
+import { getAllowedVisibilityOperators } from "../src/components/questionnaires/visibilityOperatorPolicy.ts";
+import { buildLabVisibilityQuestions } from "../src/features/treatments/programs/checkout-question/utils/labVisibilityQuestions.ts";
 import type { CustomProgramFlowItem } from "../src/features/treatments/types/index.ts";
 
 const test = (name: string, run: () => void) => {
@@ -29,6 +31,60 @@ const group = (children: VisibilityGroup["children"]): VisibilityGroup => ({
 
 test("an unconfigured root is valid", () => {
   assert.deepEqual(validateVisibilityGroup(group([])), []);
+});
+
+test("visibility operators are constrained by the answer shape", () => {
+  assert.deepEqual(getAllowedVisibilityOperators("number"), [
+    "equals", "not_equals", "gt", "gte", "lt", "lte", "between", "is_empty", "is_not_empty",
+  ]);
+  assert.deepEqual(getAllowedVisibilityOperators("sex"), [
+    "equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty",
+  ]);
+  assert.deepEqual(getAllowedVisibilityOperators("multiple_choice"), [
+    "contains", "not_contains", "is_empty", "is_not_empty",
+  ]);
+  assert.deepEqual(getAllowedVisibilityOperators("text"), [
+    "equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty",
+  ]);
+});
+
+test("Lab Checkout visibility sources include earlier questions with their answer types", () => {
+  const sources = buildLabVisibilityQuestions([
+    {
+      id: "age-question",
+      text: "What is your age?",
+      kind: "number",
+      order: 1,
+      section: "Intake",
+      required: true,
+    },
+    {
+      id: "conditions-question",
+      text: "Select medical conditions",
+      kind: "multiple_choice",
+      order: 2,
+      section: "Intake",
+      required: false,
+      choices: ["Diabetes", "Hypertension"],
+    },
+  ], []);
+
+  assert.deepEqual(sources.slice(0, 2), [
+    {
+      id: "age-question",
+      question_text: "What is your age?",
+      order_index: 1,
+      question_type: "number",
+      answer_choices: undefined,
+    },
+    {
+      id: "conditions-question",
+      question_text: "Select medical conditions",
+      order_index: 2,
+      question_type: "multiple_choice",
+      answer_choices: ["Diabetes", "Hypertension"],
+    },
+  ]);
 });
 
 test("an incomplete condition identifies both exact fields", () => {

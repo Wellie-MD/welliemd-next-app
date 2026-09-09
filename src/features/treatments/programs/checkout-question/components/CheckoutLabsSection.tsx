@@ -10,14 +10,9 @@ import { useQueries } from "@tanstack/react-query";
 import { treatmentConfigurationApi } from "@/features/treatments/api/configurationApi";
 import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { isPersistedUuid } from "@/features/treatments/api/mappers";
-import {
-  DERIVED_BMI_ID,
-  VisibilityRuleBuilder,
-} from "@/components/questionnaires/VisibilityRuleBuilder";
+import { VisibilityRuleBuilder } from "@/components/questionnaires/VisibilityRuleBuilder";
 import {
   fromBuilderGroup,
-  PATIENT_PROFILE_AGE_ID,
-  PATIENT_PROFILE_SEX_ID,
   toBuilderGroup,
 } from "@/features/treatments/utils/visibilityBuilderAdapters";
 import type { ProgramQuestion, VisibilityRuleGroup, VisibilityRule } from "@/features/treatments/types";
@@ -30,6 +25,7 @@ import {
   targetName,
   type ProgramLabTarget,
 } from "../../components/programLabRequirementCatalog";
+import { buildLabVisibilityQuestions } from "../utils/labVisibilityQuestions";
 
 interface CheckoutLabsSectionProps {
   requirements: ProgramLabRequirement[];
@@ -87,67 +83,10 @@ export function CheckoutLabsSection({
   });
 
   const builderQuestions = useMemo(() => {
-    const hasBmiQuestion = eligibleQuestions.some(
-      (q) => q.kind === "height_weight" || q.kind === "bmi"
+    return buildLabVisibilityQuestions(
+      eligibleQuestions,
+      sectionFieldQueries.map((query) => query.data || []),
     );
-
-    const qs = eligibleQuestions
-      .filter((q) => q.kind !== "height_weight" && q.kind !== "bmi" && q.kind !== "section")
-      .map((question) => ({
-        id: question.id,
-        question_text: question.text,
-        order_index: question.order,
-        answer_choices: question.choices,
-      }));
-
-    sectionQuestions.forEach((sectionQuestion, index) => {
-      const fields = sectionFieldQueries[index]?.data || [];
-      fields
-        .filter((field) => field.kind !== "checkout")
-        .forEach((field) => {
-          const configuredChoices = field.configuration?.choices;
-          const answerChoices = Array.isArray(configuredChoices)
-            ? configuredChoices.map((choice) => (
-                typeof choice === "string"
-                  ? choice
-                  : String((choice as Record<string, unknown>).label || (choice as Record<string, unknown>).value || "")
-              )).filter(Boolean)
-            : [];
-          qs.push({
-            id: field.sourceFieldId,
-            question_text: `${sectionQuestion.text} — ${field.label}`,
-            order_index: sectionQuestion.order,
-            answer_choices: answerChoices,
-          });
-        });
-    });
-
-    if (hasBmiQuestion) {
-      const bmiQuestion = eligibleQuestions.find(
-        (q) => q.kind === "height_weight" || q.kind === "bmi"
-      );
-      qs.push({
-        id: DERIVED_BMI_ID,
-        question_text: "BMI (Calculated)",
-        order_index: bmiQuestion?.order ?? 0,
-      });
-    }
-
-    qs.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
-    qs.push(
-      {
-        id: PATIENT_PROFILE_SEX_ID,
-        question_text: "Patient profile — Sex assigned at birth",
-        order_index: 10000,
-        answer_choices: ["Male", "Female", "Other"],
-      },
-      {
-        id: PATIENT_PROFILE_AGE_ID,
-        question_text: "Patient profile — Age",
-        order_index: 10001,
-      },
-    );
-    return qs;
   }, [eligibleQuestions, sectionQuestions, sectionFieldQueries]);
   // -------------------------------------------------------------------------------------------------
 

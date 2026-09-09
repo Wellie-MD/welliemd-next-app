@@ -133,12 +133,14 @@ export function QuestionVisibilityTab({
         id: PATIENT_PROFILE_SEX_ID,
         question_text: "Patient profile — Sex assigned at birth",
         order_index: 10000,
+        question_type: "sex",
         answer_choices: ["Male", "Female", "Other"],
       },
       {
         id: PATIENT_PROFILE_AGE_ID,
         question_text: "Patient profile — Age",
         order_index: 10001,
+        question_type: "number",
       },
     );
   }

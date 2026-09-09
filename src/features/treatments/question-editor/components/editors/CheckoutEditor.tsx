@@ -192,6 +192,7 @@ export function CheckoutEditor({
                 onPanelsLoaded={setLabPanels}
                 onCombinedPanelsLoaded={setCombinedLabPanels}
                 disabled={form.isSaving}
+                eligibleQuestions={eligibleQuestions}
               />
             ) : null}
             {mode === "medicine" && <QuestionVisibilityTab
