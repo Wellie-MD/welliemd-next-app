@@ -30,7 +30,7 @@ function productIdentityDiagnostics(invoice: B2BInvoice) {
 export default function Billing() {
   const queryClient = useQueryClient();
   const [invoiceType, setInvoiceType] = useState<
-    "all" | "reimbursement" | "credit_note" | "saas_fee"
+    "all" | "reimbursement" | "lab" | "credit_note" | "saas_fee"
   >("all");
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -129,8 +129,20 @@ export default function Billing() {
     return formatLabel(li?.item_type);
   };
 
+  const isLabInvoice = (inv: B2BInvoice) =>
+    (inv.line_items || []).some(
+      (item) => item.metadata?.source_type === "standalone_lab_order"
+    );
+
   const formatBreakdown = (inv: B2BInvoice) => {
     const items = (inv as any).line_items ?? [];
+    if (isLabInvoice(inv)) {
+      const labTotal = items.reduce(
+        (sum: number, item: any) => sum + parseFloat(item.total_amount || 0),
+        0
+      );
+      return `Lab: $${labTotal.toFixed(2)}`;
+    }
     const pharmacy = items
       .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
       .reduce(
@@ -292,6 +304,8 @@ export default function Billing() {
   };
 
   const renderRevisionInvoiceModal = (invoice: DisplayInvoice) => {
+    const orderType = isLabInvoice(invoice) ? "Lab" : "Rx";
+    const invoiceTypeLabel = orderType === "Lab" ? "Lab Reimbursement" : "Reimbursement";
     const requested = invoice.requested_breakdown;
     const treatmentPrescription = invoice.treatment_prescription;
     const adjustments = invoice.revision_adjustments || [];
@@ -668,7 +682,7 @@ export default function Billing() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                  Reimbursement invoice
+                  {orderType} invoice
                 </div>
                 <div className="mt-1 font-mono text-xs text-muted-foreground">{invoice.invoice_number}</div>
                 <div className="mt-3 flex items-center gap-3">
@@ -678,7 +692,7 @@ export default function Billing() {
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {(invoice as any).client_name || "-"} · {getClientOrderNumber(invoice)}
+                  {(invoice as any).client_name || "-"} · {orderType} order {getClientOrderNumber(invoice)}
                 </div>
               </div>
               <button onClick={() => setSelected(null)} className="rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted">
@@ -746,8 +760,8 @@ export default function Billing() {
               <section className="border-b px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
                 {infoRow("Client", (invoice as any).client_name || "-")}
-                {infoRow("Client order #", <span className="font-mono">{getClientOrderNumber(invoice)}</span>)}
-                {infoRow("Type", "Reimbursement")}
+                {infoRow(`${orderType} order #`, <span className="font-mono">{getClientOrderNumber(invoice)}</span>)}
+                {infoRow("Type", invoiceTypeLabel)}
                 {infoRow("Issued", invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString() : "-")}
               </section>
               <section className="border-b px-5 py-4">
@@ -1182,6 +1196,7 @@ export default function Billing() {
         {[
           { key: "all", label: "All Invoices" },
           { key: "reimbursement", label: "Reimbursement Billings" },
+          { key: "lab", label: "Lab Invoices" },
           { key: "credit_note", label: "Credit Notes" },
           { key: "saas_fee", label: "Monthly SaaS Fee Invoices" },
         ].map((tab) => (
@@ -1347,7 +1362,7 @@ export default function Billing() {
                           {(inv as any).client_name || (inv as any).client?.name || "-"}
                         </td>
                         <td className="px-6 py-4">
-                          {formatLabel(inv.invoice_type)}
+                          {isLabInvoice(inv) ? "Lab Reimbursement" : formatLabel(inv.invoice_type)}
                         </td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">
                           <div>{formatBreakdown(inv)}</div>
