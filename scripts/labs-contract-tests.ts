@@ -61,8 +61,8 @@ check(
   "Combined rows must present Admin cost and logical linkage like the approved Labs table.",
 );
 check(
-  ["Select labs", "Understand comparison", "Confirm decision"].every(label => combinedAuthoring.includes(label)),
-  "Combined authoring must use the approved three-step plain-language journey.",
+  ["Choose labs", "Qualification client", "Understand comparison", "Confirm decision"].every(label => combinedAuthoring.includes(label)),
+  "Combined authoring must use the approved qualification-first plain-language journey.",
 );
 check(
   /The system explains\. You decide\./.test(combinedAuthoring) &&
@@ -85,9 +85,34 @@ check(
   "Combined authoring must show the backend-authored expected-result comparison.",
 );
 check(
-  !/Promise\.allSettled\([\s\S]{0,300}syncAssignmentToTenant/.test(page) &&
-    /for\s*\(const assignmentId of [^)]+\)[\s\S]{0,180}await labsApi\.syncAssignmentToTenant\(assignmentId\)/.test(page),
-  "Combined-panel member tenant sync must run sequentially because members share one offering.",
+  /showJunctionActions/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ) && /assignCombinedPanelToClients\(item\.id, clientIds\)/.test(page),
+  "Combined assignment must use one backend grouped-sync operation rather than member sync calls.",
+);
+check(
+  /pendingCombinedSubmissions/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ) && /showJunctionActions/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ) && /getPendingJunctionSubmissionIds\(client\)/.test(page),
+  "Standalone client rows must retain member submission targeting while Combined rows hide Junction actions.",
+);
+check(
+  /isSubmitting/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ) && /disabled=\{isSubmitting\}/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ) && /assignmentSubmitting/.test(page),
+  "Assign must expose an explicit submitting state and prevent duplicate clicks while requests are running.",
+);
+check(
+  /getCombinedJunctionStatus/.test(
+    readFileSync(new URL("../src/features/labs/utils.tsx", import.meta.url), "utf8"),
+  ) && /getCombinedJunctionStatus\(\s*c\.methods/.test(
+    readFileSync(new URL("../src/features/labs/components/LabAssignModal.tsx", import.meta.url), "utf8"),
+  ),
+  "Combined client rows must display the aggregate Junction status from their member methods.",
 );
 
 if (failures.length) {

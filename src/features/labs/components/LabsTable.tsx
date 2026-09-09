@@ -9,11 +9,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ClipboardCheck, History, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
+import { History, Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import { type LabPanel } from "@/api/labs";
 import { type CombinedLabPanel, type CombinedDerivedStatus } from "@/features/labs/types";
 import {
   getCollectionMethodLabel,
+  isCombinedAssignmentReady,
+  getCombinedWorkflowLabel,
   isPendingJunctionStatus,
   renderJunctionStatusBadge,
 } from "@/features/labs/utils";
@@ -89,7 +91,7 @@ interface Props {
   onEditOpen: (lab: LabPanel) => void;
   onAssignOpenSingle: (lab: LabPanel) => Promise<void>;
   onAssignOpenCombined?: (combined: CombinedLabPanel) => Promise<void>;
-  onEditOpenCombined?: (combined: CombinedLabPanel) => void;
+  onReviewCombined?: (combined: CombinedLabPanel) => void;
   onArchive: (lab: LabPanel) => Promise<void>;
   onArchiveCombined?: (combined: CombinedLabPanel) => Promise<void>;
   onViewChangeHistory?: (lab: LabPanel) => void;
@@ -110,7 +112,7 @@ export default function LabsTable({
   onEditOpen,
   onAssignOpenSingle,
   onAssignOpenCombined,
-  onEditOpenCombined,
+  onReviewCombined,
   onArchive,
   onArchiveCombined,
   onViewChangeHistory,
@@ -142,8 +144,8 @@ export default function LabsTable({
       if (q && !combined.name.toLowerCase().includes(q) && !combined.id.toLowerCase().includes(q) && !providers.includes(q)) {
         return false;
       }
-      if (statusFilter === "Active") return combined.is_active && combined.is_assignable;
-      if (statusFilter === "Pending approval") return combined.configuration_status !== "ready_to_assign";
+      if (statusFilter === "Active") return isCombinedAssignmentReady(combined);
+      if (statusFilter === "Pending approval") return !isCombinedAssignmentReady(combined) && combined.is_active;
       if (statusFilter === "Inactive") return !combined.is_active;
       return true;
     });
@@ -369,9 +371,6 @@ export default function LabsTable({
               const methodSummary = combined.members
                 .map(m => getCollectionMethodLabel(m.collection_method))
                 .join(" · ");
-              const needsWorkflowReview = combined.lifecycle_state
-                ? combined.lifecycle_state !== "published"
-                : !combined.is_assignable;
               return (
                 <TableRow key={combined.id} className="hover:bg-muted/5">
                   <TableCell className="text-center">
@@ -428,15 +427,22 @@ export default function LabsTable({
                           Missing: {combined.configuration_missing.join(", ")}
                         </div>
                       )}
+                      {combined.clinical_warnings && combined.clinical_warnings.length > 0 && (
+                        <div className="text-[10px] text-amber-700">
+                          Review: {combined.clinical_warnings.join(", ")}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <span className={`inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold ${
-                      combined.is_active
+                      isCombinedAssignmentReady(combined)
                         ? "bg-[#dcfce7] text-[#15803d] border-[#bbf7d0]"
-                        : "bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0]"
+                        : combined.is_active
+                          ? "bg-[#fef3c7] text-[#92400e] border-[#fde68a]"
+                          : "bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0]"
                     }`}>
-                      {combined.is_active ? "Enabled" : "Disabled"}
+                      {getCombinedWorkflowLabel(combined)}
                     </span>
                   </TableCell>
                   <TableCell className="text-right pr-6">
@@ -444,22 +450,16 @@ export default function LabsTable({
                       {onAssignOpenCombined && (
                         <button
                           onClick={() => onAssignOpenCombined(combined)}
-                          disabled={!combined.is_assignable}
+                          disabled={!isCombinedAssignmentReady(combined)}
                           className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={combined.is_assignable ? "Assign combined panel to clients" : `Complete configuration first: ${(combined.configuration_missing ?? []).join(", ")}`}
+                          title={isCombinedAssignmentReady(combined) ? "Assign combined panel to clients" : "Review and publish this Combined panel before assignment"}
                         >
                           <UserPlus className="h-4 w-4" />
                         </button>
                       )}
-                      {onEditOpenCombined && needsWorkflowReview && (
-                        <button
-                          type="button"
-                          onClick={() => onEditOpenCombined(combined)}
-                          className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-                          title="Review combined panel"
-                          aria-label={`Review ${combined.name}`}
-                        >
-                          <ClipboardCheck className="h-4 w-4" />
+                      {onReviewCombined && !isCombinedAssignmentReady(combined) && combined.is_active && combined.is_assignable && (
+                        <button type="button" onClick={() => onReviewCombined(combined)} className="px-2 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 rounded" title="Review clinical compatibility and publish">
+                          Review and publish
                         </button>
                       )}
                       {onArchiveCombined && (

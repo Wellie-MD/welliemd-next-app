@@ -23,6 +23,7 @@
     "test:lab-checkout-preview": "vite build --config scripts/vite.config.custom-program-test.ts --ssr scripts/lab-checkout-preview-render-test.tsx --outDir node_modules/.cache/welliemd-admin-lab-checkout-preview-test --emptyOutDir && node node_modules/.cache/welliemd-admin-lab-checkout-preview-test/custom-program-list-render-test.js",
     "test:checkout-question": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/checkout-question-catalog-tests.ts",
     "test:preview-identity-switch": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/preview-identity-switch-tests.ts",
+    "test:preview-error-message": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/preview-error-message-tests.ts",
     "test:program-authentication": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/program-authentication-boundary-tests.ts",
     "test:program-edit-save": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/program-edit-save-tests.ts",
     "test:custom-program-matching": "tsc --noEmit -p scripts/tsconfig.flow-builder.json && TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/custom-program-matching-tests.ts",
@@ -30,6 +31,7 @@
     "test:assignment-navigation": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/assignment-navigation-tests.ts",
     "test:assignment-error-copy": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/assignment-error-copy-tests.ts",
     "test:labs-contract": "TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/labs-contract-tests.ts",
+    "test:combined-standalone-first": "node scripts/combined-standalone-first-admin-tests.mjs",
     "test:labs-table-render": "vite build --config scripts/vite.config.custom-program-test.ts --ssr scripts/labs-table-render-test.tsx --outDir node_modules/.cache/welliemd-admin-labs-table-test --emptyOutDir && node node_modules/.cache/welliemd-admin-labs-table-test/custom-program-list-render-test.js"
   },
   "dependencies": {

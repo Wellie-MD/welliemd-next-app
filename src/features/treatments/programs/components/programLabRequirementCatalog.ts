@@ -77,6 +77,9 @@ export const requirementForTarget = (
   combinedPanelName: target.kind === "combined" ? target.panel.name : undefined,
   displayOrder,
   isRequired: true,
+  isReleaseRequired: true,
+  sharingPolicy: "never",
+  sharingGroupKey: "",
   isActive: true,
   instructions: "",
 });

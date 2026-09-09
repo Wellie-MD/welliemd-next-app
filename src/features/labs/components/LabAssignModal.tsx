@@ -6,6 +6,7 @@ import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { type AssignItem, type AssignClient } from "@/features/labs/types";
-import { renderJunctionStatusBadge } from "@/features/labs/utils";
+import { getCombinedJunctionStatus, renderJunctionStatusBadge } from "@/features/labs/utils";
 
 interface Props {
   open: boolean;
@@ -29,11 +30,15 @@ interface Props {
   clientSearch: string;
   onClientSearchChange: (v: string) => void;
   assignmentActionId: string | null;
+  isSubmitting: boolean;
+  /** Junction actions belong to standalone Lab assignments only. */
+  showJunctionActions: boolean;
   onSubmit: () => Promise<void>;
-  onSyncToTenant: (client: AssignClient) => Promise<void>;
-  onSubmitToJunction: (client: AssignClient) => Promise<void>;
-  onCheckStatus: (client: AssignClient) => Promise<void>;
-  onReplaceSubmission: (client: AssignClient) => Promise<void>;
+  onSyncToTenant?: (client: AssignClient) => Promise<void>;
+  onSubmitToJunction?: (client: AssignClient) => Promise<void>;
+  onCheckStatus?: (client: AssignClient) => Promise<void>;
+  onReplaceSubmission?: (client: AssignClient) => Promise<void>;
+  onRetryCombinedSync?: (client: AssignClient) => Promise<void>;
 }
 
 export default function LabAssignModal({
@@ -48,11 +53,14 @@ export default function LabAssignModal({
   clientSearch,
   onClientSearchChange,
   assignmentActionId,
+  isSubmitting,
+  showJunctionActions,
   onSubmit,
   onSyncToTenant,
   onSubmitToJunction,
   onCheckStatus,
   onReplaceSubmission,
+  onRetryCombinedSync,
 }: Props) {
   const filteredItems = useMemo(
     () =>
@@ -103,7 +111,12 @@ export default function LabAssignModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={nextOpen => {
+        if (!isSubmitting) onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent className="max-w-[760px] w-[94%] p-0 gap-0">
         <DialogHeader className="p-6 pb-4 border-b">
           <DialogTitle className="text-lg font-bold">Assign to Clients</DialogTitle>
@@ -201,12 +214,19 @@ export default function LabAssignModal({
                 const hasAmbiguousAccounts =
                   labAccountRequired && (c.lab_account_state === "ambiguous" || accountOptions.length > 1);
                 const needsAccountSelection = hasAmbiguousAccounts && !c.lab_account_id;
+                const pendingCombinedSubmissions = (c.methods ?? []).filter(
+                  method => method.submission_ready === true && !method.junction_lab_test_id,
+                );
+                const displayJunctionStatus = getCombinedJunctionStatus(
+                  c.methods,
+                  c.junction_status || "pending_submission",
+                );
                 const canSubmit =
                   hasAssignment &&
                   c.checked &&
-                  !c.junction_lab_test_id &&
                   !needsAccountSelection &&
-                  !!c.submission_ready;
+                  (pendingCombinedSubmissions.length > 0 ||
+                    ((c.methods?.length ?? 0) === 0 && !c.junction_lab_test_id && !!c.submission_ready));
                 const canSync =
                   hasAssignment &&
                   c.checked &&
@@ -242,7 +262,7 @@ export default function LabAssignModal({
                       <div className="text-[10px] text-muted-foreground truncate">{c.email}</div>
                       {c.checked && hasAssignment && (
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          {renderJunctionStatusBadge(c.junction_status || "pending_submission")}
+                          {renderJunctionStatusBadge(displayJunctionStatus)}
                           {c.is_orderable && (
                             <span className="inline-block border px-[8px] py-[2px] rounded-[10px] text-[10px] font-semibold bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]">
                               Orderable
@@ -306,13 +326,54 @@ export default function LabAssignModal({
                           ? "Platform routing"
                           : `${accountOptions.length || (c.linkedLabAccountIds ?? []).length} acct${(accountOptions.length || (c.linkedLabAccountIds ?? []).length) === 1 ? "" : "s"}`}
                       </span>
-                      {c.checked && hasAssignment && (
+                      {c.checked && hasAssignment && !showJunctionActions && (
+                        <div className="mt-1.5 max-w-[190px] space-y-1.5">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <span className={`inline-block rounded-[10px] border px-[8px] py-[2px] text-[10px] font-semibold ${c.sync_status === "synced" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : c.sync_status === "failed" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                              {c.sync_status === "synced" ? "Synced" : c.sync_status === "failed" ? "Sync failed" : "Sync pending"}
+                            </span>
+                            {c.sync_attempt_count ? <span className="text-[10px] text-muted-foreground">Attempt {c.sync_attempt_count}</span> : null}
+                          </div>
+                          {c.sync_status === "failed" && c.sync_error && (
+                            <p className="text-right text-[10px] leading-snug text-rose-700">{c.sync_error}</p>
+                          )}
+                          {c.sync_status === "failed" && onRetryCombinedSync && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => onRetryCombinedSync(c)}
+                              disabled={busy || isSubmitting}
+                              className="ml-auto h-7 border-rose-200 px-2 text-[10px] text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                            >
+                              {busy && <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden="true" />}
+                              {busy ? "Retrying…" : "Retry sync"}
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {c.checked && !showJunctionActions && (c.methods ?? []).length > 0 && (
+                        <div className="mt-2 space-y-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                          {(c.methods ?? []).map((method, index) => {
+                            const readiness = String(method.operational_status || method.readiness_code || "unknown").replaceAll("_", " ");
+                            const reason = method.blocking_reason || method.reason;
+                            return (
+                              <div key={String(method.assignment_id || method.panel_id || index)} className="text-[10px] text-slate-700">
+                                <span className="font-semibold">{String(method.panel_name || method.name || "Member Lab")}</span>
+                                {": "}
+                                <span className="capitalize">{readiness}</span>
+                                {reason ? ` — ${String(reason)}` : ""}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {c.checked && hasAssignment && showJunctionActions && (
                         <div className="flex items-center gap-1">
                           {canSync && (
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => onSyncToTenant(c)}
+                              onClick={() => onSyncToTenant?.(c)}
                               disabled={busy}
                               className="h-6 px-2 text-[10px]"
                               title="Sync latest admin panel changes to this client tenant without submitting a new Junction lab test"
@@ -324,7 +385,7 @@ export default function LabAssignModal({
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => onSubmitToJunction(c)}
+                              onClick={() => onSubmitToJunction?.(c)}
                               disabled={busy}
                               className="h-6 px-2 text-[10px]"
                             >
@@ -335,7 +396,7 @@ export default function LabAssignModal({
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => onCheckStatus(c)}
+                              onClick={() => onCheckStatus?.(c)}
                               disabled={busy}
                               className="h-6 px-2 text-[10px]"
                             >
@@ -346,7 +407,7 @@ export default function LabAssignModal({
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => onReplaceSubmission(c)}
+                              onClick={() => onReplaceSubmission?.(c)}
                               disabled={busy}
                               className="h-6 px-2 text-[10px] text-rose-600 hover:text-rose-700"
                             >
@@ -372,9 +433,11 @@ export default function LabAssignModal({
           </Button>
           <Button
             onClick={onSubmit}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4"
+            disabled={isSubmitting}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4 inline-flex items-center"
           >
-            Assign
+            {isSubmitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+            {isSubmitting ? "Assigning…" : "Assign"}
           </Button>
         </DialogFooter>
       </DialogContent>

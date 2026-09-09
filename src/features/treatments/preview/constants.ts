@@ -2,7 +2,7 @@ export const QUESTIONNAIRE_PREVIEW_DEFAULTS = Object.freeze({
   appBaseUrl: "",
   apiBaseUrl: "",
   modalMaxHeightPx: 780,
-  modalWidthPx: 640,
+  modalWidthPx: 768,
   protocolVersion: 1,
   identitySwitchTimeoutMs: 15000,
 });

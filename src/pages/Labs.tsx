@@ -14,7 +14,7 @@ import {
   type AssignClient,
   type AssignItem,
 } from "@/features/labs";
-import { isPendingJunctionStatus } from "@/features/labs/utils";
+import { isCombinedAssignmentReady, isPendingJunctionStatus } from "@/features/labs/utils";
 
 type StatusFilter = "All" | "Active" | "Pending approval" | "Inactive";
 type AssignmentSummary = { assigned: number; submitted: number; live: number };
@@ -47,8 +47,29 @@ const toAssignClient = (c: ClientAssignment): AssignClient => ({
   blocking_reason: c.blocking_reason,
   patient_price_configured: c.patient_price_configured,
   service_state_options: c.service_state_options,
+  sync_status: c.sync_status,
+  sync_attempt_count: c.sync_attempt_count,
+  sync_error: c.sync_error,
+  sync_correlation_id: c.sync_correlation_id,
+  last_synced_at: c.last_synced_at,
   methods: c.methods,
 });
+
+const getPendingJunctionSubmissionIds = (client: AssignClient): string[] => {
+  const methods = client.methods ?? [];
+  if (methods.length > 0) {
+    return methods
+      .filter(method => method.submission_ready === true && !method.junction_lab_test_id)
+      .map(method => String(method.assignment_id || ""))
+      .filter(Boolean);
+  }
+  if (!client.submission_ready || client.junction_lab_test_id) return [];
+  return client.assignment_ids?.length
+    ? client.assignment_ids
+    : client.assignment_id
+      ? [client.assignment_id]
+      : [];
+};
 
 export default function Labs() {
   const navigate = useNavigate();
@@ -63,7 +84,6 @@ export default function Labs() {
 
 
   const [combinedOpen, setCombinedOpen] = useState(false);
-  const [combinedEditOpen, setCombinedEditOpen] = useState(false);
   const [selectedCombinedPanel, setSelectedCombinedPanel] = useState<import("@/features/labs/types").CombinedLabPanel | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -90,6 +110,7 @@ export default function Labs() {
   const [assignItemSearch, setAssignItemSearch] = useState("");
   const [assignClientSearch, setAssignClientSearch] = useState("");
   const [assignmentActionId, setAssignmentActionId] = useState<string | null>(null);
+  const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
   const [assignMode, setAssignMode] = useState<"single" | "combined">("single");
 
   const loadData = useCallback(async () => {
@@ -144,8 +165,8 @@ export default function Labs() {
         if (c.is_archived) return false;
         const providers = c.members.map(member => member.lab_provider).join(" ").toLowerCase();
         if (q && !c.name.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q) && !providers.includes(q)) return false;
-        if (statusFilter === "Active") return c.is_active && c.is_assignable;
-        if (statusFilter === "Pending approval") return c.configuration_status !== "ready_to_assign";
+        if (statusFilter === "Active") return isCombinedAssignmentReady(c);
+        if (statusFilter === "Pending approval") return !isCombinedAssignmentReady(c) && c.is_active;
         if (statusFilter === "Inactive") return !c.is_active;
         return true;
       })
@@ -228,11 +249,6 @@ export default function Labs() {
     }
   };
 
-  const handleEditOpenCombined = (combined: import("@/features/labs/types").CombinedLabPanel) => {
-    setSelectedCombinedPanel(combined);
-    setCombinedEditOpen(true);
-  };
-
   const fetchChangeHistory = async (lab: LabPanel, filter: "all" | import("@/api/labs").LabChangeAction = "all") => {
     setChangeHistoryLoading(true);
     setChangeHistoryError(null);
@@ -291,8 +307,12 @@ export default function Labs() {
   };
 
   const handleAssignOpenCombined = async (combined: import("@/features/labs/types").CombinedLabPanel) => {
+    if (!isCombinedAssignmentReady(combined)) {
+      toast({ title: "Review and publication required", description: "Approve the clinical comparison and publish this Combined panel before assigning it.", variant: "destructive" });
+      return;
+    }
     setAssignMode("combined");
-    setAssignItemPool(combinedPanels.filter(c => c.is_assignable).map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: c.id === combined.id, kind: "combined" as const })));
+    setAssignItemPool(combinedPanels.filter(isCombinedAssignmentReady).map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: c.id === combined.id, kind: "combined" as const })));
     setAssignItemSearch("");
     setAssignClientSearch("");
     try {
@@ -310,7 +330,7 @@ export default function Labs() {
     const selectedLabs = labs.filter(l => selectedRowIds.includes(l.id));
     const selectedCombined = combinedPanels.filter(c => selectedRowIds.includes(c.id));
     const incompleteLabs = selectedLabs.filter(l => !l.is_assignable).map(l => l.name);
-    const incompleteCombined = selectedCombined.filter(c => !c.is_assignable).map(c => c.name);
+    const incompleteCombined = selectedCombined.filter(c => !isCombinedAssignmentReady(c)).map(c => c.name);
     if (incompleteLabs.length > 0 || incompleteCombined.length > 0) {
       toast({
         title: "Configuration in progress",
@@ -320,7 +340,7 @@ export default function Labs() {
       return;
     }
     const assignableLabs = labs.filter(l => l.is_assignable);
-    const assignableCombined = combinedPanels.filter(c => c.is_assignable);
+    const assignableCombined = combinedPanels.filter(isCombinedAssignmentReady);
     const pool: AssignItem[] = [
       ...assignableLabs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: selectedRowIds.includes(l.id), kind: "single" as const })),
       ...assignableCombined.map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: selectedRowIds.includes(c.id), kind: "combined" as const })),
@@ -365,33 +385,14 @@ export default function Labs() {
         .filter(c => c.lab_account_id)
         .map(c => [c.id, c.lab_account_id as string])
     );
-    let combinedSyncFailures = 0;
+    setAssignmentSubmitting(true);
     try {
       for (const item of checkedItems) {
         if (item.kind === "combined") {
-          const response = await labsApi.assignCombinedPanelToClients(item.id, clientIds);
-          let assignmentIds = (response.results || []).flatMap(client =>
-            client.assignment_ids || (client.assignment_id ? [client.assignment_id] : [])
-          );
-          // Older deployments may acknowledge the assignment without returning
-          // the member rows. Re-read the combined endpoint before giving up on
-          // tenant synchronization.
-          if (assignmentIds.length === 0 && clientIds.length > 0) {
-            const rows = await labsApi.getCombinedPanelClients(item.id);
-            assignmentIds = rows
-              .filter(client => clientIds.includes(client.id))
-              .flatMap(client => client.assignment_ids || (client.assignment_id ? [client.assignment_id] : []));
-          }
-          // Combined members share one tenant offering. Serialize their writes so
-          // two members cannot race while creating or reconciling that offering.
-          for (const assignmentId of Array.from(new Set(assignmentIds))) {
-            try {
-              await labsApi.syncAssignmentToTenant(assignmentId);
-            } catch (error) {
-              console.error(error);
-              combinedSyncFailures += 1;
-            }
-          }
+          // The backend creates one logical offering and performs one grouped
+          // sync. Individual member assignment sync would split the offering
+          // and can never represent the Combined Lab correctly.
+          await labsApi.assignCombinedPanelToClients(item.id, clientIds);
         } else {
           await labsApi.assignLabPanelToClients(item.id, clientIds, labAccountSelections);
         }
@@ -408,19 +409,17 @@ export default function Labs() {
       }
       toast({
         title: "Assignments updated.",
-        description: combinedSyncFailures
-          ? `${combinedSyncFailures} combined-panel member sync${combinedSyncFailures === 1 ? "" : "s"} failed. Use Sync on the client row to retry.`
-          : undefined,
-        variant: combinedSyncFailures ? "destructive" : undefined,
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ title: "Error", description: "Failed to assign items.", variant: "destructive" });
+      toast({ title: "Error", description: e?.response?.data?.detail ?? "Failed to assign items.", variant: "destructive" });
+    } finally {
+      setAssignmentSubmitting(false);
     }
   };
 
   const handleSubmitToJunction = async (client: AssignClient) => {
-    const assignmentIds = client.assignment_ids?.length ? client.assignment_ids : client.assignment_id ? [client.assignment_id] : [];
+    const assignmentIds = getPendingJunctionSubmissionIds(client);
     if (assignmentIds.length === 0) return;
     setAssignmentActionId(assignmentIds[0]);
     try {
@@ -450,6 +449,35 @@ export default function Labs() {
       toast({ title: "Client synced", description: responses[0]?.message ?? `${client.name}'s panel copy was updated.` });
     } catch (e: any) {
       toast({ title: "Sync failed", description: e?.response?.data?.message ?? e?.response?.data?.detail ?? "Failed.", variant: "destructive" });
+    } finally {
+      setAssignmentActionId(null);
+    }
+  };
+
+  const handleRetryCombinedSync = async (client: AssignClient) => {
+    const checkedCombined = assignItemPool.filter(item => item.checked && item.kind === "combined");
+    if (checkedCombined.length !== 1) {
+      toast({
+        title: "Select one Combined panel",
+        description: "Choose exactly one Combined panel before retrying its client sync.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const actionId = client.assignment_ids?.[0] || client.assignment_id || client.id;
+    setAssignmentActionId(actionId);
+    try {
+      await labsApi.assignCombinedPanelToClients(checkedCombined[0].id, [client.id]);
+      await refreshAssignClients();
+      loadData();
+      toast({ title: "Combined panel synced", description: `${client.name}'s grouped offering is ready.` });
+    } catch (e: any) {
+      await refreshAssignClients();
+      toast({
+        title: "Retry failed",
+        description: e?.response?.data?.message ?? e?.response?.data?.detail ?? "Combined panel sync failed.",
+        variant: "destructive",
+      });
     } finally {
       setAssignmentActionId(null);
     }
@@ -569,7 +597,7 @@ export default function Labs() {
         onEditOpen={handleEditOpen}
         onAssignOpenSingle={handleAssignOpenSingle}
         onAssignOpenCombined={handleAssignOpenCombined}
-        onEditOpenCombined={handleEditOpenCombined}
+        onReviewCombined={setSelectedCombinedPanel}
         onArchive={handleArchive}
         onArchiveCombined={handleArchiveCombined}
         onViewChangeHistory={handleViewChangeHistory}
@@ -588,15 +616,13 @@ export default function Labs() {
       />
 
       <LabCombinedModal
-        open={combinedEditOpen}
-        onOpenChange={setCombinedEditOpen}
+        open={Boolean(selectedCombinedPanel)}
+        onOpenChange={open => { if (!open) setSelectedCombinedPanel(null); }}
         labs={labs}
+        onCreated={loadData}
         initialPanel={selectedCombinedPanel}
-        onCreated={() => undefined}
-        onUpdated={() => {
-          loadData();
-          toast({ title: "Combined panel saved." });
-        }}
+        reviewOnly
+        onUpdated={() => { setSelectedCombinedPanel(null); loadData(); }}
       />
 
       <LabEditModal
@@ -621,11 +647,15 @@ export default function Labs() {
         clientSearch={assignClientSearch}
         onClientSearchChange={setAssignClientSearch}
         assignmentActionId={assignmentActionId}
+        isSubmitting={assignmentSubmitting}
+        showJunctionActions={assignMode === "single"}
         onSubmit={handleAssignSubmit}
-        onSyncToTenant={handleSyncToTenant}
-        onSubmitToJunction={handleSubmitToJunction}
-        onCheckStatus={handleCheckStatus}
-        onReplaceSubmission={handleReplaceSubmission}
+        {...(assignMode === "single" ? {
+          onSyncToTenant: handleSyncToTenant,
+          onSubmitToJunction: handleSubmitToJunction,
+          onCheckStatus: handleCheckStatus,
+          onReplaceSubmission: handleReplaceSubmission,
+        } : { onRetryCombinedSync: handleRetryCombinedSync })}
       />
 
       <LabMarkerDetailModal

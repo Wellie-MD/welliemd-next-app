@@ -421,6 +421,9 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
     combinedPanelName: requirement.combined_panel_name,
     displayOrder: requirement.display_order,
     isRequired: requirement.is_required,
+    isReleaseRequired: requirement.is_release_required,
+    sharingPolicy: requirement.sharing_policy || "never",
+    sharingGroupKey: requirement.sharing_group_key || "",
     isActive: requirement.is_active,
     instructions: requirement.instructions || "",
     visibilityRuleGroup: requirement.visibility_rule as VisibilityRuleGroup | undefined,
@@ -514,6 +517,11 @@ export const programToRecord = (program: Partial<Program>, treatmentTypes: Treat
       combined_panel_id: requirement.requirementKind === "combined" ? requirement.combinedPanelId : null,
       display_order: requirement.displayOrder || index + 1,
       is_required: requirement.isRequired,
+      is_release_required: requirement.isReleaseRequired ?? requirement.isRequired,
+      sharing_policy: requirement.sharingPolicy || "never",
+      sharing_group_key: requirement.sharingPolicy === "explicit_group"
+        ? requirement.sharingGroupKey || ""
+        : "",
       is_active: requirement.isActive,
       instructions: requirement.instructions || "",
       visibility_rule: requirement.visibilityRuleGroup || null,

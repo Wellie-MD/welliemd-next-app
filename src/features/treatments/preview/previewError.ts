@@ -28,7 +28,9 @@ export const getPreviewErrorMessage = (error: unknown) => {
   }
 
   const dataObj = typeof rawData === "object" && rawData !== null ? rawData : {};
-  const messages = flattenDetails(dataObj.details);
+  const messages = flattenDetails(dataObj.details).filter((message) =>
+    message.trim(),
+  );
   const hasRuleContract = Boolean(
     dataObj.details &&
     typeof dataObj.details === "object" &&
@@ -38,7 +40,10 @@ export const getPreviewErrorMessage = (error: unknown) => {
 
   if (messages.length) {
     if (hasRuleContract) return messages.join(" ");
-    return `${messages.join(" ")} Update the named Product or its checkout option, then refresh the preview.`;
+    // The API provides the field-level reason (for example, an invalid section
+    // scope). Preserve it rather than replacing it with the HTTP 409 status or
+    // advice for a different configuration area.
+    return messages.join(" ");
   }
 
   if (typeof dataObj.detail === "string" && dataObj.detail.trim()) {

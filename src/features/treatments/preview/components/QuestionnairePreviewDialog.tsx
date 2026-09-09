@@ -69,6 +69,7 @@ export function QuestionnairePreviewDialog({
   const identitySwitchTimerRef = useRef<number | null>(null);
   const loadingTimeoutRef = useRef<number | null>(null);
   const identityRequestSequenceRef = useRef(0);
+  const capabilityRequestSequenceRef = useRef(0);
   const identitySwitchStartedAtRef = useRef<number | null>(null);
   const [identity, setIdentity] = useState<QuestionnairePreviewIdentity>(
     QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
@@ -150,6 +151,7 @@ export function QuestionnairePreviewDialog({
     setStatus("loading");
     setIsSlowLoading(false);
     setErrorMessage("");
+    const capabilityRequestId = ++capabilityRequestSequenceRef.current;
 
     // Start a 3s safety timer to detect if popup/iframe is blocked or slow to handshake
     loadingTimeoutRef.current = window.setTimeout(() => {
@@ -160,10 +162,12 @@ export function QuestionnairePreviewDialog({
 
     issuePreviewCapability(previewContext)
       .then((issued) => {
-        if (active) setCapability(issued);
+        if (active && capabilityRequestSequenceRef.current === capabilityRequestId) {
+          setCapability(issued);
+        }
       })
       .catch((error) => {
-        if (!active) return;
+        if (!active || capabilityRequestSequenceRef.current !== capabilityRequestId) return;
         if (loadingTimeoutRef.current !== null) {
           window.clearTimeout(loadingTimeoutRef.current);
           loadingTimeoutRef.current = null;
@@ -173,6 +177,7 @@ export function QuestionnairePreviewDialog({
       });
     return () => {
       active = false;
+      capabilityRequestSequenceRef.current += 1;
       clearTimers();
       appliedIdentityRequestRef.current = null;
     };
@@ -284,7 +289,6 @@ export function QuestionnairePreviewDialog({
   };
 
   const refresh = () => {
-    if (!previewOrigin) return;
     clearTimers();
     appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
     setAppliedIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
@@ -297,6 +301,26 @@ export function QuestionnairePreviewDialog({
     setStatus("loading");
     setIsSlowLoading(false);
     setErrorMessage("");
+
+    // A capability issuance failure has no iframe/origin yet. Retrying must
+    // issue a fresh capability so a repaired assignment can be previewed
+    // without closing and reopening the dialog.
+    if (!previewOrigin) {
+      const requestId = ++capabilityRequestSequenceRef.current;
+      issuePreviewCapability(previewContext)
+        .then((issued) => {
+          if (capabilityRequestSequenceRef.current === requestId) {
+            setCapability(issued);
+          }
+        })
+        .catch((error) => {
+          if (capabilityRequestSequenceRef.current !== requestId) return;
+          setStatus("error");
+          setErrorMessage(getPreviewErrorMessage(error));
+        });
+      return;
+    }
+
     loadingTimeoutRef.current = window.setTimeout(() => {
       setIsSlowLoading(true);
     }, 3000);
@@ -433,7 +457,7 @@ export function QuestionnairePreviewDialog({
         ) : null}
 
         <div className="flex min-h-0 flex-1 justify-center bg-background p-3">
-          <div className="relative h-full w-full max-w-[360px] overflow-hidden rounded-lg bg-white ring-1 ring-border">
+          <div className="relative h-full w-full max-w-[480px] overflow-hidden rounded-lg bg-white ring-1 ring-border">
             {status === "loading" || identitySwitching ? (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white p-4">
                 <div className="flex flex-col items-center gap-3 text-xs text-muted-foreground">

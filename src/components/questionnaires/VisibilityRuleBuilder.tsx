@@ -19,23 +19,15 @@ import {
   normalizeVisibilityQuestionId,
   type VisibilityValidationIssue,
 } from "./visibilityRuleValidation";
+import {
+  getAllowedVisibilityOperators,
+  isNumericVisibilityOperator,
+  type VisibilityConditionOperator,
+} from "./visibilityOperatorPolicy";
+export { DERIVED_BMI_ID } from "./visibilityRuleConstants";
+import { DERIVED_BMI_ID } from "./visibilityRuleConstants";
 
-export const DERIVED_BMI_ID = "__derived_bmi__";
-
-export type VisibilityConditionOperator =
-  | "equals"
-  | "not_equals"
-  | "in"
-  | "not_in"
-  | "contains"
-  | "not_contains"
-  | "gt"
-  | "gte"
-  | "lt"
-  | "lte"
-  | "between"
-  | "is_empty"
-  | "is_not_empty";
+export type { VisibilityConditionOperator } from "./visibilityOperatorPolicy";
 
 export interface VisibilityCondition {
   type: "condition";
@@ -67,8 +59,6 @@ interface VisibilityRuleBuilderProps {
   validationIssues?: VisibilityValidationIssue[];
 }
 
-const NUMERIC_OPERATORS = new Set<VisibilityConditionOperator>(["gt", "gte", "lt", "lte", "between"]);
-
 export const CONDITION_OPERATORS: Array<{
   value: VisibilityConditionOperator;
   label: string;
@@ -88,25 +78,8 @@ export const CONDITION_OPERATORS: Array<{
   { value: "is_not_empty", label: "Is not empty / answered" },
 ];
 
-const TYPE_ALLOWED_OPERATORS: Record<string, VisibilityConditionOperator[]> = {
-  single_choice: ["equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty"],
-  single: ["equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty"],
-  yes_no: ["equals", "not_equals", "in", "not_in", "is_empty", "is_not_empty"],
-  multiple_choice: ["contains", "not_contains", "is_empty", "is_not_empty"],
-  multiple: ["contains", "not_contains", "is_empty", "is_not_empty"],
-  number: ["equals", "not_equals", "gt", "gte", "lt", "lte", "between", "is_empty", "is_not_empty"],
-  bmi: ["equals", "not_equals", "gt", "gte", "lt", "lte", "between", "is_empty", "is_not_empty"],
-  height_weight: ["equals", "not_equals", "gt", "gte", "lt", "lte", "between", "is_empty", "is_not_empty"],
-  text: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
-  textarea: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
-  email: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
-  phone: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
-  zip: ["equals", "not_equals", "contains", "not_contains", "is_empty", "is_not_empty"],
-  date: ["equals", "not_equals", "is_empty", "is_not_empty"],
-};
-
 export const getAllowedOperators = (kind?: string): VisibilityConditionOperator[] => {
-  return TYPE_ALLOWED_OPERATORS[kind || ""] || ["equals", "not_equals", "is_empty", "is_not_empty"];
+  return getAllowedVisibilityOperators(kind);
 };
 
 function defaultCondition(questionId = ""): VisibilityCondition {
@@ -218,7 +191,7 @@ function ConditionEditor({
   const choiceOptions = getQuestionChoices(selectedQuestion);
   const isMultiValue = ["in", "not_in"].includes(node.operator);
   const isBetween = node.operator === "between";
-  const isNumericOp = NUMERIC_OPERATORS.has(node.operator);
+  const isNumericOp = isNumericVisibilityOperator(node.operator);
   const valueText = Array.isArray(node.value) ? node.value.join(", ") : node.value;
   const selectValue = choiceOptions.length > 0 && !isMultiValue
     ? resolveChoiceValue(choiceOptions, valueText)

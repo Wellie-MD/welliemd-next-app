@@ -13,7 +13,6 @@ import {
 import { hasActiveVisibilityRules } from "@/features/treatments/utils/visibilityEvaluation";
 import type {
   ProgramCheckoutProduct,
-  ProgramQuestion,
   VisibilityRuleGroup,
 } from "@/features/treatments/types";
 import {
@@ -24,12 +23,13 @@ import {
   productsForRegimen,
   regimensForProducts,
 } from "../utils/catalogOptions";
+import type { LabVisibilityQuestionOption } from "../utils/labVisibilityQuestions";
 
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
   index: number;
   productCount: number;
-  eligibleQuestions: ProgramQuestion[];
+  visibilityQuestions: LabVisibilityQuestionOption[];
   categories: ProductCategory[];
   titrationCategories: TitrationCategory[];
   doseMappings: ProductDoseMapping[];
@@ -96,7 +96,7 @@ export function CheckoutProductRow({
   product,
   index,
   productCount,
-  eligibleQuestions,
+  visibilityQuestions,
   categories,
   titrationCategories,
   doseMappings,
@@ -419,7 +419,6 @@ export function CheckoutProductRow({
           </div>
         </div>
       )}
-
     </div>
   );
 }
