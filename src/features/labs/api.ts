@@ -111,6 +111,7 @@ export interface ClientLabPanel {
     operational_status: OperationalStatus;
     junction_lab_test_id?: string;
     is_orderable: boolean;
+    cost_to_client: number;
   }>;
 
   service_states: string[];
@@ -293,7 +294,18 @@ const normalizePanel = (raw: Record<string, unknown>): ClientLabPanel => {
     is_combined: Boolean(raw.is_combined),
     combined_storefront_slug: raw.combined_storefront_slug ? String(raw.combined_storefront_slug) : undefined,
     combined_methods: Array.isArray(raw.combined_methods)
-      ? raw.combined_methods as ClientLabPanel["combined_methods"]
+      ? (raw.combined_methods as Record<string, unknown>[]).map((method) => ({
+          ...method,
+          assignment_id: String(method.assignment_id ?? ""),
+          collection_method: method.collection_method as ClientLabPanel["collection_method"],
+          panel_name: String(method.panel_name ?? ""),
+          lab_provider: String(method.lab_provider ?? ""),
+          junction_status: (method.junction_status as JunctionStatus) ?? "draft",
+          operational_status: (method.operational_status as OperationalStatus) ?? "pending_submission",
+          junction_lab_test_id: method.junction_lab_test_id ? String(method.junction_lab_test_id) : undefined,
+          is_orderable: Boolean(method.is_orderable),
+          cost_to_client: moneyToNumber(method.cost_to_client),
+        }))
       : [],
     service_states: Array.isArray(raw.service_states)
       ? (raw.service_states as string[])

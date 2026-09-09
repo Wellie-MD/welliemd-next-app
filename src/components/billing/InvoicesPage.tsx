@@ -67,6 +67,12 @@ function isReimbursementInvoice(inv: DisplayInvoice | null): inv is DisplayInvoi
   return Boolean(inv && inv.invoice_type === "reimbursement");
 }
 
+function isLabInvoice(inv: Invoice): boolean {
+  return (inv.line_items || []).some(
+    (item) => item.metadata?.source_type === "standalone_lab_order"
+  );
+}
+
 function formatDate(value?: string) {
   if (!value) return "N/A";
   return new Date(value).toLocaleDateString("en-US", {
@@ -280,6 +286,8 @@ function RevisionInvoiceModal({
   onClose: () => void;
 }) {
   const orderId = getClientOrderNumber(invoice);
+  const orderType = isLabInvoice(invoice) ? "Lab" : "Rx";
+  const invoiceTypeLabel = orderType === "Lab" ? "Lab Reimbursement" : "Reimbursement";
 
   const reimbColgroup = (
     <colgroup>
@@ -327,9 +335,9 @@ function RevisionInvoiceModal({
         <tbody>
           {rows.map(([label, amount, description]) => (
             <tr key={label}>
-              <td className="py-1.5">{label}</td>
-              <td className="py-1.5 font-mono text-[11px] text-slate-500">{orderId}</td>
-              <td className="py-1.5 text-slate-500">{description}</td>
+              <td className="break-words py-1.5 pr-3">{label}</td>
+              <td className="break-all py-1.5 pr-3 font-mono text-[11px] text-slate-500">{orderId}</td>
+              <td className="break-words py-1.5 pr-3 text-slate-500">{description}</td>
               <td className="py-1.5 text-center text-slate-400">1</td>
               <td className="py-1.5 text-right text-slate-500">{formatMoney(amount)}</td>
               <td className="py-1.5 text-right font-semibold">{formatMoney(amount)}</td>
@@ -409,9 +417,9 @@ function RevisionInvoiceModal({
             const amount = item.medication_amount || item.product_total || "0.00";
             return (
               <tr key={`${item.name}-${item.med_id || item.rx_id || index}`}>
-                <td className="py-1.5">{item.name}</td>
-                <td className="py-1.5 font-mono text-[11px] text-slate-500">{orderId}</td>
-                <td className="py-1.5 text-slate-500">{item.name} cost for Order {orderId}</td>
+                <td className="break-words py-1.5 pr-3">{item.name}</td>
+                <td className="break-all py-1.5 pr-3 font-mono text-[11px] text-slate-500">{orderId}</td>
+                <td className="break-words py-1.5 pr-3 text-slate-500">{item.name} cost for Order {orderId}</td>
                 <td className="py-1.5 text-center text-slate-400">1</td>
                 <td className="py-1.5 text-right text-slate-500">{formatMoney(amount)}</td>
                 <td className="py-1.5 text-right font-semibold">{formatMoney(amount)}</td>
@@ -420,9 +428,9 @@ function RevisionInvoiceModal({
           })}
           {shippingTotal > 0 && (
             <tr>
-              <td className="py-1.5">Shipping</td>
-              <td className="py-1.5 font-mono text-[11px] text-slate-500">{orderId}</td>
-              <td className="py-1.5 text-slate-500">Shipping cost for Order {orderId}</td>
+              <td className="break-words py-1.5 pr-3">Shipping</td>
+              <td className="break-all py-1.5 pr-3 font-mono text-[11px] text-slate-500">{orderId}</td>
+              <td className="break-words py-1.5 pr-3 text-slate-500">Shipping cost for Order {orderId}</td>
               <td className="py-1.5 text-center text-slate-400">1</td>
               <td className="py-1.5 text-right text-slate-500">{formatMoney(shippingTotal)}</td>
               <td className="py-1.5 text-right font-semibold">{formatMoney(shippingTotal)}</td>
@@ -593,7 +601,7 @@ function RevisionInvoiceModal({
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                Reimbursement invoice
+                {orderType} invoice
               </div>
               <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
               <div className="mt-3 flex items-center gap-3">
@@ -605,7 +613,7 @@ function RevisionInvoiceModal({
                 </span>
               </div>
               <div className="mt-1 text-xs text-slate-400">
-                Order {invoice.client_order_number || invoice.source_tenant_order_display_id || "-"} · Issued {formatDate(invoice.issued_at || invoice.created_at)}
+                {orderType} order {invoice.client_order_number || invoice.source_tenant_order_display_id || "-"} · Issued {formatDate(invoice.issued_at || invoice.created_at)}
               </div>
             </div>
             <button
@@ -624,8 +632,8 @@ function RevisionInvoiceModal({
           <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
             <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Summary</h4>
-              <InvoiceInfoRow label="Type" value="Reimbursement" />
-              <InvoiceInfoRow label="Client order #" value={invoice.client_order_number || "-"} />
+              <InvoiceInfoRow label="Type" value={invoiceTypeLabel} />
+              <InvoiceInfoRow label={`${orderType} order #`} value={invoice.client_order_number || invoice.source_tenant_order_display_id || "-"} />
               <InvoiceInfoRow label="Issued" value={formatDate(invoice.issued_at || invoice.created_at)} />
               <InvoiceInfoRow label="Due" value={invoice.due_date ? formatDate(invoice.due_date) : "N/A"} />
             </section>
@@ -673,21 +681,21 @@ function RevisionInvoiceModal({
             </section>
           </aside>
 
-          <main>
+          <main className="min-w-0">
             {treatmentPrescription && (
               <TreatmentPrescriptionInvoiceSets contract={treatmentPrescription} />
             )}
             {Number(requested?.consultation_amount || 0) > 0 && (
               <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Consultation</h4>
-                <table className="mt-2 w-full text-xs">
+                <table className="mt-2 w-full table-fixed text-xs">
                   {reimbColgroup}
                   {reimbThead}
                   <tbody>
                     <tr>
-                      <td className="py-1.5">{requested?.consult_mode === "sync" ? "Sync Consult" : "Async Consult"}</td>
-                      <td className="py-1.5 font-mono text-[11px] text-slate-500">{orderId}</td>
-                      <td className="py-1.5 text-slate-500">
+                      <td className="break-words py-1.5 pr-3">{requested?.consult_mode === "sync" ? "Sync Consult" : "Async Consult"}</td>
+                      <td className="break-all py-1.5 pr-3 font-mono text-[11px] text-slate-500">{orderId}</td>
+                      <td className="break-words py-1.5 pr-3 text-slate-500">
                         {requested?.consult_mode === "sync" ? "Sync" : "Async"} Consult fee for Order {orderId}
                       </td>
                       <td className="py-1.5 text-center text-slate-400">1</td>
@@ -1583,7 +1591,9 @@ export default function InvoicesPage() {
                           {inv.source_tenant_order_display_id || inv.source_order_id || "-"}
                         </div>
                       </td>
-                      <td className="px-6 py-4">{formatLabel(inv.invoice_type)}</td>
+                      <td className="px-6 py-4">
+                        {isLabInvoice(inv) ? "Lab Reimbursement" : formatLabel(inv.invoice_type)}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeClass(inv.status, inv.is_overdue)}`}>
                           {formatLabel(effectiveStatus)}

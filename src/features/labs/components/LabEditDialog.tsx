@@ -74,6 +74,10 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
 
   const effectivePatientPrice = Number.parseFloat(patientPrice) || 0;
   const profit = effectivePatientPrice - (editingLab?.cost_to_client || 0);
+  const combinedMembers = editingLab?.combined_methods ?? [];
+  const memberCosts = combinedMembers.map((member) => member.cost_to_client);
+  const minimumMemberCost = memberCosts.length ? Math.min(...memberCosts) : 0;
+  const maximumMemberCost = memberCosts.length ? Math.max(...memberCosts) : 0;
   const compositionRows = editingLab ? getCompositionRows(editingLab) : [];
   const serviceStateOptions = editingLab?.service_state_options ?? [];
 
@@ -233,6 +237,35 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                 </div>
               </div>
 
+              {editingLab.is_combined && (
+                <section className="border border-[#e8ebee] rounded-[14px] p-[16px_18px] bg-white space-y-3" aria-labelledby="combined-method-options">
+                  <div>
+                    <h3 id="combined-method-options" className="text-[13.5px] font-bold text-gray-900">Collection method options</h3>
+                    <p className="mt-1 text-xs text-gray-555">One patient-facing offering; fulfillment uses the available concrete method selected at checkout.</p>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-[#e8ebee]">
+                    <table className="min-w-[620px] w-full text-left text-xs">
+                      <thead className="bg-[#f7f9fb] text-[10px] uppercase font-bold text-gray-500 border-b border-[#e8ebee]">
+                        <tr><th className="px-3 py-2">Method</th><th className="px-3 py-2">Lab test</th><th className="px-3 py-2">Provider</th><th className="px-3 py-2">Your cost</th><th className="px-3 py-2">Status</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#e8ebee]">
+                        {combinedMembers.map((member) => (
+                          <tr key={member.assignment_id}>
+                            <td className="px-3 py-2 font-semibold text-gray-900">{getCollectionDetailLabel(member.collection_method)}</td>
+                            <td className="px-3 py-2 text-gray-700">{member.panel_name}</td>
+                            <td className="px-3 py-2 text-gray-555">{member.lab_provider}</td>
+                            <td className="px-3 py-2 font-semibold text-gray-900">${member.cost_to_client.toFixed(2)}</td>
+                            <td className={`px-3 py-2 font-semibold ${member.is_orderable ? "text-emerald-700" : "text-amber-700"}`}>
+                              {member.is_orderable ? "Ready" : "Needs attention"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
               {/* Panel Composition */}
               <div className="border border-[#e8ebee] rounded-[14px] p-[16px_18px] bg-white space-y-4">
                 <div className="flex items-center justify-between">
@@ -309,22 +342,22 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                       <b className="text-[13px] text-gray-800">Your cost</b>
                       <span className="text-[10.5px] font-semibold bg-[#eef1f4] text-[#6b7280] rounded-full px-2 py-0.5">🔒 Admin-managed</span>
                     </div>
-                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-550">Cost to client (lab)</span><span className="font-semibold text-gray-900">${editingLab.cost_to_client.toFixed(2)}</span></div>
+                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-550">Cost to client (lab)</span><span className="font-semibold text-gray-900">{editingLab.is_combined ? `$${minimumMemberCost.toFixed(2)}–$${maximumMemberCost.toFixed(2)}` : `$${editingLab.cost_to_client.toFixed(2)}`}</span></div>
                     <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Draw / handling</span><span className="font-semibold text-gray-900">$0.00</span></div>
                     <div className="border-t border-[#e8ebee] my-1.5" />
-                    <div className="flex justify-between py-1 text-[12.5px]"><b className="text-gray-900">Total cost</b><b className="text-gray-900">${editingLab.cost_to_client.toFixed(2)}</b></div>
+                    <div className="flex justify-between py-1 text-[12.5px]"><b className="text-gray-900">Total cost</b><b className="text-gray-900">{editingLab.is_combined ? "Depends on selected method" : `$${editingLab.cost_to_client.toFixed(2)}`}</b></div>
                   </div>
                   <div className="border border-[#cdebd9] rounded-[12px] p-3.5 bg-[#f1faf4] text-xs">
                     <b className="text-[13px] text-gray-800 block mb-1.5">Profit breakdown</b>
                     <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Patient pays</span><span className="font-semibold text-gray-900">${effectivePatientPrice.toFixed(2)}</span></div>
                     <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Shipping fee</span><span className="font-semibold text-gray-900">+$0.00</span></div>
-                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Your cost</span><span className="font-semibold text-gray-900">-${editingLab.cost_to_client.toFixed(2)}</span></div>
+                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Your cost</span><span className="font-semibold text-gray-900">{editingLab.is_combined ? `-$${minimumMemberCost.toFixed(2)} to -$${maximumMemberCost.toFixed(2)}` : `-$${editingLab.cost_to_client.toFixed(2)}`}</span></div>
                     <div className="border-t border-[#cdebd9] my-1.5" />
                     <div className="flex items-end justify-between">
                       <b className="text-[13px] text-gray-900">Profit per order</b>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-[#1d8a52]">${profit.toFixed(2)}</span>
-                        <span className="text-[10.5px] font-semibold bg-[#dcf3e5] text-[#1d8a52] rounded-full px-2 py-0.5">{effectivePatientPrice > 0 ? `${Math.round((profit / effectivePatientPrice) * 100)}%` : "0%"}</span>
+                        <span className="text-2xl font-bold text-[#1d8a52]">{editingLab.is_combined ? `$${(effectivePatientPrice - maximumMemberCost).toFixed(2)}–$${(effectivePatientPrice - minimumMemberCost).toFixed(2)}` : `$${profit.toFixed(2)}`}</span>
+                        {!editingLab.is_combined && <span className="text-[10.5px] font-semibold bg-[#dcf3e5] text-[#1d8a52] rounded-full px-2 py-0.5">{effectivePatientPrice > 0 ? `${Math.round((profit / effectivePatientPrice) * 100)}%` : "0%"}</span>}
                       </div>
                     </div>
                     <div className="text-[10.5px] text-gray-400 mt-1.5">Excludes visit cost</div>
