@@ -334,7 +334,7 @@ export function QuestionnairePreviewDialog({
         </div>
 
         <div className="flex min-h-0 flex-1 justify-center bg-background p-3">
-          <div className="relative h-full w-full max-w-[360px] overflow-hidden rounded-lg bg-white ring-1 ring-border">
+          <div className="relative h-full w-full max-w-[480px] overflow-hidden rounded-lg bg-white ring-1 ring-border">
             {status === "loading" || identitySwitching ? (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-3 text-xs text-muted-foreground">
