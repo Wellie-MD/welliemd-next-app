@@ -1,5 +1,6 @@
 /** Shared utility functions for the admin Labs feature. */
 import React from "react";
+import type { CombinedLabPanel } from "./types";
 
 export function getCollectionMethodLabel(method: string): string {
   const map: Record<string, string> = {
@@ -15,6 +16,34 @@ export function isPendingJunctionStatus(status: string | undefined): boolean {
   return ["pending", "pending_approval", "pending_submission"].includes(
     (status || "").toLowerCase(),
   );
+}
+
+export function isCombinedAssignmentReady(panel: CombinedLabPanel): boolean {
+  return panel.is_assignable === true
+    && panel.is_active
+    && !panel.is_archived
+    && panel.lifecycle_state === "published"
+    && panel.compatibility_status === "approved";
+}
+
+export function getCombinedApprovalBasis(
+  compatibilityStatus: string | undefined,
+  evidenceStatus?: "looks_like_match" | "differences_found" | "not_enough_information",
+): "exact_loinc" | "manual_review" | null {
+  if (compatibilityStatus === "exact_candidate") return "exact_loinc";
+  if (compatibilityStatus === "review_required") return "manual_review";
+  if (compatibilityStatus !== "unvalidated") return null;
+  if (evidenceStatus === "looks_like_match") return "exact_loinc";
+  if (evidenceStatus === "differences_found" || evidenceStatus === "not_enough_information") return "manual_review";
+  return null;
+}
+
+export function getCombinedWorkflowLabel(panel: CombinedLabPanel): string {
+  if (isCombinedAssignmentReady(panel)) return "Published";
+  if (!panel.is_active) return "Disabled";
+  if (panel.compatibility_status === "approved") return "Ready to publish";
+  if (panel.compatibility_status === "exact_candidate") return "Ready for approval";
+  return "Manual review required";
 }
 
 export function getCombinedJunctionStatus(

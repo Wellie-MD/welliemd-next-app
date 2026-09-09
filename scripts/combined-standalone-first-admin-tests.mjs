@@ -55,13 +55,28 @@ check(
   "Supersession must parse the backend combined_panel response key.",
 );
 check(
-  !/onEditOpenCombined/.test(table) && !/ClipboardCheck/.test(table),
-  "Combined table rows must not expose a review/edit action.",
+  /onReviewCombined/.test(table) && /Review and publish/.test(table),
+  "Combined rows that need clinical review must expose a clear Review and publish action.",
 );
 check(
-  !/combinedEditOpen|selectedCombinedPanel|handleEditOpenCombined/.test(page) &&
-    !/initialPanel=\{selectedCombinedPanel\}/.test(page),
-  "Labs page must not mount the Combined edit modal path.",
+  /isCombinedAssignmentReady/.test(table) && /isCombinedAssignmentReady/.test(page),
+  "Combined assignment must require both structural readiness and published clinical approval.",
+);
+check(
+  /initialPanel=\{selectedCombinedPanel\}/.test(page) && /reviewOnly/.test(page),
+  "Labs page must mount the dedicated Combined review/publication workflow without restoring metadata editing.",
+);
+check(
+  /matching LOINC evidence/.test(combinedModal) && /Admin confirmation/.test(combinedModal),
+  "The review workflow must explain why an exact candidate still needs review.",
+);
+check(
+  /validateCombinedMembers/.test(combinedModal) && /unvalidated/.test(combinedModal),
+  "Legacy draft/unvalidated Combined panels must be re-evaluated and given an approval path.",
+);
+check(
+  /response\?\.data\?\.detail/.test(page),
+  "Assignment failures must show the backend's precise blocking reason.",
 );
 
 if (failures.length) {

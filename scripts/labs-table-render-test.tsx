@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import LabsTable from "../src/features/labs/components/LabsTable";
 import type { LabPanel } from "../src/api/labs";
 import type { CombinedLabPanel } from "../src/features/labs/types";
+import { getCombinedApprovalBasis } from "../src/features/labs/utils";
 
 const pendingAssignedLab: LabPanel = {
   id: "panel-pending-live",
@@ -85,7 +86,6 @@ const html = renderToStaticMarkup(
     onEditOpen={() => undefined}
     onAssignOpenSingle={async () => undefined}
     onAssignOpenCombined={async () => undefined}
-    onEditOpenCombined={() => undefined}
     onArchive={async () => undefined}
     onArchiveCombined={async () => undefined}
   />,
@@ -154,3 +154,36 @@ const pendingFilterHtml = renderToStaticMarkup(
 assert.match(pendingFilterHtml, /Metabolic At-Home Panel/);
 
 console.log("Admin Labs pending Junction filter contract passed.");
+
+const needsReviewHtml = renderToStaticMarkup(
+  <LabsTable
+    labs={[]}
+    combinedPanels={[{ ...combined, lifecycle_state: "needs_review", compatibility_status: "exact_candidate" }]}
+    assignmentSummary={{}}
+    search=""
+    onSearchChange={() => undefined}
+    statusFilter="All"
+    onStatusFilterChange={() => undefined}
+    selectedRowIds={[]}
+    onRowSelect={() => undefined}
+    onSelectAll={() => undefined}
+    onToggleActive={async () => undefined}
+    onEditOpen={() => undefined}
+    onAssignOpenSingle={async () => undefined}
+    onAssignOpenCombined={async () => undefined}
+    onReviewCombined={() => undefined}
+    onArchive={async () => undefined}
+  />,
+);
+
+assert.match(needsReviewHtml, />Ready for approval</);
+assert.match(needsReviewHtml, />Review and publish</);
+assert.match(needsReviewHtml, /disabled=""/);
+
+console.log("Admin Labs Combined review gate render contract passed.");
+
+assert.equal(getCombinedApprovalBasis("unvalidated", "looks_like_match"), "exact_loinc");
+assert.equal(getCombinedApprovalBasis("unvalidated", "differences_found"), "manual_review");
+assert.equal(getCombinedApprovalBasis("exact_candidate"), "exact_loinc");
+
+console.log("Admin Labs legacy Combined review decision contract passed.");

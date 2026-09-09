@@ -14,7 +14,7 @@ import {
   type AssignClient,
   type AssignItem,
 } from "@/features/labs";
-import { isPendingJunctionStatus } from "@/features/labs/utils";
+import { isCombinedAssignmentReady, isPendingJunctionStatus } from "@/features/labs/utils";
 
 type StatusFilter = "All" | "Active" | "Pending approval" | "Inactive";
 type AssignmentSummary = { assigned: number; submitted: number; live: number };
@@ -84,6 +84,7 @@ export default function Labs() {
 
 
   const [combinedOpen, setCombinedOpen] = useState(false);
+  const [selectedCombinedPanel, setSelectedCombinedPanel] = useState<import("@/features/labs/types").CombinedLabPanel | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [markerOpen, setMarkerOpen] = useState(false);
@@ -164,8 +165,8 @@ export default function Labs() {
         if (c.is_archived) return false;
         const providers = c.members.map(member => member.lab_provider).join(" ").toLowerCase();
         if (q && !c.name.toLowerCase().includes(q) && !c.id.toLowerCase().includes(q) && !providers.includes(q)) return false;
-        if (statusFilter === "Active") return c.is_active && c.is_assignable;
-        if (statusFilter === "Pending approval") return c.configuration_status !== "ready_to_assign";
+        if (statusFilter === "Active") return isCombinedAssignmentReady(c);
+        if (statusFilter === "Pending approval") return !isCombinedAssignmentReady(c) && c.is_active;
         if (statusFilter === "Inactive") return !c.is_active;
         return true;
       })
@@ -306,8 +307,12 @@ export default function Labs() {
   };
 
   const handleAssignOpenCombined = async (combined: import("@/features/labs/types").CombinedLabPanel) => {
+    if (!isCombinedAssignmentReady(combined)) {
+      toast({ title: "Review and publication required", description: "Approve the clinical comparison and publish this Combined panel before assigning it.", variant: "destructive" });
+      return;
+    }
     setAssignMode("combined");
-    setAssignItemPool(combinedPanels.filter(c => c.is_assignable).map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: c.id === combined.id, kind: "combined" as const })));
+    setAssignItemPool(combinedPanels.filter(isCombinedAssignmentReady).map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: c.id === combined.id, kind: "combined" as const })));
     setAssignItemSearch("");
     setAssignClientSearch("");
     try {
@@ -325,7 +330,7 @@ export default function Labs() {
     const selectedLabs = labs.filter(l => selectedRowIds.includes(l.id));
     const selectedCombined = combinedPanels.filter(c => selectedRowIds.includes(c.id));
     const incompleteLabs = selectedLabs.filter(l => !l.is_assignable).map(l => l.name);
-    const incompleteCombined = selectedCombined.filter(c => !c.is_assignable).map(c => c.name);
+    const incompleteCombined = selectedCombined.filter(c => !isCombinedAssignmentReady(c)).map(c => c.name);
     if (incompleteLabs.length > 0 || incompleteCombined.length > 0) {
       toast({
         title: "Configuration in progress",
@@ -335,7 +340,7 @@ export default function Labs() {
       return;
     }
     const assignableLabs = labs.filter(l => l.is_assignable);
-    const assignableCombined = combinedPanels.filter(c => c.is_assignable);
+    const assignableCombined = combinedPanels.filter(isCombinedAssignmentReady);
     const pool: AssignItem[] = [
       ...assignableLabs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: selectedRowIds.includes(l.id), kind: "single" as const })),
       ...assignableCombined.map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: selectedRowIds.includes(c.id), kind: "combined" as const })),
@@ -405,9 +410,9 @@ export default function Labs() {
       toast({
         title: "Assignments updated.",
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ title: "Error", description: "Failed to assign items.", variant: "destructive" });
+      toast({ title: "Error", description: e?.response?.data?.detail ?? "Failed to assign items.", variant: "destructive" });
     } finally {
       setAssignmentSubmitting(false);
     }
@@ -563,6 +568,7 @@ export default function Labs() {
         onEditOpen={handleEditOpen}
         onAssignOpenSingle={handleAssignOpenSingle}
         onAssignOpenCombined={handleAssignOpenCombined}
+        onReviewCombined={setSelectedCombinedPanel}
         onArchive={handleArchive}
         onArchiveCombined={handleArchiveCombined}
         onViewChangeHistory={handleViewChangeHistory}
@@ -578,6 +584,16 @@ export default function Labs() {
           loadData();
           toast({ title: "Combined panel created." });
         }}
+      />
+
+      <LabCombinedModal
+        open={Boolean(selectedCombinedPanel)}
+        onOpenChange={open => { if (!open) setSelectedCombinedPanel(null); }}
+        labs={labs}
+        onCreated={loadData}
+        initialPanel={selectedCombinedPanel}
+        reviewOnly
+        onUpdated={() => { setSelectedCombinedPanel(null); loadData(); }}
       />
 
       <LabEditModal

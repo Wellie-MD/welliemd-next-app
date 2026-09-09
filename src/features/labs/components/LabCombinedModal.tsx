@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { labsApi, type LabPanel } from "@/api/labs";
 import { formatAoeCount } from "@/features/labs/utils/aoeUtils";
-import { getCollectionMethodLabel } from "@/features/labs/utils";
+import { getCollectionMethodLabel, getCombinedApprovalBasis } from "@/features/labs/utils";
 import {
   type CombinedMethodRow,
   type CombinedLabPanel,
@@ -58,6 +58,7 @@ interface Props {
   onCreated: () => void;
   initialPanel?: CombinedLabPanel | null;
   onUpdated?: () => void;
+  reviewOnly?: boolean;
 }
 
 const EMPTY_VALIDATION: CombinedValidationState = {
@@ -81,6 +82,7 @@ export default function LabCombinedModal({
   onCreated,
   initialPanel = null,
   onUpdated,
+  reviewOnly = false,
 }: Props) {
   const isEditing = Boolean(initialPanel);
   const [name, setName] = useState("");
@@ -92,12 +94,14 @@ export default function LabCombinedModal({
   const [createStep, setCreateStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [reviewPanel, setReviewPanel] = useState<CombinedLabPanel | null>(null);
   const [reviewReason, setReviewReason] = useState("");
   const [saveError, setSaveError] = useState("");
   const [successorMode, setSuccessorMode] = useState(false);
   const [qualificationClientId, setQualificationClientId] = useState("");
   const [qualificationCandidates, setQualificationCandidates] = useState<import("@/features/labs/types").CombinedQualificationCandidate[]>([]);
   const [qualificationLoading, setQualificationLoading] = useState(false);
+  const workflowPanel = reviewPanel ?? initialPanel;
 
   // Reset on open
   useEffect(() => {
@@ -119,6 +123,7 @@ export default function LabCombinedModal({
       setSaveError("");
       setReviewReason(initialPanel?.review_reason || "");
       setWorkflowBusy(false);
+      setReviewPanel(initialPanel);
       setSuccessorMode(false);
       setQualificationClientId("");
       setQualificationCandidates([]);
@@ -126,6 +131,20 @@ export default function LabCombinedModal({
       setCreateStep(1);
     }
   }, [open, initialPanel]);
+
+  useEffect(() => {
+    if (!open || !reviewOnly || initialPanel?.compatibility_status !== "unvalidated") return;
+    let cancelled = false;
+    setValidation({ ...EMPTY_VALIDATION, checking: true });
+    labsApi.validateCombinedMembers(initialPanel.members.map(member => member.panel_id))
+      .then(result => {
+        if (!cancelled) setValidation({ ...result, checking: false });
+      })
+      .catch(error => {
+        if (!cancelled) setSaveError(apiErrorMessage(error, "Could not evaluate this legacy Combined panel."));
+      });
+    return () => { cancelled = true; };
+  }, [open, reviewOnly, initialPanel]);
 
   // Panels available per method (active + same method)
   const panelsForMethod = useMemo(() => {
@@ -148,6 +167,10 @@ export default function LabCombinedModal({
   const selectedPanelIds = useMemo(
     () => selectedRows.map(r => r.selectedPanelId),
     [selectedRows]
+  );
+  const reviewApprovalBasis = getCombinedApprovalBasis(
+    workflowPanel?.compatibility_status,
+    validation.comparison?.evidence_status,
   );
 
   useEffect(() => {
@@ -263,7 +286,7 @@ export default function LabCombinedModal({
   };
 
   const handleApprove = async (approvalBasis: "exact_loinc" | "manual_review") => {
-    if (!initialPanel || workflowBusy) return;
+    if (!workflowPanel || workflowBusy) return;
     if (approvalBasis === "manual_review" && !reviewReason.trim()) {
       setSaveError("A review reason is required for manual approval.");
       return;
@@ -271,12 +294,11 @@ export default function LabCombinedModal({
     setWorkflowBusy(true);
     setSaveError("");
     try {
-      await labsApi.approveCombinedPanel(initialPanel.id, {
+      const approved = await labsApi.approveCombinedPanel(workflowPanel.id, {
         approval_basis: approvalBasis,
         reason: reviewReason.trim(),
       });
-      onOpenChange(false);
-      onUpdated?.();
+      setReviewPanel(approved);
     } catch (error: unknown) {
       setSaveError(apiErrorMessage(error, "Combined panel approval failed."));
     } finally {
@@ -285,11 +307,11 @@ export default function LabCombinedModal({
   };
 
   const handlePublish = async () => {
-    if (!initialPanel || workflowBusy) return;
+    if (!workflowPanel || workflowBusy) return;
     setWorkflowBusy(true);
     setSaveError("");
     try {
-      await labsApi.publishCombinedPanel(initialPanel.id);
+      await labsApi.publishCombinedPanel(workflowPanel.id);
       onOpenChange(false);
       onUpdated?.();
     } catch (error: unknown) {
@@ -321,9 +343,11 @@ export default function LabCombinedModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-24px)] sm:w-full max-w-3xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-4 sm:p-6 border-b shrink-0">
-          <DialogTitle className="text-lg font-bold">{isEditing ? (successorMode ? "Create successor combined panel" : "Edit combined panel") : "Create combined panel"}</DialogTitle>
+          <DialogTitle className="text-lg font-bold">{reviewOnly ? "Review and publish combined panel" : isEditing ? (successorMode ? "Create successor combined panel" : "Edit combined panel") : "Create combined panel"}</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground mt-1 leading-normal">
-            {isEditing
+            {reviewOnly
+              ? "Confirm clinical compatibility, then publish this panel before assigning it to clients."
+              : isEditing
               ? (successorMode
                 ? "Create a new version from this published definition. The published definition remains unchanged."
                 : "Review this version and its selected Lab tests. Published membership stays read-only.")
@@ -334,7 +358,7 @@ export default function LabCombinedModal({
 
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
           {/* Panel name */}
-          {(isEditing || createStep === 1) && <div className="space-y-1.5">
+          {(!reviewOnly && (isEditing || createStep === 1)) && <div className="space-y-1.5">
             <Label htmlFor="comb-name" className="font-semibold text-xs text-foreground">
               Panel name <span className="text-rose-500">*</span>
             </Label>
@@ -350,7 +374,7 @@ export default function LabCombinedModal({
             />
           </div>}
 
-          {isEditing && editForm && (
+          {isEditing && !reviewOnly && editForm && (
             <div className="space-y-4 rounded-lg border border-slate-200 p-4">
               <div className="space-y-1.5">
                 <Label htmlFor="comb-description" className="font-semibold text-xs">Description</Label>
@@ -384,28 +408,37 @@ export default function LabCombinedModal({
             </div>
           )}
 
-          {isEditing && initialPanel && (
-            <section aria-labelledby="combined-review-heading" className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/40 p-4">
+          {isEditing && workflowPanel && (
+            <section aria-labelledby="combined-review-heading" className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div>
                 <h3 id="combined-review-heading" className="text-xs font-semibold text-foreground">Clinical review and publication</h3>
                 <p className="mt-1 text-[10.5px] leading-normal text-muted-foreground">
                   Membership and clinical evidence are frozen by version. Approval is explicit; publication is a separate action.
                 </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div><span className="font-semibold">Compatibility:</span> {initialPanel.compatibility_status || "unvalidated"}</div>
-                <div><span className="font-semibold">Lifecycle:</span> {initialPanel.lifecycle_state || "draft"}</div>
+              <div className="grid grid-cols-2 gap-2" aria-label="Approval progress">
+                <div className={`rounded-lg border px-3 py-2 text-[11px] font-semibold ${workflowPanel.compatibility_status === "approved" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-blue-200 bg-blue-50 text-blue-700"}`}>1. {workflowPanel.compatibility_status === "approved" ? "Approved" : "Approve evidence"}</div>
+                <div className={`rounded-lg border px-3 py-2 text-[11px] font-semibold ${workflowPanel.lifecycle_state === "published" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>2. {workflowPanel.lifecycle_state === "published" ? "Published" : "Publish panel"}</div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="rounded-md bg-slate-50 px-3 py-2"><span className="font-semibold">Evidence:</span> {(workflowPanel.compatibility_status || "unvalidated").replaceAll("_", " ")}</div>
+                <div className="rounded-md bg-slate-50 px-3 py-2"><span className="font-semibold">Panel status:</span> {(workflowPanel.lifecycle_state || "draft").replaceAll("_", " ")}</div>
+              </div>
+              {reviewApprovalBasis === "exact_loinc" && (
+                <p className="text-[11px] leading-normal text-blue-800">
+                  The member Labs have matching LOINC evidence. Admin confirmation is still required before this Combined panel can be published and assigned.
+                </p>
+              )}
               {successorMode ? (
                 <Button type="button" variant="outline" onClick={cancelSuccessor} disabled={saving || workflowBusy} className="h-8 text-xs">
                   Cancel successor draft
                 </Button>
-              ) : initialPanel.compatibility_status === "approved" ? (
+              ) : workflowPanel.compatibility_status === "approved" ? (
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={handlePublish} disabled={workflowBusy || initialPanel.lifecycle_state === "published"} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">
-                    {workflowBusy ? "Publishing…" : initialPanel.lifecycle_state === "published" ? "Published" : "Publish approved panel"}
+                  <Button type="button" onClick={handlePublish} disabled={workflowBusy || workflowPanel.lifecycle_state === "published"} className="h-8 text-xs bg-blue-600 hover:bg-blue-700">
+                    {workflowBusy ? "Publishing…" : workflowPanel.lifecycle_state === "published" ? "Published" : "Publish approved panel"}
                   </Button>
-                  {initialPanel.lifecycle_state === "published" && (
+                  {workflowPanel.lifecycle_state === "published" && (
                     <Button type="button" variant="outline" onClick={beginSuccessor} disabled={workflowBusy} className="h-8 text-xs">
                       Create successor definition
                     </Button>
@@ -413,7 +446,7 @@ export default function LabCombinedModal({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {initialPanel.compatibility_status === "review_required" && (
+                  {reviewApprovalBasis === "manual_review" && (
                     <Input
                       aria-label="Manual review reason"
                       placeholder="Reason for manual clinical review"
@@ -423,17 +456,18 @@ export default function LabCombinedModal({
                     />
                   )}
                   <div className="flex flex-wrap gap-2">
-                    {initialPanel.compatibility_status === "exact_candidate" && (
+                    {reviewApprovalBasis === "exact_loinc" && (
                       <Button type="button" onClick={() => handleApprove("exact_loinc")} disabled={workflowBusy} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700">
                         {workflowBusy ? "Reviewing…" : "Approve exact LOINC match"}
                       </Button>
                     )}
-                    {initialPanel.compatibility_status === "review_required" && (
+                    {reviewApprovalBasis === "manual_review" && (
                       <Button type="button" onClick={() => handleApprove("manual_review")} disabled={workflowBusy} className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700">
                         {workflowBusy ? "Reviewing…" : "Approve manual review"}
                       </Button>
                     )}
                   </div>
+                  {validation.checking && <p className="text-[11px] text-muted-foreground">Checking current member evidence…</p>}
                 </div>
               )}
             </section>
@@ -535,8 +569,8 @@ export default function LabCombinedModal({
           >
             Cancel
           </Button>
-          {!isEditing && createStep > 1 && <Button type="button" variant="outline" onClick={() => setCreateStep(step => step - 1)} className="text-xs h-9">Back</Button>}
-          {!isEditing && createStep < 4 ? <Button
+          {!reviewOnly && !isEditing && createStep > 1 && <Button type="button" variant="outline" onClick={() => setCreateStep(step => step - 1)} className="text-xs h-9">Back</Button>}
+          {!reviewOnly && (!isEditing && createStep < 4 ? <Button
             type="button"
             onClick={() => setCreateStep(step => step + 1)}
             disabled={
@@ -551,7 +585,7 @@ export default function LabCombinedModal({
             className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4"
           >
             {saving ? (isEditing ? (successorMode ? "Creating…" : "Saving…") : "Creating…") : (isEditing ? (successorMode ? "Create successor" : "Save changes") : "Create Combined Panel")}
-          </Button>}
+          </Button>)}
         </DialogFooter>
       </DialogContent>
     </Dialog>
