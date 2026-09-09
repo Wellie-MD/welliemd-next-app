@@ -354,13 +354,14 @@ export default function LabAssignModal({
                       {c.checked && !showJunctionActions && (c.methods ?? []).length > 0 && (
                         <div className="mt-2 space-y-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
                           {(c.methods ?? []).map((method, index) => {
-                            const readiness = String(method.readiness_code || "unknown").replaceAll("_", " ");
+                            const readiness = String(method.operational_status || method.readiness_code || "unknown").replaceAll("_", " ");
+                            const reason = method.blocking_reason || method.reason;
                             return (
                               <div key={String(method.assignment_id || method.panel_id || index)} className="text-[10px] text-slate-700">
                                 <span className="font-semibold">{String(method.panel_name || method.name || "Member Lab")}</span>
                                 {": "}
                                 <span className="capitalize">{readiness}</span>
-                                {method.reason ? ` — ${String(method.reason)}` : ""}
+                                {reason ? ` — ${String(reason)}` : ""}
                               </div>
                             );
                           })}

@@ -86,6 +86,10 @@ check(
   /sync_error/.test(modal) && /handleRetryCombinedSync/.test(page),
   "Combined sync failures must show their reason and retry through the grouped endpoint.",
 );
+check(
+  /operational_status \|\| method\.readiness_code/.test(modal),
+  "Combined member rows must display the API operational status instead of showing Unknown.",
+);
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);
