@@ -454,6 +454,35 @@ export default function Labs() {
     }
   };
 
+  const handleRetryCombinedSync = async (client: AssignClient) => {
+    const checkedCombined = assignItemPool.filter(item => item.checked && item.kind === "combined");
+    if (checkedCombined.length !== 1) {
+      toast({
+        title: "Select one Combined panel",
+        description: "Choose exactly one Combined panel before retrying its client sync.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const actionId = client.assignment_ids?.[0] || client.assignment_id || client.id;
+    setAssignmentActionId(actionId);
+    try {
+      await labsApi.assignCombinedPanelToClients(checkedCombined[0].id, [client.id]);
+      await refreshAssignClients();
+      loadData();
+      toast({ title: "Combined panel synced", description: `${client.name}'s grouped offering is ready.` });
+    } catch (e: any) {
+      await refreshAssignClients();
+      toast({
+        title: "Retry failed",
+        description: e?.response?.data?.message ?? e?.response?.data?.detail ?? "Combined panel sync failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setAssignmentActionId(null);
+    }
+  };
+
   const handleCheckStatus = async (client: AssignClient) => {
     const assignmentIds = client.assignment_ids?.length ? client.assignment_ids : client.assignment_id ? [client.assignment_id] : [];
     if (assignmentIds.length === 0) return;
@@ -626,7 +655,7 @@ export default function Labs() {
           onSubmitToJunction: handleSubmitToJunction,
           onCheckStatus: handleCheckStatus,
           onReplaceSubmission: handleReplaceSubmission,
-        } : {})}
+        } : { onRetryCombinedSync: handleRetryCombinedSync })}
       />
 
       <LabMarkerDetailModal

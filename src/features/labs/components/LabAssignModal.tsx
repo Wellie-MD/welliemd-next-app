@@ -38,6 +38,7 @@ interface Props {
   onSubmitToJunction?: (client: AssignClient) => Promise<void>;
   onCheckStatus?: (client: AssignClient) => Promise<void>;
   onReplaceSubmission?: (client: AssignClient) => Promise<void>;
+  onRetryCombinedSync?: (client: AssignClient) => Promise<void>;
 }
 
 export default function LabAssignModal({
@@ -59,6 +60,7 @@ export default function LabAssignModal({
   onSubmitToJunction,
   onCheckStatus,
   onReplaceSubmission,
+  onRetryCombinedSync,
 }: Props) {
   const filteredItems = useMemo(
     () =>
@@ -325,11 +327,28 @@ export default function LabAssignModal({
                           : `${accountOptions.length || (c.linkedLabAccountIds ?? []).length} acct${(accountOptions.length || (c.linkedLabAccountIds ?? []).length) === 1 ? "" : "s"}`}
                       </span>
                       {c.checked && hasAssignment && !showJunctionActions && (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <span className={`inline-block rounded-[10px] border px-[8px] py-[2px] text-[10px] font-semibold ${c.sync_status === "synced" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : c.sync_status === "failed" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-                            {c.sync_status === "synced" ? "Synced" : c.sync_status === "failed" ? "Sync failed" : "Sync pending"}
-                          </span>
-                          {c.sync_attempt_count ? <span className="text-[10px] text-muted-foreground">Attempt {c.sync_attempt_count}</span> : null}
+                        <div className="mt-1.5 max-w-[190px] space-y-1.5">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <span className={`inline-block rounded-[10px] border px-[8px] py-[2px] text-[10px] font-semibold ${c.sync_status === "synced" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : c.sync_status === "failed" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                              {c.sync_status === "synced" ? "Synced" : c.sync_status === "failed" ? "Sync failed" : "Sync pending"}
+                            </span>
+                            {c.sync_attempt_count ? <span className="text-[10px] text-muted-foreground">Attempt {c.sync_attempt_count}</span> : null}
+                          </div>
+                          {c.sync_status === "failed" && c.sync_error && (
+                            <p className="text-right text-[10px] leading-snug text-rose-700">{c.sync_error}</p>
+                          )}
+                          {c.sync_status === "failed" && onRetryCombinedSync && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => onRetryCombinedSync(c)}
+                              disabled={busy || isSubmitting}
+                              className="ml-auto h-7 border-rose-200 px-2 text-[10px] text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                            >
+                              {busy && <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden="true" />}
+                              {busy ? "Retrying…" : "Retry sync"}
+                            </Button>
+                          )}
                         </div>
                       )}
                       {c.checked && !showJunctionActions && (c.methods ?? []).length > 0 && (

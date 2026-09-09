@@ -78,6 +78,14 @@ check(
   /response\?\.data\?\.detail/.test(page),
   "Assignment failures must show the backend's precise blocking reason.",
 );
+check(
+  /onRetryCombinedSync/.test(modal) && /Retry sync/.test(modal),
+  "Failed grouped syncs must expose an explicit Retry sync action.",
+);
+check(
+  /sync_error/.test(modal) && /handleRetryCombinedSync/.test(page),
+  "Combined sync failures must show their reason and retry through the grouped endpoint.",
+);
 
 if (failures.length) {
   for (const failure of failures) console.error(`FAIL ${failure}`);
