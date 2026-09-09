@@ -85,6 +85,7 @@ const menuSections = [
         title: "Wearables",
         url: "/dashboard/wearables",
         icon: Smartphone,
+        milestone: "milestone_2" as const,
       },
 
       {

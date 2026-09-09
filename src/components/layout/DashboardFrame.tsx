@@ -246,7 +246,7 @@ export default function DashboardFrame() {
               <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateQuestions /></ProtectedRoute>} />
               <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
               <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
-              <Route path="/wearables" element={<ProtectedRoute><Wearables /></ProtectedRoute>} />
+              <Route path="/wearables" element={gatedRoute("milestone_2", <Wearables />)} />
               <Route path="/treatments/programs" element={gatedRoute("milestone_3", <ProgramsPage />)} />
               <Route path="/treatments/programs/:programId/questions" element={gatedRoute("milestone_3", <ProgramDetailPage />)} />
               <Route path="/treatments/programs/:programId/flow-builder" element={gatedRoute("milestone_3", <ProgramLegacyRouteRedirect />)} />
