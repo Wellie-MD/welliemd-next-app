@@ -87,21 +87,6 @@ test("Lab Checkout visibility sources include earlier questions with their answe
   ]);
 });
 
-test("Lab visibility rules use the runtime source ID for imported Program questions", () => {
-  const sources = buildLabVisibilityQuestions([{
-    id: "program-question-record-id",
-    sourceId: "runtime-question-source-id",
-    text: "Show lab?",
-    kind: "single_choice",
-    order: 1,
-    section: "Intake",
-    required: true,
-    choices: ["Yes", "No"],
-  }], []);
-
-  assert.equal(sources[0]?.id, "runtime-question-source-id");
-});
-
 test("checkout product visibility sources include Section fields, BMI, and profile inputs", () => {
   const sources = buildLabVisibilityQuestions([
     {

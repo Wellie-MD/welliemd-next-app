@@ -40,7 +40,7 @@ export const buildLabVisibilityQuestions = (
   const questions: LabVisibilityQuestionOption[] = eligibleQuestions
     .filter((question) => !["height_weight", "bmi", "section"].includes(question.kind))
     .map((question) => ({
-      id: question.sourceId || question.id,
+      id: question.id,
       question_text: question.text,
       order_index: question.order,
       question_type: question.kind,

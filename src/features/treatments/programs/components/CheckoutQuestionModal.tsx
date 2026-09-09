@@ -56,7 +56,6 @@ export function CheckoutQuestionModal({
   }, [open, programLabRequirements, initialMode]);
   const visibilityQuestions: ProgramQuestion[] = screeningQuestions.map((question, index) => ({
     id: question.id,
-    sourceId: question.sourceId,
     order: question.order ?? index + 1,
     text: question.text,
     kind: question.kind ?? "text",

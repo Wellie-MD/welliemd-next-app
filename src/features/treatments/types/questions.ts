@@ -74,8 +74,6 @@ export interface VisibilityRuleGroup {
 
 export interface ProgramQuestion {
   id: string;
-  /** Stable runtime answer identity; may differ from the authoring record ID. */
-  sourceId?: string;
   order: number;
   text: string;
   kind: QuestionKind;
