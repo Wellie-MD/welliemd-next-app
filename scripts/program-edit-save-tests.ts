@@ -7,7 +7,12 @@ import {
   sectionEditorChoices,
   sectionEditorDqChoices,
 } from "../src/features/treatments/common/utils/sectionFieldConfiguration.ts";
-import { questionFromRecord, questionToRecord } from "../src/features/treatments/api/mappers.ts";
+import {
+  programFromRecord,
+  programToRecord,
+  questionFromRecord,
+  questionToRecord,
+} from "../src/features/treatments/api/mappers.ts";
 
 const test = (name: string, run: () => void) => {
   run();
@@ -88,6 +93,44 @@ test("the stable duplicate slug code is supported", () => {
     }),
     true,
   );
+});
+
+test("Program lab sharing and release-gate settings survive an Admin save", () => {
+  const program = programFromRecord({
+    id: "program-1",
+    name: "Hair and weight",
+    slug: "hair-and-weight",
+    lab_requirements: [{
+      id: "requirement-1",
+      panel_id: "panel-cbc",
+      display_order: 1,
+      is_required: true,
+      is_release_required: false,
+      sharing_policy: "explicit_group",
+      sharing_group_key: "baseline-cbc",
+      is_active: true,
+    }],
+  });
+
+  const requirement = program.labRequirements?.[0];
+  assert.equal(requirement?.isReleaseRequired, false);
+  assert.equal(requirement?.sharingPolicy, "explicit_group");
+  assert.equal(requirement?.sharingGroupKey, "baseline-cbc");
+
+  const payload = programToRecord(program, []);
+  assert.deepEqual(payload.lab_requirements, [{
+    requirement_kind: "single",
+    panel_id: "panel-cbc",
+    combined_panel_id: null,
+    display_order: 1,
+    is_required: true,
+    is_release_required: false,
+    sharing_policy: "explicit_group",
+    sharing_group_key: "baseline-cbc",
+    is_active: true,
+    instructions: "",
+    visibility_rule: null,
+  }]);
 });
 
 test("current Section editor values override stale element configuration", () => {

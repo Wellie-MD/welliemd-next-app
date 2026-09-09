@@ -216,6 +216,41 @@ export function CheckoutLabsSection({
 
               {selected && requirement && (
                 <div className="border-t border-blue-100 bg-white p-4 space-y-4 rounded-b-lg">
+                  <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <label className="text-[11.5px] font-bold text-slate-700" htmlFor={`lab-sharing-${targetKey(target)}`}>
+                      Custom Program grouping
+                    </label>
+                    <select
+                      id={`lab-sharing-${targetKey(target)}`}
+                      value={requirement.sharingPolicy || "never"}
+                      disabled={disabled}
+                      onChange={(event) => updateRequirement(requirement, {
+                        sharingPolicy: event.target.value as "never" | "explicit_group",
+                        sharingGroupKey: event.target.value === "explicit_group"
+                          ? requirement.sharingGroupKey || ""
+                          : "",
+                      })}
+                      className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[12px] text-slate-700"
+                    >
+                      <option value="never">Keep this lab independent</option>
+                      <option value="explicit_group">Show once when safely shareable</option>
+                    </select>
+                    {requirement.sharingPolicy === "explicit_group" && (
+                      <input
+                        value={requirement.sharingGroupKey || ""}
+                        disabled={disabled}
+                        onChange={(event) => updateRequirement(requirement, {
+                          sharingGroupKey: event.target.value,
+                        })}
+                        placeholder="Shared group key, e.g. baseline-cbc"
+                        aria-label="Shared lab group key"
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[12px] text-slate-700"
+                      />
+                    )}
+                    <p className="text-[10.5px] leading-relaxed text-slate-500">
+                      Use the same key only for the same source panel in Programs that can be combined. Live checkout still separates labs when assignment, collection, clinical, availability, or price facts differ.
+                    </p>
+                  </div>
                   <div className="space-y-1.5">
                     <label className="text-[11.5px] font-bold text-slate-600">
                       Patient Instructions

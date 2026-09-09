@@ -183,6 +183,57 @@ export function ProgramLabsSection({ program }: Props) {
               }}
               onBlur={() => void persist(requirements)}
             />
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <label className="block text-[11px] font-semibold text-slate-700" htmlFor={`program-lab-sharing-${requirementTargetKey(requirement)}`}>
+                Custom Program grouping
+              </label>
+              <select
+                id={`program-lab-sharing-${requirementTargetKey(requirement)}`}
+                value={requirement.sharingPolicy || "never"}
+                disabled={saveProgramLabs.isPending}
+                onChange={(event) => {
+                  const sharingPolicy = event.target.value as "never" | "explicit_group";
+                  // An explicit group is invalid until its key is entered.
+                  // Keep this local edit unsaved so the input remains usable;
+                  // the existing blur save then sends the complete contract.
+                  setRequirements(requirements.map((item) => (
+                    requirementTargetKey(item) === requirementTargetKey(requirement)
+                      ? {
+                        ...item,
+                        sharingPolicy,
+                        sharingGroupKey: sharingPolicy === "explicit_group"
+                          ? item.sharingGroupKey || ""
+                          : "",
+                      }
+                      : item
+                  )));
+                }}
+                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700"
+              >
+                <option value="never">Keep this lab independent</option>
+                <option value="explicit_group">Show once when safely shareable</option>
+              </select>
+              {requirement.sharingPolicy === "explicit_group" && (
+                <Input
+                  className="mt-2 h-9 text-xs"
+                  value={requirement.sharingGroupKey || ""}
+                  placeholder="Shared group key, e.g. baseline-cbc"
+                  onChange={(event) => setRequirements(requirements.map((item) => (
+                    requirementTargetKey(item) === requirementTargetKey(requirement)
+                      ? { ...item, sharingGroupKey: event.target.value }
+                      : item
+                  )))}
+                  onBlur={(event) => void persist(requirements.map((item) => (
+                    requirementTargetKey(item) === requirementTargetKey(requirement)
+                      ? { ...item, sharingGroupKey: event.target.value }
+                      : item
+                  )))}
+                />
+              )}
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                Share only matching source panels across Programs. Live checkout verifies all tenant and clinical facts before combining them.
+              </p>
+            </div>
           </div>
         ))}
       </div>

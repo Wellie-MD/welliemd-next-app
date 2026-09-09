@@ -24,6 +24,9 @@ export interface ProgramLabRequirement {
   combinedPanelName?: string;
   displayOrder: number;
   isRequired: boolean;
+  isReleaseRequired?: boolean;
+  sharingPolicy?: "never" | "explicit_group";
+  sharingGroupKey?: string;
   isActive: boolean;
   instructions?: string;
   visibilityRuleGroup?: VisibilityRuleGroup;
