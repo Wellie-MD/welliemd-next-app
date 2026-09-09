@@ -22,6 +22,7 @@ import {
   buildCapabilityQuestionnairePreviewUrl,
   getQuestionnairePreviewApiBaseUrl,
 } from "@/features/treatments/utils/previewUrl";
+import { getPreviewErrorMessage } from "@/features/treatments/preview/previewError";
 import type { PreviewContext } from "@/features/treatments/types";
 
 interface QuestionnairePreviewDialogProps {
@@ -66,6 +67,7 @@ export function QuestionnairePreviewDialog({
   const appliedIdentityRequestRef = useRef<number | null>(null);
   const identitySwitchTimerRef = useRef<number | null>(null);
   const identityRequestSequenceRef = useRef(0);
+  const capabilityRequestSequenceRef = useRef(0);
   const [identity, setIdentity] = useState<QuestionnairePreviewIdentity>(
     QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
   );
@@ -123,23 +125,21 @@ export function QuestionnairePreviewDialog({
     setReportedPath(undefined);
     setStatus("loading");
     setErrorMessage("");
+    const capabilityRequestId = ++capabilityRequestSequenceRef.current;
     issuePreviewCapability(previewContext)
       .then((issued) => {
-        if (active) setCapability(issued);
+        if (active && capabilityRequestSequenceRef.current === capabilityRequestId) {
+          setCapability(issued);
+        }
       })
       .catch((error) => {
-        if (!active) return;
-        const details = error?.response?.data?.details;
+        if (!active || capabilityRequestSequenceRef.current !== capabilityRequestId) return;
         setStatus("error");
-        setErrorMessage(
-          (typeof details === "string" ? details : null) ||
-          error?.response?.data?.detail ||
-          error?.message ||
-          "The questionnaire preview could not be prepared.",
-        );
+        setErrorMessage(getPreviewErrorMessage(error));
       });
     return () => {
       active = false;
+      capabilityRequestSequenceRef.current += 1;
     };
   }, [open, previewContext.id, previewContext.type]);
 
@@ -193,7 +193,6 @@ export function QuestionnairePreviewDialog({
   }, [identity, onOpenChange, open, previewOrigin]);
 
   const refresh = () => {
-    if (!previewOrigin) return;
     appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
     setAppliedIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
     setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
@@ -204,6 +203,26 @@ export function QuestionnairePreviewDialog({
     setIdentitySwitching(false);
     setStatus("loading");
     setErrorMessage("");
+
+    // A capability issuance failure has no iframe/origin yet. Retrying must
+    // issue a fresh capability so a repaired assignment can be previewed
+    // without closing and reopening the dialog.
+    if (!previewOrigin) {
+      const requestId = ++capabilityRequestSequenceRef.current;
+      issuePreviewCapability(previewContext)
+        .then((issued) => {
+          if (capabilityRequestSequenceRef.current === requestId) {
+            setCapability(issued);
+          }
+        })
+        .catch((error) => {
+          if (capabilityRequestSequenceRef.current !== requestId) return;
+          setStatus("error");
+          setErrorMessage(getPreviewErrorMessage(error));
+        });
+      return;
+    }
+
     iframeRef.current?.contentWindow?.postMessage(
       {
         type: QUESTIONNAIRE_PREVIEW_MESSAGE.refresh,
@@ -315,7 +334,7 @@ export function QuestionnairePreviewDialog({
         </div>
 
         <div className="flex min-h-0 flex-1 justify-center bg-background p-3">
-          <div className="relative h-full w-full max-w-[360px] overflow-hidden rounded-lg bg-white ring-1 ring-border">
+          <div className="relative h-full w-full max-w-[480px] overflow-hidden rounded-lg bg-white ring-1 ring-border">
             {status === "loading" || identitySwitching ? (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-3 text-xs text-muted-foreground">

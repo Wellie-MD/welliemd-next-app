@@ -33,3 +33,12 @@ export const formatLabCollectionMethod = (method?: string) => {
   };
   return labels[method] || method.replace(/_/g, " ");
 };
+
+/** Convert a payment processor identifier into staff-facing payment text. */
+export const formatLabPaymentProvider = (provider?: string) => {
+  const normalized = provider?.trim().toLowerCase();
+  if (!normalized) return "—";
+  if (normalized === "zero_total") return "No payment required";
+
+  return normalized.replace(/_/g, " ").replace(/^./, (character) => character.toUpperCase());
+};
