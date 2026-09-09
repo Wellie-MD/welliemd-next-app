@@ -23,6 +23,7 @@ import {
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 import type { Program, ProgramStage, ProgramStatus, TreatmentType } from "@/features/treatments/types";
 import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
@@ -77,6 +78,8 @@ const getApiErrorMessage = (error: unknown, fallback: string) => {
 
 export default function ProgramsPage() {
   const navigate = useNavigate();
+  const { isEnabled } = usePhase2Flags();
+  const canDuplicatePrograms = isEnabled("milestone_2");
   const { data: programs = [], refetch: refetchPrograms, isLoading: isProgramsLoading } = usePrograms();
   const { data: treatmentTypes = [], isLoading: isTreatmentTypesLoading } = useTreatmentTypes();
   const saveProgramMutation = useSaveProgram();
@@ -545,6 +548,7 @@ export default function ProgramsPage() {
             onEdit={handleEditProgram}
             onPreview={handlePreviewProgram}
             onDuplicate={handleDuplicateProgram}
+            canDuplicate={canDuplicatePrograms}
             onArchive={handleArchiveProgram}
             onToggleStatus={handleToggleStatus}
             duplicatingProgramId={duplicatingProgramId}
@@ -567,6 +571,7 @@ export default function ProgramsPage() {
               onPreview={handlePreviewProgram}
               onEdit={handleEditProgram}
               onDuplicate={handleDuplicateProgram}
+              canDuplicate={canDuplicatePrograms}
               onArchive={handleArchiveProgram}
               onToggleStatus={handleToggleStatus}
               duplicatingProgramId={duplicatingProgramId}

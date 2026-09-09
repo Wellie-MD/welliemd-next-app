@@ -7,6 +7,7 @@ import type { B2BInvoice, B2BInvoicePrescriptionEvent, B2BInvoicePrescriptionIte
 import { GitBranch, Search, ChevronRight, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { TreatmentPrescriptionInvoiceSets } from "@/features/treatments/orders/components/TreatmentPrescriptionInvoiceSets";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 type DisplayInvoice = B2BInvoice & {
   supplementalInvoices?: B2BInvoice[];
@@ -29,6 +30,8 @@ function productIdentityDiagnostics(invoice: B2BInvoice) {
 
 export default function Billing() {
   const queryClient = useQueryClient();
+  const { snapshot } = usePhase2Flags();
+  const labsEnabled = snapshot.capabilities.junction_labs;
   const [invoiceType, setInvoiceType] = useState<
     "all" | "reimbursement" | "lab" | "credit_note" | "saas_fee"
   >("all");
@@ -1196,7 +1199,7 @@ export default function Billing() {
         {[
           { key: "all", label: "All Invoices" },
           { key: "reimbursement", label: "Reimbursement Billings" },
-          { key: "lab", label: "Lab Invoices" },
+          ...(labsEnabled ? [{ key: "lab", label: "Lab Invoices" }] : []),
           { key: "credit_note", label: "Credit Notes" },
           { key: "saas_fee", label: "Monthly SaaS Fee Invoices" },
         ].map((tab) => (

@@ -12,6 +12,7 @@ import type { LabPanel } from "@/api/labs";
 import type { CombinedLabPanel } from "@/features/labs/types";
 import type { Product } from "@/api/products";
 import { useEffect, useState } from "react";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 type CheckoutVisibilityQuestion = Pick<ProgramQuestion, "id" | "text"> & Partial<ProgramQuestion>;
 
@@ -40,10 +41,12 @@ export function CheckoutQuestionModal({
   onSaveLabRequirements,
   initialMode = "medicine",
 }: CheckoutQuestionModalProps) {
+  const { snapshot } = usePhase2Flags();
+  const labsEnabled = snapshot.capabilities.junction_labs;
   const form = useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange });
   const [incompatibleProducts, setIncompatibleProducts] = useState<string[]>([]);
   const [labRequirements, setLabRequirements] = useState<ProgramLabRequirement[]>(programLabRequirements);
-  const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
+  const [mode, setMode] = useState<CheckoutOfferMode>("medicine");
   const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
   const [combinedLabPanels, setCombinedLabPanels] = useState<CombinedLabPanel[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
@@ -51,9 +54,9 @@ export function CheckoutQuestionModal({
   useEffect(() => {
     if (open) {
       setLabRequirements(programLabRequirements);
-      setMode(initialMode);
+      setMode(labsEnabled ? initialMode : "medicine");
     }
-  }, [open, programLabRequirements, initialMode]);
+  }, [open, programLabRequirements, initialMode, labsEnabled]);
   const visibilityQuestions: ProgramQuestion[] = screeningQuestions.map((question, index) => ({
     id: question.id,
     order: question.order ?? index + 1,
@@ -93,7 +96,12 @@ export function CheckoutQuestionModal({
 
         <div className="grid min-h-0 flex-1 grid-cols-[1fr,340px] overflow-hidden">
           <div className="min-h-0 space-y-5 overflow-y-auto border-r border-slate-150 p-6">
-            <CheckoutOfferTypeSection mode={mode} onChange={setMode} disabled={form.isSaving} />
+            <CheckoutOfferTypeSection
+              mode={mode}
+              onChange={setMode}
+              disabled={form.isSaving}
+              labsEnabled={labsEnabled}
+            />
             {mode === "medicine" ? (
               <CheckoutProductsSection
                 products={form.products}

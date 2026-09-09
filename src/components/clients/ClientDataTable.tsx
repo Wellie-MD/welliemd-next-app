@@ -15,12 +15,14 @@ interface ClientDataTableProps {
   clients: Client[];
   onSearch?: (searchTerm: string) => void;
   canLaunchSuperAdminAccess?: boolean;
+  showSuperAdminAccess?: boolean;
 }
 
 export const ClientDataTable: React.FC<ClientDataTableProps> = ({
   clients,
   onSearch,
   canLaunchSuperAdminAccess = false,
+  showSuperAdminAccess = false,
 }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -217,17 +219,19 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({
             <Pencil className="w-4 h-4" />
             Edit
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleBrokerLaunch(row, 'client')}
-            disabled={!row.admin_panel_domain || !canLaunchSuperAdminAccess}
-            className="flex items-center gap-1 text-gray-600 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:text-primary dark:hover:bg-gray-800"
-            title={canLaunchSuperAdminAccess ? undefined : 'Admin or Super Admin role required'}
-          >
-            <ExternalLink className="w-4 h-4" />
-            Open Client
-          </Button>
+          {showSuperAdminAccess && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleBrokerLaunch(row, 'client')}
+              disabled={!row.admin_panel_domain || !canLaunchSuperAdminAccess}
+              className="flex items-center gap-1 text-gray-600 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:text-primary dark:hover:bg-gray-800"
+              title={canLaunchSuperAdminAccess ? undefined : 'Admin or Super Admin role required'}
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open Client
+            </Button>
+          )}
           {/* Login as Client — hidden for now
           <Button
             variant="default"

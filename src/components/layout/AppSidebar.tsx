@@ -168,7 +168,7 @@ const menuSections: MenuSection[] = [
           { title: "Archive Templates", url: "/dashboard/questionnaires/archive" },
         ],
       },
-      { title: "Sense", url: "/dashboard/tools/sense", icon: Activity },
+      { title: "Sense", url: "/dashboard/tools/sense", icon: Activity, milestone: "milestone_2" },
     ]
   },
   {

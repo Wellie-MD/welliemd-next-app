@@ -24,6 +24,7 @@ interface ProgramCardProps {
   onPreview: (program: Program) => void;
   onEdit: (program: Program) => void;
   onDuplicate: (program: Program) => void;
+  canDuplicate?: boolean;
   onArchive: (program: Program) => void;
   onToggleStatus?: (program: Program, status: ProgramStatus) => void | Promise<void>;
   duplicatingProgramId?: string | null;
@@ -38,6 +39,7 @@ export function ProgramCard({
   onPreview,
   onEdit,
   onDuplicate,
+  canDuplicate = true,
   onArchive,
   onToggleStatus,
   duplicatingProgramId,
@@ -104,15 +106,17 @@ export function ProgramCard({
                 <FileText className="h-4 w-4 mr-2" />
                 Edit Program
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onDuplicate(program)}
-                disabled={duplicatingProgramId === program.id}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                {duplicatingProgramId === program.id
-                  ? "Duplicating..."
-                  : "Duplicate"}
-              </DropdownMenuItem>
+              {canDuplicate && (
+                <DropdownMenuItem
+                  onClick={() => onDuplicate(program)}
+                  disabled={duplicatingProgramId === program.id}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  {duplicatingProgramId === program.id
+                    ? "Duplicating..."
+                    : "Duplicate"}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => onArchive(program)}
                 disabled={

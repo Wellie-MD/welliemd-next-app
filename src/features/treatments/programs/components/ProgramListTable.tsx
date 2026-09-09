@@ -20,6 +20,7 @@ interface ProgramListTableProps {
   onEdit: (program: Program) => void;
   onPreview: (program: Program) => void;
   onDuplicate: (program: Program) => void;
+  canDuplicate?: boolean;
   onArchive: (program: Program) => void;
   onToggleStatus: (program: Program, status: ProgramStatus) => void;
   duplicatingProgramId?: string | null;
@@ -31,6 +32,7 @@ export function ProgramListTable({
   onEdit,
   onPreview,
   onDuplicate,
+  canDuplicate = true,
   onArchive,
   onToggleStatus,
   duplicatingProgramId,
@@ -141,7 +143,7 @@ export function ProgramListTable({
                       <span className="sr-only">Edit {program.name}</span>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
+                    {canDuplicate && <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-slate-500 hover:text-blue-600"
@@ -151,7 +153,7 @@ export function ProgramListTable({
                     >
                       <span className="sr-only">Duplicate {program.name}</span>
                       <Copy className="h-4 w-4" />
-                    </Button>
+                    </Button>}
                     <Button
                       variant="ghost"
                       size="icon"

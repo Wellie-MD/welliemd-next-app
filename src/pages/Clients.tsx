@@ -9,11 +9,13 @@ import { ClientDataTable } from '@/components/clients/ClientDataTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePhase2Flags } from '@/features/phase2/Phase2Flags';
 
 export default function Clients() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const user = useAuthStore((state) => state.user);
+  const { isEnabled } = usePhase2Flags();
   const canLaunchSuperAdminAccess = useMemo(() => {
     const primaryRole = (user?.primary_role || '').trim().toLowerCase();
     if (primaryRole === 'super admin') return true;
@@ -135,6 +137,7 @@ export default function Clients() {
         clients={filteredClients}
         onSearch={setSearchTerm}
         canLaunchSuperAdminAccess={canLaunchSuperAdminAccess}
+        showSuperAdminAccess={isEnabled('milestone_2')}
       />
     </div>
   );

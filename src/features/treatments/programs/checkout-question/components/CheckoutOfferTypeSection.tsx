@@ -6,9 +6,12 @@ interface CheckoutOfferTypeSectionProps {
   mode: CheckoutOfferMode;
   onChange: (mode: CheckoutOfferMode) => void;
   disabled?: boolean;
+  labsEnabled?: boolean;
 }
 
-export function CheckoutOfferTypeSection({ mode, onChange, disabled = false }: CheckoutOfferTypeSectionProps) {
+export function CheckoutOfferTypeSection({ mode, onChange, disabled = false, labsEnabled = false }: CheckoutOfferTypeSectionProps) {
+  const options: CheckoutOfferMode[] = labsEnabled ? ["medicine", "lab"] : ["medicine"];
+
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-wide text-slate-900">
@@ -18,10 +21,12 @@ export function CheckoutOfferTypeSection({ mode, onChange, disabled = false }: C
         What does this step offer?
       </div>
       <p className="text-[11.5px] text-slate-500">
-        Choose whether this checkout step lets the patient pick a medicine or order labs.
+        {labsEnabled
+          ? "Choose whether this checkout step lets the patient pick a medicine or order labs."
+          : "Configure the medicine options offered during this checkout step."}
       </p>
-      <div className="grid grid-cols-2 gap-2">
-        {(["medicine", "lab"] as const).map((option) => {
+      <div className={`grid gap-2 ${labsEnabled ? "grid-cols-2" : "grid-cols-1"}`}>
+        {options.map((option) => {
           const selected = mode === option;
           return (
             <button

@@ -221,7 +221,7 @@ const App = () => {
                     <Route path="/products/labs" element={gatedRoute("milestone_1", <Labs />)} />
                     <Route path="/products/labs/settings" element={gatedRoute("milestone_1", <LabSettings />)} />
                     <Route path="/products/labs/catalog" element={gatedRoute("milestone_1", <TestCatalog />)} />
-                    <Route path="/tools/sense" element={<ProtectedRoute><SenseInsights /></ProtectedRoute>} />
+                    <Route path="/tools/sense" element={gatedRoute("milestone_2", <SenseInsights />)} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                     <Route path="/analytics/performance" element={<ProtectedRoute><ClientPerformance /></ProtectedRoute>} />
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
