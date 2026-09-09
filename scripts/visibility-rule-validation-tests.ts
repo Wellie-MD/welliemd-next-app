@@ -87,6 +87,46 @@ test("Lab Checkout visibility sources include earlier questions with their answe
   ]);
 });
 
+test("checkout product visibility sources include Section fields, BMI, and profile inputs", () => {
+  const sources = buildLabVisibilityQuestions([
+    {
+      id: "health-metrics",
+      text: "Health metrics",
+      kind: "height_weight",
+      order: 1,
+      section: "Intake",
+      required: true,
+    },
+    {
+      id: "medical-section",
+      text: "Medical history",
+      kind: "section",
+      order: 2,
+      section: "Intake",
+      required: false,
+    },
+  ], [[{
+    sourceFieldId: "section-condition",
+    label: "Conditions",
+    kind: "multiple_choice",
+    configuration: { choices: ["Diabetes", "Hypertension"] },
+  }]]);
+
+  expectSource(sources, "section-condition", "multiple_choice");
+  expectSource(sources, "__derived_bmi__", "bmi");
+  expectSource(sources, "__patient_profile_sex__", "sex");
+  expectSource(sources, "__patient_profile_age__", "number");
+});
+
+function expectSource(
+  sources: Array<{ id: string; question_type: string }>,
+  id: string,
+  questionType: string,
+) {
+  const source = sources.find((candidate) => candidate.id === id);
+  assert.equal(source?.question_type, questionType);
+}
+
 test("an incomplete condition identifies both exact fields", () => {
   const issues = validateVisibilityGroup(group([{
     type: "condition",

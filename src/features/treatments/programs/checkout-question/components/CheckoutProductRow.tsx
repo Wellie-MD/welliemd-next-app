@@ -13,7 +13,6 @@ import {
 import { hasActiveVisibilityRules } from "@/features/treatments/utils/visibilityEvaluation";
 import type {
   ProgramCheckoutProduct,
-  ProgramQuestion,
   VisibilityRuleGroup,
 } from "@/features/treatments/types";
 import {
@@ -24,12 +23,13 @@ import {
   productsForRegimen,
   regimensForProducts,
 } from "../utils/catalogOptions";
+import type { LabVisibilityQuestionOption } from "../utils/labVisibilityQuestions";
 
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
   index: number;
   productCount: number;
-  eligibleQuestions: ProgramQuestion[];
+  visibilityQuestions: LabVisibilityQuestionOption[];
   categories: ProductCategory[];
   titrationCategories: TitrationCategory[];
   doseMappings: ProductDoseMapping[];
@@ -96,7 +96,7 @@ export function CheckoutProductRow({
   product,
   index,
   productCount,
-  eligibleQuestions,
+  visibilityQuestions,
   categories,
   titrationCategories,
   doseMappings,
@@ -419,6 +419,49 @@ export function CheckoutProductRow({
           </div>
         </div>
       )}
+
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[12px] font-bold text-slate-800">Product visibility</div>
+            <p className="mt-0.5 text-[10.5px] text-slate-500">
+              Show this product only when earlier answers match.
+            </p>
+          </div>
+          {!hasRules && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onProductVisibilityChange(index, createEmptyGroup())}
+              data-testid={`add-product-visibility-rule-${index}`}
+            >
+              Add rule
+            </Button>
+          )}
+        </div>
+        {hasRules && (
+          <div className="mt-3">
+            <VisibilityRuleBuilder
+              value={toBuilderGroup(product.visibilityRules)}
+              onChange={(nextGroup) => onProductVisibilityChange(index, fromBuilderGroup(nextGroup))}
+              questions={visibilityQuestions}
+            />
+            <div className="mt-3 flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-xs text-red-600 hover:text-red-700"
+                onClick={() => onProductVisibilityChange(index, undefined)}
+                data-testid={`clear-product-visibility-rule-${index}`}
+              >
+                Remove rules
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   );

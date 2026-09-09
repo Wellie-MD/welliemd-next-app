@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { Info, Layers3, Plus, Ungroup } from "lucide-react";
 import { productCategoryApi, type ProductCategory } from "@/api/productCategories";
 import { titrationCategoryApi, type TitrationCategory } from "@/api/titrationCategories";
@@ -7,6 +8,10 @@ import { productApi, type Product } from "@/api/products";
 import type { ProgramCheckoutProduct, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { CheckoutProductRow } from "./CheckoutProductRow";
 import { selectableCatalogProducts } from "../utils/catalogOptions";
+import { treatmentConfigurationApi } from "@/features/treatments/api/configurationApi";
+import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { isPersistedUuid } from "@/features/treatments/api/mappers";
+import { buildLabVisibilityQuestions } from "../utils/labVisibilityQuestions";
 
 interface CheckoutProductsSectionProps {
   products: ProgramCheckoutProduct[];
@@ -47,6 +52,30 @@ export function CheckoutProductsSection({
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [groupingSelection, setGroupingSelection] = useState<number[]>([]);
   const [groupLabel, setGroupLabel] = useState("");
+  const sectionQuestions = useMemo(
+    () => eligibleQuestions.filter((question) => question.kind === "section"),
+    [eligibleQuestions],
+  );
+  const sectionFieldQueries = useQueries({
+    queries: sectionQuestions.map((question) => {
+      const sectionId = String(
+        question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || "",
+      );
+      return {
+        queryKey: treatmentQueryKeys.sectionFields(sectionId),
+        queryFn: () => treatmentConfigurationApi.listSectionFields(sectionId),
+        enabled: isPersistedUuid(sectionId),
+        staleTime: 60_000,
+      };
+    }),
+  });
+  const visibilityQuestions = useMemo(
+    () => buildLabVisibilityQuestions(
+      eligibleQuestions,
+      sectionFieldQueries.map((query) => query.data || []),
+    ),
+    [eligibleQuestions, sectionFieldQueries],
+  );
   const incompatibleProducts = useMemo(() => {
     if (!catalogLoaded || !programTreatmentTypeKey) return [];
     return products
@@ -271,7 +300,7 @@ export function CheckoutProductsSection({
             product={product}
             index={index}
             productCount={products.length}
-            eligibleQuestions={eligibleQuestions}
+            visibilityQuestions={visibilityQuestions}
             categories={categories}
             titrationCategories={titrationCategories}
             doseMappings={doseMappings}
