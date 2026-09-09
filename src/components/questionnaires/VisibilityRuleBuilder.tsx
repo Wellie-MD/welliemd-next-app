@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import { normalizeChoiceDisplay, resolveChoiceValue } from "@/utils/choiceValue";
+import { normalizeChoiceDisplay } from "@/utils/choiceValue";
 import {
   visibilityIssueId,
   visibilityPathLabel,
@@ -154,9 +154,32 @@ function appendChildAtPath(
   return next;
 }
 
-function getQuestionChoices(question: QuestionOption | undefined): string[] {
+interface ChoiceOption {
+  value: string;
+  label: string;
+}
+
+function canonicalChoiceValue(choice: unknown): string {
+  if (choice && typeof choice === "object" && !Array.isArray(choice)) {
+    const record = choice as Record<string, unknown>;
+    for (const key of ["value", "code", "option_id", "id"]) {
+      const value = record[key];
+      if (value !== undefined && value !== null && String(value).trim()) {
+        return String(value);
+      }
+    }
+  }
+  return normalizeChoiceDisplay(choice);
+}
+
+function getQuestionChoices(question: QuestionOption | undefined): ChoiceOption[] {
   if (!question?.answer_choices) return [];
-  return question.answer_choices.map((choice) => normalizeChoiceDisplay(choice));
+  return question.answer_choices
+    .map((choice) => ({
+      value: canonicalChoiceValue(choice),
+      label: normalizeChoiceDisplay(choice),
+    }))
+    .filter((choice) => Boolean(choice.value));
 }
 
 function formatQuestionLabel(question: QuestionOption): string {
@@ -194,7 +217,11 @@ function ConditionEditor({
   const isNumericOp = isNumericVisibilityOperator(node.operator);
   const valueText = Array.isArray(node.value) ? node.value.join(", ") : node.value;
   const selectValue = choiceOptions.length > 0 && !isMultiValue
-    ? resolveChoiceValue(choiceOptions, valueText)
+    ? (
+      choiceOptions.find((choice) => (
+        choice.value === valueText || choice.label === valueText
+      ))?.value || valueText
+    )
     : valueText;
 
   const betweenValues = Array.isArray(node.value) && node.value.length === 2
@@ -205,8 +232,10 @@ function ConditionEditor({
   const hasIssue = Boolean(questionIssue || valueIssue);
 
   const updateValue = (raw: string) => {
-    const resolveValue = (value: string) =>
-      choiceOptions.length > 0 ? resolveChoiceValue(choiceOptions, value) : value;
+    const resolveValue = (value: string) => (
+      choiceOptions.find((choice) => choice.value === value || choice.label === value)
+        ?.value || value
+    );
     const nextValue = isMultiValue
       ? raw.split(",").map((item) => resolveValue(item.trim())).filter(Boolean)
       : resolveValue(raw);
@@ -415,8 +444,8 @@ function ConditionEditor({
               </SelectTrigger>
               <SelectContent>
                 {choiceOptions.map((choice) => (
-                  <SelectItem key={choice} value={choice}>
-                    {choice}
+                  <SelectItem key={choice.value} value={choice.value}>
+                    {choice.label}
                   </SelectItem>
                 ))}
               </SelectContent>
