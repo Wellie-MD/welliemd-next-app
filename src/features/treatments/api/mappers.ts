@@ -167,6 +167,7 @@ const checkoutQuestionToRecord = (
 
 export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): ProgramQuestion => ({
   id: String(record.id || `q-${index + 1}`),
+  sourceId: String(record.source_question_id || record.source_id || record.id || `q-${index + 1}`),
   order: Number(record.order ?? record.order_index ?? index + 1),
   text: String(record.text ?? record.question_text ?? ""),
   kind: (record.kind ?? record.question_type ?? "text") as ProgramQuestion["kind"],
@@ -194,12 +195,14 @@ export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): Pr
 });
 
 export const questionToRecord = (question: ProgramQuestion): ProgramQuestionRecord => {
+  const { sourceId, ...questionRecord } = question;
   const elementConfig = {
     ...(question.elementConfig || {}),
     ...(question.kind === "consent" && question.consentText ? { consent_text: question.consentText } : {}),
   };
   return {
-    ...question,
+    ...questionRecord,
+    source_question_id: sourceId || question.id,
     order_index: question.order,
     question_text: question.text,
     question_type: question.kind,

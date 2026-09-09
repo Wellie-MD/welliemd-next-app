@@ -178,6 +178,8 @@ export type ProgramRecord = {
 };
 
 export type ProgramQuestionRecord = Partial<ProgramQuestion> & {
+  source_question_id?: string;
+  source_id?: string;
   scope?: "routing" | "program";
   question_text?: string;
   question_type?: ProgramQuestion["kind"];
