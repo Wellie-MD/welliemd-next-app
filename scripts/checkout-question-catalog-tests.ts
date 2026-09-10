@@ -11,6 +11,7 @@ import {
 } from "../src/features/treatments/programs/checkout-question/utils/catalogOptions.js";
 import {
   checkoutQuestionFromRecord,
+  programFromRecord,
   programToRecord,
 } from "../src/features/treatments/api/mappers.js";
 import {
@@ -18,6 +19,10 @@ import {
   productRoleForFlexibleSelection,
 } from "../src/features/treatments/programs/checkout-question/constants.js";
 import { checkoutPatientPreviewTitle } from "../src/features/treatments/programs/checkout-question/utils/catalogProductDisplay.js";
+import {
+  requirementForTarget,
+  requirementPolicyLabel,
+} from "../src/features/treatments/programs/components/programLabRequirementCatalog.js";
 
 const product = (overrides: Partial<Product>): Product => ({
   id: 1,
@@ -236,3 +241,92 @@ assert.deepEqual(serializedProgram.checkout_questions?.[0], {
 });
 
 console.log("checkout question catalog dependency tests passed");
+
+const authoredRequirement = requirementForTarget({
+  kind: "single",
+  panel: {
+    id: "panel-1",
+    name: "CBC",
+    collection_method: "walk_in_test",
+    is_active: true,
+  } as never,
+}, 1);
+assert.equal(authoredRequirement.isRequired, true);
+assert.equal(authoredRequirement.isReleaseRequired, true);
+
+const fourPolicies = [
+  [true, true, "Required · Holds treatment"],
+  [true, false, "Required · Does not hold treatment"],
+  [false, true, "Optional · Holds treatment if selected"],
+  [false, false, "Optional · Does not hold treatment"],
+] as const;
+for (const [isRequired, isReleaseRequired, label] of fourPolicies) {
+  assert.equal(requirementPolicyLabel({ isRequired, isReleaseRequired }), label);
+}
+
+const labRoundTrip = programFromRecord({
+  id: "program-1",
+  treatment_type: "type-1",
+  treatment_type_key: "weight",
+  treatment_type_name: "Weight",
+  name: "Weight",
+  slug: "weight",
+  stage: "intake",
+  phase: "onboarding",
+  question_count: 0,
+  checkout_question_count: 0,
+  status: "draft",
+  updated_at: "2026-09-10",
+  lab_requirements: [{
+    requirement_kind: "single",
+    panel_id: "panel-1",
+    display_order: 1,
+    is_required: false,
+    is_release_required: true,
+    is_active: true,
+  }],
+} as never);
+assert.equal(labRoundTrip.labRequirements?.[0].isRequired, false);
+assert.equal(labRoundTrip.labRequirements?.[0].isReleaseRequired, true);
+assert.deepEqual(
+  (programToRecord({ id: "program-1", labRequirements: labRoundTrip.labRequirements } as never, [])
+    .lab_requirements as Array<Record<string, unknown>>)[0],
+  {
+    requirement_kind: "single",
+    panel_id: "panel-1",
+    combined_panel_id: null,
+    display_order: 1,
+    is_required: false,
+    is_release_required: true,
+    is_active: true,
+    instructions: "",
+    visibility_rule: null,
+  },
+);
+
+const legacyRequiredLab = programFromRecord({
+  id: "program-legacy-required",
+  treatment_type: "type-1",
+  treatment_type_key: "weight",
+  treatment_type_name: "Weight",
+  name: "Legacy required",
+  slug: "legacy-required",
+  stage: "intake",
+  phase: "onboarding",
+  question_count: 0,
+  checkout_question_count: 0,
+  status: "draft",
+  updated_at: "2026-09-10",
+  lab_requirements: [{
+    requirement_kind: "single",
+    panel_id: "panel-legacy",
+    display_order: 1,
+    is_required: true,
+    is_active: true,
+  }],
+} as never);
+assert.equal(
+  legacyRequiredLab.labRequirements?.[0].isReleaseRequired,
+  true,
+  "legacy required Labs must retain the historical release hold when the new field is absent",
+);

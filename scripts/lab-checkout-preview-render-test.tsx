@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import type { LabPanel } from "../src/api/labs";
 import { CheckoutPatientPreview } from "../src/features/treatments/programs/checkout-question/components/CheckoutPatientPreview";
+import { ProgramLabRequirementPolicy } from "../src/features/treatments/programs/components/ProgramLabRequirementPolicy";
 
 const panel = (overrides: Partial<LabPanel>): LabPanel => ({
   id: "panel-1",
@@ -74,3 +75,31 @@ const zeroCostHtml = renderToStaticMarkup(
 assert.match(zeroCostHtml, /\$0\.00/);
 
 console.log("Lab checkout preview Cost to Client render contract passed.");
+
+const policies = [
+  [true, true, "Required · Holds treatment"],
+  [true, false, "Required · Does not hold treatment"],
+  [false, true, "Optional · Holds treatment if selected"],
+  [false, false, "Optional · Does not hold treatment"],
+] as const;
+
+for (const [isRequired, isReleaseRequired, label] of policies) {
+  const policyHtml = renderToStaticMarkup(
+    <ProgramLabRequirementPolicy
+      requirement={{
+        requirementKind: "single",
+        panelId: `panel-${label}`,
+        displayOrder: 1,
+        isRequired,
+        isReleaseRequired,
+        isActive: true,
+      }}
+      onChange={() => undefined}
+    />,
+  );
+  assert.match(policyHtml, /Patient requirement/);
+  assert.match(policyHtml, /Hold treatment until final Lab results/);
+  assert.match(policyHtml, new RegExp(label.replace("·", "·")));
+}
+
+console.log("Program Lab requirement policy render contract passed.");

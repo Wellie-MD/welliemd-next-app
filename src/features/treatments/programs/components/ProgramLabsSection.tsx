@@ -16,6 +16,7 @@ import {
   targetName,
   type ProgramLabTarget,
 } from "./programLabRequirementCatalog";
+import { ProgramLabRequirementPolicy } from "./ProgramLabRequirementPolicy";
 
 interface Props {
   program: Program;
@@ -102,11 +103,11 @@ export function ProgramLabsSection({ program }: Props) {
         <div>
           <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
             <FlaskConical className="h-4 w-4 text-blue-600" />
-            Required labs
+            Program labs
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Each selection creates an independent Junction lab order. Results gate
-            this Program&apos;s Beluga visit; the lab never creates its own visit.
+            Choose whether each Lab is required for the patient and whether its
+            final results hold treatment release.
           </p>
         </div>
         {loading ? <Loader2 className="h-4 w-4 animate-spin text-blue-600" /> : (
@@ -138,7 +139,7 @@ export function ProgramLabsSection({ program }: Props) {
         )}
         {requirements.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-500">
-            No lab is required for this Program.
+            No Lab is included in this Program.
           </div>
         ) : requirements.map((requirement, index) => (
           <div key={requirementTargetKey(requirement)} className="rounded-lg border border-slate-200 p-4">
@@ -154,9 +155,6 @@ export function ProgramLabsSection({ program }: Props) {
                     return target ? targetMethods(target).join(" · ") : "Collection method unavailable";
                   })()}
                 </div>
-                <div className="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
-                  Required for release
-                </div>
               </div>
               <Button
                 variant="ghost"
@@ -171,6 +169,20 @@ export function ProgramLabsSection({ program }: Props) {
               >
                 <Trash2 className="h-4 w-4 text-rose-600" />
               </Button>
+            </div>
+            <div className="mt-3">
+              <ProgramLabRequirementPolicy
+                requirement={requirement}
+                disabled={saveProgramLabs.isPending}
+                onChange={(updates) => {
+                  const next = requirements.map((item) => (
+                    requirementTargetKey(item) === requirementTargetKey(requirement)
+                      ? { ...item, ...updates }
+                      : item
+                  ));
+                  void persist(next);
+                }}
+              />
             </div>
             <Input
               className="mt-3 h-9 text-xs"

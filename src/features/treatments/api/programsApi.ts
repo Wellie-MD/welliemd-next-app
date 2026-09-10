@@ -48,10 +48,10 @@ export interface EffectiveSectionItem {
 export interface ProgramEffectiveContent {
   visit_type: string;
   consents: {
-    inherited_global: any[];
-    inherited_visit_type: any[];
-    explicit_program: any[];
-    inline_conditional: any[];
+    inherited_global: unknown[];
+    inherited_visit_type: unknown[];
+    explicit_program: unknown[];
+    inline_conditional: unknown[];
   };
   sections: {
     inherited_global: EffectiveSectionItem[];
