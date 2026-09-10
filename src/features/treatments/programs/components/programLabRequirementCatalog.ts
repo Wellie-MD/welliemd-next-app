@@ -83,3 +83,16 @@ export const requirementForTarget = (
   isActive: true,
   instructions: "",
 });
+
+export const requirementPolicyLabel = (
+  requirement: Pick<ProgramLabRequirement, "isRequired" | "isReleaseRequired">,
+): string => {
+  if (requirement.isRequired) {
+    return requirement.isReleaseRequired
+      ? "Required · Holds treatment"
+      : "Required · Does not hold treatment";
+  }
+  return requirement.isReleaseRequired
+    ? "Optional · Holds treatment if selected"
+    : "Optional · Does not hold treatment";
+};

@@ -421,7 +421,7 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
     combinedPanelName: requirement.combined_panel_name,
     displayOrder: requirement.display_order,
     isRequired: requirement.is_required,
-    isReleaseRequired: requirement.is_release_required,
+    isReleaseRequired: requirement.is_release_required ?? requirement.is_required,
     sharingPolicy: requirement.sharing_policy || "never",
     sharingGroupKey: requirement.sharing_group_key || "",
     isActive: requirement.is_active,

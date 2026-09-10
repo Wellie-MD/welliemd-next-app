@@ -161,8 +161,11 @@ export type ProgramRecord = {
   shipping_destination_policy?: Program["shippingDestinationPolicy"];
   lab_requirements?: Array<{
     id?: string;
-    panel_id: string;
+    requirement_kind?: "single" | "combined";
+    panel_id?: string | null;
     panel_name?: string;
+    combined_panel_id?: string | null;
+    combined_panel_name?: string;
     display_order: number;
     is_required: boolean;
     is_release_required?: boolean;
@@ -170,6 +173,7 @@ export type ProgramRecord = {
     sharing_group_key?: string;
     is_active: boolean;
     instructions?: string;
+    visibility_rule?: Record<string, unknown> | null;
   }>;
   updated_at?: string;
   assignment_runtime_state?: string;
