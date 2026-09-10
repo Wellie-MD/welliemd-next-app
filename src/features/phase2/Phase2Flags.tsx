@@ -11,6 +11,7 @@ import {
 import { apiClient } from "@/shared/api/client";
 
 export type Phase2Milestone = "milestone_1" | "milestone_2" | "milestone_3";
+export type Phase2Capability = keyof Phase2Snapshot["capabilities"];
 
 export interface Phase2Snapshot {
   milestones: Record<Phase2Milestone, boolean>;
@@ -125,4 +126,18 @@ export function Phase2Gate({
   const { isLoading, isEnabled } = usePhase2Flags();
   if (isLoading) return null;
   return isEnabled(milestone) ? <>{children}</> : <>{fallback}</>;
+}
+
+export function Phase2CapabilityGate({
+  capability,
+  children,
+  fallback = null,
+}: {
+  capability: Phase2Capability;
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  const { isLoading, snapshot } = usePhase2Flags();
+  if (isLoading) return null;
+  return snapshot.capabilities[capability] ? <>{children}</> : <>{fallback}</>;
 }

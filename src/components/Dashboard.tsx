@@ -180,13 +180,18 @@ export default function Dashboard() {
   // Fetch weight/BMI history (baseline + manual + wearable, persisted) and
   // today's readiness from connected wearables.
   useEffect(() => {
+    if (!milestone2Enabled) {
+      setWearablesLoading(false);
+      return;
+    }
+
     const fetchWearables = async () => {
       try {
         const [connections, vitalsHistory, patientProfile, healthGoal] = await Promise.all([
           getConnections(),
           getVitalsHistory(),
           profileService.getPatientProfile(),
-          milestone2Enabled ? getHealthGoal().catch(() => null) : Promise.resolve(null),
+          getHealthGoal().catch(() => null),
         ]);
         
         const priorityList = patientProfile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
@@ -341,34 +346,38 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Weight progress & Today's readiness ── */}
-      <div className="km-fade">
-        {wearablesLoading ? (
-          <WeightAndReadinessSkeleton />
-        ) : (
-          <>
-            {weight.series.length > 0 && (
-              <WeightTrendCard
-                weight={weight}
-                bmiEnhancementsEnabled={milestone2Enabled}
-                {...(milestone2Enabled ? { onOpenGoalModal: () => navigate("/dashboard/devices") } : {})}
-                bottomAction={{
-                  label: "Log today's weight",
-                  onClick: () => setLogWeightOpen(true),
-                }}
-                {...(weightSyncSource ? { syncedFrom: weightSyncSource } : {})}
-              />
+      {milestone2Enabled && (
+        <>
+          {/* ── Weight progress & Today's readiness ── */}
+          <div className="km-fade">
+            {wearablesLoading ? (
+              <WeightAndReadinessSkeleton />
+            ) : (
+              <>
+                {weight.series.length > 0 && (
+                  <WeightTrendCard
+                    weight={weight}
+                    bmiEnhancementsEnabled
+                    onOpenGoalModal={() => navigate("/dashboard/devices")}
+                    bottomAction={{
+                      label: "Log today's weight",
+                      onClick: () => setLogWeightOpen(true),
+                    }}
+                    {...(weightSyncSource ? { syncedFrom: weightSyncSource } : {})}
+                  />
+                )}
+                <ReadinessCard deviceMetrics={deviceMetrics} />
+              </>
             )}
-            <ReadinessCard deviceMetrics={deviceMetrics} />
-          </>
-        )}
-      </div>
+          </div>
 
-      <LogWeightModal
-        open={logWeightOpen}
-        onClose={() => setLogWeightOpen(false)}
-        onSave={handleSaveLogWeight}
-      />
+          <LogWeightModal
+            open={logWeightOpen}
+            onClose={() => setLogWeightOpen(false)}
+            onSave={handleSaveLogWeight}
+          />
+        </>
+      )}
 
       {/* ── Active Treatments ── */}
       <div className="km-dash-card km-fade">

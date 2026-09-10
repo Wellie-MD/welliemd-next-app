@@ -7,9 +7,12 @@ import { useAuth } from '@/features/auth';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { toast } from 'sonner';
 import { ErrorUtils } from '@/shared/lib/errors';
+import { usePhase2Flags } from '@/features/phase2/Phase2Flags';
 
 export default function Profile() {
   const { isImpersonated } = useAuth();
+  const { isEnabled } = usePhase2Flags();
+  const milestone2Enabled = isEnabled('milestone_2');
   const {
     userProfile,
     patientProfile,
@@ -525,7 +528,9 @@ export default function Profile() {
         </div>
       </div>
 
-      <VitalsCard latestVitals={patientProfile?.latest_vitals} onSaved={fetchPatientProfile} />
+      {milestone2Enabled && (
+        <VitalsCard latestVitals={patientProfile?.latest_vitals} onSaved={fetchPatientProfile} />
+      )}
     </div>
   );
 }

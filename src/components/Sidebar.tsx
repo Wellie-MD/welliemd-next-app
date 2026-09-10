@@ -19,13 +19,18 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/features/auth";
 import { useViewerIdentity } from "@/features/auth/hooks/use-viewer-identity";
-import { usePhase2Flags, type Phase2Milestone } from "@/features/phase2/Phase2Flags";
+import {
+  usePhase2Flags,
+  type Phase2Capability,
+  type Phase2Milestone,
+} from "@/features/phase2/Phase2Flags";
 
 interface NavigationItem {
   icon: LucideIcon;
   label: string;
   path: string;
   milestone?: Phase2Milestone;
+  capability?: Phase2Capability;
 }
 
 const navigationItems: NavigationItem[] = [
@@ -34,7 +39,7 @@ const navigationItems: NavigationItem[] = [
   { icon: Stethoscope, label: "Treatments", path: "/dashboard/treatments" },
   { icon: Calendar, label: "Visits", path: "/dashboard/appointments" },
   { icon: TestTubes, label: "Labs", path: "/dashboard/labs", milestone: "milestone_1" },
-  { icon: Smartphone, label: "Devices", path: "/dashboard/devices" },
+  { icon: Smartphone, label: "Devices", path: "/dashboard/devices", capability: "junction_labs" },
   { icon: Compass, label: "Explore Treatments", path: "/dashboard/explore", milestone: "milestone_3" },
   { icon: Package, label: "Orders", path: "/dashboard/orders" },
   { icon: CreditCard, label: "Billing", path: "/dashboard/billing" },
@@ -50,7 +55,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: SidebarProps) {
-  const { isEnabled } = usePhase2Flags();
+  const { isEnabled, snapshot } = usePhase2Flags();
   const location = useLocation();
   const { logout, isImpersonated } = useAuth();
   const bannerH = isImpersonated ? 44 : 0;
@@ -125,7 +130,11 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
         }}
       >
         <nav style={{ padding: "10px 8px", flex: 1 }}>
-          {navigationItems.filter((item) => !item.milestone || isEnabled(item.milestone)).map((item) => (
+          {navigationItems.filter(
+            (item) =>
+              (!item.milestone || isEnabled(item.milestone)) &&
+              (!item.capability || snapshot.capabilities[item.capability])
+          ).map((item) => (
             <NavItem key={item.path} item={item} />
           ))}
         </nav>
@@ -301,7 +310,11 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
 
         {/* Navigation */}
         <div style={{ padding: 8, flex: 1 }}>
-              {navigationItems.filter((item) => !item.milestone || isEnabled(item.milestone)).map((item) => (
+          {navigationItems.filter(
+            (item) =>
+              (!item.milestone || isEnabled(item.milestone)) &&
+              (!item.capability || snapshot.capabilities[item.capability])
+          ).map((item) => (
             <NavItem key={item.path} item={item} />
           ))}
         </div>

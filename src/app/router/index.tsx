@@ -5,7 +5,7 @@ import { ProtectedRoute } from './protected-route';
 import { LoadingSkeleton } from '@/components/common/loading-skeleton';
 import DashboardLayout from '@/layouts/dashboard-layout';
 import Dashboard from '@/components/Dashboard';
-import { Phase2Gate } from '@/features/phase2/Phase2Flags';
+import { Phase2CapabilityGate, Phase2Gate } from '@/features/phase2/Phase2Flags';
 
 const SignIn = React.lazy(() => import('@/pages/auth/SignIn'));
 const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
@@ -88,7 +88,11 @@ export const AppRouter: React.FC = () => {
                 <Labs />
               </Phase2Gate>
             } />
-            <Route path="devices" element={<Devices />} />
+            <Route path="devices" element={
+              <Phase2CapabilityGate capability="junction_labs" fallback={<Navigate to="/dashboard" replace />}>
+                <Devices />
+              </Phase2CapabilityGate>
+            } />
             <Route path="explore" element={
               <Phase2Gate milestone="milestone_3" fallback={<Navigate to="/dashboard" replace />}>
                 <ExploreTreatments />
