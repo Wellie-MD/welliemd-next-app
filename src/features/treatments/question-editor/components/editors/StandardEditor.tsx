@@ -233,10 +233,17 @@ export function StandardEditor({
     setIsSaving(true);
     try {
       await onSave(updatedQuestion);
-      toast({
-        title: activeQuestion ? "Question saved" : "Question added",
-        description: `Saved "${updatedQuestion.text}".`,
-      });
+      if (activeQuestion && visibilityDependents.length > 0) {
+        toast({
+          title: "Visibility Rule Dependency",
+          description: "This question is currently used in visibility rules for other questions or checkout items. Changing or removing it may affect their visibility behavior. Please review and update the affected visibility rules after saving.",
+        });
+      } else {
+        toast({
+          title: activeQuestion ? "Question saved" : "Question added",
+          description: `Saved "${updatedQuestion.text}".`,
+        });
+      }
       if (!activeQuestion) {
         // New questions keep the dialog open for rapid authoring. Clear the
         // inserted values before starting the next draft.

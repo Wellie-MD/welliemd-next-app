@@ -118,6 +118,36 @@ test("visibility dependency notice includes questions, products, and lab require
   ]);
 });
 
+test("visibility dependency detection supports persisted nested and snake_case rules", () => {
+  const dependents = getQuestionVisibilityDependents(
+    "age",
+    [{
+      id: "legacy-follow-up",
+      order: 2,
+      text: "Legacy adult follow-up",
+      kind: "text",
+      section: "General Intake",
+      required: true,
+      visibilityRuleGroup: {
+        mode: "nested",
+        rules: [],
+        subgroups: [{
+          mode: "simple",
+          rules: [{ questionId: "other-question", operator: "equals", value: "yes" }],
+        }],
+        // Older persisted rule trees use condition/question_id/children.
+        children: [{ condition: "ignored", question_id: "age" }],
+      } as any,
+    }],
+  );
+
+  assert.deepEqual(dependents, [{
+    id: "question:legacy-follow-up",
+    label: "Question \"Legacy adult follow-up\"",
+    ruleCount: 1,
+  }]);
+});
+
 test("a generic Program-save 400 is not presented as a duplicate slug", () => {
   assert.equal(
     isDuplicateSlugError({

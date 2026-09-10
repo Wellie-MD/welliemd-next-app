@@ -80,6 +80,7 @@ import {
   PROGRAM_AUTHORING_COPY,
   PROGRAM_SYSTEM_NODE_KIND,
 } from "@/features/treatments/programs/programAuthoringConstants";
+import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
 
 export interface SharedQuestionsListProps {
   entityId: string;
@@ -975,6 +976,12 @@ export function SharedQuestionsList({
           programName={entityName}
           programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
           programLabRequirements={program?.labRequirements || []}
+          getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+            questionId,
+            questions,
+            program?.checkoutQuestions || [],
+            program?.labRequirements || [],
+          )}
           onSaveLabRequirements={program ? saveProgramLabs : undefined}
         />
         <CheckoutQuestionModal
@@ -1082,6 +1089,12 @@ export function SharedQuestionsList({
         programName={entityName}
         programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
         programLabRequirements={program?.labRequirements || []}
+        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+          questionId,
+          questions,
+          program?.checkoutQuestions || [],
+          program?.labRequirements || [],
+        )}
         onSaveLabRequirements={program ? saveProgramLabs : undefined}
       />
 

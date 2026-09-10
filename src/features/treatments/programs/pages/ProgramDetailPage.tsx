@@ -482,12 +482,6 @@ export default function ProgramDetailPage() {
         programTreatmentTypeKey={foundProgram.treatmentTypeKey}
         screeningQuestions={allQuestions}
         programLabRequirements={foundProgram.labRequirements || []}
-        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
-          questionId,
-          allQuestions,
-          foundProgram.checkoutQuestions || [],
-          foundProgram.labRequirements || [],
-        )}
         onSaveLabRequirements={async (requirements: ProgramLabRequirement[]) => {
           await saveProgramLabRequirementsMutation.mutateAsync({
             programId: foundProgram.id,
@@ -532,6 +526,12 @@ export default function ProgramDetailPage() {
         programName={foundProgram.name}
         programTreatmentTypeKey={foundProgram.treatmentTypeKey}
         programLabRequirements={foundProgram.labRequirements || []}
+        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+          questionId,
+          allQuestions,
+          foundProgram.checkoutQuestions || [],
+          foundProgram.labRequirements || [],
+        )}
         onSaveLabRequirements={async (requirements: ProgramLabRequirement[]) => {
           await saveProgramLabRequirementsMutation.mutateAsync({
             programId: foundProgram.id,

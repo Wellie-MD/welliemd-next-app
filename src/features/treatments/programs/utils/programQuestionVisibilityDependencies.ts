@@ -11,16 +11,33 @@ export type VisibilityDependent = {
   ruleCount: number;
 };
 
+/**
+ * Visibility rules are persisted by several APIs and may arrive in either the
+ * builder's group shape (`rules`/`subgroups`) or an older nested shape
+ * (`conditions`/`children`). Keep the dependency scan schema-agnostic so a
+ * new visibility-capable entity does not need a question-type-specific check.
+ */
 const countGroupReferences = (
-  group: VisibilityRuleGroup | undefined,
+  group: VisibilityRuleGroup | Record<string, unknown> | undefined,
   sourceQuestionId: string,
 ): number => {
-  if (!group) return 0;
+  if (!group || typeof group !== "object") return 0;
 
-  return (group.rules || []).filter(
-    (rule) => rule.questionId === sourceQuestionId,
-  ).length + (group.subgroups || []).reduce(
-    (count, subgroup) => count + countGroupReferences(subgroup, sourceQuestionId),
+  const node = group as Record<string, unknown>;
+  const isReference = node.questionId === sourceQuestionId
+    || node.question_id === sourceQuestionId;
+  const children = [
+    node.rules,
+    node.conditions,
+    node.subgroups,
+    node.children,
+  ].flatMap((value) => Array.isArray(value) ? value : []);
+
+  return (isReference ? 1 : 0) + children.reduce(
+    (count, child) => count + countGroupReferences(
+      child as Record<string, unknown>,
+      sourceQuestionId,
+    ),
     0,
   );
 };
