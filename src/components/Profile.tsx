@@ -547,7 +547,7 @@ interface VitalsCardProps {
     height_inches?: number | null;
     weight_lbs?: string | null;
   } | null;
-  onSaved: () => Promise<void>;
+  onSaved?: () => Promise<void> | void;
 }
 
 // Bounds match the input's own min/max (ft 3-8, in 0-11, weight >= 50lb) - HTML
@@ -609,9 +609,13 @@ function VitalsCard({ latestVitals, onSaved }: VitalsCardProps) {
       });
       // The write response is authoritative. Refresh separately so a profile-read
       // problem cannot turn a successful vitals write into a false error toast.
-      void onSaved().catch(error => {
-        console.error('Vitals saved, but profile refresh failed:', error);
-      });
+      if (typeof onSaved === 'function') {
+        try {
+          await onSaved();
+        } catch (error) {
+          console.error('Vitals saved, but profile refresh failed:', error);
+        }
+      }
       toast.success('Vitals saved successfully.');
     } catch (error: any) {
       toast.error(ErrorUtils.getErrorMessage(error, 'Failed to save vitals.'));
