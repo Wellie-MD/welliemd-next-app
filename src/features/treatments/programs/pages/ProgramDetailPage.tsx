@@ -36,6 +36,7 @@ import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes"
 import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
 import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 import { getApiErrorMessage } from "@/features/treatments/programs/utils/programDetailErrors";
+import { applyQuestionSave } from "@/features/treatments/programs/utils/programQuestionSave";
 import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 const normalizeQuestionKind = (type: string): QuestionKind => {
   switch (type) {
@@ -532,11 +533,10 @@ export default function ProgramDetailPage() {
         }}
         initialQuestionId={editingScreeningId || null}
         onSave={async (updatedQuestion: ProgramQuestion) => {
-          const updatedQuestions = editingScreeningId
-            ? allQuestions.map((question) => (
-              question.id === editingScreeningId ? updatedQuestion : question
-            ))
-            : [...allQuestions, updatedQuestion];
+          // The user can select another question from the editor sidebar.
+          // Always replace the question that was actually saved, rather than
+          // the one that happened to open the dialog.
+          const updatedQuestions = applyQuestionSave(allQuestions, updatedQuestion);
           try {
             await saveProgramQuestionsMutation.mutateAsync(updatedQuestions);
           } catch (error) {

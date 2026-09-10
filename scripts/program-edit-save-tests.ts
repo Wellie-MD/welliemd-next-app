@@ -13,6 +13,7 @@ import {
   questionFromRecord,
   questionToRecord,
 } from "../src/features/treatments/api/mappers.ts";
+import { applyQuestionSave } from "../src/features/treatments/programs/utils/programQuestionSave.ts";
 
 const test = (name: string, run: () => void) => {
   run();
@@ -39,6 +40,34 @@ test("question editability survives API mapping in both directions", () => {
   assert.equal(persisted.is_read_only, true);
   assert.equal(persisted.is_from_admin, true);
   assert.equal(persisted.locked, true);
+});
+
+test("saving a question selected from the editor sidebar replaces that question", () => {
+  const questionA = {
+    id: "question-a",
+    order: 1,
+    text: "First question",
+    kind: "number" as const,
+    section: "General Intake",
+    required: true,
+  };
+  const questionB = {
+    id: "question-b",
+    order: 2,
+    text: "Second question",
+    kind: "number" as const,
+    section: "General Intake",
+    required: true,
+  };
+
+  const result = applyQuestionSave([questionA, questionB], {
+    ...questionB,
+    kind: "text",
+  });
+
+  assert.deepEqual(result.map((question) => question.id), ["question-a", "question-b"]);
+  assert.equal(result[0].kind, "number");
+  assert.equal(result[1].kind, "text");
 });
 
 test("a generic Program-save 400 is not presented as a duplicate slug", () => {
