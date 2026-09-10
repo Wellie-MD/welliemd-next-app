@@ -37,6 +37,7 @@ import { TreatmentAssignmentModal } from "@/features/treatments/assignment/compo
 import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 import { getApiErrorMessage } from "@/features/treatments/programs/utils/programDetailErrors";
 import { applyQuestionSave } from "@/features/treatments/programs/utils/programQuestionSave";
+import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
 import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 const normalizeQuestionKind = (type: string): QuestionKind => {
   switch (type) {
@@ -481,6 +482,12 @@ export default function ProgramDetailPage() {
         programTreatmentTypeKey={foundProgram.treatmentTypeKey}
         screeningQuestions={allQuestions}
         programLabRequirements={foundProgram.labRequirements || []}
+        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+          questionId,
+          allQuestions,
+          foundProgram.checkoutQuestions || [],
+          foundProgram.labRequirements || [],
+        )}
         onSaveLabRequirements={async (requirements: ProgramLabRequirement[]) => {
           await saveProgramLabRequirementsMutation.mutateAsync({
             programId: foundProgram.id,

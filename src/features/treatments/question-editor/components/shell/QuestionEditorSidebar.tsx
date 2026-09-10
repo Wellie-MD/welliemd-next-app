@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { FileCheck, Layers3, LockKeyhole, Search, ShoppingCart } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,9 @@ interface QuestionEditorSidebarProps {
   questions: ProgramQuestion[];
   activeQuestionId: string | null;
   searchQuery: string;
+  scrollTop: number;
   onSearchChange: (query: string) => void;
+  onScrollTopChange: (scrollTop: number) => void;
   onSelectQuestion: (id: string | null) => void;
 }
 
@@ -18,10 +21,22 @@ export function QuestionEditorSidebar({
   questions,
   activeQuestionId,
   searchQuery,
+  scrollTop,
   onSearchChange,
+  onScrollTopChange,
   onSelectQuestion,
 }: QuestionEditorSidebarProps) {
+  const flowListRef = useRef<HTMLDivElement>(null);
   const filteredQuestions = questions.filter((q) => q.text.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  // Switching questions remounts the editor form so each form starts with a
+  // clean draft. Restore the independently-owned Flow scroll position after
+  // that remount instead of jumping the author back to the top.
+  useLayoutEffect(() => {
+    if (flowListRef.current) {
+      flowListRef.current.scrollTop = scrollTop;
+    }
+  }, [scrollTop]);
 
   return (
     <aside className="z-10 hidden h-full min-w-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-50 lg:flex lg:w-[240px] xl:w-[280px]">
@@ -44,7 +59,11 @@ export function QuestionEditorSidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+      <div
+        ref={flowListRef}
+        className="flex-1 overflow-y-auto p-3 space-y-1"
+        onScroll={(event) => onScrollTopChange(event.currentTarget.scrollTop)}
+      >
         {filteredQuestions.map((question) => {
           const isActive = question.id === activeQuestionId;
           const isAuth = question.kind === "patient_authentication";

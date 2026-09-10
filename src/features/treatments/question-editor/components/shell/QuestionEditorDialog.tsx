@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ProgramLabRequirement, ProgramQuestion } from "@/features/treatments/types";
+import type { VisibilityDependent } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
 
 import { QuestionEditorSidebar } from "./QuestionEditorSidebar";
 import { StandardEditor } from "../editors/StandardEditor";
@@ -19,6 +20,7 @@ export interface QuestionEditorDialogProps {
   programName?: string;
   programTreatmentTypeKey?: string | null;
   programLabRequirements?: ProgramLabRequirement[];
+  getVisibilityDependents?: (questionId: string) => VisibilityDependent[];
   onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
   visibilitySourceScope?: "default" | "custom_program_stage1";
 }
@@ -33,6 +35,7 @@ export function QuestionEditorDialog({
   programName = "WellieMD Initial Assessment",
   programTreatmentTypeKey,
   programLabRequirements = [],
+  getVisibilityDependents,
   onSaveLabRequirements,
   visibilitySourceScope = "default",
 }: QuestionEditorDialogProps) {
@@ -40,6 +43,7 @@ export function QuestionEditorDialog({
   const [searchQuery, setSearchQuery] = useState("");
   const [isFlowTestOpen, setIsFlowTestOpen] = useState(false);
   const [newQuestionRevision, setNewQuestionRevision] = useState(0);
+  const flowScrollTopRef = useRef(0);
 
   // Sync initial question on open
   useEffect(() => {
@@ -65,7 +69,11 @@ export function QuestionEditorDialog({
       questions={questions}
       activeQuestionId={activeQuestionId}
       searchQuery={searchQuery}
+      scrollTop={flowScrollTopRef.current}
       onSearchChange={setSearchQuery}
+      onScrollTopChange={(scrollTop) => {
+        flowScrollTopRef.current = scrollTop;
+      }}
       onSelectQuestion={handleSelectQuestion}
     />
   );
@@ -129,6 +137,7 @@ export function QuestionEditorDialog({
               onClose={() => onOpenChange(false)}
               onTestFlow={handleTestFlow}
               visibilitySourceScope={visibilitySourceScope}
+              visibilityDependents={activeQuestion ? getVisibilityDependents?.(activeQuestion.id) : []}
             />
           )}
         </DialogContent>

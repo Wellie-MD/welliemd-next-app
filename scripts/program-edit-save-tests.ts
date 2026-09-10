@@ -14,6 +14,7 @@ import {
   questionToRecord,
 } from "../src/features/treatments/api/mappers.ts";
 import { applyQuestionSave } from "../src/features/treatments/programs/utils/programQuestionSave.ts";
+import { getQuestionVisibilityDependents } from "../src/features/treatments/programs/utils/programQuestionVisibilityDependencies.ts";
 
 const test = (name: string, run: () => void) => {
   run();
@@ -68,6 +69,53 @@ test("saving a question selected from the editor sidebar replaces that question"
   assert.deepEqual(result.map((question) => question.id), ["question-a", "question-b"]);
   assert.equal(result[0].kind, "number");
   assert.equal(result[1].kind, "text");
+});
+
+test("visibility dependency notice includes questions, products, and lab requirements", () => {
+  const dependents = getQuestionVisibilityDependents(
+    "age",
+    [{
+      id: "follow-up",
+      order: 2,
+      text: "Adult follow-up",
+      kind: "text",
+      section: "General Intake",
+      required: true,
+      visibilityRuleGroup: {
+        mode: "nested",
+        rules: [],
+        subgroups: [{ mode: "simple", rules: [{ questionId: "age", operator: "gte", value: "18" }] }],
+      },
+    }],
+    [{
+      id: "checkout",
+      text: "Medication selection",
+      visibilityRules: { mode: "simple", rules: [] },
+      products: [{
+        id: "product-1",
+        category: "Weight",
+        regimen: "Starter",
+        doseLabel: "10 mg",
+        productRole: "primary_choice",
+        visibilityRules: { mode: "simple", rules: [{ questionId: "age", operator: "gte", value: "18" }] },
+      }],
+    }],
+    [{
+      id: "lab-1",
+      requirementKind: "single",
+      panelName: "CBC",
+      displayOrder: 1,
+      isRequired: true,
+      isActive: true,
+      visibilityRuleGroup: { mode: "simple", rules: [{ questionId: "age", operator: "gte", value: "18" }] },
+    }],
+  );
+
+  assert.deepEqual(dependents.map((dependent) => dependent.label), [
+    "Question \"Adult follow-up\"",
+    "Product \"10 mg\" in \"Medication selection\"",
+    "Lab requirement \"CBC\"",
+  ]);
 });
 
 test("a generic Program-save 400 is not presented as a duplicate slug", () => {

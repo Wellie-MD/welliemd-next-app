@@ -5,8 +5,10 @@ import { QuestionContentTab } from "@/features/treatments/question-editor/compon
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
 import { QuestionPreviewTab } from "@/features/treatments/question-editor/components/tabs/QuestionPreviewTab";
 import { Switch } from "@/components/ui/switch";
-import { Activity, RefreshCcw } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import { Activity, AlertTriangle, RefreshCcw } from "lucide-react";
 import type { ProgramQuestion, QuestionKind, VisibilityRuleGroup } from "@/features/treatments/types";
+import type { VisibilityDependent } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
 import { toBuilderGroup } from "@/features/treatments/utils/visibilityBuilderAdapters";
 import {
   validateVisibilityGroup,
@@ -22,6 +24,7 @@ interface StandardEditorProps {
   onClose: () => void;
   onTestFlow?: () => void;
   visibilitySourceScope?: "default" | "custom_program_stage1";
+  visibilityDependents?: VisibilityDependent[];
 }
 
 const SUPPORTED_UPLOAD_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"];
@@ -55,6 +58,7 @@ export function StandardEditor({
   onClose,
   onTestFlow,
   visibilitySourceScope = "default",
+  visibilityDependents = [],
 }: StandardEditorProps) {
   const [questionText, setQuestionText] = useState("");
   const [questionType, setQuestionType] = useState<QuestionKind>("single_choice");
@@ -229,6 +233,10 @@ export function StandardEditor({
     setIsSaving(true);
     try {
       await onSave(updatedQuestion);
+      toast({
+        title: activeQuestion ? "Question saved" : "Question added",
+        description: `Saved "${updatedQuestion.text}".`,
+      });
       if (!activeQuestion) {
         // New questions keep the dialog open for rapid authoring. Clear the
         // inserted values before starting the next draft.
@@ -265,6 +273,26 @@ export function StandardEditor({
         <main className="overflow-y-auto p-8 bg-white relative">
           <div className="max-w-2xl mx-auto space-y-10 pb-12">
             <QuestionSetupTab text={questionText} setText={setQuestionText} kind={questionType} setKind={setQuestionType} />
+            {activeQuestion && visibilityDependents.length > 0 && (
+              <section className="rounded-lg border border-amber-200 bg-amber-50 p-4" aria-live="polite">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-amber-950">Used by visibility rules</h3>
+                    <p className="mt-1 text-xs leading-5 text-amber-900">
+                      The following {visibilityDependents.length === 1 ? "item uses" : "items use"} this question as a visibility-rule source. Changing its type, choices, or removing it can make those rules invalid. Review and update the listed rules after saving.
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs text-amber-950">
+                      {visibilityDependents.map((dependent) => (
+                        <li key={dependent.id}>
+                          {dependent.label} ({dependent.ruleCount} {dependent.ruleCount === 1 ? "rule" : "rules"})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </section>
+            )}
             <div className="h-px bg-slate-100 w-full" />
             <QuestionContentTab
               kind={questionType}
