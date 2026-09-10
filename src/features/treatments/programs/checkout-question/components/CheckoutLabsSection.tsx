@@ -30,6 +30,7 @@ import {
   targetName,
   type ProgramLabTarget,
 } from "../../components/programLabRequirementCatalog";
+import { ProgramLabRequirementPolicy } from "../../components/ProgramLabRequirementPolicy";
 
 interface CheckoutLabsSectionProps {
   requirements: ProgramLabRequirement[];
@@ -277,6 +278,11 @@ export function CheckoutLabsSection({
 
               {selected && requirement && (
                 <div className="border-t border-blue-100 bg-white p-4 space-y-4 rounded-b-lg">
+                  <ProgramLabRequirementPolicy
+                    requirement={requirement}
+                    disabled={disabled}
+                    onChange={(updates) => updateRequirement(requirement, updates)}
+                  />
                   <div className="space-y-1.5">
                     <label className="text-[11.5px] font-bold text-slate-600">
                       Patient Instructions
@@ -341,8 +347,8 @@ export function CheckoutLabsSection({
 
       {requirements.length > 0 && (
         <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-semibold text-blue-800">
-          {requirements.length} required lab panel{requirements.length === 1 ? "" : "s"} selected.
-          Junction orders are created after final checkout and gate the Beluga release.
+          {requirements.length} lab panel{requirements.length === 1 ? "" : "s"} included.
+          Required Labs block Program readiness; optional Labs may be skipped.
         </div>
       )}
     </section>

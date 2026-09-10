@@ -48,10 +48,10 @@ export interface EffectiveSectionItem {
 export interface ProgramEffectiveContent {
   visit_type: string;
   consents: {
-    inherited_global: any[];
-    inherited_visit_type: any[];
-    explicit_program: any[];
-    inline_conditional: any[];
+    inherited_global: unknown[];
+    inherited_visit_type: unknown[];
+    explicit_program: unknown[];
+    inline_conditional: unknown[];
   };
   sections: {
     inherited_global: EffectiveSectionItem[];
@@ -110,6 +110,7 @@ export const programsApi = {
       combined_panel_id: requirement.requirementKind === "combined" ? requirement.combinedPanelId : null,
       display_order: requirement.displayOrder || index + 1,
       is_required: requirement.isRequired,
+      is_release_required: requirement.isReleaseRequired ?? requirement.isRequired,
       is_active: requirement.isActive,
       instructions: requirement.instructions || "",
       visibility_rule: requirement.visibilityRuleGroup || null,
