@@ -18,15 +18,13 @@ export interface LabVisibilityQuestionOption {
   question_text: string;
   order_index: number;
   question_type: string;
-  answer_choices?: string[];
+  answer_choices?: Array<string | Record<string, unknown>>;
 }
 
-const choiceLabels = (choices: unknown): string[] => Array.isArray(choices)
-  ? choices.map((choice) => (
-      typeof choice === "string"
-        ? choice
-        : String((choice as Record<string, unknown>).label || (choice as Record<string, unknown>).value || "")
-    )).filter(Boolean)
+const choiceValues = (choices: unknown): Array<string | Record<string, unknown>> => Array.isArray(choices)
+  ? choices.filter((choice): choice is string | Record<string, unknown> => (
+      typeof choice === "string" || (typeof choice === "object" && choice !== null)
+    ))
   : [];
 
 /** Build the answerable sources available to a Lab Checkout visibility rule. */
@@ -58,7 +56,7 @@ export const buildLabVisibilityQuestions = (
             question_text: `${sectionQuestion.text} — ${field.label}`,
             order_index: sectionQuestion.order,
             question_type: field.kind || "text",
-            answer_choices: choiceLabels(field.configuration?.choices),
+            answer_choices: choiceValues(field.configuration?.choices),
           });
         });
     });

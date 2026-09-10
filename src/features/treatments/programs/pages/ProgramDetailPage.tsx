@@ -36,6 +36,8 @@ import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes"
 import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
 import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 import { getApiErrorMessage } from "@/features/treatments/programs/utils/programDetailErrors";
+import { applyQuestionSave } from "@/features/treatments/programs/utils/programQuestionSave";
+import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
 import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 const normalizeQuestionKind = (type: string): QuestionKind => {
   switch (type) {
@@ -524,6 +526,12 @@ export default function ProgramDetailPage() {
         programName={foundProgram.name}
         programTreatmentTypeKey={foundProgram.treatmentTypeKey}
         programLabRequirements={foundProgram.labRequirements || []}
+        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+          questionId,
+          allQuestions,
+          foundProgram.checkoutQuestions || [],
+          foundProgram.labRequirements || [],
+        )}
         onSaveLabRequirements={async (requirements: ProgramLabRequirement[]) => {
           await saveProgramLabRequirementsMutation.mutateAsync({
             programId: foundProgram.id,
@@ -531,28 +539,22 @@ export default function ProgramDetailPage() {
           });
         }}
         initialQuestionId={editingScreeningId || null}
-        onSave={(updatedQuestion: ProgramQuestion) => {
-          if (editingScreeningId) {
-            const updatedQuestions: ProgramQuestion[] = allQuestions.map((sq) =>
-              sq.id === editingScreeningId
-                ? updatedQuestion
-                : sq
-            );
-            saveProgramQuestionsMutation.mutateAsync(updatedQuestions).catch((error) => {
-              toast({
-                title: "Error saving question",
-                description: getApiErrorMessage(error, "The question could not be saved."),
-                variant: "destructive",
-              });
+        onSave={async (updatedQuestion: ProgramQuestion) => {
+          // The user can select another question from the editor sidebar.
+          // Always replace the question that was actually saved, rather than
+          // the one that happened to open the dialog.
+          const updatedQuestions = applyQuestionSave(allQuestions, updatedQuestion);
+          try {
+            await saveProgramQuestionsMutation.mutateAsync(updatedQuestions);
+          } catch (error) {
+            toast({
+              title: "Unable to save question",
+              description: getApiErrorMessage(error, "The question could not be saved."),
+              variant: "destructive",
             });
-          } else {
-            saveProgramQuestionsMutation.mutateAsync([...allQuestions, updatedQuestion]).catch((error) => {
-              toast({
-                title: "Error saving question",
-                description: getApiErrorMessage(error, "The question could not be saved."),
-                variant: "destructive",
-              });
-            });
+            // Let the editor keep the draft open instead of marking this as
+            // saved when the API rejected an invalid dependent visibility rule.
+            throw error;
           }
         }}
       />

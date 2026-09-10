@@ -13,6 +13,8 @@ import {
   questionFromRecord,
   questionToRecord,
 } from "../src/features/treatments/api/mappers.ts";
+import { applyQuestionSave } from "../src/features/treatments/programs/utils/programQuestionSave.ts";
+import { getQuestionVisibilityDependents } from "../src/features/treatments/programs/utils/programQuestionVisibilityDependencies.ts";
 
 const test = (name: string, run: () => void) => {
   run();
@@ -39,6 +41,111 @@ test("question editability survives API mapping in both directions", () => {
   assert.equal(persisted.is_read_only, true);
   assert.equal(persisted.is_from_admin, true);
   assert.equal(persisted.locked, true);
+});
+
+test("saving a question selected from the editor sidebar replaces that question", () => {
+  const questionA = {
+    id: "question-a",
+    order: 1,
+    text: "First question",
+    kind: "number" as const,
+    section: "General Intake",
+    required: true,
+  };
+  const questionB = {
+    id: "question-b",
+    order: 2,
+    text: "Second question",
+    kind: "number" as const,
+    section: "General Intake",
+    required: true,
+  };
+
+  const result = applyQuestionSave([questionA, questionB], {
+    ...questionB,
+    kind: "text",
+  });
+
+  assert.deepEqual(result.map((question) => question.id), ["question-a", "question-b"]);
+  assert.equal(result[0].kind, "number");
+  assert.equal(result[1].kind, "text");
+});
+
+test("visibility dependency notice includes questions, products, and lab requirements", () => {
+  const dependents = getQuestionVisibilityDependents(
+    "age",
+    [{
+      id: "follow-up",
+      order: 2,
+      text: "Adult follow-up",
+      kind: "text",
+      section: "General Intake",
+      required: true,
+      visibilityRuleGroup: {
+        mode: "nested",
+        rules: [],
+        subgroups: [{ mode: "simple", rules: [{ questionId: "age", operator: "gte", value: "18" }] }],
+      },
+    }],
+    [{
+      id: "checkout",
+      text: "Medication selection",
+      visibilityRules: { mode: "simple", rules: [] },
+      products: [{
+        id: "product-1",
+        category: "Weight",
+        regimen: "Starter",
+        doseLabel: "10 mg",
+        productRole: "primary_choice",
+        visibilityRules: { mode: "simple", rules: [{ questionId: "age", operator: "gte", value: "18" }] },
+      }],
+    }],
+    [{
+      id: "lab-1",
+      requirementKind: "single",
+      panelName: "CBC",
+      displayOrder: 1,
+      isRequired: true,
+      isActive: true,
+      visibilityRuleGroup: { mode: "simple", rules: [{ questionId: "age", operator: "gte", value: "18" }] },
+    }],
+  );
+
+  assert.deepEqual(dependents.map((dependent) => dependent.label), [
+    "Question \"Adult follow-up\"",
+    "Product \"10 mg\" in \"Medication selection\"",
+    "Lab requirement \"CBC\"",
+  ]);
+});
+
+test("visibility dependency detection supports persisted nested and snake_case rules", () => {
+  const dependents = getQuestionVisibilityDependents(
+    "age",
+    [{
+      id: "legacy-follow-up",
+      order: 2,
+      text: "Legacy adult follow-up",
+      kind: "text",
+      section: "General Intake",
+      required: true,
+      visibilityRuleGroup: {
+        mode: "nested",
+        rules: [],
+        subgroups: [{
+          mode: "simple",
+          rules: [{ questionId: "other-question", operator: "equals", value: "yes" }],
+        }],
+        // Older persisted rule trees use condition/question_id/children.
+        children: [{ condition: "ignored", question_id: "age" }],
+      } as any,
+    }],
+  );
+
+  assert.deepEqual(dependents, [{
+    id: "question:legacy-follow-up",
+    label: "Question \"Legacy adult follow-up\"",
+    ruleCount: 1,
+  }]);
 });
 
 test("a generic Program-save 400 is not presented as a duplicate slug", () => {

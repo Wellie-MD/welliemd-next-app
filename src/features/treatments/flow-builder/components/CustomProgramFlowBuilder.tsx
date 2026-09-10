@@ -12,6 +12,7 @@ import { FlowBuilderListView } from "./canvas/FlowBuilderListView";
 import { FlowBuilderSidebar } from "./canvas/FlowBuilderSidebar";
 import { ProgramMatchingRuleEditor } from "./modals/ProgramMatchingRuleEditor";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
+import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
 
 interface CustomProgramFlowBuilderProps {
   customProgram: CustomProgram;
@@ -123,6 +124,10 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
         open={Boolean(editingQuestion)}
         onOpenChange={(open) => { if (!open) setEditingQuestion(null); }}
         questions={allFlowQuestions}
+        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+          questionId,
+          allFlowQuestions,
+        )}
         initialQuestionId={editorQuestion?.id || null}
         onSave={async (question) => {
           if (!editingQuestion || !onUpdateFlow) return;

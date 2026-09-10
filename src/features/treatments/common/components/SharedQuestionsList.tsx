@@ -30,16 +30,29 @@ import {
 import { toast } from "@/components/ui/use-toast";
 
 type ApiErrorLike = {
-  response?: { data?: { detail?: string; error?: string; message?: string } };
+  response?: {
+    data?: {
+      detail?: string;
+      error?: string;
+      message?: string;
+      questions?: unknown;
+      screening_questions?: unknown;
+      flow_items?: unknown;
+    };
+  };
   message?: string;
 };
 
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   const apiError = error as ApiErrorLike;
+  const data = apiError.response?.data;
   return (
-    apiError.response?.data?.detail ||
-    apiError.response?.data?.error ||
-    apiError.response?.data?.message ||
+    safeAssignmentMessage(data?.questions) ||
+    safeAssignmentMessage(data?.screening_questions) ||
+    safeAssignmentMessage(data?.flow_items) ||
+    data?.detail ||
+    data?.error ||
+    data?.message ||
     apiError.message ||
     fallback
   );
@@ -67,6 +80,7 @@ import {
   PROGRAM_AUTHORING_COPY,
   PROGRAM_SYSTEM_NODE_KIND,
 } from "@/features/treatments/programs/programAuthoringConstants";
+import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
 
 export interface SharedQuestionsListProps {
   entityId: string;
@@ -962,6 +976,12 @@ export function SharedQuestionsList({
           programName={entityName}
           programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
           programLabRequirements={program?.labRequirements || []}
+          getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+            questionId,
+            questions,
+            program?.checkoutQuestions || [],
+            program?.labRequirements || [],
+          )}
           onSaveLabRequirements={program ? saveProgramLabs : undefined}
         />
         <CheckoutQuestionModal
@@ -1069,6 +1089,12 @@ export function SharedQuestionsList({
         programName={entityName}
         programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
         programLabRequirements={program?.labRequirements || []}
+        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+          questionId,
+          questions,
+          program?.checkoutQuestions || [],
+          program?.labRequirements || [],
+        )}
         onSaveLabRequirements={program ? saveProgramLabs : undefined}
       />
 
