@@ -354,7 +354,7 @@ export default function Labs() {
         onSaved={(updatedLab) => {
           setLabs((current) =>
             current.map((lab) =>
-              lab.assignment_id === updatedLab.assignment_id ? updatedLab : lab
+              lab.id === updatedLab.id && lab.edit_scope === updatedLab.edit_scope ? updatedLab : lab
             )
           );
           setEditingLab(updatedLab);

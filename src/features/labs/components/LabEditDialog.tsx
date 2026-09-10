@@ -100,9 +100,14 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
           : null,
         is_active: isActive,
         service_states: serviceStates,
-      });
+      }, editingLab.edit_scope, editingLab.combined_offering_id);
       if (imageFile) {
-        updated = await clientLabsApi.uploadLabPanelImage(editingLab.assignment_id, imageFile);
+        updated = await clientLabsApi.uploadLabPanelImage(
+          editingLab.assignment_id,
+          imageFile,
+          editingLab.edit_scope,
+          editingLab.combined_offering_id
+        );
       }
       onSaved?.(updated);
       toast({ title: "Lab test updated" });
