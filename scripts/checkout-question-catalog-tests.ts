@@ -283,6 +283,8 @@ const labRoundTrip = programFromRecord({
     display_order: 1,
     is_required: false,
     is_release_required: true,
+    sharing_policy: "never",
+    sharing_group_key: "",
     is_active: true,
   }],
 } as never);
@@ -298,6 +300,8 @@ assert.deepEqual(
     display_order: 1,
     is_required: false,
     is_release_required: true,
+    sharing_policy: "never",
+    sharing_group_key: "",
     is_active: true,
     instructions: "",
     visibility_rule: null,
