@@ -531,28 +531,23 @@ export default function ProgramDetailPage() {
           });
         }}
         initialQuestionId={editingScreeningId || null}
-        onSave={(updatedQuestion: ProgramQuestion) => {
-          if (editingScreeningId) {
-            const updatedQuestions: ProgramQuestion[] = allQuestions.map((sq) =>
-              sq.id === editingScreeningId
-                ? updatedQuestion
-                : sq
-            );
-            saveProgramQuestionsMutation.mutateAsync(updatedQuestions).catch((error) => {
-              toast({
-                title: "Error saving question",
-                description: getApiErrorMessage(error, "The question could not be saved."),
-                variant: "destructive",
-              });
+        onSave={async (updatedQuestion: ProgramQuestion) => {
+          const updatedQuestions = editingScreeningId
+            ? allQuestions.map((question) => (
+              question.id === editingScreeningId ? updatedQuestion : question
+            ))
+            : [...allQuestions, updatedQuestion];
+          try {
+            await saveProgramQuestionsMutation.mutateAsync(updatedQuestions);
+          } catch (error) {
+            toast({
+              title: "Unable to save question",
+              description: getApiErrorMessage(error, "The question could not be saved."),
+              variant: "destructive",
             });
-          } else {
-            saveProgramQuestionsMutation.mutateAsync([...allQuestions, updatedQuestion]).catch((error) => {
-              toast({
-                title: "Error saving question",
-                description: getApiErrorMessage(error, "The question could not be saved."),
-                variant: "destructive",
-              });
-            });
+            // Let the editor keep the draft open instead of marking this as
+            // saved when the API rejected an invalid dependent visibility rule.
+            throw error;
           }
         }}
       />
