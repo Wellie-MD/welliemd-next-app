@@ -101,6 +101,8 @@ export interface ClientLabPanel {
   storefront_url: string;
   storefront_slug: string;
   is_combined?: boolean;
+  edit_scope: "standalone" | "combined";
+  combined_offering_id?: string | null;
   combined_storefront_slug?: string;
   combined_methods?: Array<{
     assignment_id: string;
@@ -292,6 +294,8 @@ const normalizePanel = (raw: Record<string, unknown>): ClientLabPanel => {
     storefront_url: String(raw.storefront_url ?? ""),
     storefront_slug: String(raw.storefront_slug ?? ""),
     is_combined: Boolean(raw.is_combined),
+    edit_scope: raw.edit_scope === "combined" ? "combined" : "standalone",
+    combined_offering_id: raw.combined_offering_id ? String(raw.combined_offering_id) : null,
     combined_storefront_slug: raw.combined_storefront_slug ? String(raw.combined_storefront_slug) : undefined,
     combined_methods: Array.isArray(raw.combined_methods)
       ? (raw.combined_methods as Record<string, unknown>[]).map((method) => ({
@@ -386,7 +390,9 @@ export const clientLabsApi = {
    */
   updateLabPanel: async (
     assignmentId: string,
-    updates: Partial<Pick<ClientLabPanel, "patient_price" | "discounted_patient_price" | "is_active" | "service_states">>
+    updates: Partial<Pick<ClientLabPanel, "patient_price" | "discounted_patient_price" | "is_active" | "service_states">>,
+    editScope: ClientLabPanel["edit_scope"],
+    combinedOfferingId?: string | null
   ): Promise<ClientLabPanel> => {
     const body: Record<string, unknown> = {};
     if (updates.patient_price !== undefined) {
@@ -399,14 +405,23 @@ export const clientLabsApi = {
     }
     if (updates.is_active !== undefined) body.is_active = updates.is_active;
     if (updates.service_states !== undefined) body.service_states = updates.service_states;
-    const { data } = await axiosInstance.patch(clientLabEndpoints.testDetail(assignmentId), body);
+    const { data } = await axiosInstance.patch(clientLabEndpoints.testDetail(assignmentId), body, {
+      params: { scope: editScope, combined_offering_id: combinedOfferingId || undefined },
+    });
     return normalizePanel(data as Record<string, unknown>);
   },
 
-  uploadLabPanelImage: async (assignmentId: string, image: File): Promise<ClientLabPanel> => {
+  uploadLabPanelImage: async (
+    assignmentId: string,
+    image: File,
+    editScope: ClientLabPanel["edit_scope"],
+    combinedOfferingId?: string | null
+  ): Promise<ClientLabPanel> => {
     const body = new FormData();
     body.append("image", image);
-    const { data } = await axiosInstance.post(clientLabEndpoints.testImage(assignmentId), body);
+    const { data } = await axiosInstance.post(clientLabEndpoints.testImage(assignmentId), body, {
+      params: { scope: editScope, combined_offering_id: combinedOfferingId || undefined },
+    });
     return normalizePanel(data as Record<string, unknown>);
   },
 
