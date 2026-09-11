@@ -18,5 +18,9 @@ assert.match(dialog, /const \[shippingFee, setShippingFee\]/);
 assert.match(dialog, /editingLab\.is_combined\s*\?\s*undefined/);
 assert.match(dialog, /setShippingFee/);
 assert.match(dialog, /Shipping\/collection fee/);
+assert.match(dialog, /One patient price applies across every collection method/);
+assert.match(dialog, /Set a patient base price before offering this Combined Lab/);
+assert.match(dialog, /Estimated margin per order/);
+assert.match(dialog, /text-rose-700/);
 
 console.log("Client Labs logical Combined offering contract passed.");
