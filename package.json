@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "test:portal-domain": "node --experimental-strip-types scripts/portal-domain-tests.ts",
     "test:custom-program-readiness": "node --experimental-strip-types scripts/custom-program-readiness-tests.mjs",
     "test:preview-error-message": "node --experimental-strip-types scripts/preview-error-message-tests.ts",
     "test:labs-contract": "node scripts/labs-contract-tests.mjs",

@@ -31,6 +31,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useClients } from "@/hooks/useClients";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Permissions } from "@/constants/permissions";
+import {
+  configuredCustomDomains,
+  managedWellieUrl,
+  normalizeHostname,
+} from "@/utils/portalDomainUtils";
 
 const portalLabels: Record<CustomDomainPortalType, string> = {
   client: "Client/Staff Portal",
@@ -107,103 +112,6 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 const TWO_PART_TLDS = new Set(["co.uk", "com.br", "com.au", "co.nz", "co.jp", "or.jp"]);
-
-function normalizeHostname(value: string) {
-  const raw = value.trim().toLowerCase();
-  if (!raw) return "";
-  const withoutProtocol = raw.includes("://") ? raw.split("://")[1] : raw;
-  return withoutProtocol.split("/")[0].split(":")[0].replace(/\.+$/, "");
-}
-
-function managedSlugFromApiEndpoint(apiEndpoint?: string) {
-  const host = normalizeHostname(apiEndpoint || "");
-  const dottedMatch = host.match(/^([a-z0-9-]+)\.api\.welliemd\.com$/i);
-  if (dottedMatch?.[1]) return dottedMatch[1];
-
-  const legacyMatch = host.match(/^([a-z0-9-]+)api\.welliemd\.com$/i);
-  return legacyMatch?.[1] || "";
-}
-
-function existingManagedWellieUrl(
-  value: string | undefined,
-  type: "client" | "patient" | "intake",
-  expectedSlug?: string,
-) {
-  const host = normalizeHostname(value || "");
-  if (!host) return "";
-
-  const suffixes = {
-    client: "client.welliemd.com",
-    patient: "patientportal.welliemd.com",
-    intake: "questionnaire.welliemd.com",
-  };
-  const suffix = suffixes[type];
-  const pattern = expectedSlug
-    ? new RegExp(`^${expectedSlug}${suffix.replace(/\./g, "\\.")}$`, "i")
-    : new RegExp(`^[a-z0-9-]+${suffix.replace(/\./g, "\\.")}$`, "i");
-
-  return pattern.test(host) ? `https://${host}` : "";
-}
-
-function managedWellieUrl(
-  currentClient: ReturnType<typeof useClients>["currentClient"],
-  type: "client" | "patient" | "intake",
-  existingValue?: string,
-) {
-  const slug = managedSlugFromApiEndpoint(currentClient?.api_endpoint);
-  const existingUrl = existingManagedWellieUrl(existingValue, type, slug);
-  if (existingUrl) return existingUrl;
-
-  if (!slug) return "";
-
-  if (type === "client") return `https://${slug}client.welliemd.com`;
-  if (type === "patient") return `https://${slug}patientportal.welliemd.com`;
-  return `https://${slug}questionnaire.welliemd.com`;
-}
-
-function isCustomPortalDomain(
-  value: string | undefined,
-  type: "client" | "patient" | "intake",
-  currentClient: ReturnType<typeof useClients>["currentClient"],
-) {
-  const host = normalizeHostname(value || "");
-  if (!host) return false;
-  if (existingManagedWellieUrl(value, type, managedSlugFromApiEndpoint(currentClient?.api_endpoint))) return false;
-  return !host.endsWith(".welliemd.com");
-}
-
-function configuredCustomDomains(
-  currentClient: ReturnType<typeof useClients>["currentClient"],
-): CustomDomain[] {
-  if (!currentClient) return [];
-
-  const candidates: Array<[CustomDomainPortalType, Array<string | undefined>]> = [
-    ["client", [currentClient.resolved_admin_panel_domain, currentClient.admin_panel_domain]],
-    ["patient", [currentClient.resolved_patient_portal_domain, currentClient.patient_portal_domain]],
-    ["intake", [currentClient.resolved_questionnaire_url, currentClient.questionnaire_url]],
-  ];
-
-  return candidates
-    .map(([type, values]) => [type, values.find((value) => isCustomPortalDomain(value, type, currentClient))] as const)
-    .filter((entry): entry is readonly [CustomDomainPortalType, string] => Boolean(entry[1]))
-    .map(([type, value]) => {
-      const host = normalizeHostname(value || "");
-      return {
-        id: `client-config-${type}-${host}`,
-        client: currentClient.id,
-        domain: host,
-        portal_type: type,
-        status: "verified",
-        validation_records: [],
-        dns_status: "applied",
-        is_locked: true,
-        last_error: null,
-        created_at: "",
-        updated_at: "",
-        verified_at: null,
-      };
-    });
-}
 
 function mergeDisplayDomains(apiDomains: CustomDomain[], fallbackDomains: CustomDomain[]) {
   const byKey = new Map<string, CustomDomain>();
