@@ -90,6 +90,8 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
   const maximumCombinedMargin = patientTotal - minimumMemberCost;
   const combinedHasLoss = Boolean(editingLab?.is_combined && minimumCombinedMargin < 0);
   const combinedPriceMissing = Boolean(editingLab?.is_combined && effectivePatientPrice <= 0);
+  const breakEvenPatientCharge = maximumMemberCost;
+  const breakEvenBasePrice = Math.max(0, breakEvenPatientCharge - effectiveShippingFee);
   const compositionRows = editingLab ? getCompositionRows(editingLab) : [];
   const serviceStateOptions = editingLab?.service_state_options ?? [];
 
@@ -388,7 +390,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                {!editingLab.is_combined && <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <div className="border border-[#e8ebee] rounded-[12px] p-3.5 bg-[#f7f9fb] text-xs">
                     <div className="flex items-center gap-2 mb-2">
                       <b className="text-[13px] text-gray-800">Your cost</b>
@@ -400,22 +402,90 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                     <div className="flex justify-between gap-3 py-1 text-[12.5px]"><b className="text-gray-900">Total cost</b><b className="text-right text-gray-900">{editingLab.is_combined ? `$${minimumMemberCost.toFixed(2)}–$${maximumMemberCost.toFixed(2)} by selected method` : `$${editingLab.cost_to_client.toFixed(2)}`}</b></div>
                   </div>
                   <div className={`rounded-[12px] border p-3.5 text-xs ${combinedHasLoss || (!editingLab.is_combined && profit < 0) ? "border-rose-200 bg-rose-50" : "border-[#cdebd9] bg-[#f1faf4]"}`}>
-                    <b className="text-[13px] text-gray-800 block mb-1.5">Patient charge &amp; margin</b>
+                    <b className="text-[13px] text-gray-800 block mb-1.5">{editingLab.is_combined ? "Patient charge summary" : "Profit breakdown"}</b>
                     <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Lab base price</span><span className="font-semibold text-gray-900">{formatCurrency(effectivePatientPrice)}</span></div>
                     <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Collection fee</span><span className="font-semibold text-gray-900">+${effectiveShippingFee.toFixed(2)}</span></div>
                     <div className="flex justify-between py-1 text-[12.5px]"><b className="text-gray-700">Total patient charge</b><b className="text-gray-900">{formatCurrency(patientTotal)}</b></div>
                     <div className="flex justify-between gap-3 py-1 text-[12.5px]"><span className="text-gray-555">Lab cost</span><span className="text-right font-semibold text-gray-900">{editingLab.is_combined ? `$${minimumMemberCost.toFixed(2)}–$${maximumMemberCost.toFixed(2)}` : `$${editingLab.cost_to_client.toFixed(2)}`}</span></div>
                     <div className={`my-1.5 border-t ${combinedHasLoss || (!editingLab.is_combined && profit < 0) ? "border-rose-200" : "border-[#cdebd9]"}`} />
                     <div className="flex items-end justify-between">
-                      <b className="text-[13px] text-gray-900">Estimated margin per order</b>
+                      <b className="text-[13px] text-gray-900">{editingLab.is_combined ? "Amount after lab cost" : "Profit per order"}</b>
                       <div className="flex items-baseline gap-2">
                         <span className={`text-2xl font-bold ${combinedHasLoss || (!editingLab.is_combined && profit < 0) ? "text-rose-700" : "text-[#1d8a52]"}`}>{editingLab.is_combined ? `${formatCurrency(minimumCombinedMargin)}–${formatCurrency(maximumCombinedMargin)}` : formatCurrency(profit)}</span>
                         {!editingLab.is_combined && <span className="text-[10.5px] font-semibold bg-[#dcf3e5] text-[#1d8a52] rounded-full px-2 py-0.5">{effectivePatientPrice > 0 ? `${Math.round((profit / effectivePatientPrice) * 100)}%` : "0%"}</span>}
                       </div>
                     </div>
-                    <div className="text-[10.5px] text-gray-500 mt-1.5">Patient charge minus lab cost; excludes visit cost. The selected collection method determines the final margin.</div>
+                    <div className="text-[10.5px] text-gray-500 mt-1.5">
+                      {editingLab.is_combined
+                        ? "This is not final profit. Other fees and internal costs are not shown in the client portal."
+                        : "Excludes visit cost."}
+                    </div>
                   </div>
-                </div>
+                </div>}
+                {editingLab.is_combined && (
+                  <div className="overflow-hidden rounded-[12px] border border-[#e8ebee] bg-white">
+                    <div className="grid grid-cols-1 divide-y divide-[#e8ebee] bg-white sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                      <div className="px-3.5 py-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Patient base price</div>
+                        <div className="mt-1 text-lg font-bold text-gray-900">{formatCurrency(effectivePatientPrice)}</div>
+                      </div>
+                      <div className="px-3.5 py-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Collection fee</div>
+                        <div className="mt-1 text-lg font-bold text-gray-900">{formatCurrency(effectiveShippingFee)}</div>
+                      </div>
+                      <div className="px-3.5 py-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Patient pays</div>
+                        <div className="mt-1 text-lg font-bold text-gray-900">{formatCurrency(patientTotal)}</div>
+                      </div>
+                    </div>
+                    <div className="border-b border-[#e8ebee] bg-[#f7f9fb] px-3.5 py-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <b className="text-[13px] text-gray-900">Cost by collection method</b>
+                          <p className="mt-0.5 text-[10.5px] text-gray-500">Every method uses the same patient charge. Only the client lab cost changes.</p>
+                        </div>
+                        <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-right">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-800">Break-even patient charge</div>
+                          <div className="text-sm font-bold text-amber-950">{formatCurrency(breakEvenPatientCharge)}</div>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-[11.5px] font-medium text-gray-700">
+                        To avoid a loss with every method at the lab-cost level, set the base price to at least <b>{formatCurrency(breakEvenBasePrice)}</b>
+                        {effectiveShippingFee > 0 ? ` plus the current ${formatCurrency(effectiveShippingFee)} collection fee` : ""}.
+                      </p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[520px] text-left text-[11.5px]">
+                        <thead className="bg-white text-[10px] uppercase tracking-wide text-gray-500">
+                          <tr>
+                            <th className="px-3.5 py-2 font-semibold">Collection method</th>
+                            <th className="px-3.5 py-2 text-right font-semibold">Client cost</th>
+                            <th className="px-3.5 py-2 text-right font-semibold">Patient charge</th>
+                            <th className="px-3.5 py-2 text-right font-semibold">Amount after lab cost</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#e8ebee]">
+                          {combinedMembers.map((member) => {
+                            const methodMargin = patientTotal - member.cost_to_client;
+                            return (
+                              <tr key={member.assignment_id}>
+                                <td className="px-3.5 py-2.5">
+                                  <div className="font-semibold text-gray-900">{getCollectionDetailLabel(member.collection_method)}</div>
+                                  <div className="text-[10.5px] text-gray-500">{member.lab_provider}</div>
+                                </td>
+                                <td className="px-3.5 py-2.5 text-right font-semibold text-gray-900">{formatCurrency(member.cost_to_client)}</td>
+                                <td className="px-3.5 py-2.5 text-right font-semibold text-gray-900">{formatCurrency(patientTotal)}</td>
+                                <td className={`px-3.5 py-2.5 text-right font-bold ${methodMargin < 0 ? "text-rose-700" : "text-emerald-700"}`}>
+                                  {formatCurrency(methodMargin)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Availability */}

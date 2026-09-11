@@ -20,7 +20,12 @@ assert.match(dialog, /setShippingFee/);
 assert.match(dialog, /Shipping\/collection fee/);
 assert.match(dialog, /One patient price applies across every collection method/);
 assert.match(dialog, /Set a patient base price before offering this Combined Lab/);
-assert.match(dialog, /Estimated margin per order/);
 assert.match(dialog, /text-rose-700/);
+assert.match(dialog, /Cost by collection method/);
+assert.match(dialog, /combinedMembers\.map/);
+assert.match(dialog, /Break-even patient charge/);
+assert.match(dialog, /To avoid a loss with every method/);
+assert.match(dialog, /Amount after lab cost/);
+assert.doesNotMatch(dialog, /WellieMD cost/);
 
 console.log("Client Labs logical Combined offering contract passed.");
