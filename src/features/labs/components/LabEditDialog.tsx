@@ -52,6 +52,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
   const { toast } = useToast();
   const [patientPrice, setPatientPrice] = useState("");
   const [discountedPatientPrice, setDiscountedPatientPrice] = useState("");
+  const [shippingFee, setShippingFee] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [serviceStates, setServiceStates] = useState<string[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -62,6 +63,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
     if (!editingLab) return;
     setPatientPrice(editingLab.patient_price.toFixed(2));
     setDiscountedPatientPrice(editingLab.discounted_patient_price?.toFixed(2) || "");
+    setShippingFee(editingLab.shipping_fee.toFixed(2));
     setIsActive(editingLab.is_active);
     setServiceStates(editingLab.service_states);
     setImageFile(null);
@@ -73,7 +75,9 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
   }, [imagePreview]);
 
   const effectivePatientPrice = Number.parseFloat(patientPrice) || 0;
-  const profit = effectivePatientPrice - (editingLab?.cost_to_client || 0);
+  const effectiveShippingFee = Number.parseFloat(shippingFee) || 0;
+  const patientTotal = effectivePatientPrice + effectiveShippingFee;
+  const profit = patientTotal - (editingLab?.cost_to_client || 0);
   const combinedMembers = editingLab?.combined_methods ?? [];
   const memberCosts = combinedMembers.map((member) => member.cost_to_client);
   const minimumMemberCost = memberCosts.length ? Math.min(...memberCosts) : 0;
@@ -95,9 +99,12 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
       setSaving(true);
       let updated = await clientLabsApi.updateLabPanel(editingLab.assignment_id, {
         patient_price: effectivePatientPrice,
-        discounted_patient_price: discountedPatientPrice.trim()
-          ? Number.parseFloat(discountedPatientPrice)
-          : null,
+        discounted_patient_price: editingLab.is_combined
+          ? undefined
+          : discountedPatientPrice.trim()
+            ? Number.parseFloat(discountedPatientPrice)
+            : null,
+        shipping_fee: editingLab.is_combined ? effectiveShippingFee : undefined,
         is_active: isActive,
         service_states: serviceStates,
       }, editingLab.edit_scope, editingLab.combined_offering_id);
@@ -114,9 +121,11 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
       onClose();
     } catch (error) {
       console.error("Failed to update lab test:", error);
+      const message = (error as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
       toast({
         title: "Failed to update lab test",
-        description: "Please check the values and try again.",
+        description: message || "Please check the values and try again.",
         variant: "destructive",
       });
     } finally {
@@ -306,7 +315,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                   <h3 className="text-[13.5px] font-bold text-gray-900">Pricing & Profit</h3>
                   <span className="text-[10.5px] font-semibold bg-[#e3f6ec] text-[#1d8a52] rounded-full px-2 py-0.5">Editable</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={`grid grid-cols-1 gap-3 ${editingLab.is_combined ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
                   <div className="space-y-1">
                     <Label className="text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">Base Price (Patient)</Label>
                     <div className="flex items-center h-[38px] rounded-lg border border-[#e8ebee] bg-white px-3 text-xs focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500">
@@ -319,7 +328,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                     </div>
                     <p className="text-[10.5px] text-[#94a3b8] mt-1">Retail price shown to patients</p>
                   </div>
-                  <div className="space-y-1">
+                  {!editingLab.is_combined && <div className="space-y-1">
                     <Label className="text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">Discounted Price (Patient)</Label>
                     <div className="flex items-center h-[38px] rounded-lg border border-[#e8ebee] bg-white px-3 text-xs focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500">
                       <span className="text-gray-400 mr-1.5">$</span>
@@ -331,14 +340,24 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                       />
                     </div>
                     <p className="text-[10.5px] text-[#94a3b8] mt-1">Optional promotional price</p>
-                  </div>
+                  </div>}
                   <div className="space-y-1">
-                    <Label className="text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">Shipping Fee (Patient)</Label>
+                    <Label className="text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">Shipping/collection fee (Patient)</Label>
                     <div className="flex items-center h-[38px] rounded-lg border border-[#e8ebee] bg-white px-3 text-xs focus-within:border-sky-500 focus-within:ring-1 focus-within:ring-sky-500">
                       <span className="text-gray-400 mr-1.5">$</span>
-                      <input className="w-full bg-transparent outline-none text-[13px] text-gray-900 font-semibold" placeholder="0.00" />
+                      <input
+                        className="w-full bg-transparent outline-none text-[13px] text-gray-900 font-semibold"
+                        inputMode="decimal"
+                        min="0"
+                        value={shippingFee}
+                        onChange={(event) => setShippingFee(event.target.value)}
+                        disabled={!editingLab.is_combined}
+                        placeholder="0.00"
+                      />
                     </div>
-                    <p className="text-[10.5px] text-[#94a3b8] mt-1">Per-patient fee</p>
+                    <p className="text-[10.5px] text-[#94a3b8] mt-1">
+                      {editingLab.is_combined ? "Added once to the logical lab offering" : "Admin-managed per-patient fee"}
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
@@ -354,14 +373,15 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                   </div>
                   <div className="border border-[#cdebd9] rounded-[12px] p-3.5 bg-[#f1faf4] text-xs">
                     <b className="text-[13px] text-gray-800 block mb-1.5">Profit breakdown</b>
-                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Patient pays</span><span className="font-semibold text-gray-900">${effectivePatientPrice.toFixed(2)}</span></div>
-                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Shipping fee</span><span className="font-semibold text-gray-900">+$0.00</span></div>
+                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Base price</span><span className="font-semibold text-gray-900">${effectivePatientPrice.toFixed(2)}</span></div>
+                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Shipping/collection fee</span><span className="font-semibold text-gray-900">+${effectiveShippingFee.toFixed(2)}</span></div>
+                    <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Patient pays</span><span className="font-semibold text-gray-900">${patientTotal.toFixed(2)}</span></div>
                     <div className="flex justify-between py-1 text-[12.5px]"><span className="text-gray-555">Your cost</span><span className="font-semibold text-gray-900">{editingLab.is_combined ? `-$${minimumMemberCost.toFixed(2)} to -$${maximumMemberCost.toFixed(2)}` : `-$${editingLab.cost_to_client.toFixed(2)}`}</span></div>
                     <div className="border-t border-[#cdebd9] my-1.5" />
                     <div className="flex items-end justify-between">
                       <b className="text-[13px] text-gray-900">Profit per order</b>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold text-[#1d8a52]">{editingLab.is_combined ? `$${(effectivePatientPrice - maximumMemberCost).toFixed(2)}–$${(effectivePatientPrice - minimumMemberCost).toFixed(2)}` : `$${profit.toFixed(2)}`}</span>
+                        <span className="text-2xl font-bold text-[#1d8a52]">{editingLab.is_combined ? `$${(patientTotal - maximumMemberCost).toFixed(2)}–$${(patientTotal - minimumMemberCost).toFixed(2)}` : `$${profit.toFixed(2)}`}</span>
                         {!editingLab.is_combined && <span className="text-[10.5px] font-semibold bg-[#dcf3e5] text-[#1d8a52] rounded-full px-2 py-0.5">{effectivePatientPrice > 0 ? `${Math.round((profit / effectivePatientPrice) * 100)}%` : "0%"}</span>}
                       </div>
                     </div>

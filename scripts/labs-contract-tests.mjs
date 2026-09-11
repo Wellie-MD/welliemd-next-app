@@ -12,5 +12,11 @@ assert.match(page, /lab\.is_combined/);
 assert.match(dialog, /Collection method options/);
 assert.match(dialog, /member\.cost_to_client/);
 assert.match(dialog, /member\.is_orderable/);
+assert.match(api, /shipping_fee:\s*moneyToNumber\(raw\.shipping_fee\)/);
+assert.match(api, /body\.shipping_fee/);
+assert.match(dialog, /const \[shippingFee, setShippingFee\]/);
+assert.match(dialog, /editingLab\.is_combined\s*\?\s*undefined/);
+assert.match(dialog, /setShippingFee/);
+assert.match(dialog, /Shipping\/collection fee/);
 
 console.log("Client Labs logical Combined offering contract passed.");

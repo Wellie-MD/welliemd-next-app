@@ -81,6 +81,7 @@ export interface ClientLabPanel {
   cost_to_client: number;
   patient_price: number;
   discounted_patient_price: number | null;
+  shipping_fee: number;
 
   is_active: boolean;
   is_current: boolean;
@@ -269,6 +270,7 @@ const normalizePanel = (raw: Record<string, unknown>): ClientLabPanel => {
     cost_to_client: moneyToNumber(raw.cost_to_client),
     patient_price: moneyToNumber(raw.patient_price),
     discounted_patient_price: discountedNum,
+    shipping_fee: moneyToNumber(raw.shipping_fee),
     is_active: Boolean(raw.is_active),
     is_current: raw.is_current !== false,
     is_orderable: Boolean(raw.is_orderable),
@@ -390,7 +392,7 @@ export const clientLabsApi = {
    */
   updateLabPanel: async (
     assignmentId: string,
-    updates: Partial<Pick<ClientLabPanel, "patient_price" | "discounted_patient_price" | "is_active" | "service_states">>,
+    updates: Partial<Pick<ClientLabPanel, "patient_price" | "discounted_patient_price" | "shipping_fee" | "is_active" | "service_states">>,
     editScope: ClientLabPanel["edit_scope"],
     combinedOfferingId?: string | null
   ): Promise<ClientLabPanel> => {
@@ -402,6 +404,9 @@ export const clientLabsApi = {
       body.discounted_patient_price = updates.discounted_patient_price != null
         ? { amount: String(updates.discounted_patient_price), currency: "USD" }
         : null;
+    }
+    if (updates.shipping_fee !== undefined) {
+      body.shipping_fee = { amount: String(updates.shipping_fee ?? 0), currency: "USD" };
     }
     if (updates.is_active !== undefined) body.is_active = updates.is_active;
     if (updates.service_states !== undefined) body.service_states = updates.service_states;
