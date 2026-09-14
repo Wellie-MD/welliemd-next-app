@@ -180,7 +180,7 @@ export default function Policies() {
   }
 
   return (
-    <div className="mx-auto">
+    <div className="mx-auto w-full min-w-0 max-w-full">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground">Policies</h1>
         <CardDescription className="mt-1">
@@ -336,10 +336,10 @@ function PolicyEditor({
   const disabled = !policy?.id
 
   return (
-    <Card className="mb-6">
+    <Card className="mb-6 w-full min-w-0 max-w-full overflow-hidden">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <CardTitle>{title}</CardTitle>
             <CardDescription>
               Last edited {lastEdited}
@@ -351,6 +351,7 @@ function PolicyEditor({
           <Button
             variant="outline"
             size="sm"
+            className="w-full shrink-0 sm:w-auto"
             onClick={onCreateFromTemplate}
             disabled={!template || creating}
           >
@@ -362,8 +363,8 @@ function PolicyEditor({
         <div className="space-y-4">
           <div className="border border-border rounded-md">
             {/* ── Toolbar ── */}
-            <div className="border-b border-border p-2 bg-muted/30">
-              <div className="flex items-center gap-1">
+            <div className="overflow-x-auto border-b border-border bg-muted/30 p-2">
+              <div className="flex min-w-max items-center gap-1">
                 <select
                   className="text-sm border-none bg-transparent"
                   onChange={handleHeadingChange}
@@ -433,12 +434,12 @@ function PolicyEditor({
               suppressContentEditableWarning
               onInput={handleInput}
               data-placeholder={"Enter your " + title.toLowerCase() + " content here..."}
-              className="policy-editor min-h-[200px] p-3 outline-none text-sm leading-relaxed max-w-none focus:ring-0 [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-muted-foreground"
-              style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+              className="policy-editor min-h-[200px] max-w-full break-words p-3 text-sm leading-relaxed outline-none focus:ring-0 [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-muted-foreground"
+              style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"

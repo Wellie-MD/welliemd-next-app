@@ -171,12 +171,12 @@ export default function MyBillingProfile() {
           </div>
         </div>
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="text-lg">Payment Method</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {showNoPaymentMethodState ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40 p-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40 p-3">
                 <p className="font-semibold text-amber-900 dark:text-amber-200">No payment method on file</p>
                 <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
                   {paymentMethodStatus === "no_customer"
@@ -184,7 +184,7 @@ export default function MyBillingProfile() {
                     : "Your billing account is set up, but no payment method has been added yet."}
                 </p>
                 <Button
-                  className="mt-3"
+                  className="mt-3 w-full min-[425px]:w-auto"
                   onClick={async () => {
                     setModalMode("add");
                     setShowModal(true);
@@ -201,14 +201,14 @@ export default function MyBillingProfile() {
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-slate-50/70 dark:bg-slate-900/60 dark:border-slate-700 p-4">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-col items-stretch gap-4 rounded-lg border bg-slate-50/70 dark:bg-slate-900/60 dark:border-slate-700 p-4 min-[425px]:flex-row min-[425px]:items-center min-[425px]:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
                   <img
                     src={resolveCardIcon(paymentMethod?.brand || profile?.payment_method?.brand)}
                     alt={paymentMethod?.brand || profile?.payment_method?.brand || "card"}
                     className="h-10 w-auto shrink-0"
                   />
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {paymentMethod
                         ? `${paymentMethod.brand?.charAt(0).toUpperCase()}${paymentMethod.brand?.slice(1) ?? ""} •••• ${paymentMethod.last4}`
@@ -223,6 +223,7 @@ export default function MyBillingProfile() {
                 </div>
                 <Button
                   variant="outline"
+                  className="w-full min-[425px]:w-auto"
                   onClick={async () => {
                     setModalMode("update");
                     setShowModal(true);
@@ -247,19 +248,19 @@ export default function MyBillingProfile() {
             <CardTitle className="text-lg">Billing Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="flex items-start justify-between gap-4">
-              <span className="text-muted-foreground">Name</span>
-              <span className="font-medium text-right">{billingDetails?.name ?? profile?.client_name ?? "-"}</span>
+            <div className="flex flex-col items-start gap-1 min-[425px]:flex-row min-[425px]:items-start min-[425px]:justify-between min-[425px]:gap-4">
+              <span className="shrink-0 text-muted-foreground">Name</span>
+              <span className="w-full min-w-0 max-w-full break-words font-medium text-left min-[425px]:w-auto min-[425px]:text-right">{billingDetails?.name ?? profile?.client_name ?? "-"}</span>
             </div>
             <Separator />
-            <div className="flex items-start justify-between gap-4">
-              <span className="text-muted-foreground">Email</span>
-              <span className="font-medium text-right">{billingDetails?.email ?? "-"}</span>
+            <div className="flex flex-col items-start gap-1 min-[425px]:flex-row min-[425px]:items-start min-[425px]:justify-between min-[425px]:gap-4">
+              <span className="shrink-0 text-muted-foreground">Email</span>
+              <span className="w-full min-w-0 max-w-full break-all font-medium text-left min-[425px]:w-auto min-[425px]:text-right">{billingDetails?.email ?? "-"}</span>
             </div>
             <Separator />
-            <div className="flex items-start justify-between gap-4">
-              <span className="text-muted-foreground">Address</span>
-              <span className="font-medium text-right">{billingDetails?.address ?? "-"}</span>
+            <div className="flex flex-col items-start gap-1 min-[425px]:flex-row min-[425px]:items-start min-[425px]:justify-between min-[425px]:gap-4">
+              <span className="shrink-0 text-muted-foreground">Address</span>
+              <span className="w-full min-w-0 max-w-full break-words font-medium text-left min-[425px]:w-auto min-[425px]:text-right">{billingDetails?.address ?? "-"}</span>
             </div>
           </CardContent>
         </Card>

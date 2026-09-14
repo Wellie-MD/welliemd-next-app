@@ -192,7 +192,7 @@ export function SortableQuestionRow({
     }}
     onClick={handleRowClick}
     className={cn(
-      "group grid min-h-[66px] grid-cols-[52px_minmax(0,1fr)_120px_170px_92px] items-center gap-4 border-b border-slate-100 bg-white px-4 transition-colors hover:bg-slate-50/70 dark:border-slate-800 dark:bg-[#11151f] dark:hover:bg-slate-800/40 md:px-8",
+      "group grid min-h-[66px] min-w-[680px] grid-cols-[52px_minmax(0,1fr)_120px_170px_92px] items-center gap-4 border-b border-slate-100 bg-white px-4 transition-colors hover:bg-slate-50/70 dark:border-slate-800 dark:bg-[#11151f] dark:hover:bg-slate-800/40 md:px-8",
       Boolean(row.question) && "cursor-pointer",
       sortable.isDragging && "shadow-lg",
     )}
@@ -230,7 +230,7 @@ export function SortableQuestionRow({
 }
 
 export function AuthRow({ subtitle }: { subtitle: string }) {
-  return <div className="grid min-h-[72px] grid-cols-[52px_minmax(0,1fr)_120px_170px_92px] items-center gap-4 border-b border-slate-100 bg-white px-4 dark:border-slate-800 dark:bg-[#11151f] md:px-8">
+  return <div className="grid min-h-[72px] min-w-[680px] grid-cols-[52px_minmax(0,1fr)_120px_170px_92px] items-center gap-4 border-b border-slate-100 bg-white px-4 dark:border-slate-800 dark:bg-[#11151f] md:px-8">
     <div className="flex items-center justify-center"><span className="flex h-7 w-7 items-center justify-center rounded-full border bg-slate-50 text-slate-400"><LockKeyhole className="h-3.5 w-3.5" /></span></div>
     <div className="min-w-0">
       <div className="flex items-center gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-100 text-amber-600"><LockKeyhole className="h-3 w-3" /></span><span className="font-semibold">Patient Authentication</span></div>

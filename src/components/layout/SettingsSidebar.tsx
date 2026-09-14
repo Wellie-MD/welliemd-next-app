@@ -103,8 +103,8 @@ export function SettingsSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-30 h-svh bg-background border-r transition-all duration-200",
-        collapsed ? "w-16" : "w-64"
+        "fixed left-0 top-0 z-30 h-svh bg-background border-r transition-all duration-200 md:translate-x-0",
+        collapsed ? "w-16 -translate-x-full" : "w-64 translate-x-0"
       )}
     >
       {/* <Sidebar collapsible="icon" className="border-r flex flex-col h-full overflow-hidden"> */}

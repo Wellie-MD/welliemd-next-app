@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import {
   CalendarIcon,
   Download,
@@ -582,8 +582,9 @@ export default function AnalyticsReports() {
           <CardContent>
             {filteredStateData.length > 0 ? (
               <div className="rounded-md border">
-                <ScrollArea className="w-full">
-                  <Table>
+                <ScrollArea type="auto" className="w-full">
+                  <div className="min-w-[640px]">
+                    <Table>
                     <TableHeader className="bg-muted/40">
                       <TableRow>
                         <TableHead>State</TableHead>
@@ -613,7 +614,9 @@ export default function AnalyticsReports() {
                         </TableRow>
                       ))}
                     </TableBody>
-                  </Table>
+                    </Table>
+                  </div>
+                  <ScrollBar orientation="horizontal" />
                 </ScrollArea>
               </div>
             ) : (
@@ -636,8 +639,9 @@ export default function AnalyticsReports() {
           <CardContent>
             {filteredPharmacyData.length > 0 ? (
               <div className="rounded-md border">
-                <ScrollArea className="w-full">
-                  <Table>
+                <ScrollArea type="auto" className="w-full">
+                  <div className="min-w-[640px]">
+                    <Table>
                     <TableHeader className="bg-muted/40">
                       <TableRow>
                         <TableHead>Pharmacy</TableHead>
@@ -667,7 +671,9 @@ export default function AnalyticsReports() {
                         </TableRow>
                       ))}
                     </TableBody>
-                  </Table>
+                    </Table>
+                  </div>
+                  <ScrollBar orientation="horizontal" />
                 </ScrollArea>
               </div>
             ) : (
@@ -691,8 +697,9 @@ export default function AnalyticsReports() {
         <CardContent>
           {filteredVariantData.length > 0 ? (
             <div className="rounded-md border">
-              <ScrollArea className="w-full">
-                <Table>
+              <ScrollArea type="auto" className="w-full">
+                <div className="min-w-[640px]">
+                  <Table>
                   <TableHeader className="bg-muted/40">
                     <TableRow>
                       <TableHead>Product Variant</TableHead>
@@ -727,7 +734,9 @@ export default function AnalyticsReports() {
                       )
                     })}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
+                <ScrollBar orientation="horizontal" />
               </ScrollArea>
             </div>
           ) : (
