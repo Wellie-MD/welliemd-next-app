@@ -81,6 +81,12 @@ export function SettingsSidebar({
 
   const isActive = (path: string) => currentPath === path
 
+  const handleNavigation = () => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      onToggle()
+    }
+  }
+
   // Wrapper for menu items with tooltip when collapsed
   const MenuItemWrapper = ({ children, title }: { children: React.ReactNode, title: string }) => {
     if (collapsed) {
@@ -142,7 +148,10 @@ export function SettingsSidebar({
                 <SidebarMenuItem>
                   <MenuItemWrapper title="Back to App">
                     <SidebarMenuButton
-                      onClick={() => navigate("/dashboard")}
+                      onClick={() => {
+                        navigate("/dashboard")
+                        handleNavigation()
+                      }}
                       className={`
                         group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                         ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}
@@ -169,6 +178,7 @@ export function SettingsSidebar({
                     <MenuItemWrapper title={item.title}>
                       <NavLink
                         to={item.url}
+                        onClick={handleNavigation}
                         className={`
                           group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                           ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}
