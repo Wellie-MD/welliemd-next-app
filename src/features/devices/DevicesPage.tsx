@@ -1,23 +1,21 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ErrorUtils } from '@/shared/lib/errors';
 import ConnectState from './components/ConnectState';
 import ConnectedState from './components/ConnectedState';
 import TelemetryDashboard from './components/TelemetryDashboard';
 import DataPrivacyCard from './components/DataPrivacyCard';
+import DevicesSkeleton from './components/DevicesSkeleton';
 import {
-  PROVIDERS,
   WEIGHT_DEFAULT,
   DEVICE_METRICS_DEFAULT,
 } from './constants';
-import type { Connection, WeightData, DeviceMetrics, Consent, Provider } from './types';
+import type { Connection, WeightData, DeviceMetrics, Consent } from './types';
 import DeviceModals from './components/DeviceModals';
 import {
   getConnections,
   getDeviceData,
   createLinkSession,
-  listWearableProviders,
   deregisterProvider,
   reconnectProvider,
   syncConnections,
@@ -32,101 +30,12 @@ import {
 } from './api';
 import { useProfile } from '../profile/hooks/use-profile';
 import { profileService } from '../profile/services/profile.service';
-
-function buildWeightData(entries: import('./types').VitalsEntry[], prev: WeightData, priorityList: string[]): WeightData {
-  const byDate = new Map<string, import('./types').VitalsEntry>();
-  
-  for (const entry of entries) {
-    if (entry.weight_lbs == null) continue;
-    
-    // Group by YYYY-MM-DD
-    const dateKey = entry.measured_at.split('T')[0]!;
-    const existing = byDate.get(dateKey);
-    
-    if (!existing) {
-      byDate.set(dateKey, entry);
-    } else {
-      const existingRank = priorityList.indexOf(existing.source);
-      const newRank = priorityList.indexOf(entry.source);
-      
-      const eRank = existingRank === -1 ? 999 : existingRank;
-      const nRank = newRank === -1 ? 999 : newRank;
-      
-      if (nRank < eRank) {
-        byDate.set(dateKey, entry);
-      } else if (nRank === eRank && new Date(entry.measured_at).getTime() > new Date(existing.measured_at).getTime()) {
-        byDate.set(dateKey, entry);
-      }
-    }
-  }
-
-  const sorted = Array.from(byDate.values())
-    .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
-
-  if (sorted.length === 0) {
-    return prev;
-  }
-
-  const points = sorted.map((e) => ({
-    date: e.measured_at,
-    weight: Number(e.weight_lbs),
-    bmi: e.bmi != null ? Number(e.bmi) : null,
-    height: e.height_inches != null ? Number(e.height_inches) : null,
-  }));
-  const series = points.map((p) => p.weight);
-  const checkins = points.map((p) => ({
-    label: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    w: p.weight,
-  }));
-
-  const latestHeight = [...sorted].reverse().find((e) => e.height_inches != null)?.height_inches;
-  const latest = sorted[sorted.length - 1]!;
-
-  return {
-    ...prev,
-    series,
-    checkins,
-    points,
-    start: prev.start || series[0]!,
-    heightIn: latestHeight ?? prev.heightIn,
-    latestBmi: latest.bmi != null ? Number(latest.bmi) : null,
-    latestBmiCategory: latest.bmi_category ?? null,
-  };
-}
-
-function DevicesSkeleton() {
-  const row = (
-    <div
-      style={{
-        background: 'var(--km-s1)',
-        border: '1px solid var(--km-b)',
-        borderRadius: 14,
-        marginBottom: 10,
-        padding: '13px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-      }}
-    >
-      <div className="km-skel" style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="km-skel" style={{ width: 130, height: 13, marginBottom: 8 }} />
-        <div className="km-skel" style={{ width: 190, height: 11 }} />
-      </div>
-      <div className="km-skel" style={{ width: 82, height: 30, borderRadius: 10, flexShrink: 0 }} />
-    </div>
-  );
-  return (
-    <div>
-      {row}
-      {row}
-    </div>
-  );
-}
+import { useOAuthConnectionPolling } from './hooks/useOAuthConnectionPolling';
+import { useAllowedProviders } from './hooks/useAllowedProviders';
+import { buildWeightData } from './utils/weight-data';
 
 export default function DevicesPage() {
   const { patientProfile, updatePatientProfile } = useProfile();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   /* State */
   const [deviceConnected, setDeviceConnected] = useState(false);
@@ -136,8 +45,9 @@ export default function DevicesPage() {
   const [consent, setConsent] = useState<Consent>({ given: false, date: null });
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [allowedProviders, setAllowedProviders] = useState<Provider[]>([]);
+  const allowedProviders = useAllowedProviders();
   const [connectionSyncError, setConnectionSyncError] = useState('');
+  const connectionRequestIdRef = useRef(0);
   const [priorityModalOpen, setPriorityModalOpen] = useState(false);
   const [timeRange, setTimeRange] = useState(30);
 
@@ -192,6 +102,7 @@ export default function DevicesPage() {
 
   const fetchConnectionsList = useCallback(async (skipConnections = false) => {
     setLoading(true);
+    const connectionRequestId = skipConnections ? null : ++connectionRequestIdRef.current;
     try {
       const [connectionsResult, vitalsResult, goalResult, profileResult] = await Promise.allSettled([
         skipConnections ? Promise.resolve(null) : getConnections(),
@@ -200,7 +111,11 @@ export default function DevicesPage() {
         profileService.getPatientProfile(),
       ]);
 
-      if (connectionsResult.status === 'fulfilled' && connectionsResult.value !== null) {
+      if (
+        connectionsResult.status === 'fulfilled'
+        && connectionsResult.value !== null
+        && connectionRequestId === connectionRequestIdRef.current
+      ) {
         const formatted = connectionsResult.value.map(formatConnection);
         setConnections(formatted);
         setDeviceConnected(formatted.length > 0);
@@ -226,29 +141,29 @@ export default function DevicesPage() {
     }
   }, [timeRange]);
 
-  const checkIsPendingConnect = () => {
-    if (searchParams.get('wearable_connect') === 'pending') return true;
-    if (typeof window !== 'undefined') {
-      return window.location.href.includes('wearable_connect=pending');
-    }
-    return false;
-  };
-  
-  const isPendingConnect = checkIsPendingConnect();
-  
-  const initialIsPendingConnectRef = useRef(isPendingConnect);
+  useEffect(() => {
+    fetchConnectionsList().finally(() => setInitialLoading(false));
+  }, [fetchConnectionsList]);
 
   useEffect(() => {
-    fetchConnectionsList(initialIsPendingConnectRef.current).finally(() => setInitialLoading(false));
+    const refreshConnectionsAfterPageShow = () => {
+      void fetchConnectionsList();
+    };
+
+    window.addEventListener('pageshow', refreshConnectionsAfterPageShow);
+    return () => window.removeEventListener('pageshow', refreshConnectionsAfterPageShow);
   }, [fetchConnectionsList]);
 
   const handleRefreshStatus = useCallback(async () => {
     setConnectionSyncError('');
+    const connectionRequestId = ++connectionRequestIdRef.current;
     try {
       const conns = await syncConnections();
       const formatted = conns.map((c) => formatConnection(c));
-      setConnections(formatted);
-      setDeviceConnected(formatted.length > 0);
+      if (connectionRequestId === connectionRequestIdRef.current) {
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
+      }
       
       // Also refresh the device data via live sync
       fetchDeviceDataList(timeRange, false);
@@ -258,65 +173,18 @@ export default function DevicesPage() {
       setConnectionSyncError('Unable to check the connection right now. Please try again.');
       return null;
     }
-  }, [fetchDeviceDataList]);
+  }, [fetchDeviceDataList, timeRange]);
 
-  useEffect(() => {
-    const pendingProviders = connections.filter(c => c.status === 'pending').map(c => c.provider);
-    if (pendingProviders.length === 0) return;
-    
-    let isCancelled = false;
-    let pollTimeout: NodeJS.Timeout;
-    let attempt = 0;
-    const maxAttempts = 30;
-    const flatDelayMs = 1500;
+  const handleOAuthConnectionComplete = useCallback(() => {
+    void fetchConnectionsList(true);
+  }, [fetchConnectionsList]);
 
-    const clearParams = () => {
-      setSearchParams(prev => {
-        const next = new URLSearchParams(prev);
-        next.delete('wearable_connect');
-        next.delete('provider');
-        return next;
-      }, { replace: true });
-    };
-
-    const runPoll = async () => {
-      if (isCancelled) return;
-      if (attempt >= maxAttempts) {
-        clearParams();
-        setConnectionSyncError(''); 
-        return;
-      }
-
-      const formatted = await handleRefreshStatus();
-      if (isCancelled) return;
-
-      const stillPending = formatted !== null && formatted.some(c => pendingProviders.includes(c.provider) && c.status === 'pending');
-
-      if (!stillPending) {
-        if (formatted !== null && formatted.some(c => pendingProviders.includes(c.provider) && c.status === 'connected')) {
-          toast.success('Device successfully connected. Your health data is being synced...', {
-            duration: 5000,
-          });
-          fetchConnectionsList(true);
-        }
-        clearParams();
-        setConnectionSyncError('');
-        return;
-      }
-
-      setConnectionSyncError(`Checking connection status... (Attempt ${attempt + 1}/${maxAttempts})`);
-
-      attempt++;
-      pollTimeout = setTimeout(runPoll, flatDelayMs);
-    };
-
-    runPoll();
-
-    return () => {
-      isCancelled = true;
-      if (pollTimeout) clearTimeout(pollTimeout);
-    };
-  }, [connections, handleRefreshStatus, fetchConnectionsList, setSearchParams]);
+  useOAuthConnectionPolling({
+    connections,
+    refreshConnectionStatus: handleRefreshStatus,
+    onConnected: handleOAuthConnectionComplete,
+    setConnectionSyncError,
+  });
 
   useEffect(() => {
     async function loadConsent() {
@@ -339,53 +207,6 @@ export default function DevicesPage() {
       }
     }
     loadConsent();
-  }, []);
-
-  useEffect(() => {
-    async function loadAllowedProviders() {
-      try {
-        const response = await listWearableProviders();
-        if (response.success && response.sources) {
-          const mappedProviders: Provider[] = response.sources.map((s: any) => {
-            const logoUrl: string | undefined = s.logo_url || undefined;
-
-            const existing = PROVIDERS.find(p => p.id === s.slug);
-            if (existing) {
-              return {
-                ...existing,
-                ...(logoUrl ? { logoUrl } : {}),
-              };
-            }
-
-            let cat: Provider['cat'] = 'wear';
-            let kind = 'Wearable';
-            let ic = '⌚';
-            let gives = 'Health Data';
-
-            const c = (s.name || s.slug || '').toLowerCase();
-            if (c.includes('libre') || c.includes('dexcom') || c.includes('accu')) { cat = 'cgm'; kind = 'CGM'; ic = '🩸'; gives = 'Continuous glucose'; }
-            else if (c.includes('scale') || c.includes('renpho') || c.includes('withings')) { cat = 'scale'; kind = 'Smart scale'; ic = '⚖️'; gives = 'Weight & body composition'; }
-            else if (c.includes('omron') || c.includes('beurer')) { cat = 'bp'; kind = 'Monitor'; ic = '🩺'; gives = 'Blood pressure'; }
-            else if (c.includes('apple') || c.includes('healthconnect') || c.includes('samsung')) { cat = 'ondevice'; kind = 'On-device'; ic = '📱'; gives = 'All health & fitness data'; }
-            else if (c.includes('strava') || c.includes('wahoo') || c.includes('peloton') || c.includes('zwift') || c.includes('fit')) { cat = 'app'; kind = 'App'; ic = '🏃'; gives = 'Activity & workouts'; }
-
-            return {
-              id: s.slug,
-              name: s.name || s.slug,
-              cat,
-              kind,
-              gives,
-              ic,
-              ...(logoUrl ? { logoUrl } : {}),
-            };
-          });
-          setAllowedProviders(mappedProviders);
-        }
-      } catch {
-        setAllowedProviders([]);
-      }
-    }
-    loadAllowedProviders();
   }, []);
 
   // Device picker (connect state) filters
