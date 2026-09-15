@@ -121,6 +121,46 @@ export function safeAssignmentMessage(value: unknown): string {
   return render(value).trim();
 }
 
+type PublishAssignmentErrorData = {
+  error?: string;
+  detail?: string;
+  details?: unknown;
+  blockers?: unknown;
+};
+
+export function publishAssignmentErrorMessage(
+  data?: PublishAssignmentErrorData,
+  fallbackMessage?: string,
+): string {
+  const structuredReason = data?.blockers || data?.details;
+  if (structuredReason) {
+    const entries = Array.isArray(structuredReason)
+      ? structuredReason
+      : typeof structuredReason === "object"
+        ? Object.values(structuredReason as Record<string, unknown>).flat()
+        : [structuredReason];
+    const message = entries
+      .map((entry) =>
+        typeof entry === "object" && entry !== null && "message" in entry
+          ? (entry as { message?: unknown }).message
+          : entry,
+      )
+      .filter(Boolean)
+      .map(safeAssignmentMessage)
+      .filter(Boolean)
+      .join(" ");
+    if (message) return message;
+  }
+  if (data?.detail) return safeAssignmentMessage(data.detail);
+  if (data?.error && data.error !== "publish_blocked") {
+    return safeAssignmentMessage(data.error);
+  }
+  if (data?.error === "publish_blocked") {
+    return "Unable to publish because the configuration needs attention. Review the publish requirements and try again.";
+  }
+  return safeAssignmentMessage(fallbackMessage || "Unable to publish. Try again.");
+}
+
 export function assignmentOperationErrorMessage(code?: string, step?: string): string {
   if (code && ASSIGNMENT_ERROR_MESSAGES[code]) return ASSIGNMENT_ERROR_MESSAGES[code];
   if (step === "activate") {

@@ -20,6 +20,7 @@ import {
   TERMINAL_OPERATION_STATUSES,
   assignmentOperationDetailMessage,
   assignmentOperationErrorMessage,
+  publishAssignmentErrorMessage,
   safeAssignmentMessage,
 } from "@/features/treatments/assignment/constants";
 import { AssignmentIssueList } from "@/features/treatments/assignment/components/AssignmentIssueList";
@@ -37,26 +38,15 @@ type PublishApiErrorData = {
   error?: string;
   detail?: string;
   details?: unknown;
+  blockers?: unknown;
 };
 
 const publishErrorMessage = (error: unknown): string => {
   const data = (error as { response?: { data?: PublishApiErrorData } })
     ?.response?.data;
-  if (data?.details) {
-    const details = data.details;
-    const flattened = Array.isArray(details)
-      ? details
-      : typeof details === "object" && details !== null
-        ? Object.values(details as Record<string, unknown>).flat()
-        : [details];
-    const message = flattened.filter(Boolean).join(" ");
-    if (message) return safeAssignmentMessage(message);
-  }
-  return safeAssignmentMessage(
-    data?.detail ||
-    data?.error ||
-    (error as { message?: string })?.message ||
-    "Unable to publish. Try again."
+  return publishAssignmentErrorMessage(
+    data,
+    (error as { message?: string })?.message,
   );
 };
 
