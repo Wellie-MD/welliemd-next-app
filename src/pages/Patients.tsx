@@ -4,6 +4,10 @@ import { ExternalLink, Eye, RotateCcw, Search } from "lucide-react";
 
 import { fetchAdminPatients, type AdminPatient } from "@/api/adminPatientsApi";
 import { startSuperAdminAccess } from "@/api/superAdminAccessApi";
+import {
+  PATIENT_STATUS_FILTERS,
+  type PatientEngagementStatus,
+} from "@/constants/patientStatus";
 import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -14,13 +18,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuthStore } from "@/store/useAuthStore";
 import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
-
-const statusFilters = [
-  { label: "All", value: "all" },
-  { label: "Active", value: "active" },
-  { label: "Inactive", value: "inactive" },
-  { label: "Drop-off", value: "dropoff" },
-];
 
 const formatDate = (value?: string) => {
   if (!value) return "-";
@@ -34,7 +31,9 @@ const formatCurrency = (value: number) =>
 
 const statusClassName = (status: string) => {
   if (status === "active") return "bg-green-100 text-green-800";
-  if (status === "dropoff") return "bg-purple-100 text-purple-800";
+  if (status === "in_review") return "bg-yellow-100 text-yellow-800";
+  if (status === "lapsed") return "bg-purple-100 text-purple-800";
+  if (status === "registered") return "bg-blue-100 text-blue-800";
   return "bg-gray-100 text-gray-700";
 };
 
@@ -47,7 +46,7 @@ export default function Patients() {
   const [selectedPatient, setSelectedPatient] = useState<AdminPatient | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<PatientEngagementStatus | "all">("all");
   const [clientId, setClientId] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -147,7 +146,7 @@ export default function Patients() {
 
       <div className="rounded-lg border bg-white p-4 space-y-4">
         <div className="flex flex-wrap gap-2">
-          {statusFilters.map((item) => (
+          {PATIENT_STATUS_FILTERS.map((item) => (
             <Button
               key={item.value}
               variant={status === item.value ? "default" : "outline"}

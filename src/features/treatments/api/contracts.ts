@@ -168,7 +168,7 @@ export type ProgramRecord = {
     combined_panel_name?: string;
     display_order: number;
     is_required: boolean;
-    is_release_required: boolean;
+    is_release_required?: boolean;
     sharing_policy?: "never" | "explicit_group";
     sharing_group_key?: string;
     is_active: boolean;

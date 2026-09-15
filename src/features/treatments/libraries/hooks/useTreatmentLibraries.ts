@@ -145,6 +145,36 @@ export const useSaveCustomProgram = () => {
   });
 };
 
+export const useSaveCustomProgramMatchingRules = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      customProgramId,
+      rules,
+      expectedUpdatedAt,
+    }: {
+      customProgramId: string;
+      rules: CustomProgram["programMatchingRules"];
+      expectedUpdatedAt?: string;
+    }) => treatmentsApi.saveCustomProgramMatchingRules(
+      customProgramId,
+      rules,
+      expectedUpdatedAt,
+    ),
+    onSuccess: async (data) => {
+      // Keep the builder on the server's latest optimistic-lock version so a
+      // later debounced edit does not reuse the pre-save timestamp.
+      queryClient.setQueryData(treatmentQueryKeys.customProgram(data.id), data);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customPrograms() }),
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customProgramValidation(data.id) }),
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.customProgramEffectiveContent(data.id) }),
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() }),
+      ]);
+    },
+  });
+};
+
 export const usePublishCustomProgram = () => {
   const queryClient = useQueryClient();
   return useMutation({

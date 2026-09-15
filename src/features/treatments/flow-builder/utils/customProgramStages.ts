@@ -314,13 +314,21 @@ export function buildAdminCustomProgramStages(
     const persisted = canonicalItems.find(
       (item) => item.kind === "routing_question" && String(item.sourceId || item.id) === question.sourceId,
     );
+    const inheritedProgramNames = (question.applicableProgramIds || [])
+      .map((id) => namesByProgramId.get(id) || id);
+    const inheritedLabel = inheritedProgramNames.length
+      ? `Inherited from ${inheritedProgramNames.join(", ")}`
+      : "Inherited from an included Program";
     return {
       id: persisted?.id || question.id,
       kind: "routing_question",
       title: question.title || persisted?.title || "Question",
-      subtitle: persisted?.subtitle || "Matching input",
+      subtitle: persisted?.subtitle || (question.derived
+        ? `${question.questionKind === "state_routing" ? "State routing" : "Question"} · ${inheritedLabel}`
+        : "Matching input"),
       persistedItem: persisted,
       derived: !persisted,
+      matchedProgramNames: inheritedProgramNames,
     };
   });
   const effectiveSections: AdminCustomProgramStageItem[] = (effective?.stages.stage1.sections || []).flatMap((sectionNode) => {

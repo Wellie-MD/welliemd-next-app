@@ -3,7 +3,8 @@ export { isDuplicateSlugError } from "./duplicateSlugError";
 
 export const showDuplicateSlugToast = () => {
   toast({
-    title: "Please enter a unique slug",
+    title: "Program URL slug already in use",
+    description: "Choose a different slug and try again.",
     variant: "destructive",
   });
 };

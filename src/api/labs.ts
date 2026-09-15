@@ -79,6 +79,7 @@ const normalizeCatalogItem = (raw: any): CatalogItem => ({
   item_type: raw.item_type || "",
   status: raw.status || "",
   price: String(raw.price || ""),
+  collection_method: String(raw.collection_method || ""),
   lab_id: String(raw.lab_id || ""),
   lab_slug: raw.lab_slug || "",
   lab_name: raw.lab_name || "",
@@ -223,6 +224,7 @@ export const labsApi = {
       slug: raw.slug || "",
       catalog_item_count: raw.catalog_item_count || 0,
       orderable_item_count: raw.orderable_item_count || 0,
+      collection_methods: Array.isArray(raw.collection_methods) ? raw.collection_methods : [],
     }));
   },
 

@@ -1,4 +1,5 @@
 import axiosInstance from "./axiosInstance";
+import type { PatientEngagementStatus } from "@/constants/patientStatus";
 
 export type AdminPatientTreatment = {
   name: string;
@@ -47,7 +48,7 @@ export type AdminPatientsParams = {
   page?: number;
   page_size?: number;
   search?: string;
-  status?: string;
+  status?: PatientEngagementStatus;
   client_id?: string;
 };
 

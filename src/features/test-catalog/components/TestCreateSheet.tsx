@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +15,6 @@ import type { CatalogItem, CatalogLab } from "@/api/labs";
 
 type CollectionMethod = "at_home_phlebotomy" | "walk_in_test" | "testkit" | "on_site_collection";
 
-interface SelectedBiomarker extends CatalogItem { }
-
 interface CreateFormState {
   lab_provider_id: string;
   lab_provider: string;
@@ -24,7 +22,7 @@ interface CreateFormState {
   name: string;
   description: string;
   fasting_required: "yes" | "no";
-  collection_method: CollectionMethod;
+  collection_method: CollectionMethod | "";
 }
 
 const INITIAL_FORM: CreateFormState = {
@@ -34,7 +32,7 @@ const INITIAL_FORM: CreateFormState = {
   name: "",
   description: "",
   fasting_required: "no",
-  collection_method: "at_home_phlebotomy",
+  collection_method: "",
 };
 
 const COLLECTION_METHOD_LABELS: Record<CollectionMethod, string> = {
@@ -78,15 +76,34 @@ export default function TestCreatePanel({
   const [form, setForm] = useState<CreateFormState>({ ...INITIAL_FORM });
   const [step, setStep] = useState<WizardStep>("select");
   const [creating, setCreating] = useState(false);
+  const itemCache = useRef(new Map<string, CatalogItem>());
+
+  useEffect(() => {
+    catalogItems.forEach((item) => itemCache.current.set(item.id, item));
+  }, [catalogItems]);
 
   const selectedItems = useMemo(() => {
-    const cache = new Map(catalogItems.map((i) => [i.id, i]));
     return biomarkerIds
-      .map((id) => cache.get(id))
-      .filter((item): item is SelectedBiomarker => Boolean(item));
+      .map((id) => itemCache.current.get(id) || catalogItems.find((item) => item.id === id))
+      .filter((item): item is CatalogItem => Boolean(item));
   }, [catalogItems, biomarkerIds]);
 
-  const canContinue = form.lab_provider_id && biomarkerIds.length > 0;
+  const selectedLab = catalogLabs.find((lab) => lab.id === form.lab_provider_id);
+  const labMethods = (selectedLab?.collection_methods || []).filter(
+    (method): method is CollectionMethod => method in COLLECTION_METHOD_LABELS,
+  );
+  const selectedMethodRequirements = new Set(selectedItems.map((item) => item.collection_method).filter(Boolean));
+  const availableMethods = selectedItems.length !== biomarkerIds.length || selectedMethodRequirements.size > 1
+    ? []
+    : selectedMethodRequirements.size === 1
+      ? [...selectedMethodRequirements].filter((method): method is CollectionMethod => (
+        method in COLLECTION_METHOD_LABELS && (labMethods.length === 0 || labMethods.includes(method as CollectionMethod))
+      ))
+      : labMethods;
+  const chosenMethod = availableMethods.includes(form.collection_method as CollectionMethod)
+    ? form.collection_method
+    : availableMethods[0] || "";
+  const canContinue = Boolean(form.lab_provider_id && biomarkerIds.length > 0 && availableMethods.length > 0);
 
   const handleLabSelect = (value: string) => {
     const lab = catalogLabs.find((l) => l.id === value);
@@ -94,6 +111,7 @@ export default function TestCreatePanel({
       ...prev,
       lab_provider_id: value,
       lab_provider: lab?.name ?? "",
+      collection_method: "",
     }));
     onBiomarkerIdsChange([]);
     onLabFilterChange(value);
@@ -112,10 +130,12 @@ export default function TestCreatePanel({
   };
 
   const handleCreate = async () => {
+    if (!chosenMethod) return;
     setCreating(true);
     try {
       await onCreate({
         ...form,
+        collection_method: chosenMethod,
         catalog_item_ids: biomarkerIds,
       });
       handleClose();
@@ -332,8 +352,12 @@ export default function TestCreatePanel({
                 STEP 6
               </p>
               <Label className="text-sm font-semibold">Choose your collection method</Label>
-              <Select
-                value={form.collection_method}
+              {availableMethods.length === 0 ? (
+                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                  No confirmed collection method is available for these selected tests. Refresh the catalog or choose compatible tests.
+                </p>
+              ) : <Select
+                value={chosenMethod}
                 onValueChange={(v) =>
                   setForm((prev) => ({
                     ...prev,
@@ -343,16 +367,15 @@ export default function TestCreatePanel({
               >
                 <SelectTrigger className="h-9 text-xs border-slate-200 rounded-lg shadow-sm focus:ring-1 focus:ring-blue-600 focus:ring-offset-0 bg-white hover:bg-slate-50/50 transition-colors font-semibold text-slate-700">
                   <SelectValue>
-                    {form.collection_method ? `Method: ${COLLECTION_METHOD_LABELS[form.collection_method]}` : "Choose Method"}
+                    {chosenMethod ? `Method: ${COLLECTION_METHOD_LABELS[chosenMethod]}` : "Choose Method"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="at_home_phlebotomy">At Home Phlebotomy</SelectItem>
-                  <SelectItem value="walk_in_test">Walk-in test</SelectItem>
-                  <SelectItem value="testkit">Test kit</SelectItem>
-                  <SelectItem value="on_site_collection">On-site collection</SelectItem>
+                  {availableMethods.map((method) => (
+                    <SelectItem key={method} value={method}>{COLLECTION_METHOD_LABELS[method]}</SelectItem>
+                  ))}
                 </SelectContent>
-              </Select>
+              </Select>}
             </div>
           </div>
         )}
@@ -378,7 +401,7 @@ export default function TestCreatePanel({
            ) : (
               <Button
                 onClick={handleCreate}
-                disabled={creating || !form.name}
+                disabled={creating || !form.name || !chosenMethod}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg px-6 py-2 transition-all duration-200"
               >
                 {creating ? "Creating…" : "Create draft panel"}

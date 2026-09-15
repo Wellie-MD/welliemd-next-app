@@ -77,8 +77,11 @@ export const customProgramsApi = {
           questions: (stages.stage_1?.questions || []).map((question: Record<string, any>) => ({
             id: String(question.id),
             sourceId: String(question.source_id || question.id),
-            title: question.title,
+            title: question.title || question.question_text || question.text,
             displayOrder: Number(question.display_order || 0),
+            questionKind: question.question_kind || question.question_type || question.kind,
+            derived: Boolean(question.derived),
+            applicableProgramIds: (question.applicable_program_ids || []).map(String),
           })),
           sections: (stages.stage_1?.sections || []).map(node),
         },
@@ -116,6 +119,23 @@ export const customProgramsApi = {
     const { data } = isPersistedUuid(program.id)
       ? await axiosInstance.patch<CustomProgramRecord>(`treatments/custom-programs/${program.id}/`, payload)
       : await axiosInstance.post<CustomProgramRecord>("treatments/custom-programs/", payload);
+    return customProgramFromRecord(data);
+  },
+  saveMatchingRules: async (
+    customProgramId: string,
+    rules: CustomProgram["programMatchingRules"],
+    expectedUpdatedAt?: string,
+  ): Promise<CustomProgram> => {
+    const payload: Record<string, unknown> = {
+      program_matching_rules: rules,
+    };
+    if (expectedUpdatedAt?.includes("T")) {
+      payload.expected_updated_at = expectedUpdatedAt;
+    }
+    const { data } = await axiosInstance.patch<CustomProgramRecord>(
+      `treatments/custom-programs/${customProgramId}/`,
+      payload,
+    );
     return customProgramFromRecord(data);
   },
   validate: async (id: string): Promise<CustomProgramValidationRecord> => {

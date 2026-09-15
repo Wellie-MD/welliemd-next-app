@@ -13,9 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 import type { CustomProgram } from "@/features/treatments/types";
+import { slugify } from "@/features/treatments/api/mappers";
+import { suggestUniqueCustomProgramSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
 
 export interface CustomProgramFormData {
   name: string;
+  slug: string;
   description: string;
   minAge: number;
   maxAge?: number;
@@ -27,13 +30,22 @@ interface CustomProgramModalProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: CustomProgramFormData) => void;
   program?: CustomProgram | null;
+  existingSlugs?: readonly string[];
 }
 
-export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: CustomProgramModalProps) {
+export function CustomProgramModal({
+  open,
+  onOpenChange,
+  onSubmit,
+  program,
+  existingSlugs = [],
+}: CustomProgramModalProps) {
   const { isEnabled } = usePhase2Flags();
   const patientAvatarEnabled = isEnabled("milestone_2");
+  const [slugWasEdited, setSlugWasEdited] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
+    slug: "",
     description: "",
     minAge: "18",
     maxAge: "",
@@ -55,6 +67,7 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
     if (program) {
       setFormData({
         name: program.name || "",
+        slug: program.slug || "",
         description: program.description || "",
         minAge: String(program.minAge ?? 18),
         maxAge: program.maxAge ? String(program.maxAge) : "",
@@ -63,12 +76,14 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
     } else {
       setFormData({
         name: "",
+        slug: "",
         description: "",
         minAge: "18",
         maxAge: "",
         audience: "all",
       });
     }
+    setSlugWasEdited(Boolean(program));
   }, [program, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -77,9 +92,20 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
 
     onSubmit({
       ...formData,
+      slug: slugify(formData.slug || suggestUniqueCustomProgramSlug(formData.name, existingSlugs)),
       minAge: parseInt(formData.minAge) || 18,
       maxAge: formData.maxAge ? parseInt(formData.maxAge) : undefined,
     });
+  };
+
+  const handleNameChange = (name: string) => {
+    setFormData((current) => ({
+      ...current,
+      name,
+      ...(slugWasEdited
+        ? {}
+        : { slug: name.trim() ? suggestUniqueCustomProgramSlug(name, existingSlugs) : "" }),
+    }));
   };
 
   return (
@@ -103,13 +129,34 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="e.g., Acme Health TRT Intake, Men's Wellness Form"
                 required
                 className="mt-1.5"
               />
               <p className="mt-1 text-[11px] text-slate-400">
                 The form name shown to admins. Patients see whatever you configure in the form's branding.
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="slug" className="text-xs font-semibold text-slate-700">
+                Program URL slug<span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="slug"
+                value={formData.slug}
+                onChange={(e) => {
+                  setSlugWasEdited(true);
+                  setFormData({ ...formData, slug: e.target.value });
+                }}
+                placeholder="e.g., multi-treatment-program"
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                required
+                className="mt-1.5"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Used in the patient link. We suggest an available slug automatically; you can change it if needed.
               </p>
             </div>
 

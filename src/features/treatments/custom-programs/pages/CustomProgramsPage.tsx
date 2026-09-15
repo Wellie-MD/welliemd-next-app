@@ -111,7 +111,13 @@ export default function CustomProgramsPage() {
         </div>
       )}
 
-      <CustomProgramModal open={page.isModalOpen} onOpenChange={page.setIsModalOpen} onSubmit={page.handleCreateOrEditSubmit} program={page.selectedProgram} />
+      <CustomProgramModal
+        open={page.isModalOpen}
+        onOpenChange={page.setIsModalOpen}
+        onSubmit={page.handleCreateOrEditSubmit}
+        program={page.selectedProgram}
+        existingSlugs={page.customPrograms.map((program) => program.slug)}
+      />
 
       {page.previewContext && (
         <QuestionnairePreviewDialog

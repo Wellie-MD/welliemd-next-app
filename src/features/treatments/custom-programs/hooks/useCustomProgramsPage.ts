@@ -8,6 +8,7 @@ import { useCustomPrograms, useDeleteCustomProgram, useSaveCustomProgram } from 
 import type { CustomProgramFormData } from "@/features/treatments/custom-programs/components/CustomProgramModal";
 import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 import { customProgramMutationErrorMessage } from "@/features/treatments/api/customProgramsApi";
+import { suggestUniqueCustomProgramSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
 
 export type CustomProgramsViewMode = "card" | "list";
 export type CustomProgramsFilter = "all" | "multi" | "single";
@@ -23,11 +24,14 @@ export function isCustomProgramMulti(program: CustomProgram) {
   return linkedProgramCount > 1;
 }
 
-function buildNewCustomProgram(data: CustomProgramFormData): CustomProgram {
+export function buildNewCustomProgram(
+  data: CustomProgramFormData,
+  existingSlugs: readonly string[] = [],
+): CustomProgram {
   return {
     id: createMockId("custom"),
     name: data.name,
-    slug: data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    slug: data.slug.trim() || suggestUniqueCustomProgramSlug(data.name, existingSlugs),
     description: data.description,
     status: "draft",
     audience: data.audience,
@@ -157,7 +161,9 @@ export function useCustomProgramsPage() {
   };
 
   const handleCreateOrEditSubmit = (data: CustomProgramFormData) => {
-    const payload = selectedProgram ? { ...selectedProgram, ...data } : buildNewCustomProgram(data);
+    const payload = selectedProgram
+      ? { ...selectedProgram, ...data }
+      : buildNewCustomProgram(data, customPrograms.map((program) => program.slug));
     saveCustomProgram(payload, {
       onSuccess: () => {
         toast({

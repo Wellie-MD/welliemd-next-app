@@ -54,6 +54,7 @@ export interface CatalogLab {
   slug: string;
   catalog_item_count: number;
   orderable_item_count: number;
+  collection_methods: string[];
 }
 
 export interface CatalogItem {
@@ -65,6 +66,7 @@ export interface CatalogItem {
   item_type: string;
   status: string;
   price: string;
+  collection_method: string;
   lab_id: string;
   lab_slug: string;
   lab_name: string;
