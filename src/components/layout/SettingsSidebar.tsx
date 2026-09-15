@@ -81,6 +81,12 @@ export function SettingsSidebar({
 
   const isActive = (path: string) => currentPath === path
 
+  const handleNavigation = () => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      onToggle()
+    }
+  }
+
   // Wrapper for menu items with tooltip when collapsed
   const MenuItemWrapper = ({ children, title }: { children: React.ReactNode, title: string }) => {
     if (collapsed) {
@@ -103,8 +109,8 @@ export function SettingsSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-30 h-svh bg-background border-r transition-all duration-200",
-        collapsed ? "w-16" : "w-64"
+        "fixed left-0 top-0 z-30 h-svh bg-background border-r transition-all duration-200 md:translate-x-0",
+        collapsed ? "w-16 -translate-x-full" : "w-64 translate-x-0"
       )}
     >
       {/* <Sidebar collapsible="icon" className="border-r flex flex-col h-full overflow-hidden"> */}
@@ -142,7 +148,10 @@ export function SettingsSidebar({
                 <SidebarMenuItem>
                   <MenuItemWrapper title="Back to App">
                     <SidebarMenuButton
-                      onClick={() => navigate("/dashboard")}
+                      onClick={() => {
+                        navigate("/dashboard")
+                        handleNavigation()
+                      }}
                       className={`
                         group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                         ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}
@@ -169,6 +178,7 @@ export function SettingsSidebar({
                     <MenuItemWrapper title={item.title}>
                       <NavLink
                         to={item.url}
+                        onClick={handleNavigation}
                         className={`
                           group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                           ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}

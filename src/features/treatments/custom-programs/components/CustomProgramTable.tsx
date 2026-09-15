@@ -21,7 +21,7 @@ interface CustomProgramTableProps {
   customPrograms: CustomProgram[];
   onOpenBuilder?: (program: CustomProgram) => void;
   onPreview?: (program: CustomProgram) => void;
-  onCopyStartUrl?: (program: CustomProgram) => Promise<void> | void;
+  onCopyStartUrl?: (program: CustomProgram) => Promise<boolean> | boolean;
   onSaveSlug?: (program: CustomProgram, slugOverride: string) => Promise<void> | void;
   programs?: Program[];
 }
@@ -74,8 +74,10 @@ export function CustomProgramTable({
   const [editingProgram, setEditingProgram] = useState<CustomProgram | null>(null);
 
   const handleCopy = async (program: CustomProgram) => {
+    if (!onCopyStartUrl) return;
     try {
-      await onCopyStartUrl?.(program);
+      const copied = await onCopyStartUrl(program);
+      if (copied === false) return;
       setCopiedProgramId(program.id);
       showFloatingToast({ title: "Intake URL Copied" });
       window.setTimeout(() => setCopiedProgramId((current) => (current === program.id ? null : current)), 1400);

@@ -188,7 +188,7 @@ export default function DashboardFrame() {
         <div className="h-full min-h-0 flex-1 flex flex-col min-w-0 overflow-x-hidden">
           <MessageChime conversations={conversations} />
 
-          <Header />
+          <Header showSidebarTrigger />
 
           <BillingSuspendedBanner />
 

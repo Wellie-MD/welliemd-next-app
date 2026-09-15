@@ -134,13 +134,13 @@ export function ProgramQuestionDetailModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[640px] max-w-[calc(100vw-32px)] gap-0 rounded-2xl border border-slate-200 bg-white p-0 text-slate-950 shadow-2xl dark:border-slate-800 dark:bg-[#171b27] dark:text-slate-50 [&>button]:hidden">
-        <DialogHeader className="shrink-0 border-b border-slate-100 px-6 py-5 text-left dark:border-slate-800">
+        <DialogHeader className="shrink-0 border-b border-slate-100 px-4 py-4 text-left dark:border-slate-800 sm:px-6 sm:py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <DialogTitle className="text-xl font-bold leading-6 text-slate-950 dark:text-slate-50">
                 {questionNumber ? `Question ${questionNumber}` : "Question Details"}
               </DialogTitle>
-              <DialogDescription className="mt-1.5 truncate text-xs font-medium text-slate-500 dark:text-slate-400">
+              <DialogDescription className="mt-1.5 break-words text-xs font-medium text-slate-500 dark:text-slate-400">
                 {`${programName} · assigned by ${sourceLabel}${isReadOnly ? " · read-only" : ""}`}
               </DialogDescription>
             </div>
@@ -155,24 +155,24 @@ export function ProgramQuestionDetailModal({
           </div>
         </DialogHeader>
 
-        <div className="max-h-[calc(85vh-100px)] overflow-y-auto space-y-6 p-6">
+        <div className="min-h-0 max-h-[calc(85vh-100px)] space-y-6 overflow-y-auto p-4 sm:p-6">
           {/* Main Question Text / Consent Name */}
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               {isConsent ? `Consent Name` : "Question Prompt"}
             </div>
-            <h3 className="mt-1.5 text-base font-bold text-slate-900 dark:text-slate-100">
+            <h3 className="mt-1.5 break-words text-base font-bold text-slate-900 dark:text-slate-100">
               {question.text}
             </h3>
           </div>
 
           {/* Metadata Grid: Type, Required, Section */}
-          <div className="grid grid-cols-3 gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-[#11151f]">
+          <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-[#11151f] sm:grid-cols-3">
             <div>
               <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                 Type
               </div>
-              <div className="mt-1 text-xs font-bold text-slate-800 dark:text-slate-200">
+              <div className="mt-1 break-words text-xs font-bold text-slate-800 dark:text-slate-200">
                 {formatQuestionKind(question.kind)}
               </div>
             </div>
@@ -181,7 +181,7 @@ export function ProgramQuestionDetailModal({
               <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                 Required
               </div>
-              <div className="mt-1 text-xs font-bold text-slate-800 dark:text-slate-200">
+              <div className="mt-1 break-words text-xs font-bold text-slate-800 dark:text-slate-200">
                 {question.required ? "Yes" : "No"}
               </div>
             </div>
@@ -190,7 +190,7 @@ export function ProgramQuestionDetailModal({
               <div className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                 Section
               </div>
-              <div className="mt-1 truncate text-xs font-bold text-slate-800 dark:text-slate-200">
+              <div className="mt-1 min-w-0 break-words text-xs font-bold text-slate-800 dark:text-slate-200 sm:truncate">
                 {question.section || "General"}
               </div>
             </div>
@@ -231,14 +231,14 @@ export function ProgramQuestionDetailModal({
                     return (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:border-slate-800/80 dark:bg-slate-900/40 dark:text-slate-200"
+                        className="flex flex-col items-start gap-2 rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:border-slate-800/80 dark:bg-slate-900/40 dark:text-slate-200 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex min-w-0 w-full items-start gap-3">
                           <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800" />
-                          <span className="select-none leading-snug">{choiceLabel}</span>
+                          <span className="min-w-0 break-words select-none leading-snug">{choiceLabel}</span>
                         </div>
                         {isDq && (
-                          <span className="ml-3 shrink-0 inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400">
+                          <span className="ml-0 inline-flex shrink-0 items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 sm:ml-3">
                             Disqualifying
                           </span>
                         )}
@@ -271,11 +271,11 @@ export function ProgramQuestionDetailModal({
                     return (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:border-slate-800/80 dark:bg-slate-900/40 dark:text-slate-200"
+                        className="flex flex-col items-start gap-2 rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:border-slate-800/80 dark:bg-slate-900/40 dark:text-slate-200 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 w-full items-center gap-3">
                           <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800" />
-                          <span className="select-none">{choiceLabel}</span>
+                          <span className="min-w-0 break-words select-none">{choiceLabel}</span>
                         </div>
                         {isDq && (
                           <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400">
@@ -299,11 +299,11 @@ export function ProgramQuestionDetailModal({
                     return (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:border-slate-800/80 dark:bg-slate-900/40 dark:text-slate-200"
+                        className="flex flex-col items-start gap-2 rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:border-slate-800/80 dark:bg-slate-900/40 dark:text-slate-200 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 w-full items-center gap-3">
                           <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800" />
-                          <span className="select-none">{choiceLabel}</span>
+                          <span className="min-w-0 break-words select-none">{choiceLabel}</span>
                         </div>
                         {isDq && (
                           <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400">
@@ -360,7 +360,7 @@ export function ProgramQuestionDetailModal({
 
               {/* File Upload Area */}
               {question.kind === "file_upload" && (
-                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center dark:border-slate-700 dark:bg-[#11151f]">
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-4 text-center dark:border-slate-700 dark:bg-[#11151f] sm:p-6">
                   <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                     File Upload Area (Patient Preview)
                   </div>
@@ -372,7 +372,7 @@ export function ProgramQuestionDetailModal({
 
               {/* Height / Weight */}
               {question.kind === "height_weight" && (
-                <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-[#11151f]">
+                <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-[#11151f] sm:grid-cols-2">
                   <div>
                     <div className="text-[11px] font-medium text-slate-400 mb-1">Height (ft / in)</div>
                     <input

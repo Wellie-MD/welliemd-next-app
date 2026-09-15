@@ -19,8 +19,6 @@ import {
 import {
   MessageSquare,
   Mail,
-  Receipt,
-  Download,
   Edit,
   Truck,
   Stethoscope,
@@ -95,26 +93,16 @@ interface OrderHeaderCardProps {
   order: Order
   onTrackThread: () => void
   onSendCheckoutLink: () => void
-  onResendReceipt: () => void
-  onDownloadReceipt: () => void
   onOpenStatusModal: () => void
   sendCheckoutLinkLoading: boolean
-  resendReceiptLoading: boolean
-  downloadReceiptLoading: boolean
-  canUseReceipt: boolean
 }
 
 export const OrderHeaderCard: React.FC<OrderHeaderCardProps> = ({
   order,
   onTrackThread,
   onSendCheckoutLink,
-  onResendReceipt,
-  onDownloadReceipt,
   onOpenStatusModal,
   sendCheckoutLinkLoading,
-  resendReceiptLoading,
-  downloadReceiptLoading,
-  canUseReceipt,
 }) => {
   const [checkoutUrlCopied, setCheckoutUrlCopied] = useState(false)
   const status = order.orderStatus || order.status || "created"
@@ -252,42 +240,6 @@ export const OrderHeaderCard: React.FC<OrderHeaderCardProps> = ({
               }
             </TooltipContent>
           </Tooltip>
-
-          {canUseReceipt && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onResendReceipt}
-                    disabled={resendReceiptLoading}
-                    className="h-9 px-3 text-xs font-medium gap-1.5 rounded-lg border-primary/20 text-slate-700 dark:text-slate-200 hover:bg-primary/5 hover:text-primary"
-                  >
-                    {resendReceiptLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Receipt className="h-4 w-4 text-primary" />}
-                    <span className="hidden sm:inline">Resend Receipt</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Email payment receipt to patient</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onDownloadReceipt}
-                    disabled={downloadReceiptLoading}
-                    className="h-9 px-3 text-xs font-medium gap-1.5 rounded-lg border-primary/20 text-slate-700 dark:text-slate-200 hover:bg-primary/5 hover:text-primary"
-                  >
-                    {downloadReceiptLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-4 w-4 text-primary" />}
-                    <span className="hidden sm:inline">Download Receipt</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Download receipt PDF</TooltipContent>
-              </Tooltip>
-            </>
-          )}
 
           <Button
             variant="default"

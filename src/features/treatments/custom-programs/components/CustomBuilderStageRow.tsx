@@ -62,11 +62,15 @@ export function CustomBuilderStageRow({
 }: CustomBuilderStageRowProps) {
   const meta = rowMeta[item.kind] ?? rowMeta.question;
   const Icon = meta.icon || FileText;
+  const isQuestionRow = item.kind === "question";
   const isEditableClientQuestion = item.kind === "question" && item.source === "client" && !item.locked;
   const canPreviewQuestion = item.kind === "question";
 
   return (
-    <div className="flex min-h-[58px] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-150 hover:border-[#4f00ff] hover:shadow-[0_0_0_1px_rgba(79,0,255,0.12),0_8px_24px_-18px_rgba(79,0,255,0.65)] dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none dark:hover:border-blue-600 dark:hover:bg-[#141827]">
+    <div className={cn(
+      "flex min-h-[58px] gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-150 hover:border-[#4f00ff] hover:shadow-[0_0_0_1px_rgba(79,0,255,0.12),0_8px_24px_-18px_rgba(79,0,255,0.65)] dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none dark:hover:border-blue-600 dark:hover:bg-[#141827]",
+      isQuestionRow ? "flex-wrap items-start md:flex-nowrap md:items-center" : "items-center",
+    )}>
       <GripVertical className="h-4 w-4 shrink-0 text-slate-200 dark:text-slate-700" />
       <div className="w-5 shrink-0 text-right text-[11px] font-medium text-slate-400 dark:text-slate-500">{itemNumber}</div>
       <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", meta.iconClass)}>
@@ -74,7 +78,7 @@ export function CustomBuilderStageRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className={cn("rounded-[3px] border px-1.5 py-0.5 text-[10px] font-bold", meta.badgeClass)}>
             {meta.label}
           </span>
@@ -83,12 +87,18 @@ export function CustomBuilderStageRow({
               ADDED BY YOU
             </span>
           )}
-          <span className="text-sm font-semibold text-slate-950 dark:text-slate-100">{item.title}</span>
+          <span className={cn(
+            "text-sm font-semibold text-slate-950 dark:text-slate-100",
+            isQuestionRow && "min-w-0 basis-full break-words md:flex-1 md:basis-auto",
+          )}>{item.title}</span>
         </div>
-        {item.subtitle && <p className="mt-1 text-xs font-medium text-slate-400 dark:text-slate-500">{item.subtitle}</p>}
+        {item.subtitle && <p className="mt-1 break-words text-xs font-medium text-slate-400 dark:text-slate-500">{item.subtitle}</p>}
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-3 text-slate-400 dark:text-slate-500">
+      <div className={cn(
+        "ml-auto flex shrink-0 items-center gap-3 text-slate-400 dark:text-slate-500",
+        isQuestionRow && "w-full justify-end border-t border-slate-100 pt-2 md:w-auto md:border-t-0 md:pt-0 dark:border-slate-800",
+      )}>
         {isEditableClientQuestion && (
           <button
             type="button"

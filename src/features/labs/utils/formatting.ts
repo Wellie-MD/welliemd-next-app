@@ -38,7 +38,13 @@ export const formatLabCollectionMethod = (method?: string) => {
 export const formatLabPaymentProvider = (provider?: string) => {
   const normalized = provider?.trim().toLowerCase();
   if (!normalized) return "—";
-  if (normalized === "zero_total") return "No payment required";
+  const labels: Record<string, string> = {
+    stripe: "Stripe",
+    nmi: "NMI",
+    authorizenet: "Authorize.net",
+    zero_total: "Not applicable — no payment required",
+  };
 
-  return normalized.replace(/_/g, " ").replace(/^./, (character) => character.toUpperCase());
+  return labels[normalized]
+    || normalized.replace(/_/g, " ").replace(/^./, (character) => character.toUpperCase());
 };

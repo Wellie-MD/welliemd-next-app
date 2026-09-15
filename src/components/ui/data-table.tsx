@@ -283,10 +283,10 @@ export function DataTable({
             )}
           </div>
 
-          {/* Search Box, Date Picker, Export and Refresh in same line */}
-          <div className="flex items-center gap-4">
+          {/* Search Box, Date Picker, Export and Refresh toolbar */}
+          <div className="flex flex-col items-stretch gap-3 lg:flex-row lg:items-center lg:gap-4">
             {/* Search Box */}
-            <div className="relative flex-1 max-w-xl">
+            <div className="relative min-w-0 w-full lg:flex-1 lg:max-w-xl">
               <Input
                 value={localSearch}
                 onChange={(e) => handleInputChange(e.target.value)}
@@ -306,14 +306,14 @@ export function DataTable({
             </div>
 
             {/* Right side buttons container */}
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="ml-0 flex w-full flex-wrap items-center justify-end gap-2 lg:ml-auto lg:w-auto lg:flex-nowrap">
               {/* Date Picker */}
               {showDatePicker && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-[280px] justify-start text-left font-normal"
+                      className="w-full justify-start text-left font-normal sm:w-[280px]"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {dateRange?.from ? (
@@ -490,7 +490,7 @@ export function DataTable({
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-[376px]:flex-col max-[376px]:items-stretch max-[376px]:gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Rows per page:</span>
           <Select

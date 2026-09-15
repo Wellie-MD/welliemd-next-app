@@ -9,6 +9,7 @@ import { Box, FlaskConical, DollarSign, Power, MapPin, Image as ImageIcon } from
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { BILLING_TYPE_LABELS, ORDERING_MODE_LABELS } from "@/features/labs/constants/orderingPolicy";
+import { buildLabPanelUpdates } from "@/features/labs/editUpdates";
 import {
   Dialog,
   DialogContent,
@@ -107,17 +108,22 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
     if (!editingLab) return;
     try {
       setSaving(true);
-      let updated = await clientLabsApi.updateLabPanel(editingLab.assignment_id, {
-        patient_price: effectivePatientPrice,
-        discounted_patient_price: editingLab.is_combined
-          ? undefined
-          : discountedPatientPrice.trim()
-            ? Number.parseFloat(discountedPatientPrice)
-            : null,
-        shipping_fee: editingLab.is_combined ? effectiveShippingFee : undefined,
-        is_active: isActive,
-        service_states: serviceStates,
-      }, editingLab.edit_scope, editingLab.combined_offering_id);
+      const updates = buildLabPanelUpdates({
+        patientPrice,
+        discountedPatientPrice,
+        shippingFee,
+        isActive,
+        serviceStates,
+      }, editingLab);
+      let updated = editingLab;
+      if (Object.keys(updates).length > 0) {
+        updated = await clientLabsApi.updateLabPanel(
+          editingLab.assignment_id,
+          updates,
+          editingLab.edit_scope,
+          editingLab.combined_offering_id
+        );
+      }
       if (imageFile) {
         updated = await clientLabsApi.uploadLabPanelImage(
           editingLab.assignment_id,

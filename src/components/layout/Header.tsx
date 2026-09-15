@@ -1,4 +1,4 @@
-import { Search, Bell, User, Store, LogOut, Moon, Sun, CheckCircle2 } from "lucide-react"
+import { Search, Bell, User, Store, LogOut, Moon, Sun, CheckCircle2, PanelLeft, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { formatDistanceToNowStrict } from "date-fns"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,7 @@ import { DEFAULT_CLIENT_LOGO_PATH } from "@/constants/branding"
 import { useTheme } from "next-themes"
 import { useClientMessages } from "@/contexts/MessagesContext"
 import api from "@/api/axiosInstance"
-// import { SidebarTrigger } from "../ui/sidebar"
+import { SidebarTrigger } from "../ui/sidebar"
 
 const formatNotificationTime = (raw: string): string => {
   if (!raw) return ""
@@ -32,7 +32,19 @@ const formatNotificationTime = (raw: string): string => {
   return formatDistanceToNowStrict(date, { addSuffix: true })
 }
 
-export function Header() {
+type HeaderProps = {
+  showSidebarTrigger?: boolean
+  showSettingsSidebarTrigger?: boolean
+  settingsSidebarCollapsed?: boolean
+  onSettingsSidebarToggle?: () => void
+}
+
+export function Header({
+  showSidebarTrigger = false,
+  showSettingsSidebarTrigger = false,
+  settingsSidebarCollapsed = false,
+  onSettingsSidebarToggle,
+}: HeaderProps) {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const { state } = useSidebar()
@@ -169,15 +181,30 @@ export function Header() {
 
 
   return (
-    <header className="h-[58px] bg-[hsl(var(--topband))] dark:bg-slate-900 border-b border-border dark:border-slate-700 flex items-center justify-between gap-[18px] px-[26px] max-[900px]:px-3.5">
+    <header className="h-[58px] bg-[hsl(var(--topband))] dark:bg-slate-900 border-b border-border dark:border-slate-700 flex items-center justify-between gap-[18px] max-[640px]:gap-2 px-[26px] max-[900px]:px-3.5">
       <div className="flex items-center gap-4">
+        {showSidebarTrigger && (
+          <SidebarTrigger className="md:hidden rounded-md p-1 text-gray-600 hover:bg-white/50 dark:text-slate-300 dark:hover:bg-slate-800" />
+        )}
+        {showSettingsSidebarTrigger && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="md:hidden rounded-md text-gray-600 hover:bg-white/50 dark:text-slate-300 dark:hover:bg-slate-800"
+            onClick={onSettingsSidebarToggle}
+            aria-label={settingsSidebarCollapsed ? "Open settings navigation" : "Close settings navigation"}
+          >
+            {settingsSidebarCollapsed ? <PanelLeft className="h-4 w-4" /> : <X className="h-4 w-4" />}
+          </Button>
+        )}
         <div className="flex items-center gap-2">
           {state === "collapsed" && (
           <div className="brand-logo-shell">
             <img 
               src={logos?.transparent || logos?.square || DEFAULT_CLIENT_LOGO_PATH}
               alt="WellieMD"
-              className="h-7 w-auto max-w-[180px] object-contain"
+              className="h-7 w-auto max-w-[180px] object-contain max-[640px]:max-w-[120px] max-[400px]:max-w-[96px]"
               onError={(e) => {
                 if (!e.currentTarget.src.endsWith(DEFAULT_CLIENT_LOGO_PATH)) {
                   e.currentTarget.src = DEFAULT_CLIENT_LOGO_PATH
@@ -187,10 +214,9 @@ export function Header() {
           </div>
              )}
         </div>
-        {/* <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" /> // button moved to sidebar */}
       </div>
 
-      <div className="flex-1 max-w-[540px] mx-auto">
+      <div className="min-w-0 flex-1 max-w-[540px] mx-auto">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[hsl(var(--text-tertiary))] dark:text-slate-400" />
           <Input
@@ -198,17 +224,17 @@ export function Header() {
             className="h-[34px] rounded-[9px] border-border bg-white pl-10 text-[13px] text-foreground placeholder:text-[hsl(var(--text-tertiary))] focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400"
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <kbd className="rounded-[5px] border border-border bg-slate-100 px-1.5 py-0.5 text-[11px] text-[hsl(var(--text-secondary))] dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
+            <kbd className="rounded-[5px] border border-border bg-slate-100 px-1.5 py-0.5 text-[11px] text-[hsl(var(--text-secondary))] dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 max-[640px]:hidden">
               Ctrl K
             </kbd>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3 max-[640px]:gap-1.5">
         <DropdownMenu onOpenChange={(open) => { if (open) void loadNotifications() }}>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="relative text-gray-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800">
+            <Button size="icon" variant="ghost" className="relative text-gray-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800 max-[640px]:h-9 max-[640px]:w-9">
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center">
@@ -290,7 +316,7 @@ export function Header() {
         <Button
           size="icon"
           variant="ghost"
-          className="text-gray-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800"
+          className="text-gray-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800 max-[640px]:h-9 max-[640px]:w-9"
           onClick={() => setTheme(isDark ? "light" : "dark")}
           aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
         >
@@ -299,8 +325,8 @@ export function Header() {
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 focus-visible:ring-0 text-gray-700 dark:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-800">
-              <Avatar className="h-8 w-8">
+            <Button variant="ghost" className="flex items-center gap-2 focus-visible:ring-0 text-gray-700 dark:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-800 max-[640px]:h-9 max-[640px]:w-9 max-[640px]:gap-0 max-[640px]:px-1 max-[640px]:py-1">
+              <Avatar className="h-8 w-8 max-[640px]:h-7 max-[640px]:w-7">
                 <AvatarImage src={user?.avatar_url || ""} alt={user?.full_name} />
                 <AvatarFallback>
                   {user?.full_name?.charAt(0).toUpperCase() || user?.first_name?.charAt(0).toUpperCase() || "U"}

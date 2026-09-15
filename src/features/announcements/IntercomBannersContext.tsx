@@ -20,7 +20,7 @@ interface IntercomBannersContextValue {
   /** First banner authored as the floating card (bottom) variant, if any. */
   card: IntercomBanner | null;
   /** Dismiss a banner: records it in Intercom and removes it locally. */
-  dismiss: (viewId: string) => void;
+  dismiss: (banner: IntercomBanner) => void;
 }
 
 const IntercomBannersContext = createContext<IntercomBannersContextValue>({
@@ -54,10 +54,26 @@ export function IntercomBannersProvider({ children }: { children: ReactNode }) {
       });
   }, [intercomEnabled]);
 
-  const dismiss = (viewId: string) => {
-    setBanners((prev) => prev.filter((b) => b.view_id !== viewId));
+  const dismissedRefs = useRef<Set<string>>(new Set());
+
+  const dismiss = (banner: IntercomBanner) => {
+    if (banner.id) dismissedRefs.current.add(banner.id);
+    dismissedRefs.current.add(banner.view_id);
+
+    setBanners((prev) => prev.filter((b) => b !== banner && b.id !== banner.id));
     // Already removed locally; the server dismissal is best-effort.
-    dismissIntercomBanner(viewId).catch(() => {});
+    dismissIntercomBanner(banner.view_id)
+      .then(() => fetchIntercomBanners())
+      .then((data) => {
+        setBanners(
+          data.filter(
+            (b) =>
+              !dismissedRefs.current.has(b.view_id) &&
+              (!b.id || !dismissedRefs.current.has(b.id))
+          )
+        );
+      })
+      .catch(() => {});
   };
 
   const inline = banners.find((b) => b.variant === 'inline') ?? null;
