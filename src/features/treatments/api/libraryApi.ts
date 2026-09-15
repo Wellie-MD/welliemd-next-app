@@ -81,8 +81,24 @@ export const consentsApi = {
   list: async (): Promise<ConsentForm[]> => {
     const { data } = await axiosInstance.get<PaginatedResponse<ConsentRecord> | ConsentRecord[]>(
       "treatments/consents/",
+      { params: { page_size: 100 } },
     );
-    return records(data).map(consentFromRecord);
+    if (Array.isArray(data)) return data.map(consentFromRecord);
+
+    const allRecords = [...records(data)];
+    const visitedNextUrls = new Set<string>();
+    let next = data.next;
+    while (next) {
+      if (visitedNextUrls.has(next)) {
+        throw new Error("Consent pagination returned a repeated next URL.");
+      }
+      visitedNextUrls.add(next);
+      const response = await axiosInstance.get<PaginatedResponse<ConsentRecord>>(next);
+      allRecords.push(...records(response.data));
+      next = response.data.next;
+    }
+
+    return allRecords.map(consentFromRecord);
   },
   save: async (consent: ConsentForm): Promise<ConsentForm> => {
     const payload = consentToRecord(consent);
