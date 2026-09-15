@@ -1,4 +1,5 @@
 import { ExternalLink, Pill, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { CustomProgram, Program } from "@/features/treatments/types";
 import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { resolveCustomProgramNames } from "@/features/treatments/custom-programs/utils/customProgramDisplay";
@@ -71,8 +72,8 @@ export function CustomProgramCard({
     >
       <div
         className={cn(
-          "flex flex-col gap-3 border-b border-slate-100 p-3.5 sm:flex-row sm:items-start sm:justify-between dark:border-slate-700",
-          isMulti && "dark:border-slate-700 dark:bg-gradient-to-b dark:from-pink-100/85 dark:via-slate-400/65 dark:to-slate-500/40"
+          "border-b border-slate-100 p-3.5 dark:border-slate-700",
+          isMulti && "dark:bg-gradient-to-b dark:from-pink-100/85 dark:via-slate-400/65 dark:to-slate-500/40"
         )}
       >
         <div className="flex min-w-0 flex-1 items-start gap-2.5">
@@ -93,21 +94,9 @@ export function CustomProgramCard({
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => onViewStartUrl?.(customProgram)}
-          disabled={!onViewStartUrl}
-          className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20"
-          aria-label={`View and copy intake URL for ${customProgram.name}`}
-          data-testid="custom-program-url-actions"
-          title="View and copy intake URL"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          <span>View and copy intake URL</span>
-        </button>
       </div>
 
-      <div className="flex h-[120px] shrink-0 flex-col justify-between border-b border-slate-100 bg-white p-3.5 dark:border-slate-700 dark:bg-[#171b27]">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-100 bg-white p-3.5 dark:border-slate-700 dark:bg-[#171b27]">
         <div>
           <div className="flex items-start justify-between gap-2">
             <div className="font-semibold text-[13px] text-slate-900 leading-tight dark:text-slate-50">
@@ -137,19 +126,38 @@ export function CustomProgramCard({
             </div>
           )}
         </div>
-        <div className="flex gap-1.5 mt-auto">
-          <button
+        <div className="grid gap-2 sm:grid-cols-2" data-testid="custom-program-card-actions">
+          <Button
+            type="button"
+            size="sm"
             onClick={() => onOpenBuilder?.(customProgram)}
-            className="flex-1 inline-flex items-center justify-center text-center py-1.5 px-3 rounded-lg text-[11.5px] font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            className="w-full rounded-lg bg-blue-600 px-3 py-1.5 text-[11.5px] font-semibold text-white hover:bg-blue-700"
           >
             Open builder
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
             onClick={() => onPreview?.(customProgram)}
-            className="flex-1 inline-flex items-center justify-center text-center py-1.5 px-3 rounded-lg text-[11.5px] font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 transition-colors dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800"
+            className="w-full rounded-lg border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800"
           >
             Preview
-          </button>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onViewStartUrl?.(customProgram)}
+            disabled={!onViewStartUrl}
+            className="w-full gap-1.5 rounded-lg border-blue-200 bg-blue-50 px-3 py-1.5 text-[11.5px] font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20 sm:col-span-2"
+            aria-label={`View and copy intake URL for ${customProgram.name}`}
+            data-testid="custom-program-url-action"
+            title="View and copy intake URL"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span>View and copy intake URL</span>
+          </Button>
         </div>
       </div>
 
