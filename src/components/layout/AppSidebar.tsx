@@ -177,11 +177,17 @@ const menuSections = [
 ];
 
 export function AppSidebar({ unseenCount = 0 }: Props) {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
   const [openSections, setOpenSections] = useState<string[]>([]);
   const collapsed = state === "collapsed";
+
+  const handleNavigation = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   // Auto-open sections when a child is active
   useEffect(() => {
@@ -365,6 +371,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                             >
                                               <NavLink
                                                 to={child.url}
+                                                onClick={handleNavigation}
                                                 className={`
                                                   flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
                                                 ${currentPath === child.url
@@ -390,6 +397,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                     <NavLink
                                       to={item.url}
                                       end
+                                      onClick={handleNavigation}
                                       className={`
                                         group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                                         ${collapsed
@@ -483,6 +491,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                         >
                                           <NavLink
                                             to={child.url}
+                                            onClick={handleNavigation}
                                             className={`
                                               flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
                                               ${currentPath === child.url
@@ -508,6 +517,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                 <NavLink
                                   to={item.url}
                                   end
+                                  onClick={handleNavigation}
                                   className={`
                                     group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                                     ${collapsed

@@ -37,18 +37,18 @@ export function ProgramCard({
   const isPublished = program.status === "published";
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col group dark:border-slate-700 dark:bg-[#171b27]">
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mb-3 flex flex-col items-start gap-2 md:flex-row md:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
             {formatProgramStage(program.stage)}
           </span>
           {treatmentName && (
-            <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+            <span className="inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-left text-[11px] font-medium whitespace-normal break-words bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
               {treatmentName}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex w-full shrink-0 items-center justify-end gap-1 md:w-auto">
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase",

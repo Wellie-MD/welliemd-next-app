@@ -421,7 +421,7 @@ export default function ProgramDetailPage() {
 	            </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 overflow-x-auto pb-1 lg:justify-end">
+	          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 pb-1 lg:w-auto lg:shrink-0 lg:justify-end">
 	            <Button
 	              type="button"
 	              variant="outline"
@@ -439,7 +439,7 @@ export default function ProgramDetailPage() {
 	                  title: "Managed By WellieMD - this part is read only in the client portal",
 	                })
 	              }
-	              className="h-9 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-300 dark:hover:bg-slate-800"
+	              className="h-9 shrink-0 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-300 dark:hover:bg-slate-800"
 	            >
 	              <GitBranch className="h-4 w-4" />
 	              Flow Builder
@@ -449,7 +449,7 @@ export default function ProgramDetailPage() {
 	              variant="outline"
 	              onClick={handleToggleReorder}
 	              className={cn(
-	                "h-9 rounded-lg px-4 text-sm font-semibold shadow-sm",
+	                "h-9 shrink-0 rounded-lg px-4 text-sm font-semibold shadow-sm",
 	                isReorderActive
 	                  ? "border-blue-600 bg-blue-50 text-blue-600 dark:border-blue-500 dark:bg-blue-500/10 dark:text-blue-300"
 	                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-300 dark:hover:bg-slate-800"
@@ -461,7 +461,7 @@ export default function ProgramDetailPage() {
 	            <Button
 	              type="button"
 	              onClick={handleOpenAddQuestion}
-	              className="h-9 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#4f00ff] dark:bg-[#5b4dff] dark:hover:bg-[#5b4dff]"
+	              className="h-9 shrink-0 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-[#4f00ff] dark:bg-[#5b4dff] dark:hover:bg-[#5b4dff]"
 	            >
 	              <Plus className="h-4 w-4" />
 	              Add Question
@@ -508,12 +508,12 @@ export default function ProgramDetailPage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none">
-          <div className="grid grid-cols-[52px_minmax(0,1fr)_120px_170px_92px] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400 dark:border-slate-800 dark:bg-[#11151f] dark:text-slate-500 md:px-8">
+        <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none">
+          <div className="grid min-w-[680px] grid-cols-[52px_minmax(0,1fr)_120px_170px_92px] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400 dark:border-slate-800 dark:bg-[#11151f] dark:text-slate-500 md:px-8">
             <div>#</div>
-            <div>Question or Element</div>
-            <div>Required</div>
-            <div>Type</div>
+            <div className="min-w-0 truncate">Question or Element</div>
+            <div className="whitespace-nowrap">Required</div>
+            <div className="whitespace-nowrap">Type</div>
             <div className="text-center">Actions</div>
           </div>
 

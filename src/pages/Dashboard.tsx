@@ -380,7 +380,7 @@ export default function Dashboard() {
     <div className="mx-auto max-w-[1500px]">
       <header className="mb-[18px] flex flex-col justify-between gap-4 2xl:flex-row 2xl:items-start">
         <div className="min-w-0"><h1 className="text-[22px] font-bold tracking-tight">Dashboard</h1><p className="mt-1 max-w-[620px] text-[13px] text-slate-400">{rangeLabel}</p></div>
-        <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_34px] items-center gap-1.5 sm:grid-cols-[repeat(6,max-content)_34px] 2xl:justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-1.5 sm:grid sm:grid-cols-[repeat(6,max-content)_34px] 2xl:justify-end">
           <div className="contents">{ranges.map((range) => <button key={range.value} onClick={() => applyPreset(range)} className={cn("h-[31px] rounded-[7px] border px-3 text-[12px] font-medium", activeRange === range.value ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300" : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300")}>{range.label}</button>)}</div>
           <button type="button" onClick={toggleCustom} className={cn("h-[31px] rounded-[7px] border px-3 text-[12px] font-medium", activeRange === "custom" ? "border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300" : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300")}>Custom</button>
           <Button variant="outline" size="sm" className="h-[31px] w-[34px] rounded-[7px] p-0" onClick={() => void load()} disabled={loading} aria-label="Refresh dashboard"><RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /></Button>

@@ -25,12 +25,12 @@ export function CustomBuilderStageComponent({
 }: CustomBuilderStageComponentProps) {
   return (
     <section className="space-y-2">
-      <div className="flex items-center gap-3 px-2">
+      <div className="flex flex-wrap items-center gap-2 px-2">
         <span className={cn("rounded-md border px-2 py-1 text-[11px] font-bold uppercase", stageToneClass[stage.tone])}>
           Stage {stage.stageNumber}
         </span>
-        <h2 className="text-sm font-bold text-slate-950 dark:text-slate-100">{stage.title}</h2>
-        <span className="ml-auto inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold text-slate-400 dark:bg-slate-900 dark:text-slate-500">
+        <h2 className="min-w-0 flex-1 text-sm font-bold text-slate-950 dark:text-slate-100">{stage.title}</h2>
+        <span className="ml-auto inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold text-slate-400 dark:bg-slate-900 dark:text-slate-500">
           {stage.items.length}
         </span>
       </div>
