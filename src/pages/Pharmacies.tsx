@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isAxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, RefreshCw, Link as LinkIcon, Upload } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
@@ -40,6 +41,7 @@ export default function Pharmacies() {
   const [syncToClientsLoading, setSyncToClientsLoading] = useState(false);
   const [confirmSyncToClients, setConfirmSyncToClients] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const fetchList = async () => {
     setLoading(true);
@@ -87,28 +89,34 @@ export default function Pharmacies() {
   };
 
   const onTestConnection = async (row: Pharmacy) => {
+    setTestingId(row.id);
     try {
       const res = await pharmacyApi.testConnection(row.id);
-      if (res.connected) {
-        toast({
-          title: "Success",
-          description: "Connection test successful",
-        });
-      } else {
-        toast({
-          title: "Connection Failed",
-          description: res.details?.error || "Connection test failed",
-          variant: "destructive",
-        });
-      }
+      // The backend reports both outcomes as 200 and always says why, so
+      // show its reason rather than a generic "failed".
+      toast({
+        title: res.connected ? "Connected" : "Not connected",
+        description: res.detail,
+        variant: res.connected ? undefined : "destructive",
+      });
       fetchList();
-    } catch (e) {
+    } catch (e: unknown) {
       console.error(e);
+      const status = isAxiosError(e) ? e.response?.status : undefined;
+      const description =
+        status === 429
+          ? "Too many connection tests. Wait a minute and try again."
+          : status === 403
+          ? "You do not have permission to test pharmacy connections."
+          : (isAxiosError(e) && (e.response?.data as { detail?: string })?.detail) ||
+            "Connection test failed";
       toast({
         title: "Error",
-        description: "Connection test failed",
+        description,
         variant: "destructive",
       });
+    } finally {
+      setTestingId(null);
     }
   };
 
@@ -193,9 +201,10 @@ export default function Pharmacies() {
             size="sm"
             className="h-7 px-2"
             onClick={() => onTestConnection(row)}
+            disabled={testingId === row.id}
             title="Test connection"
           >
-            Test Connection
+            {testingId === row.id ? "Testing…" : "Test Connection"}
           </Button>
             <button title="Edit" onClick={() => setEditing(row)} className="hover:opacity-80">
               <Pencil className="h-4 w-4" />

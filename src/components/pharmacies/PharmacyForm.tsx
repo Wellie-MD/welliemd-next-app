@@ -437,13 +437,11 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">
-                    API URL <span className="text-red-500">*</span>
+                    API URL
                   </label>
                   <input 
                     type="url"
-                    {...register("api_url", { 
-                      required: "API URL is required" 
-                    })} 
+                    {...register("api_url")} 
                     className="border px-3 py-2 rounded w-full" 
                   />
                   {errors.api_url && (
@@ -453,12 +451,10 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
 
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    API User <span className="text-red-500">*</span>
+                    API User
                   </label>
                   <input 
-                    {...register("api_user", { 
-                      required: "API User is required" 
-                    })} 
+                    {...register("api_user")} 
                     className="border px-3 py-2 rounded w-full" 
                   />
                   {errors.api_user && (
@@ -467,13 +463,11 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    API Password <span className="text-red-500">*</span>
+                    API Password
                   </label>
                   <input 
                     type="password"
-                    {...register("api_password", { 
-                      required: "API Password is required" 
-                    })} 
+                    {...register("api_password")} 
                     className="border px-3 py-2 rounded w-full" 
                   />
                   {errors.api_password && (
@@ -482,12 +476,10 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Practice ID <span className="text-red-500">*</span>
+                    Practice ID
                   </label>
                   <input 
-                    {...register("practice_id", { 
-                      required: "Practice ID is required" 
-                    })} 
+                    {...register("practice_id")} 
                     className="border px-3 py-2 rounded w-full" 
                   />
                   {errors.practice_id && (
@@ -496,12 +488,10 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Vendor ID <span className="text-red-500">*</span>
+                    Vendor ID
                   </label>
                   <input 
-                    {...register("vendor_id", { 
-                      required: "Vendor ID is required" 
-                    })} 
+                    {...register("vendor_id")} 
                     className="border px-3 py-2 rounded w-full" 
                   />
                   {errors.vendor_id && (
@@ -510,12 +500,10 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Location ID <span className="text-red-500">*</span>
+                    Location ID
                   </label>
                   <input 
-                    {...register("location_id", { 
-                      required: "Location ID is required" 
-                    })} 
+                    {...register("location_id")} 
                     className="border px-3 py-2 rounded w-full" 
                   />
                   {errors.location_id && (
@@ -524,12 +512,10 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Network ID <span className="text-red-500">*</span>
+                    Network ID
                   </label>
                   <input 
-                    {...register("network_id", { 
-                      required: "Network ID is required" 
-                    })} 
+                    {...register("network_id")} 
                     className="border px-3 py-2 rounded w-full" 
                   />
                   {errors.network_id && (
@@ -538,12 +524,10 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium mb-1">
-                    API Name <span className="text-red-500">*</span>
+                    API Name
                   </label>
                   <input 
-                    {...register("api_name", { 
-                      required: "API Name is required" 
-                    })} 
+                    {...register("api_name")} 
                     className="border px-3 py-2 rounded w-full" 
                   />
                   {errors.api_name && (
