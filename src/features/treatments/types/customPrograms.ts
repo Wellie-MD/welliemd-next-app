@@ -150,7 +150,15 @@ export interface EffectiveCustomProgramContent {
   systemSteps: { authentication: { count: number; locked: boolean } };
   stages: {
     stage1: {
-      questions: Array<{ id: string; sourceId: string; title?: string; displayOrder: number }>;
+      questions: Array<{
+        id: string;
+        sourceId: string;
+        title?: string;
+        displayOrder: number;
+        questionKind?: string;
+        derived?: boolean;
+        applicableProgramIds?: string[];
+      }>;
       sections: EffectiveCustomProgramNode[];
     };
     stage2: { programs: Array<{

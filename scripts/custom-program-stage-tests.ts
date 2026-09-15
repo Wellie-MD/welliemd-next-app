@@ -238,7 +238,10 @@ test("projects authoritative effective stages and never derives inheritance from
       systemSteps: { authentication: { count: 1, locked: true } },
       stages: {
         stage1: {
-          questions: [{ id: "q-1", sourceId: "q-1", title: "q-1", displayOrder: 1 }],
+          questions: [
+            { id: "q-1", sourceId: "q-1", title: "q-1", displayOrder: 1 },
+            { id: "service-area", sourceId: "service_state", title: "Service Area Check", displayOrder: 2, questionKind: "state_routing", derived: true, applicableProgramIds: ["program-1"] },
+          ],
           sections: [{ sourceId: "section-1", sourceVersion: 1, name: "Medical Baseline", applicableProgramIds: ["program-1", "program-2"], resolvedFrom: [{ type: "global" }] }],
         },
         stage2: { programs: [
@@ -255,8 +258,12 @@ test("projects authoritative effective stages and never derives inheritance from
     },
   });
 
-  assert.deepEqual(projection.stages.map((stage) => stage.items.length), [2, 2, 2]);
-  assert.deepEqual(projection.stages[0].items.map((candidate) => candidate.kind), ["routing_question", "section"]);
+  assert.deepEqual(projection.stages.map((stage) => stage.items.length), [3, 2, 2]);
+  assert.deepEqual(projection.stages[0].items.map((candidate) => candidate.kind), ["routing_question", "routing_question", "section"]);
+  const inheritedQuestion = projection.stages[0].items.find((candidate) => candidate.title === "Service Area Check");
+  assert.equal(inheritedQuestion?.derived, true);
+  assert.equal(inheritedQuestion?.persistedItem, undefined);
+  assert.equal(inheritedQuestion?.subtitle, "State routing · Inherited from program-1");
   assert.equal(projection.checkoutStage.stageNumber, 4);
   assert.equal(projection.checkoutStage.title, "Checkout");
   const automatic = projection.stages[2].items.find((candidate) => candidate.derived);
@@ -266,7 +273,7 @@ test("projects authoritative effective stages and never derives inheritance from
   const inheritedGlobal = projection.stages[2].items.find((candidate) => candidate.title === "consent-1");
   assert.equal(getCustomProgramConsentSubtitle(inheritedGlobal!), "Library Consent · Universal · Explicit Custom Program");
   assert.equal(getCustomProgramConsentSubtitle(automatic!), "Library Consent · Treatment-specific · Auto for program-1, program-2");
-  assert.equal(projection.totalItemCount, 8);
+  assert.equal(projection.totalItemCount, 9);
 });
 
 test("keeps an explicitly selected Section field as one field row", () => {
