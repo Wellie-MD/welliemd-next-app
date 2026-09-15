@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 
 interface CustomProgramStartUrlDialogProps {
   open: boolean;
@@ -31,7 +30,7 @@ export function CustomProgramStartUrlDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl dark:border-slate-700 dark:bg-[#171b27]">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-xl p-4 sm:p-6 dark:border-slate-700 dark:bg-[#171b27]">
         <DialogHeader>
           <DialogTitle className="dark:text-slate-50">Custom program intake URL</DialogTitle>
           <DialogDescription className="dark:text-slate-400">
@@ -40,19 +39,22 @@ export function CustomProgramStartUrlDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Input
-              value={url}
-              readOnly
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+            <div
+              role="textbox"
+              aria-readonly="true"
               aria-label={`${programName} intake URL`}
-              className="min-w-0 font-mono text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            />
+              tabIndex={0}
+              className="min-w-0 flex-1 select-text break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs leading-relaxed text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              {url || "Intake URL unavailable"}
+            </div>
             <Button
               type="button"
               variant="outline"
               onClick={() => void handleCopy()}
               disabled={!url}
-              className="shrink-0 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="w-full shrink-0 sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               {copied ? "Copied" : "Copy URL"}

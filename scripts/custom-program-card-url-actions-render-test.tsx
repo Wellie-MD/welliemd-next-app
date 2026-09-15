@@ -23,10 +23,11 @@ const html = renderToStaticMarkup(
     onOpenBuilder={() => undefined}
     onPreview={() => undefined}
     onViewStartUrl={() => undefined}
-    onCopyStartUrl={() => undefined}
   />,
 );
 
 assert.match(html, /data-testid="custom-program-url-actions"/);
-assert.match(html, /Custom program URL actions for Weight loss intake/);
+assert.match(html, /View and copy intake URL for Weight loss intake/);
+assert.match(html, /View and copy intake URL/);
+assert.doesNotMatch(html, /Copy intake URL/);
 console.log("PASS exposes URL actions on custom-program cards");

@@ -27,7 +27,6 @@ function ProgramGroup({
   onOpenBuilder,
   onPreview,
   onViewStartUrl,
-  onCopyStartUrl,
   programsCatalog,
 }: {
   title: string;
@@ -36,7 +35,6 @@ function ProgramGroup({
   onOpenBuilder?: (program: CustomProgram) => void;
   onPreview?: (program: CustomProgram) => void;
   onViewStartUrl?: (program: CustomProgram) => void;
-  onCopyStartUrl?: (program: CustomProgram) => Promise<boolean> | boolean;
   programsCatalog: Program[];
 }) {
   if (programs.length === 0) return null;
@@ -58,7 +56,6 @@ function ProgramGroup({
             onOpenBuilder={onOpenBuilder}
             onPreview={onPreview}
             onViewStartUrl={onViewStartUrl}
-            onCopyStartUrl={onCopyStartUrl}
           />
         ))}
       </div>
@@ -119,7 +116,6 @@ export function CustomProgramsContent({
         onOpenBuilder={onOpenBuilder}
         onPreview={onPreview}
         onViewStartUrl={onViewStartUrl}
-        onCopyStartUrl={onCopyStartUrl}
       />
       <ProgramGroup
         title="Single-treatment forms"
@@ -129,7 +125,6 @@ export function CustomProgramsContent({
         onOpenBuilder={onOpenBuilder}
         onPreview={onPreview}
         onViewStartUrl={onViewStartUrl}
-        onCopyStartUrl={onCopyStartUrl}
       />
     </div>
   );

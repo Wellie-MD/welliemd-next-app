@@ -1,13 +1,5 @@
-import { Copy, ExternalLink, MoreHorizontal, Pill, Sparkles } from "lucide-react";
+import { ExternalLink, Pill, Sparkles } from "lucide-react";
 import type { CustomProgram, Program } from "@/features/treatments/types";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { resolveCustomProgramNames } from "@/features/treatments/custom-programs/utils/customProgramDisplay";
 import { cn } from "@/lib/utils";
@@ -22,7 +14,6 @@ interface CustomProgramCardProps {
   onOpenBuilder?: (program: CustomProgram) => void;
   onPreview?: (program: CustomProgram) => void;
   onViewStartUrl?: (program: CustomProgram) => void;
-  onCopyStartUrl?: (program: CustomProgram) => Promise<boolean> | boolean;
 }
 
 export function CustomProgramCard({
@@ -31,7 +22,6 @@ export function CustomProgramCard({
   onOpenBuilder,
   onPreview,
   onViewStartUrl,
-  onCopyStartUrl,
 }: CustomProgramCardProps) {
   const isMulti = isCustomProgramMulti(customProgram);
   const readiness = resolveCustomProgramReadiness(customProgram);
@@ -81,7 +71,7 @@ export function CustomProgramCard({
     >
       <div
         className={cn(
-          "flex items-start justify-between gap-2.5 border-b border-slate-100 p-3.5 dark:border-slate-700",
+          "flex flex-col gap-3 border-b border-slate-100 p-3.5 sm:flex-row sm:items-start sm:justify-between dark:border-slate-700",
           isMulti && "dark:border-slate-700 dark:bg-gradient-to-b dark:from-pink-100/85 dark:via-slate-400/65 dark:to-slate-500/40"
         )}
       >
@@ -103,36 +93,18 @@ export function CustomProgramCard({
             </div>
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-white hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-300"
-              aria-label={`Custom program URL actions for ${customProgram.name}`}
-              data-testid="custom-program-url-actions"
-              title="View or copy intake URL"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>Patient link</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onViewStartUrl?.(customProgram)} disabled={!onViewStartUrl}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              View and copy intake URL
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                void onCopyStartUrl?.(customProgram);
-              }}
-              disabled={!onCopyStartUrl}
-            >
-              <Copy className="mr-2 h-4 w-4" />
-              Copy intake URL
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          type="button"
+          onClick={() => onViewStartUrl?.(customProgram)}
+          disabled={!onViewStartUrl}
+          className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-[11px] font-semibold text-blue-700 transition-colors hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20"
+          aria-label={`View and copy intake URL for ${customProgram.name}`}
+          data-testid="custom-program-url-actions"
+          title="View and copy intake URL"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          <span>View and copy intake URL</span>
+        </button>
       </div>
 
       <div className="flex h-[120px] shrink-0 flex-col justify-between border-b border-slate-100 bg-white p-3.5 dark:border-slate-700 dark:bg-[#171b27]">
