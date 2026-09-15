@@ -481,7 +481,11 @@ export default function OrderDetail() {
   const paymentRecoveryLabel = isPrescribedStatus && paymentRecoveryState
     ? (recoveryStatusLabels[paymentRecoveryState] || paymentRecoveryState)
     : null
-  const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const paymentStatus = (
+    order.combined_payment_summary?.allocation?.status ||
+    order.paymentStatus ||
+    ""
+  ).toLowerCase()
   const terminalPaymentDateStatuses = new Set(["voided", "refunded", "canceled", "cancelled"])
   const paymentDisplayDate = terminalPaymentDateStatuses.has(paymentStatus)
     ? (order.paymentUpdatedAt || order.paymentDate)
@@ -519,7 +523,14 @@ export default function OrderDetail() {
   const isAllowedStatus = isPreCheckoutProductChange || isSubmittedVisitProductChange
   const canChangeProduct = isAllowedStatus && (!isLocked || isSubmittedVisitProductChange)
   const canRefundOrVoid = isAuthorized || isRefundable
-  const canUseReceipt = ["captured", "approved", "succeeded", "refunded"].includes(paymentStatus)
+  const canUseReceipt = [
+    "captured",
+    "approved",
+    "succeeded",
+    "paid",
+    "completed",
+    "refunded",
+  ].includes(paymentStatus)
   const changeProductTooltip =
     isSubmittedVisitProductChange
       ? "Product change will resend the updated prescription to the submitted visit."
@@ -1650,13 +1661,8 @@ export default function OrderDetail() {
         order={order}
         onTrackThread={handleTrackThread}
         onSendCheckoutLink={handleSendCheckoutLink}
-        onResendReceipt={handleResendReceipt}
-        onDownloadReceipt={handleDownloadReceipt}
         onOpenStatusModal={() => setShowStatusDialog(true)}
         sendCheckoutLinkLoading={sendCheckoutLinkLoading}
-        resendReceiptLoading={resendReceiptLoading}
-        downloadReceiptLoading={downloadReceiptLoading}
-        canUseReceipt={canUseReceipt}
       />
 
       {/* Main 2-Column Responsive Layout */}
@@ -1682,6 +1688,11 @@ export default function OrderDetail() {
             order={order}
             selectedProductId={selectedProductId}
             onSelectProduct={setSelectedProductId}
+            onResendReceipt={handleResendReceipt}
+            onDownloadReceipt={handleDownloadReceipt}
+            resendReceiptLoading={resendReceiptLoading}
+            downloadReceiptLoading={downloadReceiptLoading}
+            canUseReceipt={canUseReceipt}
           />
 
           {/* B2B Client Reimbursement Section */}

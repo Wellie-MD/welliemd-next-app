@@ -2,13 +2,33 @@ import React from "react"
 import { Order } from "@/api/ordersApi"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DollarSign, Layers, Receipt, Check, Package, CreditCard, Tag, ShieldCheck, Clock, Syringe } from "lucide-react"
+import {
+  Check,
+  Clock,
+  CreditCard,
+  DollarSign,
+  Download,
+  Layers,
+  Loader2,
+  Mail,
+  Package,
+  Receipt,
+  ShieldCheck,
+  Syringe,
+  Tag,
+} from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isSupplyItem, extractOrderSupplies } from "./OrderProductsSection"
 
 interface OrderPricingBreakdownProps {
   order: Order
   selectedProductId: string | null
   onSelectProduct: (productId: string | null) => void
+  onResendReceipt: () => void
+  onDownloadReceipt: () => void
+  resendReceiptLoading: boolean
+  downloadReceiptLoading: boolean
+  canUseReceipt: boolean
 }
 
 const parseMoney = (value?: string | number | null): number | null => {
@@ -75,6 +95,11 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
   order,
   selectedProductId,
   onSelectProduct,
+  onResendReceipt,
+  onDownloadReceipt,
+  resendReceiptLoading,
+  downloadReceiptLoading,
+  canUseReceipt,
 }) => {
   // Extract medication products and bundled supplies for itemized receipt
   const { lineItemsList, bundledSupplies } = React.useMemo(() => {
@@ -233,29 +258,71 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
           <span>Payment & Pricing Receipt</span>
         </div>
 
-        {/* Tab Controls for Full Receipt vs Single Product Filter */}
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border">
-          <button
-            type="button"
-            onClick={() => onSelectProduct(null)}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
-              selectedProductId === null
-                ? "bg-card text-slate-900 dark:text-white shadow-xs"
-                : "text-muted-foreground hover:text-slate-900 dark:hover:text-white"
-            }`}
-          >
-            Full Order Receipt
-          </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onDownloadReceipt}
+                  disabled={!canUseReceipt || downloadReceiptLoading}
+                  className="h-8 gap-1.5 text-xs"
+                >
+                  {downloadReceiptLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                  Download Receipt
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {canUseReceipt ? "Download receipt PDF" : "Available after payment is captured"}
+            </TooltipContent>
+          </Tooltip>
 
-          {selectedProductId !== null && selectedItem && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onResendReceipt}
+                  disabled={!canUseReceipt || resendReceiptLoading}
+                  className="h-8 gap-1.5 text-xs"
+                >
+                  {resendReceiptLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                  Resend Receipt
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {canUseReceipt ? "Email payment receipt to patient" : "Available after payment is captured"}
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Tab Controls for Full Receipt vs Single Product Filter */}
+          <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border">
             <button
               type="button"
-              className="px-3 py-1 text-xs font-semibold rounded-lg bg-primary text-primary-foreground shadow-xs flex items-center gap-1"
+              onClick={() => onSelectProduct(null)}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors ${
+                selectedProductId === null
+                  ? "bg-card text-slate-900 dark:text-white shadow-xs"
+                  : "text-muted-foreground hover:text-slate-900 dark:hover:text-white"
+              }`}
             >
-              <Package className="h-3.5 w-3.5" />
-              <span className="truncate max-w-[130px]">{selectedItem.name}</span>
+              Full Order Receipt
             </button>
-          )}
+
+            {selectedProductId !== null && selectedItem && (
+              <button
+                type="button"
+                className="px-3 py-1 text-xs font-semibold rounded-lg bg-primary text-primary-foreground shadow-xs flex items-center gap-1"
+              >
+                <Package className="h-3.5 w-3.5" />
+                <span className="truncate max-w-[130px]">{selectedItem.name}</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
