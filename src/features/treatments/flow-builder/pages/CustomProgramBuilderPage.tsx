@@ -14,6 +14,7 @@ import {
   usePublishCustomProgram,
   useSections,
   useSaveCustomProgram,
+  useSaveCustomProgramMatchingRules,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
@@ -49,6 +50,7 @@ export default function CustomProgramBuilderPage() {
   const { data: validation } = useCustomProgramValidation(customProgramId);
 
   const saveCustomProgramMutation = useSaveCustomProgram();
+  const saveCustomProgramMatchingRulesMutation = useSaveCustomProgramMatchingRules();
   const publishCustomProgramMutation = usePublishCustomProgram();
   const { mutate: saveCustomProgram } = saveCustomProgramMutation;
 
@@ -262,15 +264,15 @@ export default function CustomProgramBuilderPage() {
           sections={sections}
           consents={consents}
           effectiveContent={effectiveContentQuery.data}
-          onSaveMatching={async (programMatchingRules) => {
+          onSaveMatching={async (programMatchingRules, expectedUpdatedAt) => {
             try {
-              await saveCustomProgramMutation.mutateAsync(
-                synchronizeCustomProgramStructure(
-                  { ...customProgram, programMatchingRules },
-                  customProgram.flowItems
-                )
-              );
+              const saved = await saveCustomProgramMatchingRulesMutation.mutateAsync({
+                customProgramId: customProgram.id,
+                rules: programMatchingRules,
+                expectedUpdatedAt,
+              });
               toast({ title: "Matching Rules Saved", description: "Program matching rules are ready for preview and publishing." });
+              return saved;
             } catch (error) {
               toast({
                 title: "Unable to save matching rules",

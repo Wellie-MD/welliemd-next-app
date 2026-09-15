@@ -27,7 +27,8 @@ interface CustomProgramFlowBuilderProps {
   effectiveContent: EffectiveCustomProgramContent;
   onSaveMatching: (
     rules: CustomProgram["programMatchingRules"],
-  ) => Promise<void>;
+    expectedUpdatedAt: string,
+  ) => Promise<CustomProgram>;
 }
 
 export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, effectiveContent, onSaveMatching }: CustomProgramFlowBuilderProps) {

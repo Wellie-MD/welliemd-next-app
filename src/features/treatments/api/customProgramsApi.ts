@@ -118,6 +118,23 @@ export const customProgramsApi = {
       : await axiosInstance.post<CustomProgramRecord>("treatments/custom-programs/", payload);
     return customProgramFromRecord(data);
   },
+  saveMatchingRules: async (
+    customProgramId: string,
+    rules: CustomProgram["programMatchingRules"],
+    expectedUpdatedAt?: string,
+  ): Promise<CustomProgram> => {
+    const payload: Record<string, unknown> = {
+      program_matching_rules: rules,
+    };
+    if (expectedUpdatedAt?.includes("T")) {
+      payload.expected_updated_at = expectedUpdatedAt;
+    }
+    const { data } = await axiosInstance.patch<CustomProgramRecord>(
+      `treatments/custom-programs/${customProgramId}/`,
+      payload,
+    );
+    return customProgramFromRecord(data);
+  },
   validate: async (id: string): Promise<CustomProgramValidationRecord> => {
     try {
       const { data } = await axiosInstance.post<CustomProgramValidationRecord>(

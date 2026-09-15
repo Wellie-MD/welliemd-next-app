@@ -26,6 +26,7 @@ import type {
   ProgramMatchingNode,
   ProgramMatchingOperator,
 } from "@/features/treatments/types";
+import { customProgramMutationErrorMessage } from "@/features/treatments/api/customProgramErrors";
 import {
   addCondition,
   addSubgroup,
@@ -55,7 +56,10 @@ interface Props {
   programId: string | null;
   programs: Program[];
   sources: MatchingSourceField[];
-  onSave: (rules: CustomProgram["programMatchingRules"]) => Promise<void> | void;
+  onSave: (
+    rules: CustomProgram["programMatchingRules"],
+    expectedUpdatedAt: string,
+  ) => Promise<CustomProgram>;
   onOpenPreview?: () => void;
 }
 
@@ -82,16 +86,28 @@ export function ProgramMatchingRuleEditor({
   const [enabled, setEnabled] = useState(true);
   const [search, setSearch] = useState("");
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const changeRevision = useRef(0);
+  const latestProgramRef = useRef(customProgram);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  useEffect(() => {
+    const current = latestProgramRef.current;
+    if (String(customProgram.updatedAt) >= String(current.updatedAt)) {
+      latestProgramRef.current = customProgram;
+    }
+  }, [customProgram]);
 
   useEffect(() => {
     if (!open || !programId) return;
+    latestProgramRef.current = customProgram;
     setRule(normalizeRule(storedConfig?.rule));
     setEnabled(storedConfig?.enabled !== false);
     setSearch("");
     setDirty(false);
     setSaveState("saved");
+    setSaveError(null);
     changeRevision.current = 0;
     // Re-seed only when the dialog opens for a given inclusion, so typing is
     // never clobbered by an unrelated parent re-render.
@@ -116,21 +132,39 @@ export function ProgramMatchingRuleEditor({
     if (!programId) return;
     const savingRevision = changeRevision.current;
     setSaveState("saving");
-    try {
-      const next: Record<string, ProgramMatchingConfig> = {
-        ...(customProgram.programMatchingRules || {}),
-        [programId]: { enabled, rule: serializeRule(rule) },
-      };
-      await onSave(next);
-      if (savingRevision === changeRevision.current) {
-        setDirty(false);
-        setSaveState("saved");
+    setSaveError(null);
+
+    const run = async () => {
+      try {
+        const base = latestProgramRef.current;
+        const next: Record<string, ProgramMatchingConfig> = {
+          ...(base.programMatchingRules || {}),
+          [programId]: { enabled, rule: serializeRule(rule) },
+        };
+        const saved = await onSave(next, base.updatedAt);
+        latestProgramRef.current = saved;
+        if (savingRevision === changeRevision.current) {
+          setDirty(false);
+          setSaveState("saved");
+        }
+      } catch (error) {
+        if (savingRevision === changeRevision.current) {
+          setSaveState("error");
+          setSaveError(customProgramMutationErrorMessage(
+            error,
+            "The matching rule could not be saved. Please try again.",
+          ));
+        }
+        throw error;
       }
-    } catch (error) {
-      if (savingRevision === changeRevision.current) setSaveState("error");
-      throw error;
-    }
-  }, [customProgram.programMatchingRules, enabled, onSave, programId, rule]);
+    };
+
+    // Serialize debounced saves so a fast second edit uses the server version
+    // returned by the first response rather than reusing a stale timestamp.
+    const queued = saveQueueRef.current.then(run, run);
+    saveQueueRef.current = queued.catch(() => undefined);
+    await queued;
+  }, [enabled, onSave, programId, rule]);
 
   useEffect(() => {
     if (!open || !dirty || hasIssues) return;
@@ -161,6 +195,7 @@ export function ProgramMatchingRuleEditor({
       setEnabled(storedConfig?.enabled !== false);
       setDirty(false);
       setSaveState("saved");
+      setSaveError(null);
       onOpenChange(false);
       return;
     }
@@ -280,7 +315,7 @@ export function ProgramMatchingRuleEditor({
 
                   <div className={cn("mt-3 flex items-center gap-2 rounded-md px-3 py-2 text-[11px]", saveState === "error" ? "bg-rose-50 text-rose-700" : hasIssues ? "bg-amber-50 text-amber-800" : "bg-slate-50 text-slate-500")}>
                     {saveState === "error" ? <CircleHelp className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5 text-emerald-500" />}
-                    {saveState === "saving" ? "Saving changes…" : saveState === "error" ? "Changes could not be saved. Correct the issue or try again." : hasIssues ? `${issues.length} rule ${issues.length === 1 ? "issue" : "issues"} must be resolved before saving. Back discards this incomplete rule.` : "Changes save automatically"}
+                    <span className="min-w-0 break-words">{saveState === "saving" ? "Saving changes…" : saveState === "error" ? saveError || "The matching rule could not be saved. Please try again." : hasIssues ? `${issues.length} rule ${issues.length === 1 ? "issue" : "issues"} must be resolved before saving. Back discards this incomplete rule.` : "Changes save automatically"}</span>
                   </div>
                 </div>
               </div>

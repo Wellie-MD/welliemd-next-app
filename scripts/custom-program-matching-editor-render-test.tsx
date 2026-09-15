@@ -52,7 +52,7 @@ const html = renderToStaticMarkup(
       programId={program.id}
       programs={[program]}
       sources={[{ id: "question-1", label: "What would you love to change?", group: "Custom Program questions", kind: "single", choices: ["Weight"] }]}
-      onSave={() => undefined}
+      onSave={async () => customProgram}
       onOpenPreview={() => undefined}
     />
   </StaticRouter>,
