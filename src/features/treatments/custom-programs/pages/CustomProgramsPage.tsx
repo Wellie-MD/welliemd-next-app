@@ -7,6 +7,7 @@ import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import { CustomProgramsContent } from "@/features/treatments/custom-programs/components/CustomProgramsContent";
 import { CustomProgramPreviewDialog } from "@/features/treatments/custom-programs/components/CustomProgramPreviewDialog";
+import { CustomProgramStartUrlDialog } from "@/features/treatments/custom-programs/components/CustomProgramStartUrlDialog";
 import { CustomProgramsToolbar } from "@/features/treatments/custom-programs/components/CustomProgramsToolbar";
 import { useCustomProgramsPage } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import {
@@ -26,11 +27,22 @@ export default function CustomProgramsPage() {
   const updateSlugMutation = useUpdateCustomProgramSlugOverride();
   const [previewProgram, setPreviewProgram] = useState<CustomProgram | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [urlProgram, setUrlProgram] = useState<CustomProgram | null>(null);
 
   const questionnaireBaseUrl = useMemo(() => {
     const base = currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url;
     return base ? base.replace(/\/+$/, "") : "";
   }, [currentClient]);
+
+  const customProgramStartUrl = useMemo(() => {
+    if (!urlProgram || !questionnaireBaseUrl) return "";
+    return buildQuestionnaireRuntimeUrl({
+      baseUrl: questionnaireBaseUrl,
+      platformClientId: currentClient?.platform_client_id,
+      route: "start",
+      slug: getCustomProgramEffectiveSlug(urlProgram),
+    });
+  }, [currentClient?.platform_client_id, questionnaireBaseUrl, urlProgram]);
 
   if (page.isLoading && page.customPrograms.length === 0) {
     return (
@@ -57,10 +69,41 @@ export default function CustomProgramsPage() {
     if (!open) setPreviewProgram(null);
   };
 
-  const handleCopyStartUrl = async (program: CustomProgram) => {
+  const handleViewStartUrl = (program: CustomProgram) => {
     if (!questionnaireBaseUrl) {
       showFloatingToast({ title: "Questionnaire URL is not configured for this client" });
       return;
+    }
+    setUrlProgram(program);
+  };
+
+  const handleCopyUrl = async (url: string): Promise<boolean> => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = url;
+        textArea.setAttribute("readonly", "true");
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textArea);
+        if (!copied) throw new Error("Clipboard access is unavailable");
+      }
+      return true;
+    } catch {
+      showFloatingToast({ title: "Unable to copy the intake URL" });
+      return false;
+    }
+  };
+
+  const handleCopyStartUrl = async (program: CustomProgram): Promise<boolean> => {
+    if (!questionnaireBaseUrl) {
+      showFloatingToast({ title: "Questionnaire URL is not configured for this client" });
+      return false;
     }
     const startUrl = buildQuestionnaireRuntimeUrl({
       baseUrl: questionnaireBaseUrl,
@@ -68,10 +111,11 @@ export default function CustomProgramsPage() {
       route: "start",
       slug: getCustomProgramEffectiveSlug(program),
     });
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(startUrl);
+    const copied = await handleCopyUrl(startUrl);
+    if (copied) {
       showFloatingToast({ title: "Intake URL Copied" });
     }
+    return copied;
   };
 
   const handleSaveSlug = async (program: CustomProgram, slugOverride: string) => {
@@ -126,6 +170,7 @@ export default function CustomProgramsPage() {
         viewMode={page.viewMode}
         onOpenBuilder={handleOpenBuilder}
         onPreview={handlePreview}
+        onViewStartUrl={handleViewStartUrl}
         onCopyStartUrl={handleCopyStartUrl}
         onSaveSlug={handleSaveSlug}
         onClearFilters={page.handleClearFilters}
@@ -137,6 +182,18 @@ export default function CustomProgramsPage() {
           open={isPreviewOpen}
           onOpenChange={handlePreviewOpenChange}
           customProgram={previewProgram}
+        />
+      )}
+
+      {urlProgram && (
+        <CustomProgramStartUrlDialog
+          open={Boolean(urlProgram)}
+          onOpenChange={(open) => {
+            if (!open) setUrlProgram(null);
+          }}
+          programName={urlProgram.name}
+          url={customProgramStartUrl}
+          onCopy={() => handleCopyStartUrl(urlProgram)}
         />
       )}
     </div>

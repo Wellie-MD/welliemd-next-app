@@ -13,7 +13,8 @@ interface CustomProgramsContentProps {
   viewMode: CustomProgramsViewMode;
   onOpenBuilder?: (program: CustomProgram) => void;
   onPreview?: (program: CustomProgram) => void;
-  onCopyStartUrl?: (program: CustomProgram) => void;
+  onViewStartUrl?: (program: CustomProgram) => void;
+  onCopyStartUrl?: (program: CustomProgram) => Promise<boolean> | boolean;
   onSaveSlug?: (program: CustomProgram, slugOverride: string) => Promise<void> | void;
   onClearFilters: () => void;
   programs?: Program[];
@@ -25,6 +26,8 @@ function ProgramGroup({
   programs,
   onOpenBuilder,
   onPreview,
+  onViewStartUrl,
+  onCopyStartUrl,
   programsCatalog,
 }: {
   title: string;
@@ -32,6 +35,8 @@ function ProgramGroup({
   programs: CustomProgram[];
   onOpenBuilder?: (program: CustomProgram) => void;
   onPreview?: (program: CustomProgram) => void;
+  onViewStartUrl?: (program: CustomProgram) => void;
+  onCopyStartUrl?: (program: CustomProgram) => Promise<boolean> | boolean;
   programsCatalog: Program[];
 }) {
   if (programs.length === 0) return null;
@@ -52,6 +57,8 @@ function ProgramGroup({
             programs={programsCatalog}
             onOpenBuilder={onOpenBuilder}
             onPreview={onPreview}
+            onViewStartUrl={onViewStartUrl}
+            onCopyStartUrl={onCopyStartUrl}
           />
         ))}
       </div>
@@ -66,6 +73,7 @@ export function CustomProgramsContent({
   viewMode,
   onOpenBuilder,
   onPreview,
+  onViewStartUrl,
   onCopyStartUrl,
   onSaveSlug,
   onClearFilters,
@@ -110,6 +118,8 @@ export function CustomProgramsContent({
         programsCatalog={programs}
         onOpenBuilder={onOpenBuilder}
         onPreview={onPreview}
+        onViewStartUrl={onViewStartUrl}
+        onCopyStartUrl={onCopyStartUrl}
       />
       <ProgramGroup
         title="Single-treatment forms"
@@ -118,6 +128,8 @@ export function CustomProgramsContent({
         programsCatalog={programs}
         onOpenBuilder={onOpenBuilder}
         onPreview={onPreview}
+        onViewStartUrl={onViewStartUrl}
+        onCopyStartUrl={onCopyStartUrl}
       />
     </div>
   );

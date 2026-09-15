@@ -1,5 +1,13 @@
-import { Sparkles, Pill } from "lucide-react";
+import { Copy, ExternalLink, MoreHorizontal, Pill, Sparkles } from "lucide-react";
 import type { CustomProgram, Program } from "@/features/treatments/types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { resolveCustomProgramNames } from "@/features/treatments/custom-programs/utils/customProgramDisplay";
 import { cn } from "@/lib/utils";
@@ -13,9 +21,18 @@ interface CustomProgramCardProps {
   programs?: Program[];
   onOpenBuilder?: (program: CustomProgram) => void;
   onPreview?: (program: CustomProgram) => void;
+  onViewStartUrl?: (program: CustomProgram) => void;
+  onCopyStartUrl?: (program: CustomProgram) => Promise<boolean> | boolean;
 }
 
-export function CustomProgramCard({ customProgram, programs = [], onOpenBuilder, onPreview }: CustomProgramCardProps) {
+export function CustomProgramCard({
+  customProgram,
+  programs = [],
+  onOpenBuilder,
+  onPreview,
+  onViewStartUrl,
+  onCopyStartUrl,
+}: CustomProgramCardProps) {
   const isMulti = isCustomProgramMulti(customProgram);
   const readiness = resolveCustomProgramReadiness(customProgram);
 
@@ -68,22 +85,54 @@ export function CustomProgramCard({ customProgram, programs = [], onOpenBuilder,
           isMulti && "dark:border-slate-700 dark:bg-gradient-to-b dark:from-pink-100/85 dark:via-slate-400/65 dark:to-slate-500/40"
         )}
       >
-        <div className={getIconFrameClass()}>
-          {renderIcon()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5 font-semibold text-sm text-slate-900 leading-tight dark:text-slate-50">
-            <span>{customProgram.name}</span>
-            {isMulti && (
-              <span className="rounded-[3px] border border-pink-200 bg-pink-50 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-[#9d174d]">
-                Multi
-              </span>
-            )}
+        <div className="flex min-w-0 flex-1 items-start gap-2.5">
+          <div className={getIconFrameClass()}>
+            {renderIcon()}
           </div>
-          <div className="mt-1 truncate text-[11.5px] text-slate-400 leading-none dark:text-slate-500">
-            {customProgram.description}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 font-semibold text-sm text-slate-900 leading-tight dark:text-slate-50">
+              <span>{customProgram.name}</span>
+              {isMulti && (
+                <span className="rounded-[3px] border border-pink-200 bg-pink-50 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-[#9d174d]">
+                  Multi
+                </span>
+              )}
+            </div>
+            <div className="mt-1 truncate text-[11.5px] text-slate-400 leading-none dark:text-slate-500">
+              {customProgram.description}
+            </div>
           </div>
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-white hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-blue-300"
+              aria-label={`Custom program URL actions for ${customProgram.name}`}
+              data-testid="custom-program-url-actions"
+              title="View or copy intake URL"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel>Patient link</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onViewStartUrl?.(customProgram)} disabled={!onViewStartUrl}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              View and copy intake URL
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                void onCopyStartUrl?.(customProgram);
+              }}
+              disabled={!onCopyStartUrl}
+            >
+              <Copy className="mr-2 h-4 w-4" />
+              Copy intake URL
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex h-[120px] shrink-0 flex-col justify-between border-b border-slate-100 bg-white p-3.5 dark:border-slate-700 dark:bg-[#171b27]">
