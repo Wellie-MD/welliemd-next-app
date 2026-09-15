@@ -15,13 +15,14 @@ export function IntercomInlineBanner({ className }: { className?: string }) {
     if (inline.action?.type === 'url' && inline.action.target) {
       window.open(inline.action.target, '_blank', 'noopener,noreferrer');
     }
-    dismiss(inline.view_id);
+    dismiss(inline);
   };
   return (
     <AnnouncementBanner
+      key={inline.view_id}
       message={message}
       className={className}
-      onDismiss={() => dismiss(inline.view_id)}
+      onDismiss={() => dismiss(inline)}
       onCta={handleCta}
       ctaLabel={inline.action?.label ?? undefined}
     />
@@ -43,15 +44,16 @@ export function IntercomCardBanner() {
     if (hasUrlAction) {
       window.open(card.action!.target!, '_blank', 'noopener,noreferrer');
     }
-    dismiss(card.view_id);
+    dismiss(card);
   };
   return (
     <AnnouncementPost
+      key={card.view_id}
       sender={card.sender || undefined}
       eyebrow={card.eyebrow || undefined}
       title={card.title || undefined}
       body={card.body}
-      onDismiss={() => dismiss(card.view_id)}
+      onDismiss={() => dismiss(card)}
       onCta={hasUrlAction ? handleCta : undefined}
       ctaLabel={hasUrlAction ? card.action?.label || 'Learn more' : null}
       showDismiss={card.show_dismiss_button !== false}
