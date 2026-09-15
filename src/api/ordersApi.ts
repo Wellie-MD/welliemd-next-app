@@ -218,6 +218,7 @@ export interface Order {
   prescription_source_event_id?: string | null
   prescription_source_received_at?: string | null
   prescription_source_created_at?: string | null
+  has_rx_pdf?: boolean
   // Shipping address (patient address)
   shipping_address?: string | null
   // B2B reimbursement cost fields
@@ -235,6 +236,11 @@ export interface PaginatedOrdersResponse {
   next: string | null
   previous: string | null
   results: Order[]
+}
+
+export interface RxPdfUrlResponse {
+  url: string
+  expires_at: string
 }
 
 export interface OrderRefundRequest {
@@ -464,6 +470,16 @@ export const downloadReceipt = async (id: string): Promise<Blob> => {
   }
 }
 
+export const fetchRxPdfUrl = async (id: string): Promise<RxPdfUrlResponse> => {
+  try {
+    const { data } = await api.get<RxPdfUrlResponse>(`${ENDPOINT}${id}/rx-pdf/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to fetch rx pdf url for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const changeProduct = async (
   orderId: string,
   newProductId: number | string,
@@ -542,6 +558,7 @@ export const ordersApi = {
   sendCheckoutLink,
   resendReceipt,
   downloadReceipt,
+  fetchRxPdfUrl,
   changeProduct,
   updateOrderQuestionnaireImages,
   fetchCategories,

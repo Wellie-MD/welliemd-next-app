@@ -201,6 +201,7 @@ function OrderDetailInner() {
   const [sendCheckoutLinkLoading, setSendCheckoutLinkLoading] = useState(false)
   const [resendReceiptLoading, setResendReceiptLoading] = useState(false)
   const [downloadReceiptLoading, setDownloadReceiptLoading] = useState(false)
+  const [rxPdfLoading, setRxPdfLoading] = useState(false)
   const [showPrescriptionHistory, setShowPrescriptionHistory] = useState(false)
   const [prescriptionHistory, setPrescriptionHistory] = useState<{
     patient_name?: string | null
@@ -315,6 +316,29 @@ function OrderDetailInner() {
       })
     } finally {
       setDownloadReceiptLoading(false)
+    }
+  }
+
+  const handleViewRxPdf = async () => {
+    if (!order?.id || rxPdfLoading) return
+
+    try {
+      setRxPdfLoading(true)
+      // Fetched fresh on every click, never cached -- the presigned URL is short-lived.
+      const response = await ordersApi.fetchRxPdfUrl(order.id)
+      window.open(response.url, "_blank", "noopener,noreferrer")
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to open prescription PDF."
+      toast({
+        title: message,
+        variant: "destructive",
+      })
+    } finally {
+      setRxPdfLoading(false)
     }
   }
 
@@ -2229,6 +2253,25 @@ function OrderDetailInner() {
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Master ID</span>
                   <span className="text-slate-900 dark:text-white font-mono text-xs break-all text-right ml-4">{order.mrn || order.visitStatus}</span>
+                </div>
+              )}
+              {order.has_rx_pdf && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Prescription PDF</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] h-7 border-slate-200 text-slate-700 hover:bg-slate-50 dark:text-slate-200"
+                    onClick={handleViewRxPdf}
+                    disabled={rxPdfLoading}
+                  >
+                    {rxPdfLoading ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <FileText className="h-3 w-3 mr-1" />
+                    )}
+                    View PDF
+                  </Button>
                 </div>
               )}
             </div>
