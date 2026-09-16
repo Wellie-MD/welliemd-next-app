@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { CreditCard, Undo2, RotateCw, AlertCircle } from "lucide-react"
+import { formatOrderProcessor } from "@/utils/orderPaymentDisplay"
 
 interface OrderPaymentCardProps {
   order: Order
@@ -13,15 +14,6 @@ interface OrderPaymentCardProps {
   isRefundable: boolean
   onRefundClick: () => void
   onRetryClick: () => void
-}
-
-const formatProcessorName = (val?: string | null): string => {
-  if (!val) return "Not recorded"
-  const lower = val.toLowerCase()
-  if (lower.includes("stripe")) return "Stripe"
-  if (lower.includes("authorize")) return "Authorize.Net"
-  if (lower.includes("nmi")) return "NMI"
-  return val.charAt(0).toUpperCase() + val.slice(1)
 }
 
 const formatPaymentStatusLabel = (val?: string | null): string => {
@@ -53,7 +45,7 @@ export const OrderPaymentCard: React.FC<OrderPaymentCardProps> = ({
   onRefundClick,
   onRetryClick,
 }) => {
-  const processor = formatProcessorName(order.paymentProcessor || order.payment_method_summary?.processor)
+  const processor = formatOrderProcessor(order)
   const allocation = order.combined_payment_summary?.allocation
   const paymentStatusFormatted = formatPaymentStatusLabel(allocation?.status || order.paymentStatus)
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
@@ -78,7 +70,7 @@ export const OrderPaymentCard: React.FC<OrderPaymentCardProps> = ({
 
         <div className="space-y-3 text-xs sm:text-sm">
           <div className="flex justify-between items-start text-muted-foreground gap-2">
-            <span className="flex-shrink-0">Processor Gateway</span>
+            <span className="flex-shrink-0">Gateway</span>
             <span className="font-semibold text-slate-900 dark:text-white text-right break-words">{processor}</span>
           </div>
 

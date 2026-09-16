@@ -13,6 +13,7 @@
     "test:custom-program-card-url-actions": "vite build --config scripts/vite.config.custom-program-test.ts --ssr scripts/custom-program-card-url-actions-render-test.tsx --outDir node_modules/.cache/welliemd-client-custom-program-card-url-actions-test --emptyOutDir && node node_modules/.cache/welliemd-client-custom-program-card-url-actions-test/custom-program-list-render-test.js",
     "test:preview-error-message": "node --experimental-strip-types scripts/preview-error-message-tests.ts",
     "test:labs-contract": "node scripts/labs-contract-tests.mjs",
+    "test:order-payment-display": "node --experimental-strip-types scripts/order-payment-display-tests.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

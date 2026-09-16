@@ -208,6 +208,7 @@ export interface ProductPaymentReservation {
   line_item_id: string
   product_id?: number | string | null
   product_name?: string | null
+  processor?: string | null
   amount?: string | number | null
   currency?: string | null
   authorized_amount?: string | number | null
@@ -526,6 +527,7 @@ export interface Order {
   treatment_case_summary?: TreatmentCaseSummary | null
   combined_payment_summary?: {
     id: string
+    gateway?: string | null
     status?: string
     currency?: string
     authorized_amount?: string

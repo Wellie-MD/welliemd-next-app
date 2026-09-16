@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isSupplyItem, extractOrderSupplies } from "./OrderProductsSection"
+import { formatOrderProcessor } from "@/utils/orderPaymentDisplay"
 
 interface OrderPricingBreakdownProps {
   order: Order
@@ -40,15 +41,6 @@ const parseMoney = (value?: string | number | null): number | null => {
 const formatMoney = (value?: number | null): string => {
   if (value === null || value === undefined || Number.isNaN(value)) return "0.00"
   return value.toFixed(2)
-}
-
-const formatProcessorName = (val?: string | null): string => {
-  if (!val) return "Not recorded"
-  const lower = val.toLowerCase()
-  if (lower.includes("stripe")) return "Stripe"
-  if (lower.includes("authorize")) return "Authorize.Net"
-  if (lower.includes("nmi")) return "NMI"
-  return val.charAt(0).toUpperCase() + val.slice(1)
 }
 
 const formatPaymentStatusLabel = (val?: string | null): string => {
@@ -245,7 +237,7 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
   const paymentStatusFormatted = formatPaymentStatusLabel(
     order.combined_payment_summary?.allocation?.status || order.paymentStatus
   )
-  const processorFormatted = formatProcessorName(order.paymentProcessor || order.payment_method_summary?.processor)
+  const processorFormatted = formatOrderProcessor(order)
   const transactionIdFormatted = parseTransactionId(order)
   const paymentDateFormatted = parsePaymentDate(order)
 
@@ -525,7 +517,7 @@ export const OrderPricingBreakdown: React.FC<OrderPricingBreakdownProps> = ({
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div>
-              <span className="text-muted-foreground block text-[11px]">Processor:</span>
+              <span className="text-muted-foreground block text-[11px]">Gateway:</span>
               <span className="font-semibold text-slate-900 dark:text-white">{processorFormatted}</span>
             </div>
 
