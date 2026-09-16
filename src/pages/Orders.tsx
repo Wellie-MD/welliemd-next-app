@@ -76,10 +76,10 @@ const getOrderStatusBadgeClass = (value?: string | null) => {
 const orderColumns = [
   { key: "order_number", label: "Order #", minWidth: "120px", headerClassName: "whitespace-nowrap", className: "font-medium" },
   { key: "patient_name", label: "Patient Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
-  { key: "patient_email", label: "Patient Email", minWidth: "120px", maxWidth: "130px", headerClassName: "whitespace-nowrap", className: "max-w-[130px]" },
+  { key: "patient_email", label: "Patient Email", minWidth: "130px", maxWidth: "130px", headerClassName: "whitespace-nowrap", className: "max-w-[130px]" },
   { key: "patient_phone", label: "Patient Phone", minWidth: "130px", headerClassName: "whitespace-nowrap" },
   { key: "product_name", label: "Product Name", minWidth: "170px", headerClassName: "whitespace-nowrap" },
-  { key: "pharmacy_name_only", label: "Pharmacy Name", minWidth: "150px", headerClassName: "whitespace-nowrap" },
+  { key: "pharmacy_name_only", label: "Pharmacy Name", minWidth: "140px", headerClassName: "whitespace-nowrap" },
   { key: "orderDate", label: "Order Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
   { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "whitespace-nowrap" },
   { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "whitespace-nowrap" },
@@ -499,7 +499,7 @@ export default function Orders() {
       <DataTable
         key={dataTableKey}
         data={filteredOrders}
-        columns={orderColumns.map(col => {
+        columns={orderColumns.filter(col => !["datePrescribed", "paymentDate"].includes(col.key)).map(col => {
           // Canonical order number (matches invoice/admin priority).
           if (col.key === 'order_id' || col.key === 'order_number') {
             return {
