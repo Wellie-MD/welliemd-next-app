@@ -93,8 +93,9 @@ export function projectEffectiveProgramFlow(
     const labCheckout = authoredQuestions.filter((item) => item.kind === "checkout" && item.elementConfig?.labCheckout === true);
     const medicineCheckout = authoredQuestions.filter((item) => item.kind === "checkout" && item.elementConfig?.labCheckout !== true);
     const consents = authoredQuestions.filter((item) => item.kind === "consent");
-    const nonConsentFlow = authoredQuestions.filter((item) => item.kind !== "checkout" && item.kind !== "consent");
-    return [...nonConsentFlow, ...labCheckout, ...consents, ...medicineCheckout]
+    const shipping = authoredQuestions.filter((item) => item.kind === "shipping_address");
+    const nonConsentFlow = authoredQuestions.filter((item) => !["checkout", "consent", "shipping_address"].includes(item.kind));
+    return [...nonConsentFlow, ...labCheckout, ...consents, ...shipping, ...medicineCheckout]
       .map((item, index) => ({ ...item, order: index + 1 }));
   }
   const authoredIds = new Set(
@@ -113,8 +114,9 @@ export function projectEffectiveProgramFlow(
   const authoredConsents = authoredQuestions
     .filter((item) => item.kind === "consent")
     .map((item) => annotateAuthoredConsent(item, explicitBySourceId));
+  const shipping = authoredQuestions.filter((item) => item.kind === "shipping_address");
   const clinical = authoredQuestions.filter(
-    (item) => !["patient_authentication", "checkout", "consent"].includes(item.kind),
+    (item) => !["patient_authentication", "checkout", "consent", "shipping_address"].includes(item.kind),
   );
   const sections = effectiveContent.sections.explicit_program
     .filter((section) => !authoredIds.has(sourceId(section)))
@@ -123,6 +125,6 @@ export function projectEffectiveProgramFlow(
     ...effectiveContent.consents.explicit_program.map((item) => explicitConsentRow(item, "program")),
     ...effectiveContent.consents.inline_conditional.map((item) => explicitConsentRow(item, "inline")),
   ].filter((item) => !authoredIds.has(String(item.elementConfig?.sourceId || "")));
-  return [...authentication, ...clinical, ...sections, ...labCheckout, ...authoredConsents, ...consents, ...checkout]
+  return [...authentication, ...clinical, ...sections, ...labCheckout, ...authoredConsents, ...consents, ...shipping, ...checkout]
     .map((item, index) => ({ ...item, order: index + 1 }));
 }
