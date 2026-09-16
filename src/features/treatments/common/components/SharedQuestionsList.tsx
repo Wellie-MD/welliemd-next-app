@@ -81,6 +81,7 @@ import {
   PROGRAM_SYSTEM_NODE_KIND,
 } from "@/features/treatments/programs/programAuthoringConstants";
 import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
+import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 
 export interface SharedQuestionsListProps {
   entityId: string;
@@ -615,6 +616,13 @@ export function SharedQuestionsList({
       onSuccess: () => {
         setQuestions((prev) => prev.filter((q) => q.id !== questionToDeleteId));
         toast({ title: "Element Removed", description: "The element has been removed successfully." });
+      },
+      onError: (error) => {
+        toast({
+          title: "Unable to remove element",
+          description: getApiErrorMessage(error, "The element could not be removed."),
+          variant: "destructive",
+        });
       },
     });
     setIsDeleteDialogOpen(false);
