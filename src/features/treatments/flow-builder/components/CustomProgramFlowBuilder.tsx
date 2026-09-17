@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
-import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, EffectiveCustomProgramContent, Program, ProgramQuestion } from "@/features/treatments/types";
+import { useCallback, useMemo, useState } from "react";
+import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, EffectiveCustomProgramContent, Program, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
+import { ConsentPlacementRuleDialog } from "@/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
+import { profileConsentSources } from "@/features/treatments/libraries/consents/components/ConsentVisibilityRules";
 import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
 import { useSectionFieldsMap } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { buildMatchingSources } from "@/features/treatments/flow-builder/utils/programMatchingRules";
@@ -55,13 +57,41 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
     [customProgram.flowItems, sections, sectionFields, effectiveContent.stages.stage1.sections],
   );
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
-
+  const [editingConsent, setEditingConsent] = useState<CustomProgramFlowItem | null>(null);
   const allFlowQuestions = useMemo(
     () => buildCustomProgramVisibilityQuestions({
       flowItems: customProgram.flowItems,
     }),
     [customProgram.flowItems],
   );
+  const consentRuleSources = useMemo(() => [
+    ...allFlowQuestions.map((question) => ({
+      id: question.id,
+      question_text: question.text,
+      question_type: question.kind,
+      answer_choices: question.choices || [],
+      order_index: question.order,
+    })),
+    ...flowSectionIds.flatMap((sectionId) => (sectionFields[sectionId] || [])
+      .filter((field) => field.kind !== "checkout")
+      .map((field) => ({
+        id: field.sourceFieldId,
+        question_text: field.label,
+        question_type: field.kind,
+        answer_choices: Array.isArray(field.configuration?.choices) ? field.configuration.choices as string[] : [],
+        order_index: 0,
+      }))),
+    ...profileConsentSources,
+  ], [allFlowQuestions, flowSectionIds, sectionFields]);
+  const loadConsentRule = useCallback(async () =>
+    editingConsent?.visibilityRules as VisibilityRuleGroup | undefined,
+  [editingConsent]);
+  const saveConsentRule = useCallback(async (rule?: VisibilityRuleGroup) => {
+    if (!editingConsent || !onUpdateFlow) return;
+    await onUpdateFlow(customProgram.flowItems.map((item) =>
+      item.id === editingConsent.id ? { ...item, visibilityRules: rule } : item,
+    ));
+  }, [customProgram.flowItems, editingConsent, onUpdateFlow]);
 
   const editorQuestion: ProgramQuestion | null = editingQuestion ? {
     id: editingQuestion.sourceId || editingQuestion.id,
@@ -152,6 +182,16 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
         }}
       />
 
+      <ConsentPlacementRuleDialog
+        open={Boolean(editingConsent)}
+        onOpenChange={(open) => { if (!open) setEditingConsent(null); }}
+        consentName={editingConsent?.title || consents.find((item) => item.id === editingConsent?.sourceId)?.name || "this consent"}
+        contextName={customProgram.name}
+        sources={consentRuleSources}
+        loadRule={loadConsentRule}
+        onSave={saveConsentRule}
+      />
+
       {builder.viewMode === "list" && (
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           <FlowBuilderListView
@@ -162,6 +202,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
             effectiveContent={effectiveContent}
             onUpdateFlow={onUpdateFlow}
             onEditQuestion={setEditingQuestion}
+            onEditConsent={setEditingConsent}
             onOpenPreview={() => builder.setIsTestModalOpen(true)}
             onConfigureMatching={(programId) => setMatchingProgramId(programId)}
           />
@@ -192,7 +233,11 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
             onCanvasDrop={builder.handleCanvasContainerDrop}
             onInsertItem={builder.handleInsertItem}
             getTargetIndexForId={builder.getTargetIndexForId}
-            onEditSystemItem={(item) => { if (item.kind === "routing_question") setEditingQuestion(customProgram.flowItems.find((flowItem) => flowItem.id === item.id) || null); }}
+            onEditSystemItem={(item) => {
+              const authored = customProgram.flowItems.find((flowItem) => flowItem.id === item.id) || null;
+              if (item.kind === "routing_question") setEditingQuestion(authored);
+              if (item.kind === "consent") setEditingConsent(authored);
+            }}
           />
         </div>
       )}

@@ -14,6 +14,8 @@ import { toast } from "@/components/ui/use-toast";
 import type { ConsentForm, ConsentOption, TreatmentLibraryScope } from "@/features/treatments/types";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 import { cn } from "@/lib/utils";
+import type { VisibilityRuleGroup } from "@/features/treatments/types";
+import { ConsentVisibilityRules, consentRuleIssues, profileConsentSources } from "./ConsentVisibilityRules";
 
 type ConsentApiErrorData = {
   text?: string | string[];
@@ -69,6 +71,8 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
   const [text, setText] = useState("");
   const [textValidationError, setTextValidationError] = useState<string | null>(null);
   const [options, setOptions] = useState<ConsentOption[]>([defaultOption()]);
+  const [visibilityRuleGroup, setVisibilityRuleGroup] = useState<VisibilityRuleGroup | undefined>();
+  const [showVisibilityErrors, setShowVisibilityErrors] = useState(false);
 
   const existing = useMemo(
     () => (consentId ? consents.find((c) => c.id === consentId) : undefined),
@@ -96,6 +100,8 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
       setText(existing.text || "");
       setTextValidationError(null);
       setOptions(existing.options?.length ? existing.options : [defaultOption()]);
+      setVisibilityRuleGroup(existing.visibilityRuleGroup);
+      setShowVisibilityErrors(false);
     } else {
       setName("");
       setScope("global");
@@ -103,6 +109,8 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
       setText("");
       setTextValidationError(null);
       setOptions([defaultOption()]);
+      setVisibilityRuleGroup(undefined);
+      setShowVisibilityErrors(false);
     }
   }, [existing, open]);
 
@@ -131,6 +139,11 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (consentRuleIssues(visibilityRuleGroup).length > 0) {
+      setShowVisibilityErrors(true);
+      toast({ title: "Complete the visibility rule", description: "Select a source and value for each condition.", variant: "destructive" });
+      return;
+    }
     if (!name.trim()) {
       toast({ title: "Validation Error", description: "Consent name is required.", variant: "destructive" });
       return;
@@ -167,6 +180,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
       visitTypeKeys: scope === "visit_type" ? visitTypeKeys : [],
       text,
       options: cleanedOptions,
+      visibilityRuleGroup,
       updatedAt: existing?.updatedAt ?? currentDateStamp(),
     };
 
@@ -191,16 +205,16 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden bg-slate-50 p-0 sm:max-w-[680px]">
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-1.5rem)] max-w-[680px] min-w-0 flex-col gap-0 overflow-hidden bg-slate-50 p-0">
         <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-6 py-5">
           <DialogTitle className="text-xl font-bold text-slate-900">
             {consentId ? "Edit Consent" : "Create Consent"}
           </DialogTitle>
-          <p className="mt-1 text-sm text-slate-500">Update name, scope, visit-type mapping, options, and document text.</p>
+          <p className="mt-1 text-sm text-slate-500">Set the consent text, answer options, and shared visibility rule.</p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 space-y-6 overflow-y-auto bg-white p-6">
+          <div className="min-w-0 flex-1 space-y-6 overflow-y-auto bg-white p-4 sm:p-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="consent-name">
@@ -273,6 +287,14 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
                 </div>
               </div>
             )}
+
+            <ConsentVisibilityRules
+              value={visibilityRuleGroup}
+              onChange={setVisibilityRuleGroup}
+              sources={profileConsentSources}
+              description="This shared rule applies everywhere this consent is used. Only patient profile sex and age are available here. Use the Program or Custom Program editor for rules based on earlier answers."
+              showErrors={showVisibilityErrors}
+            />
 
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-900">

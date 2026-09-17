@@ -289,6 +289,9 @@ export const consentFromRecord = (record: ConsentRecord): ConsentForm => ({
   visitTypeKeys: record.visit_type_keys || [],
   text: record.text || "",
   options: record.options || [],
+  visibilityRuleGroup: record.visibility_rule && Object.keys(record.visibility_rule).length
+    ? record.visibility_rule
+    : undefined,
   updatedAt: record.updated_at?.split("T")[0] || dateStamp(),
 });
 
@@ -299,6 +302,7 @@ export const consentToRecord = (consent: ConsentForm) => ({
   visit_type_keys: consent.visitTypeKeys || [],
   text: consent.text || "",
   options: consent.options || [],
+  visibility_rule: consent.visibilityRuleGroup || {},
 });
 
 export const customProgramFromRecord = (record: CustomProgramRecord): CustomProgram => ({

@@ -102,6 +102,7 @@ export function FlowCanvasChip({ item, flowItems, onDragStart, onDragEnd, onInse
         {presentation.icon}
         <span>{presentation.typeLabel}</span>
         {item.kind === "routing_question" && <button type="button" className="ml-auto rounded border border-blue-200 bg-white px-1.5 py-0.5 text-[8px] text-blue-700" onClick={(event) => { event.stopPropagation(); onEditSystemItem?.(item); }}>Edit</button>}
+        {item.kind === "consent" && <button type="button" className="ml-auto rounded border border-purple-200 bg-white px-1.5 py-0.5 text-[8px] text-purple-700" onClick={(event) => { event.stopPropagation(); onEditSystemItem?.(item); }}>Visibility</button>}
       </div>
       <div className="line-clamp-2 text-[11.5px] font-bold leading-snug">{item.title}</div>
       <div className="truncate text-[9.5px] leading-none opacity-65">{item.subtitle}</div>

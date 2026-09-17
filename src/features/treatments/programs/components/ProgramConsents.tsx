@@ -1,4 +1,4 @@
-import { ExternalLink, Shield, Sparkles, Trash2 } from "lucide-react";
+import { ExternalLink, Eye, Shield, Sparkles, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ interface ProgramConsentsProps {
   attachedConsentIds?: string[];
   onAddConsent: () => void;
   onRemoveConsent?: (consentId: string) => void;
+  onEditVisibility?: (consent: EffectiveConsentItem) => void;
 }
 
 export function ProgramConsents({
@@ -33,6 +34,7 @@ export function ProgramConsents({
   attachedConsentIds = [],
   onAddConsent,
   onRemoveConsent,
+  onEditVisibility,
 }: ProgramConsentsProps) {
   const fallback = resolveProgramConsentFallback(consents, undefined, attachedConsentIds);
   const explicitConsents = groupedConsents?.explicit_program || fallback.explicit_program;
@@ -73,6 +75,11 @@ export function ProgramConsents({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {onEditVisibility && (
+                <Button type="button" variant="outline" size="sm" onClick={() => onEditVisibility(consent)} className="h-8 text-xs">
+                  <Eye className="mr-1 h-3.5 w-3.5" /> Visibility
+                </Button>
+              )}
               <Link to={`/dashboard/treatments/consents?id=${consent.source_id || consent.id}`} className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:underline">
                 Library <ExternalLink className="h-3 w-3" />
               </Link>

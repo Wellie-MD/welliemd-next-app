@@ -1,4 +1,5 @@
 import type { TreatmentLibraryScope } from "./shared";
+import type { VisibilityRuleGroup } from "./questions";
 
 export interface ConsentOption {
   id: string;
@@ -18,5 +19,6 @@ export interface ConsentForm {
   text?: string;
   /** Acknowledgement options presented to the patient. */
   options?: ConsentOption[];
+  visibilityRuleGroup?: VisibilityRuleGroup;
   updatedAt: string;
 }

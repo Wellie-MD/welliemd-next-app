@@ -54,6 +54,7 @@ export type ConsentRecord = {
   visit_type_keys: string[];
   text?: string;
   options?: ConsentForm["options"];
+  visibility_rule?: ConsentForm["visibilityRuleGroup"];
   version: number;
   updated_at?: string;
 };

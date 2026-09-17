@@ -7,6 +7,7 @@ import type {
   ProgramStatus,
   TreatmentType,
   QuestionKind,
+  VisibilityRuleGroup,
 } from "@/features/treatments/types";
 import type { PaginatedResponse, ProgramQuestionRecord, ProgramRecord } from "./contracts";
 import {
@@ -66,6 +67,20 @@ export interface ProgramEffectiveContent {
 }
 
 export const programsApi = {
+  getConsentVisibility: async (programId: string, consentId: string): Promise<VisibilityRuleGroup | undefined> => {
+    const { data } = await axiosInstance.get<{ visibility_rule: VisibilityRuleGroup | Record<string, never> }>(
+      TREATMENT_PROGRAM_ENDPOINTS.consentVisibility(programId, consentId),
+    );
+    return data.visibility_rule && Object.keys(data.visibility_rule).length
+      ? data.visibility_rule as VisibilityRuleGroup
+      : undefined;
+  },
+
+  saveConsentVisibility: async (programId: string, consentId: string, rule?: VisibilityRuleGroup) => {
+    await axiosInstance.patch(TREATMENT_PROGRAM_ENDPOINTS.consentVisibility(programId, consentId), {
+      visibility_rule: rule || {},
+    });
+  },
   list: async (): Promise<Program[]> => {
     const { data } = await axiosInstance.get<PaginatedResponse<ProgramRecord> | ProgramRecord[]>(
       TREATMENT_PROGRAM_ENDPOINTS.collection,

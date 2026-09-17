@@ -39,5 +39,7 @@ export const TREATMENT_PROGRAM_ENDPOINTS = {
   restore: (programId: string) => `treatments/programs/${programId}/restore/`,
   duplicate: (programId: string) => `treatments/programs/${programId}/duplicate/`,
   questions: (programId: string) => `treatments/programs/${programId}/questions/`,
+  consentVisibility: (programId: string, consentId: string) =>
+    `treatments/programs/${programId}/consents/${consentId}/visibility/`,
   effectiveContent: (programId: string) => `treatments/programs/${programId}/effective-content/`,
 } as const;

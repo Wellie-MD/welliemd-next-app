@@ -56,6 +56,7 @@ interface FlowBuilderListViewProps {
   effectiveContent: EffectiveCustomProgramContent;
   onUpdateFlow?: (items: CustomProgramFlowItem[]) => void;
   onEditQuestion: (item: CustomProgramFlowItem) => void;
+  onEditConsent: (item: CustomProgramFlowItem) => void;
   onOpenPreview: () => void;
   onConfigureMatching: (programId: string) => void;
 }
@@ -180,6 +181,7 @@ function StageRow({
   onDelete,
   onDropItem,
   onEditQuestion,
+  onEditConsent,
   onOpenPreview,
   onConfigureMatching,
   matchingRules,
@@ -189,6 +191,7 @@ function StageRow({
   onDelete: () => void;
   onDropItem: (sourceId: string, targetId: string) => void;
   onEditQuestion: (item: CustomProgramFlowItem) => void;
+  onEditConsent: (item: CustomProgramFlowItem) => void;
   onOpenPreview: () => void;
   onConfigureMatching: (programId: string) => void;
   matchingRules: CustomProgram["programMatchingRules"];
@@ -303,11 +306,18 @@ function StageRow({
           </Button>
         )}
         {item.kind === "consent" && consentId && (
-          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Edit consent" asChild>
-            <Link to={`/dashboard/treatments/consents?consentId=${consentId}`}>
-              <ExternalLink className="h-4 w-4" />
-            </Link>
-          </Button>
+          <>
+            {item.persistedItem && (
+              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-purple-700" title="Set consent visibility" onClick={() => onEditConsent(item.persistedItem!)}>
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600" title="Edit shared consent" asChild>
+              <Link to={`/dashboard/treatments/consents?consentId=${consentId}`}>
+                <ExternalLink className="h-4 w-4" />
+              </Link>
+            </Button>
+          </>
         )}
         {editable ? (
           <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:bg-red-50 hover:text-red-600" title={`Remove ${item.title}`} onClick={onDelete}>
@@ -350,6 +360,7 @@ export function FlowBuilderListView({
   effectiveContent,
   onUpdateFlow,
   onEditQuestion,
+  onEditConsent,
   onOpenPreview,
   onConfigureMatching,
 }: FlowBuilderListViewProps) {
@@ -409,6 +420,7 @@ export function FlowBuilderListView({
                           onDelete={() => remove(item.id)}
                           onDropItem={drop}
                           onEditQuestion={onEditQuestion}
+                          onEditConsent={onEditConsent}
                           onOpenPreview={onOpenPreview}
                           onConfigureMatching={onConfigureMatching}
                           matchingRules={customProgram.programMatchingRules}

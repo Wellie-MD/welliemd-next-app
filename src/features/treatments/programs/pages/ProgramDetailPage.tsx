@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 
@@ -8,12 +9,14 @@ import {
   useProgramEffectiveContent,
   useConsents,
   useTreatmentTypes,
+  useSectionFieldsMap,
+  treatmentQueryKeys,
   useSaveProgram,
   useUpdateProgramSlug,
   useSaveProgramQuestions,
   useSaveProgramLabRequirements,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
-import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramLabRequirement, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramLabRequirement, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 import { ProgramDetailHeader } from "@/features/treatments/programs/components/ProgramDetailHeader";
 import { ProgramConfigurationAccess } from "@/features/treatments/programs/components/ProgramConfigurationAccess";
@@ -21,7 +24,10 @@ import { CreateProgramModal } from "@/features/treatments/programs/components/Cr
 import { ProgramMetrics } from "@/features/treatments/programs/components/ProgramMetrics";
 import { ProgramCheckoutQuestions } from "@/features/treatments/programs/components/ProgramCheckoutQuestions";
 import { ProgramScreeningQuestions } from "@/features/treatments/programs/components/ProgramScreeningQuestions";
-import { ProgramConsents } from "@/features/treatments/programs/components/ProgramConsents";
+import { ProgramConsents, type EffectiveConsentItem } from "@/features/treatments/programs/components/ProgramConsents";
+import { ConsentPlacementRuleDialog } from "@/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
+import { profileConsentSources } from "@/features/treatments/libraries/consents/components/ConsentVisibilityRules";
+import { programsApi } from "@/features/treatments/api/programsApi";
 import { ProgramEffectiveSections } from "@/features/treatments/programs/components/ProgramEffectiveSections";
 import { ProgramEligibility } from "@/features/treatments/programs/components/ProgramEligibility";
 import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
@@ -55,6 +61,7 @@ const normalizeQuestionKind = (type: string): QuestionKind => {
 };
 
 export default function ProgramDetailPage() {
+  const queryClient = useQueryClient();
   const { programId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,6 +73,30 @@ export default function ProgramDetailPage() {
 
   const foundProgram = programs.find((p) => p.id === activeProgramId || p.slug === activeProgramId);
   const { data: allQuestions = [], isLoading: isQuestionsLoading } = useProgramQuestions(foundProgram?.id || "");
+  const sectionIds = useMemo(() => allQuestions
+    .filter((question) => question.kind === "section")
+    .map((question) => String(question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || ""))
+    .filter(Boolean), [allQuestions]);
+  const sectionFields = useSectionFieldsMap(sectionIds);
+  const consentRuleSources = useMemo(() => [
+    ...allQuestions.filter((question) => !["consent", "section", "checkout", "file_upload"].includes(question.kind)).map((question) => ({
+      id: question.id,
+      question_text: question.text,
+      question_type: question.kind,
+      answer_choices: question.choices || [],
+      order_index: question.order,
+    })),
+    ...sectionIds.flatMap((sectionId) => (sectionFields[sectionId] || [])
+      .filter((field) => field.kind !== "checkout")
+      .map((field) => ({
+        id: field.sourceFieldId,
+        question_text: field.label,
+        question_type: field.kind,
+        answer_choices: Array.isArray(field.configuration?.choices) ? field.configuration.choices as string[] : [],
+        order_index: 0,
+      }))),
+    ...profileConsentSources,
+  ], [allQuestions, sectionIds, sectionFields]);
   const {
     data: effectiveContent,
     error: effectiveContentError,
@@ -124,6 +155,21 @@ export default function ProgramDetailPage() {
   const [isScreeningOpen, setIsScreeningOpen] = useState(false);
   const [isSectionOpen, setIsSectionOpen] = useState(false);
   const [isConsentOpen, setIsConsentOpen] = useState(false);
+  const [editingConsentRule, setEditingConsentRule] = useState<EffectiveConsentItem | null>(null);
+  const loadConsentRule = useCallback(() =>
+    editingConsentRule && foundProgram
+      ? programsApi.getConsentVisibility(foundProgram.id, editingConsentRule.id)
+      : Promise.resolve(undefined),
+  [editingConsentRule, foundProgram]);
+  const saveConsentRule = useCallback(async (rule?: VisibilityRuleGroup) => {
+    if (!editingConsentRule || !foundProgram) return;
+    await programsApi.saveConsentVisibility(foundProgram.id, editingConsentRule.id, rule);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() }),
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programEffectiveContent(foundProgram.id, foundProgram.phase) }),
+    ]);
+    toast({ title: "Consent visibility saved", description: "Publish a new Program version before assigning this change." });
+  }, [editingConsentRule, foundProgram, queryClient]);
   const [isSimulateOpen, setIsSimulateOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -434,6 +480,7 @@ export default function ProgramDetailPage() {
             attachedConsentIds={foundProgram.consentIds || []}
             onAddConsent={() => setIsConsentOpen(true)}
             onRemoveConsent={handleRemoveExplicitConsent}
+            onEditVisibility={setEditingConsentRule}
           />
           <ProgramEffectiveSections
             visitType={effectiveContent?.visit_type || foundProgram.visitType}
@@ -565,6 +612,16 @@ export default function ProgramDetailPage() {
         onAddConsent={handleAddConsentById}
         attachedConsentIds={foundProgram.consentIds || []}
         visitType={foundProgram.visitType}
+      />
+
+      <ConsentPlacementRuleDialog
+        open={Boolean(editingConsentRule)}
+        onOpenChange={(open) => { if (!open) setEditingConsentRule(null); }}
+        consentName={editingConsentRule?.name || "this consent"}
+        contextName={foundProgram.name}
+        sources={consentRuleSources}
+        loadRule={loadConsentRule}
+        onSave={saveConsentRule}
       />
 
       <SectionSelectorModal
