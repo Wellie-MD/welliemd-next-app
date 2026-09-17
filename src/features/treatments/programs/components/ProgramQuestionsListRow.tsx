@@ -88,8 +88,6 @@ export function ProgramQuestionsListRow({
       ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen}` : "", product.rxDaysSupply ? `${product.rxDaysSupply}-day supply` : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
       : question.elementConfig?.description;
 
-  const consentLibraryId = question.elementConfig?.sourceId;
-
   const navigateToSection = () => {
     const sectionId = question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId;
     if (sectionId) {
@@ -97,14 +95,9 @@ export function ProgramQuestionsListRow({
     }
   };
 
-  const navigateToConsent = () => {
-    if (consentLibraryId) {
-      navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentLibraryId}`);
-    }
-  };
-
-  // Linked consents are edited in the shared consent library. Inline consents
-  // are owned by the program and must use the normal question editor.
+  // A linked Consent row represents its placement in this Program. Its edit
+  // action must therefore be handled by the Program placement editor, not by
+  // the shared Consent library editor.
   const hasLinkedConsent = isConsent && Boolean(question.elementConfig?.sourceId);
   const typeLabel = isConsent
     ? (hasLinkedConsent ? "Library Consent" : "Inline Consent")
@@ -112,8 +105,6 @@ export function ProgramQuestionsListRow({
   const handleEdit = () => {
     if (isSection || isEffectiveSectionField) {
       navigateToSection();
-    } else if (hasLinkedConsent) {
-      navigateToConsent();
     } else {
       onEdit(question);
     }
@@ -235,7 +226,7 @@ export function ProgramQuestionsListRow({
                 handleEdit();
               }}
               className="h-7 w-7 rounded text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-              title={isSection || isEffectiveSectionField ? "Go to Section" : hasLinkedConsent ? "Go to Consent" : "Edit Element"}
+              title={isSection || isEffectiveSectionField ? "Go to Section" : hasLinkedConsent ? "Edit Program consent visibility" : "Edit Element"}
             >
               <Pencil className="h-3.5 w-3.5" />
             </Button>

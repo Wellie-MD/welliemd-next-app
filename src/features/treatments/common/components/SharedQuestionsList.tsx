@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DndContext,
@@ -9,7 +9,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
-import type { CommonSectionField, ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSectionField, ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
@@ -25,6 +25,7 @@ import {
   useSaveProgram,
   useSaveProgramLabRequirements,
   useConsents,
+  useSectionFieldsMap,
   treatmentQueryKeys,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
@@ -82,6 +83,9 @@ import {
 } from "@/features/treatments/programs/programAuthoringConstants";
 import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
 import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
+import { programsApi } from "@/features/treatments/api/programsApi";
+import { ConsentPlacementRuleDialog } from "@/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
+import { profileConsentSources } from "@/features/treatments/libraries/consents/components/ConsentVisibilityRules";
 
 export interface SharedQuestionsListProps {
   entityId: string;
@@ -131,6 +135,7 @@ export function SharedQuestionsList({
   const [isSectionOpen, setIsSectionOpen] = useState(false);
   const [isConsentOpen, setIsConsentOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [placementConsent, setPlacementConsent] = useState<ProgramQuestion | null>(null);
 
   // Active question editing/deleting state
   const [activeEditingQuestion, setActiveEditingQuestion] = useState<ProgramQuestion | null>(null);
@@ -210,6 +215,47 @@ export function SharedQuestionsList({
 
   const { data: fetchedConsents = [] } = useConsents();
   const effectiveConsents = allConsents.length > 0 ? allConsents : fetchedConsents;
+  const sectionIds = useMemo(() => questions
+    .filter((question) => question.kind === "section")
+    .map((question) => String(question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || ""))
+    .filter(Boolean), [questions]);
+  const sectionFields = useSectionFieldsMap(sectionIds);
+  const consentRuleSources = useMemo(() => [
+    ...questions
+      .filter((question) => !["consent", "section", "checkout", "file_upload"].includes(question.kind))
+      .map((question) => ({
+        id: question.id,
+        question_text: question.text,
+        question_type: question.kind,
+        answer_choices: question.choices || [],
+        order_index: question.order,
+      })),
+    ...sectionIds.flatMap((sectionId) => (sectionFields[sectionId] || [])
+      .filter((field) => field.kind !== "checkout")
+      .map((field) => ({
+        id: field.sourceFieldId,
+        question_text: field.label,
+        question_type: field.kind,
+        answer_choices: Array.isArray(field.configuration?.choices) ? field.configuration.choices as string[] : [],
+        order_index: 0,
+      }))),
+    ...profileConsentSources,
+  ], [questions, sectionFields, sectionIds]);
+  const placementConsentId = String(placementConsent?.elementConfig?.sourceId || "");
+  const loadPlacementConsentRule = useCallback(() =>
+    placementConsentId
+      ? programsApi.getConsentVisibility(entityId, placementConsentId)
+      : Promise.resolve(undefined),
+  [entityId, placementConsentId]);
+  const savePlacementConsentRule = useCallback(async (rule?: VisibilityRuleGroup) => {
+    if (!placementConsentId || entityType !== "program") return;
+    await programsApi.saveConsentVisibility(entityId, placementConsentId, rule);
+    await queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+    toast({
+      title: "Consent visibility saved",
+      description: "Publish a new Program version before assigning this change.",
+    });
+  }, [entityId, entityType, placementConsentId, queryClient]);
 
   /**
    * Authentication settings belong to the Program record, not to a question.
@@ -429,9 +475,8 @@ export function SharedQuestionsList({
   );
   const typeCounts = useMemo(() => countQuestionTypes(displayQuestions), [displayQuestions]);
 
-  // Editing dispatch — every element kind (question, checkout, auth) opens
-  // the existing editor for that kind; sections and consents redirect to
-  // their dedicated library pages.
+  // Editing dispatch keeps shared Consent content in the library while this
+  // Program row edits only its placement-specific visibility rule.
   const handleEditClick = (q: ProgramQuestion) => {
     // Patient Authentication is a system boundary, but its existing full editor
     // is already handled by QuestionEditorDialog/AuthEditor.
@@ -449,8 +494,8 @@ export function SharedQuestionsList({
     }
     if (q.kind === "consent") {
       const consentId = q.elementConfig?.sourceId;
-      if (consentId) {
-        navigate(`${ADMIN_TREATMENT_ROUTES.consents}?consentId=${consentId}`);
+      if (consentId && entityType === "program") {
+        setPlacementConsent(q);
         return;
       }
     }
@@ -1039,6 +1084,15 @@ export function SharedQuestionsList({
             }, "Consent Form Attached");
           }}
         />
+        <ConsentPlacementRuleDialog
+          open={Boolean(placementConsent)}
+          onOpenChange={(open) => { if (!open) setPlacementConsent(null); }}
+          consentName={placementConsent?.text || "this consent"}
+          contextName={entityName}
+          sources={consentRuleSources}
+          loadRule={loadPlacementConsentRule}
+          onSave={savePlacementConsentRule}
+        />
       </div>
     );
   }
@@ -1163,6 +1217,16 @@ export function SharedQuestionsList({
           };
           saveElement(consentQuestion, "Consent Form Attached");
         }}
+      />
+
+      <ConsentPlacementRuleDialog
+        open={Boolean(placementConsent)}
+        onOpenChange={(open) => { if (!open) setPlacementConsent(null); }}
+        consentName={placementConsent?.text || "this consent"}
+        contextName={entityName}
+        sources={consentRuleSources}
+        loadRule={loadPlacementConsentRule}
+        onSave={savePlacementConsentRule}
       />
 
       <DeleteElementDialog
