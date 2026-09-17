@@ -42,6 +42,7 @@ import { GroupedQuestionBuilder } from "./GroupedQuestionBuilder";
 import {
   VisibilityGroup,
   createDefaultVisibilityGroup,
+  DERIVED_BMI_ID,
   VisibilityRuleBuilder,
 } from "./VisibilityRuleBuilder";
 import { SubQuestion } from "@/api/questionnaires";
@@ -77,6 +78,7 @@ type AnswerChoiceOption = string | StructuredChoiceOption;
 
 interface LegacyConditionNode {
   question_id?: string;
+  question_type?: string;
   operator?: string;
   value?: unknown;
   field?: string;
@@ -108,6 +110,7 @@ interface CheckoutConfig {
   pharmacy_name?: string;
   beluga_medicine_id?: string;
   price?: number;
+  products?: CheckoutConfig[];
 }
 
 function sanitizeCheckoutConfig(config: CheckoutConfig | null | undefined): CheckoutConfig | null {
@@ -263,21 +266,16 @@ function normalizeShowIfToTree(showIf: unknown, logicOperator: "AND" | "OR" = "O
         .filter((item): item is LegacyConditionNode => !!item && typeof item === "object")
         .map((item) => ({
           type: "condition" as const,
-          question_id: item.question_id || "",
-          operator: (item.operator as
-            | "equals"
-            | "not_equals"
-            | "in"
-            | "not_in"
-            | "contains"
-            | "not_contains") || "equals",
+          question_id: item.question_type === "bmi" ? DERIVED_BMI_ID : (item.question_id || ""),
+          question_type: item.question_type,
+          operator: item.operator || "equals",
           value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
           field: item.field,
         })),
     };
   }
 
-  if (typeof showIf === "object" && showIf && (showIf as LegacyConditionNode).question_id) {
+  if (typeof showIf === "object" && showIf && ((showIf as LegacyConditionNode).question_id || (showIf as LegacyConditionNode).question_type)) {
     const item = showIf as LegacyConditionNode;
     return {
       type: "group",
@@ -285,14 +283,9 @@ function normalizeShowIfToTree(showIf: unknown, logicOperator: "AND" | "OR" = "O
       children: [
         {
           type: "condition",
-          question_id: item.question_id || "",
-          operator: (item.operator as
-            | "equals"
-            | "not_equals"
-            | "in"
-            | "not_in"
-            | "contains"
-            | "not_contains") || "equals",
+          question_id: item.question_type === "bmi" ? DERIVED_BMI_ID : (item.question_id || ""),
+          question_type: item.question_type,
+          operator: item.operator || "equals",
           value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
           field: item.field,
         },
@@ -616,7 +609,13 @@ export function QuestionForm({
         const existingCheckoutConfig = sanitizeCheckoutConfig(
           validationRules.checkout_config as CheckoutConfig
         );
-        setCheckoutConfig(existingCheckoutConfig);
+        const initialConfig =
+          existingCheckoutConfig &&
+          Array.isArray(existingCheckoutConfig.products) &&
+          existingCheckoutConfig.products.length > 0
+            ? sanitizeCheckoutConfig(existingCheckoutConfig.products[0])
+            : existingCheckoutConfig;
+        setCheckoutConfig(initialConfig || null);
       } else if (question.question_type === "checkout") {
         setCheckoutConfig(null);
       }
@@ -1050,16 +1049,8 @@ export function QuestionForm({
 
       // Validate checkout question type
       if (formData.question_type === "checkout") {
-        if (!checkoutConfig) {
-          toast({
-            title: "Validation Error",
-            description: "Product selection is required for checkout questions",
-            variant: "destructive",
-          });
-          return;
-        }
-
         if (
+          !checkoutConfig ||
           !checkoutConfig.category ||
           !checkoutConfig.regimen ||
           !checkoutConfig.dose_mapping
@@ -1067,7 +1058,7 @@ export function QuestionForm({
           toast({
             title: "Validation Error",
             description:
-              "Select medication category, regimen, and dose level for checkout",
+              "Select medication category, regimen, and dose level for the checkout product",
             variant: "destructive",
           });
           return;
@@ -1117,12 +1108,23 @@ export function QuestionForm({
           allowed_extensions: formData.allowed_extensions,
         };
       } else if (formData.question_type === "checkout") {
-        const normalizedCheckoutConfig: CheckoutConfig = {
-          ...(sanitizeCheckoutConfig(checkoutConfig) || {}),
+        const normalizeConfig = (config: CheckoutConfig): CheckoutConfig => {
+          const normalized: CheckoutConfig = {
+            ...(sanitizeCheckoutConfig(config) || {}),
+          };
+          delete normalized.resolution_mode;
+          delete normalized.target_regimen_protocol;
+          delete normalized.dose_strategy;
+          delete normalized.products;
+          return normalized;
         };
-        delete normalizedCheckoutConfig.resolution_mode;
-        delete normalizedCheckoutConfig.target_regimen_protocol;
-        delete normalizedCheckoutConfig.dose_strategy;
+        const normalizedSingleConfig = checkoutConfig
+          ? normalizeConfig(checkoutConfig)
+          : ({} as CheckoutConfig);
+        const normalizedCheckoutConfig: CheckoutConfig = {
+          ...normalizedSingleConfig,
+          products: [normalizedSingleConfig],
+        };
         validationRules = {
           checkout_config: normalizedCheckoutConfig,
         };
@@ -1611,28 +1613,16 @@ export function QuestionForm({
 
           {/* Checkout Product Selection */}
           {formData.question_type === "checkout" && (
-            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold text-sm">Checkout Configuration</h3>
-                <FieldHelp text="Pick the fixed product lane for this checkout question. Use questionnaire visibility rules to decide which checkout appears. Do not use checkout settings as the main branching engine." />
+                <FieldHelp text="Select the product category, regimen, and dose level for this checkout question." />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label>
-                  Select Product <span className="text-red-500">*</span>
-                  </Label>
-                  <FieldHelp text="Select the exact category, regimen, and dose mapping for this checkout path. Create separate checkout questions for same dose, increase dose, decrease dose, or change medication paths." />
-                </div>
-                <ProductSelector
-                  value={checkoutConfig}
-                  onChange={setCheckoutConfig}
-                />
-                <p className="text-xs text-muted-foreground">
-                  This product will be displayed to the patient for checkout.
-                  Use questionnaire conditions to decide which checkout question
-                  should appear.
-                </p>
-              </div>
+
+              <ProductSelector
+                value={checkoutConfig}
+                onChange={setCheckoutConfig}
+              />
             </div>
           )}
 
@@ -1661,7 +1651,7 @@ export function QuestionForm({
                   }
                 />
               </div>
-              
+
               {/* Helper Note */}
               <div className="space-y-2">
                 <Label htmlFor="medication_note">Helper Note (shown to patients)</Label>
@@ -1818,7 +1808,7 @@ export function QuestionForm({
               ) : (
                 <div className="space-y-3">
                   <Label>Medications <span className="text-red-500">*</span></Label>
-                  
+
                   {medicationConfig.medications.map((med, medIndex) => (
                     <div key={medIndex} className="p-3 border rounded-lg bg-white space-y-3">
                       <div className="flex items-center justify-between">
@@ -1835,7 +1825,7 @@ export function QuestionForm({
                           <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
                       </div>
-                      
+
                       {/* Medication Name */}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -1870,7 +1860,7 @@ export function QuestionForm({
                           />
                         </div>
                       </div>
-                      
+
                       {/* Doses */}
                       <div>
                         <Label className="text-xs">Doses (comma-separated)</Label>
@@ -1889,7 +1879,7 @@ export function QuestionForm({
                       </div>
                     </div>
                   ))}
-                  
+
                   {/* Add Medication Button */}
                   <Button
                     type="button"
@@ -1908,7 +1898,7 @@ export function QuestionForm({
                     <Plus className="h-4 w-4 mr-1" />
                     Add Medication
                   </Button>
-                  
+
                   {medicationConfig.medications.length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-2">
                       Add at least one medication with its available doses.
@@ -2550,12 +2540,34 @@ export function QuestionForm({
                   <VisibilityRuleBuilder
                     value={visibilityRules}
                     onChange={setVisibilityRules}
-                    questions={parentQuestionOptions.map((question) => ({
-                      id: question.id,
-                      question_text: question.question_text,
-                      order_index: question.order_index,
-                      answer_choices: question.answer_choices,
-                    }))}
+                    questions={(() => {
+                      const hasBmi = parentQuestionOptions.some(
+                        (q) => q.question_type === "bmi" || q.question_type === "height_weight"
+                      );
+                      const items = parentQuestionOptions
+                        .filter((q) => q.question_type !== "bmi" && q.question_type !== "height_weight")
+                        .map((question) => ({
+                          id: question.id,
+                          question_text: question.question_text,
+                          order_index: question.order_index,
+                          question_type: question.question_type,
+                          answer_choices: question.answer_choices,
+                        }));
+                      if (hasBmi) {
+                        const bmiQ = parentQuestionOptions.find(
+                          (q) => q.question_type === "bmi" || q.question_type === "height_weight"
+                        );
+                        items.push({
+                          id: DERIVED_BMI_ID,
+                          question_text: "BMI (Calculated)",
+                          order_index: bmiQ?.order_index ?? 0,
+                          question_type: "bmi",
+                          answer_choices: undefined,
+                        });
+                      }
+                      items.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                      return items;
+                    })()}
                   />
                 ) : (
                 <div className="space-y-3">

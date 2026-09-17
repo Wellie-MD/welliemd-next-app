@@ -28,6 +28,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+const validationErrorMessage = (error: any, fallback: string) => {
+  const body = error?.response?.data;
+  if (typeof body === "string") return body;
+  if (!body || typeof body !== "object") return error?.message || fallback;
+  const direct = body.detail || body.error || body.message;
+  if (typeof direct === "string") return direct;
+  const messages = Object.entries(body).flatMap(([field, value]) => {
+    const values = Array.isArray(value) ? value : [value];
+    return values.filter((item) => typeof item === "string").map((item) => `${field}: ${item}`);
+  });
+  return messages.join(" ") || fallback;
+};
+
 export function TitrationCategoryTab() {
   const [categories, setCategories] = useState<TitrationCategory[]>([]);
   const [loading, setLoading] = useState(false);
@@ -182,7 +195,7 @@ export function TitrationCategoryTab() {
       console.error("Failed to save titration category:", error);
       toast({
         title: "Error",
-        description: "Failed to save titration category",
+        description: validationErrorMessage(error, "Failed to save titration category"),
         variant: "destructive",
       });
     } finally {

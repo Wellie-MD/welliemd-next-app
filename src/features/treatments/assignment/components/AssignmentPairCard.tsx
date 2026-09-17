@@ -1,0 +1,369 @@
+import { useState } from "react";
+import {
+  AlertCircle,
+  Check,
+  Clock3,
+  RefreshCw,
+  ShieldAlert,
+  StopCircle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+import {
+  ASSIGNMENT_ACTION_LABELS,
+  ASSIGNMENT_SOURCE,
+  ASSIGNMENT_STAGE_LABELS,
+  ASSIGNMENT_STEP_LABELS,
+  DEPENDENCY_LABELS,
+  OPERATION_STATUS,
+  RETRYABLE_OPERATION_STATUSES,
+  TERMINAL_OPERATION_STATUSES,
+  assignmentOperationDetailMessage,
+  assignmentOperationErrorMessage,
+  publishAssignmentErrorMessage,
+  safeAssignmentMessage,
+} from "@/features/treatments/assignment/constants";
+import { AssignmentIssueList } from "@/features/treatments/assignment/components/AssignmentIssueList";
+import { navigateToAssignmentAction } from "@/features/treatments/assignment/navigation";
+import {
+  usePublishCustomProgram,
+  useUpdateProgramStatus,
+} from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import type {
+  AssignmentOperation,
+  AssignmentPreflight,
+} from "@/api/treatmentAssignmentApi";
+
+type PublishApiErrorData = {
+  error?: string;
+  detail?: string;
+  details?: unknown;
+  blockers?: unknown;
+};
+
+const publishErrorMessage = (error: unknown): string => {
+  const data = (error as { response?: { data?: PublishApiErrorData } })
+    ?.response?.data;
+  return publishAssignmentErrorMessage(
+    data,
+    (error as { message?: string })?.message,
+  );
+};
+
+export interface AssignmentPairState {
+  key: string;
+  sourceId: string;
+  sourceName: string;
+  clientId: string;
+  clientName: string;
+  preflight?: AssignmentPreflight;
+  operation?: AssignmentOperation;
+  error?: string;
+  errorCode?: string;
+  errorAction?: string;
+}
+
+export function AssignmentPairCard(props: {
+  pair: AssignmentPairState;
+  onRetry: () => void;
+  onCancel: () => void;
+  onRecheck: () => void;
+  rechecking: boolean;
+  /** Called after a corrective action navigates away, so the modal can close
+   * instead of floating over the page it just navigated to. */
+  onNavigate?: () => void;
+  /** Permissions used to authorize corrective actions. */
+  permissions: ReadonlySet<string>;
+}) {
+  const { pair } = props;
+  const navigate = useNavigate();
+  const preflight = pair.preflight;
+  const operation = pair.operation;
+  const issues = [
+    ...(preflight?.blockers || []),
+    ...(preflight?.external_pending || []),
+  ];
+  const checkoutIssues = preflight?.checkout_issues || [];
+  const operationIssues = operation?.last_error_issues || [];
+  const failedStep = operation?.steps.find((step) => step.status === "failed");
+
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const updateProgramStatus = useUpdateProgramStatus();
+  const publishCustomProgram = usePublishCustomProgram();
+  const publishing = updateProgramStatus.isPending || publishCustomProgram.isPending;
+
+  const handlePublish = async () => {
+    setPublishError(null);
+    try {
+      if (preflight?.source_kind === ASSIGNMENT_SOURCE.customProgram) {
+        await publishCustomProgram.mutateAsync(pair.sourceId);
+      } else {
+        await updateProgramStatus.mutateAsync({
+          programId: pair.sourceId,
+          status: "published",
+        });
+      }
+      props.onRecheck();
+    } catch (error) {
+      setPublishError(publishErrorMessage(error));
+    }
+  };
+  return (
+    <article className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">
+            {pair.sourceName}
+          </h3>
+          <p className="text-xs text-slate-500">{pair.clientName}</p>
+        </div>
+        <StatusBadge
+          status={
+            operation?.status ||
+            preflight?.status ||
+            (pair.error ? "error" : "loading")
+          }
+        />
+      </div>
+      {pair.error && (
+        <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+          <p>{safeAssignmentMessage(pair.error)}</p>
+          {pair.errorAction === "configure_client" && (
+            <button
+              type="button"
+              onClick={() =>
+                navigateToAssignmentAction(navigate, "/dashboard/clients")
+              }
+              className="mt-2 rounded-md border border-red-200 bg-white px-2.5 py-1 font-medium"
+            >
+              Configure client
+            </button>
+          )}
+        </div>
+      )}
+      {preflight && !operation && (
+        <>
+          <ol className="mt-4 space-y-2">
+            {preflight.sequence.map((stage) => (
+              <li
+                key={stage.key}
+                className={`rounded-lg border px-3 py-2 ${
+                  stage.actionable
+                    ? "border-blue-200 bg-blue-50/50"
+                    : "border-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold">
+                      {stage.order}
+                    </span>
+                    <div>
+                      <p className="text-xs font-medium text-slate-800">
+                        {stage.label}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {ASSIGNMENT_STAGE_LABELS[stage.status] || stage.status}
+                        {stage.nodes.length
+                          ? ` · ${stage.nodes.length} item${
+                              stage.nodes.length === 1 ? "" : "s"
+                            }`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+                  {stage.actionable && stage.action === "publish" && (
+                    <button
+                      type="button"
+                      disabled={publishing}
+                      onClick={handlePublish}
+                      className="shrink-0 rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {publishing ? "Publishing…" : ASSIGNMENT_ACTION_LABELS.publish}
+                    </button>
+                  )}
+                  {stage.actionable &&
+                    stage.action !== "assign_parent" &&
+                    stage.action !== "publish" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            navigateToAssignmentAction(
+                              navigate,
+                              stage.action_route
+                            )
+                          ) {
+                            props.onNavigate?.();
+                          }
+                        }}
+                        className="shrink-0 rounded-md border border-blue-200 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700"
+                      >
+                        {ASSIGNMENT_ACTION_LABELS[stage.action] || stage.action}
+                      </button>
+                    )}
+                </div>
+                {stage.nodes
+                  .filter((node) => node.message)
+                  .map((node) => (
+                    <p
+                      key={`${node.kind}:${node.source_id}`}
+                      className="ml-8 mt-1 text-[11px] text-amber-700"
+                    >
+                      {node.name}: {safeAssignmentMessage(node.message)}
+                    </p>
+                  ))}
+                {stage.action === "publish" && publishError && (
+                  <p className="ml-8 mt-1 text-[11px] text-red-700">
+                    {publishError}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+          <button
+            type="button"
+            disabled={props.rechecking}
+            onClick={props.onRecheck}
+            className="mt-3 flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium disabled:cursor-wait disabled:opacity-60"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${props.rechecking ? "animate-spin" : ""}`} />
+            {props.rechecking ? "Rechecking…" : "Recheck readiness"}
+          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Object.entries(preflight.counts).map(([kind, count]) => (
+              <span
+                key={kind}
+                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs"
+              >
+                {count} {DEPENDENCY_LABELS[kind] || kind}
+              </span>
+            ))}
+          </div>
+          {issues
+            .filter((issue) => !(issue.facts as { issue?: unknown })?.issue)
+            .map((issue) => (
+              <p
+                key={`${issue.kind}:${issue.source_id}`}
+                className="mt-2 flex gap-2 text-xs text-amber-800"
+              >
+                <ShieldAlert className="h-4 w-4 shrink-0" />
+                <span>
+                  <strong>{issue.name}:</strong>{" "}
+                  {issue.message || issue.code}
+                </span>
+              </p>
+            ))}
+          <AssignmentIssueList
+            issues={checkoutIssues}
+            summary={preflight.checkout_summary}
+            onRecheck={props.onRecheck}
+            rechecking={props.rechecking}
+            onNavigate={props.onNavigate}
+            permissions={props.permissions}
+          />
+        </>
+      )}
+      {operation && (
+        <>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {operation.steps.map((step) => (
+              <div key={step.key} className="rounded-lg border px-3 py-2">
+                <p className="text-xs font-medium text-slate-700">
+                  {ASSIGNMENT_STEP_LABELS[step.key] || step.key}
+                </p>
+                <p className={`mt-1 text-[11px] ${step.status === "failed" ? "text-red-700" : "text-slate-500"}`}>
+                  {step.status === "failed"
+                    ? "Needs attention"
+                    : step.status.replaceAll("_", " ")}
+                </p>
+              </div>
+            ))}
+          </div>
+          {operationIssues.length > 0 ? (
+            <AssignmentIssueList
+              issues={operationIssues}
+              summary={operation.last_error_summary}
+              onRecheck={props.onRecheck}
+              rechecking={props.rechecking}
+              onNavigate={props.onNavigate}
+              permissions={props.permissions}
+            />
+          ) : (
+            (operation.last_error_detail || operation.status === OPERATION_STATUS.failed) && (
+              <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">
+                {assignmentOperationDetailMessage(operation.last_error_detail) ||
+                  assignmentOperationErrorMessage(
+                    operation.last_error_code,
+                    failedStep?.key || operation.current_step
+                  )}
+              </p>
+            )
+          )}
+          <details className="mt-3 rounded-lg border px-3 py-2 text-xs">
+            <summary className="cursor-pointer font-medium text-slate-700">
+              Support diagnostics
+            </summary>
+            <div className="mt-2 space-y-1 text-slate-500">
+              <p>Correlation ID: {operation.correlation_id}</p>
+              <p>Attempt: {operation.attempt_count}</p>
+              <p>Current step: {operation.current_step || "waiting"}</p>
+              {operation.support_diagnostics && (
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-50 p-2 font-mono text-[10px] text-slate-600">
+                  {JSON.stringify(operation.support_diagnostics, null, 2)}
+                </pre>
+              )}
+            </div>
+          </details>
+          <div className="mt-3 flex gap-2">
+            {RETRYABLE_OPERATION_STATUSES.has(operation.status) &&
+              operation.retryable && (
+                <button
+                  type="button"
+                  onClick={props.onRetry}
+                  className="flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Retry failed steps
+                </button>
+              )}
+            {!TERMINAL_OPERATION_STATUSES.has(operation.status) && (
+              <button
+                type="button"
+                onClick={props.onCancel}
+                className="flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium text-red-700"
+              >
+                <StopCircle className="h-3.5 w-3.5" /> Cancel
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </article>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const complete = status === OPERATION_STATUS.completed;
+  const active =
+    status === OPERATION_STATUS.pending || status === OPERATION_STATUS.running;
+  return (
+    <span
+      className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+        complete
+          ? "bg-emerald-100 text-emerald-800"
+          : active
+            ? "bg-sky-100 text-sky-800"
+            : "bg-amber-100 text-amber-800"
+      }`}
+    >
+      {complete ? (
+        <Check className="h-3.5 w-3.5" />
+      ) : active ? (
+        <Clock3 className="h-3.5 w-3.5" />
+      ) : (
+        <AlertCircle className="h-3.5 w-3.5" />
+      )}
+      {status.replaceAll("_", " ")}
+    </span>
+  );
+}

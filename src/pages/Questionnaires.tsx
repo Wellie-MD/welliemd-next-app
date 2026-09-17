@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Edit, Trash2, Eye, FileText } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, FileText, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
@@ -20,6 +20,7 @@ import { toast } from "@/components/ui/use-toast";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, parseISO, format } from "date-fns";
 import { useState as useLoadingState } from "react";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 const getTemplateColumns = (
   navigate: ReturnType<typeof useNavigate>,
@@ -132,6 +133,7 @@ const statusFilters = ["All", "Published", "Draft"];
 const questionnaireTypeFilters = ["All", "Onboarding", "Follow-up"];
 
 export default function Questionnaires() {
+  const { isEnabled } = usePhase2Flags();
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -145,12 +147,13 @@ export default function Questionnaires() {
   const [activeQuestionnaireTypeFilter, setActiveQuestionnaireTypeFilter] = useState("All");
   const [date, setDate] = useState<DateRange | undefined>();
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
+  const [duplicatingIds, setDuplicatingIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const data = await templateApi.listTemplates();
+      const data = await templateApi.listTemplates({ standaloneOnly: true });
 
       // Handle both array response and paginated response
       if (Array.isArray(data)) {
@@ -258,6 +261,34 @@ export default function Questionnaires() {
     } finally {
       // Remove from publishing set
       setPublishingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(template.id);
+        return newSet;
+      });
+    }
+  };
+
+  const handleDuplicate = async (template: QuestionnaireTemplate) => {
+    setDuplicatingIds((prev) => new Set(prev).add(template.id));
+
+    try {
+      const newTemplate = await templateApi.duplicateTemplate(template.id);
+      toast({
+        title: "Template duplicated",
+        description: `Created "${newTemplate.name}"`,
+      });
+      fetchTemplates();
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description:
+          (error as any)?.response?.data?.error ||
+          (error as any)?.message ||
+          `Failed to duplicate template`,
+        variant: "destructive",
+      });
+    } finally {
+      setDuplicatingIds((prev) => {
         const newSet = new Set(prev);
         newSet.delete(template.id);
         return newSet;
@@ -375,6 +406,17 @@ export default function Questionnaires() {
             >
               <Edit className="h-4 w-4" />
             </Button>
+            {isEnabled("milestone_2") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDuplicate(template)}
+                disabled={duplicatingIds.has(template.id)}
+                title="Duplicate Template"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"

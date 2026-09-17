@@ -2,11 +2,11 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   ShieldCheck, 
-  RefreshCcw, 
-  UserPlus, 
+  RefreshCcw,
+  UserPlus,
   UserX, 
   MoreHorizontal, 
-  Mail, 
+  Mail,
   CheckCircle2, 
   Clock, 
   AlertCircle,
@@ -88,24 +88,12 @@ export default function CrossTenantAccessUsers() {
   const createMutation = useMutation({
     mutationFn: (payload: Partial<CrossTenantAccessUser>) => clientApi.createAccessUser(payload),
     onSuccess: () => {
-      toast({ title: "Access user created", description: "Successfully provisioned and queued for initial sync." });
+      toast({ title: "Access user created", description: "The admin account was provisioned successfully." });
       setForm({ email: "" });
       refetchUsers();
     },
     onError: () => {
       toast({ title: "Create failed", description: "Unable to create access user.", variant: "destructive" });
-    },
-  });
-
-  const syncMutation = useMutation({
-    mutationFn: ({ accessUserId, clientIds }: { accessUserId: string; clientIds?: string[] }) =>
-      clientApi.syncAccessUser(accessUserId, clientIds),
-    onSuccess: () => {
-      toast({ title: "Sync queued", description: "Cross-tenant sync has been queued." });
-      refetchUsers();
-    },
-    onError: () => {
-      toast({ title: "Sync failed", description: "Unable to queue sync.", variant: "destructive" });
     },
   });
 
@@ -122,7 +110,7 @@ export default function CrossTenantAccessUsers() {
   const deactivateMutation = useMutation({
     mutationFn: (accessUserId: string) => clientApi.deactivateAccessUser(accessUserId),
     onSuccess: () => {
-      toast({ title: "User deactivated", description: "Tenant deactivation sync queued." });
+      toast({ title: "User deactivated", description: "Admin access has been updated." });
       refetchUsers();
     },
     onError: (error: any) => {
@@ -137,14 +125,18 @@ export default function CrossTenantAccessUsers() {
   const reactivateMutation = useMutation({
     mutationFn: async (user: CrossTenantAccessUser) => {
       await clientApi.updateAccessUser(user.id, { is_active: true });
-      return clientApi.syncAccessUser(user.id);
+      return user;
     },
     onSuccess: () => {
-      toast({ title: "User reactivated", description: "Sync queued for all eligible tenants." });
+      toast({ title: "User reactivated", description: "Admin access has been restored." });
       refetchUsers();
     },
-    onError: () => {
-      toast({ title: "Reactivate failed", description: "Unable to reactivate user.", variant: "destructive" });
+    onError: (error: any) => {
+      toast({
+        title: "Reactivate failed",
+        description: error?.response?.data?.detail || error?.response?.data?.error || "Unable to reactivate user.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -296,6 +288,51 @@ export default function CrossTenantAccessUsers() {
           </>
         )}
 
+        {/* Provisioning Section */}
+        <Card className="rounded-2xl border-gray-200 shadow-sm overflow-hidden border-none bg-blue-50/30">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <Plus className="w-4 h-4 text-blue-600" />
+              </div>
+              <CardTitle className="text-gray-800 text-base">Provision New Access Node</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="flex flex-col md:flex-row gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (form.email) createMutation.mutate({ email: form.email, sync_scope: "all_clients", is_active: true });
+              }}
+            >
+              <div className="flex-1 relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Administrator Email Address"
+                  className="pl-10 bg-white border-gray-200 rounded-xl focus-visible:ring-blue-500 h-11"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="rounded-xl h-11 px-6 shadow-md shadow-primary/20 transition-all active:scale-95"
+                disabled={!form.email || createMutation.isPending}
+              >
+                {createMutation.isPending ? (
+                  <RefreshCcw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Provision Access
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
         {/* Global Diagnostic Summary */}
         {!isLoading && aggregateMetrics.recentFailures.length > 0 && (
           <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900 rounded-2xl shadow-sm">
@@ -316,52 +353,6 @@ export default function CrossTenantAccessUsers() {
             </AlertDescription>
           </Alert>
         )}
-
-        {/* Provisioning Section */}
-        <Card className="rounded-2xl border-gray-200 shadow-sm overflow-hidden border-none bg-blue-50/30">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <Plus className="w-4 h-4 text-blue-600" />
-              </div>
-              <CardTitle className="text-gray-800 text-base">Provision New Access Node</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <form 
-              className="flex flex-col md:flex-row gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (form.email) createMutation.mutate({ ...form, sync_scope: "all_clients", is_active: true });
-              }}
-            >
-              <div className="flex-1 relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Administrator Email Address"
-                  className="pl-10 bg-white border-gray-200 rounded-xl focus-visible:ring-blue-500 h-11"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                />
-              </div>
-              {/* Phone removed — cross-tenant access provisioning uses email only */}
-              <Button
-                type="submit"
-                className="rounded-xl h-11 px-6 shadow-md shadow-primary/20 transition-all active:scale-95"
-                disabled={!form.email || createMutation.isPending}
-              >
-                {createMutation.isPending ? (
-                  <RefreshCcw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Provision Access
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
 
         {/* Access Nodes List */}
         <div className="space-y-4">
@@ -388,10 +379,6 @@ export default function CrossTenantAccessUsers() {
               sortedUsers.map((user) => {
                 const summary = user.sync_status_summary || { pending: 0, success: 0, failed: 0 };
                 const total = summary.pending + summary.success + summary.failed;
-                const failedClientIds = (user.sync_statuses || [])
-                  .filter((s) => s.status === "failed")
-                  .map((s) => s.client);
-
                 return (
                   <Card 
                     key={user.id} 
@@ -464,23 +451,6 @@ export default function CrossTenantAccessUsers() {
                             <DropdownMenuLabel className="text-[10px] font-bold text-gray-400 px-2 py-1.5 uppercase">Actions</DropdownMenuLabel>
                             <DropdownMenuItem 
                               className="rounded-lg text-xs font-medium cursor-pointer"
-                              onClick={() => syncMutation.mutate({ accessUserId: user.id })}
-                              disabled={syncMutation.isPending}
-                            >
-                              <RefreshCcw className={`h-3.5 w-3.5 mr-2 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
-                              Sync Ecosystem
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="rounded-lg text-xs font-medium cursor-pointer text-red-600 hover:text-red-700"
-                              disabled={failedClientIds.length === 0 || syncMutation.isPending}
-                              onClick={() => syncMutation.mutate({ accessUserId: user.id, clientIds: failedClientIds })}
-                            >
-                              <AlertCircle className="h-3.5 w-3.5 mr-2" />
-                              Retry Failed ({failedClientIds.length})
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              className="rounded-lg text-xs font-medium cursor-pointer"
                               onClick={() => inviteMutation.mutate(user.id)}
                               disabled={inviteMutation.isPending}
                             >
@@ -501,7 +471,7 @@ export default function CrossTenantAccessUsers() {
                                     <AlertDialogHeader>
                                       <AlertDialogTitle className="text-xl font-bold text-gray-900">Confirm Deactivation</AlertDialogTitle>
                                       <AlertDialogDescription className="text-gray-600">
-                                        This will immediately revoke access for <span className="font-bold">{user.email}</span> across all {total} connected tenants. This action will be queued for the next sync cycle.
+                                        This will immediately revoke admin portal access for <span className="font-bold">{user.email}</span>.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -522,7 +492,7 @@ export default function CrossTenantAccessUsers() {
                                 </DropdownMenuItem>
                               )
                             ) : (
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 className="rounded-lg text-xs font-medium cursor-pointer text-green-600"
                                 onClick={() => reactivateMutation.mutate(user)}
                                 disabled={reactivateMutation.isPending}

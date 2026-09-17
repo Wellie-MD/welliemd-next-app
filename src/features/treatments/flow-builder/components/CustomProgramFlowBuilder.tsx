@@ -1,0 +1,200 @@
+import { useMemo, useState } from "react";
+import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, EffectiveCustomProgramContent, Program, ProgramQuestion } from "@/features/treatments/types";
+import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
+import { useSectionFieldsMap } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { buildMatchingSources } from "@/features/treatments/flow-builder/utils/programMatchingRules";
+import { buildCustomProgramVisibilityQuestions } from "@/features/treatments/flow-builder/utils/customProgramVisibilityQuestions";
+import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
+import { PatientFlowTestModal } from "./modals/PatientFlowTestModal";
+import { FlowBuilderCanvas } from "./canvas/FlowBuilderCanvas";
+import { FlowBuilderHeader } from "./canvas/FlowBuilderHeader";
+import { FlowBuilderListView } from "./canvas/FlowBuilderListView";
+import { FlowBuilderSidebar } from "./canvas/FlowBuilderSidebar";
+import { ProgramMatchingRuleEditor } from "./modals/ProgramMatchingRuleEditor";
+import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
+import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
+
+interface CustomProgramFlowBuilderProps {
+  customProgram: CustomProgram;
+  onOpenDrawer?: () => void;
+  onSave?: (updated: CustomProgram) => void;
+  onPublish: () => void;
+  isPublishing?: boolean;
+  onUpdateFlow?: (updatedItems: CustomProgramFlowItem[]) => Promise<void>;
+  programs: Program[];
+  sections: CommonSection[];
+  consents: ConsentForm[];
+  effectiveContent: EffectiveCustomProgramContent;
+  onSaveMatching: (
+    rules: CustomProgram["programMatchingRules"],
+    expectedUpdatedAt: string,
+  ) => Promise<CustomProgram>;
+}
+
+export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onPublish, isPublishing, onUpdateFlow, programs, sections, consents, effectiveContent, onSaveMatching }: CustomProgramFlowBuilderProps) {
+  const builder = useCustomProgramFlowBuilder({ customProgram, onSave, onUpdateFlow });
+  const [matchingProgramId, setMatchingProgramId] = useState<string | null>(null);
+
+  // Inputs a Stage 2 matching rule may legally reference. Section fields must
+  // be loaded for every Section placed in the flow, otherwise a valid rule
+  // would render as "input no longer available".
+  const flowSectionIds = useMemo(
+    () => customProgram.flowItems
+      .filter((item) => item.kind === "section" || item.kind === "section_field")
+      .map((item) => String(item.sourceId || "")),
+    [customProgram.flowItems],
+  );
+  const sectionFields = useSectionFieldsMap(flowSectionIds);
+  const matchingSources = useMemo(
+    () => buildMatchingSources({
+      flowItems: customProgram.flowItems,
+      sections,
+      sectionFields,
+      effectiveSections: effectiveContent.stages.stage1.sections,
+    }),
+    [customProgram.flowItems, sections, sectionFields, effectiveContent.stages.stage1.sections],
+  );
+  const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
+  const allFlowQuestions = useMemo(
+    () => buildCustomProgramVisibilityQuestions({
+      flowItems: customProgram.flowItems,
+    }),
+    [customProgram.flowItems],
+  );
+
+  const editorQuestion: ProgramQuestion | null = editingQuestion ? {
+    id: editingQuestion.sourceId || editingQuestion.id,
+    order: customProgram.flowItems.findIndex((item) => item.id === editingQuestion.id) + 1,
+    text: editingQuestion.title,
+    kind: (editingQuestion.questionKind || "text") as ProgramQuestion["kind"],
+    section: "Program Matching",
+    required: editingQuestion.required ?? true,
+    choices: editingQuestion.choices || editingQuestion.answerOptions || [],
+    dqChoices: editingQuestion.dqChoices || [],
+    visibilityRuleGroup: editingQuestion.visibilityRules as ProgramQuestion["visibilityRuleGroup"],
+    includeInQa: editingQuestion.includeInQa,
+    hiddenFromPatient: editingQuestion.hiddenFromPatient,
+    prefillFromPrevious: editingQuestion.prefillFromPrevious,
+    lockClientChanges: editingQuestion.lockClientChanges,
+  } : null;
+
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col space-y-4 overflow-hidden">
+      <FlowBuilderHeader
+        name={customProgram.name}
+        slug={customProgram.slug}
+        slugInput={builder.slugInput}
+        isEditingSlug={builder.isEditingSlug}
+        viewMode={builder.viewMode}
+        onSlugInputChange={builder.setSlugInput}
+        onStartEditSlug={builder.handleStartEditSlug}
+        onSaveSlug={builder.handleSaveSlug}
+        onCancelEditSlug={builder.handleCancelEditSlug}
+        onViewModeChange={builder.setViewMode}
+        onOpenDrawer={onOpenDrawer}
+        onOpenPreview={() => builder.setIsTestModalOpen(true)}
+        onSave={builder.handleSave}
+        onPublish={onPublish}
+        isPublishing={isPublishing}
+      />
+
+      <PatientFlowTestModal
+        open={builder.isTestModalOpen}
+        onOpenChange={builder.setIsTestModalOpen}
+        previewContext={{
+          type: "custom_program",
+          id: customProgram.id,
+          slug: customProgram.slug,
+          name: customProgram.name,
+          apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
+        }}
+      />
+      <ProgramMatchingRuleEditor
+        open={Boolean(matchingProgramId)}
+        onOpenChange={(open) => { if (!open) setMatchingProgramId(null); }}
+        customProgram={customProgram}
+        programId={matchingProgramId}
+        programs={programs}
+        sources={matchingSources}
+        onSave={onSaveMatching}
+        onOpenPreview={() => builder.setIsTestModalOpen(true)}
+      />
+      <QuestionEditorDialog
+        visibilitySourceScope="custom_program_stage1"
+        open={Boolean(editingQuestion)}
+        onOpenChange={(open) => { if (!open) setEditingQuestion(null); }}
+        questions={allFlowQuestions}
+        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+          questionId,
+          allFlowQuestions,
+        )}
+        initialQuestionId={editorQuestion?.id || null}
+        onSave={async (question) => {
+          if (!editingQuestion || !onUpdateFlow) return;
+          await onUpdateFlow(customProgram.flowItems.map((item) => item.id === editingQuestion.id ? {
+            ...item,
+            title: question.text,
+            subtitle: `Matching input (${question.kind})`,
+            sourceId: question.id,
+            questionKind: question.kind,
+            choices: question.choices || [],
+            answerOptions: question.choices || [],
+            dqChoices: question.dqChoices || [],
+            required: question.required,
+            visibilityRules: question.visibilityRuleGroup,
+            includeInQa: question.includeInQa,
+            hiddenFromPatient: question.hiddenFromPatient,
+            prefillFromPrevious: question.prefillFromPrevious,
+            lockClientChanges: question.lockClientChanges,
+          } : item));
+          setEditingQuestion(null);
+        }}
+      />
+
+      {builder.viewMode === "list" && (
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <FlowBuilderListView
+            customProgram={customProgram}
+            programs={programs}
+            sections={sections}
+            consents={consents}
+            effectiveContent={effectiveContent}
+            onUpdateFlow={onUpdateFlow}
+            onEditQuestion={setEditingQuestion}
+            onOpenPreview={() => builder.setIsTestModalOpen(true)}
+            onConfigureMatching={(programId) => setMatchingProgramId(programId)}
+          />
+        </div>
+      )}
+
+      {builder.viewMode === "flow" && (
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(220px,280px)_minmax(0,1fr)] gap-4 overflow-hidden">
+          <FlowBuilderSidebar
+            items={builder.filteredLibraryItems}
+            filter={builder.sidebarFilter}
+            search={builder.sidebarSearch}
+            onFilterChange={builder.setSidebarFilter}
+            onSearchChange={builder.setSidebarSearch}
+            onToggleItem={builder.handleToggleItemInFlow}
+            onDragStart={builder.handleSidebarDragStart}
+            isItemInFlow={builder.isItemInFlow}
+            onOpenDrawer={onOpenDrawer}
+          />
+          <FlowBuilderCanvas
+            flowItems={customProgram.flowItems}
+            preFan={builder.preFan}
+            tracks={builder.tracks}
+            postFan={builder.postFan}
+            onDragStart={builder.handleDragStart}
+            onDragEnd={builder.handleDragEnd}
+            onDropOnArrow={builder.handleDropOnArrow}
+            onCanvasDrop={builder.handleCanvasContainerDrop}
+            onInsertItem={builder.handleInsertItem}
+            getTargetIndexForId={builder.getTargetIndexForId}
+            onEditSystemItem={(item) => { if (item.kind === "routing_question") setEditingQuestion(customProgram.flowItems.find((flowItem) => flowItem.id === item.id) || null); }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

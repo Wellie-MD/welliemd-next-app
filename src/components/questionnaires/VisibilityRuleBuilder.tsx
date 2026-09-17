@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
+  SelectGroup,
+  SelectLabel,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -11,18 +13,26 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { normalizeChoiceDisplay } from "@/utils/choiceValue";
+import {
+  visibilityIssueId,
+  visibilityPathLabel,
+  normalizeVisibilityQuestionId,
+  type VisibilityValidationIssue,
+} from "./visibilityRuleValidation";
+import {
+  getAllowedVisibilityOperators,
+  isNumericVisibilityOperator,
+  type VisibilityConditionOperator,
+} from "./visibilityOperatorPolicy";
+export { DERIVED_BMI_ID } from "./visibilityRuleConstants";
+import { DERIVED_BMI_ID } from "./visibilityRuleConstants";
 
-export type VisibilityConditionOperator =
-  | "equals"
-  | "not_equals"
-  | "in"
-  | "not_in"
-  | "contains"
-  | "not_contains";
+export type { VisibilityConditionOperator } from "./visibilityOperatorPolicy";
 
 export interface VisibilityCondition {
   type: "condition";
   question_id: string;
+  question_type?: string;
   operator: VisibilityConditionOperator;
   value: string | string[];
   field?: string;
@@ -34,10 +44,11 @@ export interface VisibilityGroup {
   children: Array<VisibilityCondition | VisibilityGroup>;
 }
 
-interface QuestionOption {
+export interface QuestionOption {
   id: string;
   question_text: string;
   order_index?: number;
+  question_type?: string;
   answer_choices?: Array<string | Record<string, unknown>>;
 }
 
@@ -45,9 +56,10 @@ interface VisibilityRuleBuilderProps {
   value: VisibilityGroup;
   onChange: (next: VisibilityGroup) => void;
   questions: QuestionOption[];
+  validationIssues?: VisibilityValidationIssue[];
 }
 
-const CONDITION_OPERATORS: Array<{
+export const CONDITION_OPERATORS: Array<{
   value: VisibilityConditionOperator;
   label: string;
 }> = [
@@ -57,7 +69,18 @@ const CONDITION_OPERATORS: Array<{
   { value: "not_in", label: "Is not one of" },
   { value: "contains", label: "Contains" },
   { value: "not_contains", label: "Does not contain" },
+  { value: "gt", label: "Greater than" },
+  { value: "gte", label: "Greater or equal" },
+  { value: "lt", label: "Less than" },
+  { value: "lte", label: "Less or equal" },
+  { value: "between", label: "In between" },
+  { value: "is_empty", label: "Is empty / unanswered" },
+  { value: "is_not_empty", label: "Is not empty / answered" },
 ];
+
+export const getAllowedOperators = (kind?: string): VisibilityConditionOperator[] => {
+  return getAllowedVisibilityOperators(kind);
+};
 
 function defaultCondition(questionId = ""): VisibilityCondition {
   return {
@@ -131,14 +154,44 @@ function appendChildAtPath(
   return next;
 }
 
-function getQuestionChoices(question: QuestionOption | undefined): string[] {
+interface ChoiceOption {
+  value: string;
+  label: string;
+}
+
+function canonicalChoiceValue(choice: unknown): string {
+  if (choice && typeof choice === "object" && !Array.isArray(choice)) {
+    const record = choice as Record<string, unknown>;
+    for (const key of ["value", "code", "option_id", "id"]) {
+      const value = record[key];
+      if (value !== undefined && value !== null && String(value).trim()) {
+        return String(value);
+      }
+    }
+  }
+  return normalizeChoiceDisplay(choice);
+}
+
+function getQuestionChoices(question: QuestionOption | undefined): ChoiceOption[] {
   if (!question?.answer_choices) return [];
-  return question.answer_choices.map((choice) => normalizeChoiceDisplay(choice));
+  return question.answer_choices
+    .map((choice) => ({
+      value: canonicalChoiceValue(choice),
+      label: normalizeChoiceDisplay(choice),
+    }))
+    .filter((choice) => Boolean(choice.value));
 }
 
 function formatQuestionLabel(question: QuestionOption): string {
-  return question.order_index ? `${question.order_index}. ${question.question_text}` : question.question_text;
+  const questionId = typeof question.id === "string" ? question.id : "";
+  const isProfileSource = questionId.startsWith("__patient_profile_");
+  return isProfileSource || !question.order_index
+    ? question.question_text
+    : `${question.order_index}. ${question.question_text}`;
 }
+
+const isPatientProfileQuestion = (question: QuestionOption): boolean =>
+  typeof question.id === "string" && question.id.startsWith("__patient_profile_");
 
 function ConditionEditor({
   node,
@@ -146,30 +199,61 @@ function ConditionEditor({
   questions,
   onChange,
   onRemove,
+  validationIssues,
 }: {
   node: VisibilityCondition;
   path: number[];
   questions: QuestionOption[];
   onChange: (path: number[], updater: (node: VisibilityCondition) => VisibilityCondition) => void;
   onRemove: (path: number[]) => void;
+  validationIssues: VisibilityValidationIssue[];
 }) {
-  const selectedQuestion = questions.find((question) => question.id === node.question_id);
+  const questionId = normalizeVisibilityQuestionId(node);
+  const selectedQuestion = questions.find((question) => question.id === questionId);
+  const isPatientProfileSource = questionId.startsWith("__patient_profile_");
   const choiceOptions = getQuestionChoices(selectedQuestion);
   const isMultiValue = ["in", "not_in"].includes(node.operator);
+  const isBetween = node.operator === "between";
+  const isNumericOp = isNumericVisibilityOperator(node.operator);
   const valueText = Array.isArray(node.value) ? node.value.join(", ") : node.value;
+  const selectValue = choiceOptions.length > 0 && !isMultiValue
+    ? (
+      choiceOptions.find((choice) => (
+        choice.value === valueText || choice.label === valueText
+      ))?.value || valueText
+    )
+    : valueText;
+
+  const betweenValues = Array.isArray(node.value) && node.value.length === 2
+    ? node.value
+    : ["", ""];
+  const questionIssue = validationIssues.find((issue) => issue.field === "question");
+  const valueIssue = validationIssues.find((issue) => issue.field === "value");
+  const hasIssue = Boolean(questionIssue || valueIssue);
 
   const updateValue = (raw: string) => {
+    const resolveValue = (value: string) => (
+      choiceOptions.find((choice) => choice.value === value || choice.label === value)
+        ?.value || value
+    );
     const nextValue = isMultiValue
-      ? raw.split(",").map((item) => item.trim()).filter(Boolean)
-      : raw;
+      ? raw.split(",").map((item) => resolveValue(item.trim())).filter(Boolean)
+      : resolveValue(raw);
     onChange(path, (current) => ({ ...current, value: nextValue }));
   };
 
+  const questionKind = selectedQuestion?.question_type;
+  const allowedOperators = getAllowedOperators(questionKind);
+  const isEmptyOperator = node.operator === "is_empty" || node.operator === "is_not_empty";
+
   return (
-    <div className="space-y-3 rounded-lg border bg-background p-3">
+    <div
+      className={`space-y-3 rounded-lg border bg-background p-3 ${hasIssue ? "border-red-400 ring-1 ring-red-100" : ""}`}
+      data-visibility-condition-path={path.join(".")}
+    >
       <div className="flex items-center justify-between gap-2">
         <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          Condition
+          Condition {visibilityPathLabel(path)}
         </Label>
         <Button type="button" variant="ghost" size="sm" onClick={() => onRemove(path)}>
           <Trash2 className="h-4 w-4" />
@@ -180,40 +264,84 @@ function ConditionEditor({
         <div className="space-y-2">
           <Label className="text-xs">Question</Label>
           <Select
-            value={node.question_id}
-            onValueChange={(questionId) =>
+            value={questionId}
+            onValueChange={(selectedId) => {
+              const isBmi = selectedId === DERIVED_BMI_ID;
+              const targetQ = questions.find((q) => q.id === selectedId);
+              const qKind = targetQ?.question_type || (isBmi ? "bmi" : undefined);
+              const allowed = getAllowedOperators(qKind);
+              const nextOp = allowed.includes(node.operator) ? node.operator : allowed[0];
               onChange(path, (current) => ({
                 ...current,
-                question_id: questionId,
+                question_id: selectedId,
+                question_type: qKind,
+                operator: nextOp,
                 value: "",
-              }))
-            }
+              }));
+            }}
           >
-            <SelectTrigger>
+            <SelectTrigger
+              className={questionIssue ? "min-w-0 border-red-500 text-left" : "min-w-0 text-left"}
+              data-visibility-field="question"
+              aria-invalid={Boolean(questionIssue)}
+              aria-describedby={questionIssue ? visibilityIssueId(questionIssue) : undefined}
+            >
               <SelectValue placeholder="Select question" />
             </SelectTrigger>
-            <SelectContent>
-              {questions.map((question) => (
-                <SelectItem key={question.id} value={question.id}>
-                  {formatQuestionLabel(question)}
-                </SelectItem>
-              ))}
+            <SelectContent className="w-[min(32rem,calc(100vw-2rem))]">
+              <SelectGroup>
+                <SelectLabel>Earlier questions</SelectLabel>
+                {questions.filter((question) => !isPatientProfileQuestion(question)).map((question) => (
+                  <SelectItem
+                    key={question.id}
+                    value={question.id}
+                    className="whitespace-normal py-2 leading-5"
+                  >
+                    {formatQuestionLabel(question)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              {questions.some(isPatientProfileQuestion) && (
+                <SelectGroup>
+                  <SelectLabel>Patient profile</SelectLabel>
+                  {questions.filter(isPatientProfileQuestion).map((question) => (
+                    <SelectItem
+                      key={question.id}
+                      value={question.id}
+                      className="whitespace-normal py-2 leading-5"
+                    >
+                      {formatQuestionLabel(question)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
             </SelectContent>
           </Select>
+          {questionIssue && (
+            <p id={visibilityIssueId(questionIssue)} className="text-xs font-medium text-red-600">
+              {questionIssue.message}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs">Field (optional)</Label>
-          <Input
-            value={node.field || ""}
-            onChange={(event) =>
-              onChange(path, (current) => ({
-                ...current,
-                field: event.target.value || undefined,
-              }))
-            }
-            placeholder="medication.code or dose.dose_mapping_id"
-          />
+          {isPatientProfileSource ? (
+            <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
+              Uses the selected profile field
+            </div>
+          ) : (
+            <Input
+              value={node.field || ""}
+              onChange={(event) =>
+                onChange(path, (current) => ({
+                  ...current,
+                  field: event.target.value || undefined,
+                }))
+              }
+              placeholder="medication.code or dose.dose_mapping_id"
+            />
+          )}
         </div>
       </div>
 
@@ -232,6 +360,8 @@ function ConditionEditor({
                     : current.value
                     ? [String(current.value)]
                     : []
+                  : operator === "between"
+                  ? ["", ""]
                   : Array.isArray(current.value)
                   ? current.value[0] || ""
                   : current.value,
@@ -242,7 +372,7 @@ function ConditionEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {CONDITION_OPERATORS.map((operator) => (
+              {CONDITION_OPERATORS.filter((op) => allowedOperators.includes(op.value)).map((operator) => (
                 <SelectItem key={operator.value} value={operator.value}>
                   {operator.label}
                 </SelectItem>
@@ -253,15 +383,69 @@ function ConditionEditor({
 
         <div className="space-y-2">
           <Label className="text-xs">Value</Label>
-          {choiceOptions.length > 0 && !isMultiValue ? (
-            <Select value={valueText} onValueChange={updateValue}>
-              <SelectTrigger>
+          {isEmptyOperator ? (
+            <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-xs text-slate-500">
+              Matches when question is {node.operator === "is_empty" ? "unanswered" : "answered"}
+            </div>
+          ) : isBetween ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={betweenValues[0]}
+                onChange={(event) =>
+                  onChange(path, (current) => ({
+                    ...current,
+                    value: [event.target.value, betweenValues[1]],
+                  }))
+                }
+                placeholder="Min"
+                className={valueIssue ? "border-red-500" : undefined}
+                data-visibility-field="value"
+                aria-invalid={Boolean(valueIssue)}
+                aria-describedby={valueIssue ? visibilityIssueId(valueIssue) : undefined}
+              />
+              <span className="text-xs text-muted-foreground">to</span>
+              <Input
+                type="number"
+                value={betweenValues[1]}
+                onChange={(event) =>
+                  onChange(path, (current) => ({
+                    ...current,
+                    value: [betweenValues[0], event.target.value],
+                  }))
+                }
+                placeholder="Max"
+                className={valueIssue ? "border-red-500" : undefined}
+                data-visibility-field="value"
+                aria-invalid={Boolean(valueIssue)}
+                aria-describedby={valueIssue ? visibilityIssueId(valueIssue) : undefined}
+              />
+            </div>
+          ) : isNumericOp ? (
+            <Input
+              type="number"
+              value={valueText}
+              onChange={(event) => updateValue(event.target.value)}
+              placeholder="Numeric value"
+              className={valueIssue ? "border-red-500" : undefined}
+              data-visibility-field="value"
+              aria-invalid={Boolean(valueIssue)}
+              aria-describedby={valueIssue ? visibilityIssueId(valueIssue) : undefined}
+            />
+          ) : choiceOptions.length > 0 && !isMultiValue ? (
+            <Select value={selectValue} onValueChange={updateValue}>
+              <SelectTrigger
+                className={valueIssue ? "border-red-500" : undefined}
+                data-visibility-field="value"
+                aria-invalid={Boolean(valueIssue)}
+                aria-describedby={valueIssue ? visibilityIssueId(valueIssue) : undefined}
+              >
                 <SelectValue placeholder="Select answer" />
               </SelectTrigger>
               <SelectContent>
                 {choiceOptions.map((choice) => (
-                  <SelectItem key={choice} value={choice}>
-                    {choice}
+                  <SelectItem key={choice.value} value={choice.value}>
+                    {choice.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -271,7 +455,16 @@ function ConditionEditor({
               value={valueText}
               onChange={(event) => updateValue(event.target.value)}
               placeholder={isMultiValue ? "value1, value2" : "Trigger value"}
+              className={valueIssue ? "border-red-500" : undefined}
+              data-visibility-field="value"
+              aria-invalid={Boolean(valueIssue)}
+              aria-describedby={valueIssue ? visibilityIssueId(valueIssue) : undefined}
             />
+          )}
+          {valueIssue && (
+            <p id={visibilityIssueId(valueIssue)} className="text-xs font-medium text-red-600">
+              {valueIssue.message}
+            </p>
           )}
         </div>
       </div>
@@ -286,6 +479,7 @@ function GroupEditor({
   questions,
   isRoot = false,
   onChange,
+  validationIssues,
 }: {
   root: VisibilityGroup;
   node: VisibilityGroup;
@@ -293,8 +487,12 @@ function GroupEditor({
   questions: QuestionOption[];
   isRoot?: boolean;
   onChange: (next: VisibilityGroup) => void;
+  validationIssues: VisibilityValidationIssue[];
 }) {
   const appendLockRef = useRef<number>(0);
+  const groupIssue = validationIssues.find(
+    (issue) => issue.field === "group" && issue.path.join(".") === path.join("."),
+  );
 
   const guardAppend = (
     event: MouseEvent<HTMLButtonElement>,
@@ -312,7 +510,10 @@ function GroupEditor({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+    <div
+      className={`space-y-3 rounded-lg border bg-muted/20 p-3 ${groupIssue ? "border-red-400 ring-1 ring-red-100" : ""}`}
+      data-visibility-group-path={path.join(".")}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -346,6 +547,11 @@ function GroupEditor({
       </div>
 
       <div className="space-y-3">
+        {groupIssue && (
+          <p id={visibilityIssueId(groupIssue)} className="text-xs font-medium text-red-600">
+            {groupIssue.message}
+          </p>
+        )}
         {node.children.map((child, index) => {
           const childPath = [...path, index];
           if (child.type === "group") {
@@ -357,6 +563,7 @@ function GroupEditor({
                   path={childPath}
                   questions={questions}
                   onChange={onChange}
+                  validationIssues={validationIssues}
                 />
                 <div className="mt-2 flex justify-end">
                   <Button type="button" variant="ghost" size="sm" onClick={() => onChange(removeNodeAtPath(root, childPath))}>
@@ -380,6 +587,9 @@ function GroupEditor({
               onRemove={(targetPath) => {
                 onChange(removeNodeAtPath(root, targetPath));
               }}
+              validationIssues={validationIssues.filter(
+                (issue) => issue.path.join(".") === childPath.join("."),
+              )}
             />
           );
         })}
@@ -419,6 +629,7 @@ export function VisibilityRuleBuilder({
   value,
   onChange,
   questions,
+  validationIssues = [],
 }: VisibilityRuleBuilderProps) {
   return (
     <GroupEditor
@@ -428,6 +639,7 @@ export function VisibilityRuleBuilder({
       questions={questions}
       isRoot
       onChange={onChange}
+      validationIssues={validationIssues}
     />
   );
 }

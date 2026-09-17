@@ -137,7 +137,7 @@ export default function AddQuestionnairesForm({
     const loadFollowups = async () => {
       if (!open) return
       try {
-        const templates = await templateApi.listTemplates()
+        const templates = await templateApi.listTemplates({ standaloneOnly: true })
         setFollowupTemplates(
           (templates || []).filter(
             (t) =>

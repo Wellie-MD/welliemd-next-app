@@ -168,12 +168,20 @@ export interface UpdateQuestionPayload {
   sub_questions?: Omit<SubQuestion, 'id'>[];
 }
 
+export interface ListTemplatesOptions {
+  standaloneOnly?: boolean;
+}
+
 // ==================== TEMPLATE API ====================
 
 export const templateApi = {
-  listTemplates: async (): Promise<QuestionnaireTemplate[]> => {
+  listTemplates: async (
+    options: ListTemplatesOptions = {}
+  ): Promise<QuestionnaireTemplate[]> => {
     const aggregated: QuestionnaireTemplate[] = [];
-    let nextUrl: string | null = "questionnaires/frontend/templates/?page_size=100";
+    const params = new URLSearchParams({ page_size: "100" });
+    if (options.standaloneOnly) params.set("standalone_only", "true");
+    let nextUrl: string | null = `questionnaires/frontend/templates/?${params.toString()}`;
 
     while (nextUrl) {
       const { data } = await axiosInstance.get<
@@ -255,6 +263,15 @@ export const templateApi = {
     );
     return data;
   },
+
+  duplicateTemplate: async (
+    id: string
+  ): Promise<QuestionnaireTemplate> => {
+    const { data } = await axiosInstance.post<QuestionnaireTemplate>(
+      `questionnaires/frontend/templates/${id}/duplicate/`
+    );
+    return data;
+  },
 };
 
 // Legacy exports for backward compatibility
@@ -265,6 +282,7 @@ export const updateTemplate = templateApi.updateTemplate;
 export const deleteTemplate = templateApi.deleteTemplate;
 export const publishTemplate = templateApi.publishTemplate;
 export const unpublishTemplate = templateApi.unpublishTemplate;
+export const duplicateTemplate = templateApi.duplicateTemplate;
 
 // ==================== QUESTION API ====================
 

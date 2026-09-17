@@ -1,0 +1,226 @@
+import { QuestionEditorHeader } from "@/features/treatments/question-editor/components/shell/QuestionEditorHeader";
+import { CheckoutProductsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutProductsSection";
+import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-question/components/CheckoutPatientPreview";
+import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
+import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
+import type { ProgramQuestion, ProgramCheckoutQuestion, ProgramCheckoutProduct } from "@/features/treatments/types";
+import { toast } from "@/components/ui/use-toast";
+import { useEffect, useMemo, useState } from "react";
+import type { ProgramLabRequirement } from "@/features/treatments/types";
+import { CheckoutLabsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutLabsSection";
+import { CheckoutOfferTypeSection, type CheckoutOfferMode } from "@/features/treatments/programs/checkout-question/components/CheckoutOfferTypeSection";
+import type { LabPanel } from "@/api/labs";
+import type { CombinedLabPanel } from "@/features/labs/types";
+import type { Product } from "@/api/products";
+
+interface CheckoutEditorProps {
+  activeQuestion?: ProgramQuestion;
+  questions: ProgramQuestion[];
+  programName?: string;
+  programTreatmentTypeKey?: string | null;
+  sidebar: React.ReactNode;
+  onSave: (question: ProgramQuestion) => Promise<void>;
+  onClose: () => void;
+  onTestFlow?: () => void;
+  programLabRequirements?: ProgramLabRequirement[];
+  onSaveLabRequirements?: (requirements: ProgramLabRequirement[]) => Promise<void>;
+  initialMode?: CheckoutOfferMode;
+}
+
+export function CheckoutEditor({
+  activeQuestion,
+  questions,
+  programName = "WellieMD Initial Assessment",
+  programTreatmentTypeKey,
+  sidebar,
+  onSave,
+  onClose,
+  onTestFlow,
+  programLabRequirements = [],
+  onSaveLabRequirements,
+  initialMode = "medicine",
+}: CheckoutEditorProps) {
+  // Map ProgramQuestion to the shape useCheckoutQuestionForm expects
+  const initialCheckoutQuestion = useMemo<ProgramCheckoutQuestion | null>(() => {
+    if (!activeQuestion) return null;
+
+    const fallbackProducts: ProgramCheckoutProduct[] = [
+      {
+        id: "mock-1",
+        category: "Glutathione",
+        regimen: "Rapid",
+        doseLabel: activeQuestion.text || "Glutathione 200mg",
+      }
+    ];
+
+    return {
+      id: activeQuestion.id,
+      text: activeQuestion.text,
+      products: activeQuestion.checkoutProducts?.length ? activeQuestion.checkoutProducts : fallbackProducts,
+      visibilityRules: activeQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
+      required: false,
+      selectionMode: "multiple",
+      minSelections: 1,
+    };
+  }, [activeQuestion]);
+
+  const [justSaved, setJustSaved] = useState(false);
+  const [incompatibleProducts, setIncompatibleProducts] = useState<string[]>([]);
+  const [labRequirements, setLabRequirements] = useState<ProgramLabRequirement[]>(programLabRequirements);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    setLabRequirements(programLabRequirements);
+  }, [programLabRequirements]);
+
+  const form = useCheckoutQuestionForm({
+    open: true,
+    initialQuestion: initialCheckoutQuestion,
+    onSave: async (data) => {
+      const updatedQuestion: ProgramQuestion = {
+        id: activeQuestion?.id || `q-new-${Date.now()}`,
+        order: activeQuestion?.order || questions.length + 1,
+        text: data.text,
+        kind: "checkout",
+        section: activeQuestion?.section || "Checkout",
+        required: data.required ?? false,
+        visibilityRuleGroup: data.visibilityRules,
+        checkoutProducts: data.products,
+        checkoutProductIds: data.products.map((product) => product.productId || product.id),
+        checkoutSelectionMode: data.selectionMode,
+        checkoutMinSelections: data.minSelections,
+        checkoutMaxSelections: data.maxSelections,
+        elementConfig: {
+          ...(activeQuestion?.elementConfig || {}),
+          selectionMode: data.selectionMode,
+          minSelections: data.minSelections,
+          maxSelections: data.maxSelections,
+        },
+      };
+      await onSave(updatedQuestion);
+      if (!activeQuestion) {
+        // Keep the editor open for the next checkout question, but do not
+        // carry the inserted question's products into the new draft.
+        form.resetForm();
+      }
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 1200);
+      // No onClose() — stay open so the admin can keep iterating; a failed
+      // save throws before reaching here and useCheckoutQuestionForm surfaces
+      // formError inline without closing.
+    },
+    onOpenChange: () => {},
+  });
+
+  const questionOrder = activeQuestion ? activeQuestion.order : questions.length + 1;
+  const isEditMode = !!activeQuestion;
+  const [mode, setMode] = useState<CheckoutOfferMode>(initialMode);
+  const [labPanels, setLabPanels] = useState<LabPanel[]>([]);
+  const [combinedLabPanels, setCombinedLabPanels] = useState<CombinedLabPanel[]>([]);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  // Earlier (already-answered) questions can drive per-product visibility.
+  const eligibleQuestions = useMemo(
+    () =>
+      questions.filter(
+        (question) => question.id !== activeQuestion?.id && (mode === "lab" || question.order < questionOrder)
+      ),
+    [questions, activeQuestion?.id, questionOrder, mode]
+  );
+
+  return (
+    <div className="flex flex-col h-full w-full bg-slate-50">
+      <QuestionEditorHeader
+        title={`Checkout · Step ${questionOrder}`}
+        subtitle={programName}
+        isEditMode={isEditMode}
+        isSaving={form.isSaving}
+        justSaved={justSaved}
+        onClose={onClose}
+        onSave={() => {
+          if (mode === "lab") {
+            if (!onSaveLabRequirements) {
+              toast({
+                title: "Junction labs are unavailable",
+                description: "Configure the Junction catalog before adding a lab checkout step.",
+                variant: "destructive",
+              });
+              return;
+            }
+            void form.handleSaveLab(() => onSaveLabRequirements(labRequirements));
+            return;
+          }
+          if (incompatibleProducts.length > 0) {
+            toast({
+              title: "Fix checkout products before saving",
+              description: incompatibleProducts.join(". "),
+              variant: "destructive",
+            });
+            return;
+          }
+          void form.handleSaveModal();
+        }}
+        onTestFlow={onTestFlow}
+      />
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_340px] 2xl:grid-cols-[280px_minmax(0,1fr)_380px]">
+        {sidebar}
+
+        <main className="overflow-y-auto p-6 bg-white border-r border-slate-150">
+          <div className="space-y-5">
+            <CheckoutOfferTypeSection mode={mode} onChange={setMode} disabled={form.isSaving} />
+            {mode === "medicine" ? (
+              <CheckoutProductsSection
+                products={form.products}
+                eligibleQuestions={eligibleQuestions}
+                programTreatmentTypeKey={programTreatmentTypeKey}
+                onCompatibilityChange={setIncompatibleProducts}
+                onAddProduct={form.handleAddProduct}
+                onRemoveProduct={form.handleRemoveProduct}
+                onProductFieldChange={form.handleProductFieldChange}
+                onProductPriceChange={form.handleProductPriceChange}
+                onProductVisibilityChange={form.handleProductVisibilityChange}
+                onCatalogProductsChange={setCatalogProducts}
+              />
+            ) : onSaveLabRequirements ? (
+              <CheckoutLabsSection
+                requirements={labRequirements}
+                onChange={setLabRequirements}
+                onPanelsLoaded={setLabPanels}
+                onCombinedPanelsLoaded={setCombinedLabPanels}
+                disabled={form.isSaving}
+                eligibleQuestions={eligibleQuestions}
+              />
+            ) : null}
+            {mode === "medicine" && <QuestionVisibilityTab
+              visibilityRuleGroup={form.visibilityRuleGroup}
+              setVisibilityRuleGroup={form.handleVisibilityRuleGroupChange}
+              questions={questions}
+              currentQuestionId={activeQuestion?.id || ""}
+            />}
+            {form.formError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11.5px] font-semibold text-red-700">
+                {form.formError}
+              </div>
+            )}
+          </div>
+        </main>
+
+        <CheckoutPatientPreview
+          validProducts={form.validProducts}
+          catalogProducts={catalogProducts}
+          selectedPreviewIdx={form.selectedPreviewIdx}
+          visibilityRuleGroup={form.visibilityRuleGroup}
+          onSelectedPreviewChange={form.setSelectedPreviewIdx}
+          mode={mode}
+          labRequirements={labRequirements}
+          labPanels={labPanels}
+          combinedLabPanels={combinedLabPanels}
+        />
+      </div>
+    </div>
+  );
+}
