@@ -24,6 +24,7 @@ import {
   regimensForProducts,
 } from "../utils/catalogOptions";
 import type { LabVisibilityQuestionOption } from "../utils/labVisibilityQuestions";
+import { supplyDurationLabel } from "../utils/supplyDuration";
 
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
@@ -136,9 +137,10 @@ export function CheckoutProductRow({
   const selectedCategory = categories.find((item) => Number(item.id) === Number(selectedCategoryId));
   const selectedRegimen = titrationCategories.find((item) => Number(item.id) === Number(selectedRegimenId));
   const selectedDoseMapping = doseMappings.find((item) => Number(item.id) === Number(selectedDoseMappingId));
-  const durationLabel = linkedCatalogProduct?.rx_days_supply
-    ? `${linkedCatalogProduct.rx_days_supply}-day supply`
-    : "Supply duration missing";
+  const durationLabel = supplyDurationLabel(
+    linkedCatalogProduct?.rx_days_supply ?? product.rxDaysSupply,
+    linkedCatalogProduct?.refills ?? product.refills,
+  );
   const patientPrice = Number(
     linkedCatalogProduct?.base_price ?? linkedCatalogProduct?.price ?? product.price ?? 0,
   );
@@ -166,6 +168,9 @@ export function CheckoutProductRow({
       : undefined;
     const nextPrice = linkedCatalogProduct.base_price !== undefined ? Number(linkedCatalogProduct.base_price) : product.price;
     const nextDuration = linkedCatalogProduct.rx_days_supply || undefined;
+    const nextRefills = Number.isInteger(linkedCatalogProduct.refills)
+      ? linkedCatalogProduct.refills
+      : undefined;
 
     if (selectedCategoryId && product.categoryId !== selectedCategoryId) {
       onProductFieldChange(index, "categoryId", selectedCategoryId);
@@ -197,6 +202,9 @@ export function CheckoutProductRow({
     if (product.rxDaysSupply !== nextDuration) {
       onProductFieldChange(index, "rxDaysSupply", nextDuration);
     }
+    if (product.refills !== nextRefills) {
+      onProductFieldChange(index, "refills", nextRefills);
+    }
   }, [
     index,
     linkedCatalogProduct,
@@ -210,6 +218,7 @@ export function CheckoutProductRow({
     product.regimen,
     product.regimenId,
     product.rxDaysSupply,
+    product.refills,
     product.sourceProductId,
     selectedCategory?.name,
     selectedCategoryId,
@@ -232,6 +241,7 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "sourceProductId", undefined);
     onProductFieldChange(index, "price", undefined);
     onProductFieldChange(index, "rxDaysSupply", undefined);
+    onProductFieldChange(index, "refills", undefined);
   };
 
   const handleRegimenChange = (value: string) => {
@@ -244,6 +254,7 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "sourceProductId", undefined);
     onProductFieldChange(index, "price", undefined);
     onProductFieldChange(index, "rxDaysSupply", undefined);
+    onProductFieldChange(index, "refills", undefined);
   };
 
   const handleDoseChange = (value: string) => {
@@ -265,6 +276,7 @@ export function CheckoutProductRow({
       onlyProduct?.base_price !== undefined ? Number(onlyProduct.base_price) : undefined
     );
     onProductFieldChange(index, "rxDaysSupply", onlyProduct?.rx_days_supply || undefined);
+    onProductFieldChange(index, "refills", onlyProduct?.refills ?? undefined);
     if (doseMapping && !product.categoryId) {
       onProductFieldChange(index, "categoryId", doseMapping.category);
       onProductFieldChange(index, "category", doseMapping.category_name);
@@ -291,6 +303,7 @@ export function CheckoutProductRow({
       selectedProduct?.base_price !== undefined ? Number(selectedProduct.base_price) : undefined
     );
     onProductFieldChange(index, "rxDaysSupply", selectedProduct?.rx_days_supply || undefined);
+    onProductFieldChange(index, "refills", selectedProduct?.refills ?? undefined);
     if (selectedProduct) {
       onProductFieldChange(index, "categoryId", selectedProduct.category);
       onProductFieldChange(index, "category", selectedProduct.category_name || selectedProduct.treatment || product.category);

@@ -22,6 +22,8 @@ export interface ProgramCheckoutProduct {
   sourceProductId?: string;
   /** Read-only duration from the exact catalog Product. */
   rxDaysSupply?: number;
+  /** Read-only refill count from the exact catalog Product. */
+  refills?: number;
   /** Patient price snapshot shown during authoring. Backend recalculates it at runtime. */
   price?: number;
   productRole: ProgramProductRole;

@@ -12,6 +12,7 @@ import { treatmentConfigurationApi } from "@/features/treatments/api/configurati
 import { treatmentQueryKeys } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { isPersistedUuid } from "@/features/treatments/api/mappers";
 import { buildLabVisibilityQuestions } from "../utils/labVisibilityQuestions";
+import { effectiveSupplyDuration } from "../utils/supplyDuration";
 
 interface CheckoutProductsSectionProps {
   products: ProgramCheckoutProduct[];
@@ -154,7 +155,9 @@ export function CheckoutProductsSection({
   const selectedProducts = groupingSelection
     .map((index) => products[index])
     .filter(Boolean);
-  const selectedDurations = selectedProducts.map((product) => product.rxDaysSupply);
+  const selectedDurations = selectedProducts.map((product) =>
+    effectiveSupplyDuration(product.rxDaysSupply, product.refills)
+  );
   const canCreateGroup = (
     selectedProducts.length >= 2
     && selectedProducts.every((product) => product.productId && product.rxDaysSupply)

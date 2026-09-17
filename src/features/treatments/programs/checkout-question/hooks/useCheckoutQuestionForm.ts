@@ -6,6 +6,7 @@ import {
 } from "../constants";
 import { formatCheckoutQuestionText } from "../utils/checkoutTitleUtils";
 import { toast } from "@/components/ui/use-toast";
+import { effectiveSupplyDuration } from "../utils/supplyDuration";
 
 type ProductForm = ProgramCheckoutProduct;
 type VisibilityRuleGroupForm = VisibilityRuleGroup;
@@ -54,6 +55,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           productId: product.productId,
           sourceProductId: product.sourceProductId,
           rxDaysSupply: product.rxDaysSupply,
+          refills: product.refills,
           price: product.price,
           productRole: product.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
           choiceGroup: product.choiceGroup,
@@ -177,14 +179,14 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
         && product.choiceGroup
         && product.rxDaysSupply
       ) {
-        const durationKey = `${product.choiceGroup.trim().toLowerCase()}:${product.rxDaysSupply}`;
+        const durationKey = `${product.choiceGroup.trim().toLowerCase()}:${effectiveSupplyDuration(product.rxDaysSupply, product.refills)}`;
         const firstDurationIndex = seenGroupDurations.get(durationKey);
         if (firstDurationIndex !== undefined) {
           toast({
             title: "Duplicate supply duration",
             description: (
               `Options ${firstDurationIndex + 1} and ${index + 1} both use a `
-              + `${product.rxDaysSupply}-day Product in choice group "${product.choiceGroup}". `
+              + `${effectiveSupplyDuration(product.rxDaysSupply, product.refills)}-day coverage Product in choice group "${product.choiceGroup}". `
               + "Use one exact Product for each duration."
             ),
             variant: "destructive",
@@ -210,8 +212,9 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
         product.sourceProductId && product.sourceProductId !== product.productId
           ? product.sourceProductId
           : undefined;
+      const { refills: _refills, ...persistedProduct } = product;
       return {
-        ...product,
+        ...persistedProduct,
         sourceProductId,
         productRole: product.productRole || PROGRAM_PRODUCT_ROLE.optionalAddon,
         choiceGroup: product.choiceGroup,

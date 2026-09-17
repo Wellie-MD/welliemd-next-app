@@ -102,6 +102,9 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
     ?? record.days_supply
     ?? record.default_supply_duration,
   ) || undefined,
+  ...(record.refills !== undefined && Number(record.refills) >= 0
+    ? { refills: Number(record.refills) }
+    : {}),
   price: Number(record.price ?? record.final_price ?? record.unit_price) || undefined,
   productRole: (
     record.productRole ||
