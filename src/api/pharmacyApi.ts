@@ -23,7 +23,11 @@ export type Pharmacy = {
   last_synced_at?: string | null;
 
   // integration block (unchanged)
-  api_vendor?: "life_file" | "lifefile" | "life file" | "dispense_pro" | "vs_digital_health" | "mdtoolbox" | "";
+  // Mirrors PHARMACY_API_CHOICES in apps/integrations/constants.py. The
+  // options themselves are fetched from /api-vendors/ at runtime; this
+  // union exists so a typo in code is caught at build time. Blank means a
+  // passive pharmacy -- prescriptions are relayed, not submitted directly.
+  api_vendor?: "life_file" | "dispense_pro" | "drx" | "";
   api_url?: string;
   api_user?: string;
   api_password?: string;
@@ -72,6 +76,14 @@ export type PharmacySearchPayload = {
   name?: string;
 };
 
+export type TestConnectionResult = {
+  connected: boolean;
+  /** The vendor's liveness value on success (DRX returns a pulse); null otherwise. */
+  pulse: number | null;
+  /** Human-readable outcome: the pulse, or why the probe did not succeed. */
+  detail: string;
+};
+
 type Paginated<T> = { results: T[]; count?: number; next?: string | null; previous?: string | null };
 
 const base = "/medical/pharmacies";
@@ -103,14 +115,14 @@ export const pharmacyApi = {
     return data;
   },
 
-  // NEW: test connection action
+  // Probes the pharmacy's vendor API through the backend's vendor seam.
+  // A failed connection still comes back as HTTP 200 with connected:false
+  // and a reason -- only auth, throttling and an unknown pharmacy are
+  // non-200. Credentials never appear in the response.
   testConnection: async (id: string) => {
-    const { data } = await axiosInstance.post<{
-      connected: boolean;
-      integration_status: Pharmacy["integration_status"];
-      integration_last_validated_at: string | null;
-      details?: { status_code?: number; error?: string | null };
-    }>(`${base}/${id}/test_connection/`);
+    const { data } = await axiosInstance.post<TestConnectionResult>(
+      `${base}/${id}/test_connection/`
+    );
     return data;
   },
 
