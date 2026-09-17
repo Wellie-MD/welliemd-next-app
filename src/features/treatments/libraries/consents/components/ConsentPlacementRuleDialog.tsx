@@ -24,6 +24,7 @@ export function ConsentPlacementRuleDialog({
   const [error, setError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const answerSources = sources.filter((source) => !source.id.startsWith("__patient_profile_"));
 
   useEffect(() => {
     if (!open) return;
@@ -75,8 +76,8 @@ export function ConsentPlacementRuleDialog({
             <ConsentVisibilityRules
               value={rule}
               onChange={(next) => { setRule(next); setError(null); }}
-              sources={sources}
-              description="Choose patient profile information or an answer collected before the consent step. Leave this empty to show it whenever the shared rule passes."
+              sources={answerSources}
+              description="Choose an answer collected before the consent step. Leave this empty to show it whenever the shared rule passes."
               showErrors={showErrors}
             />
           )}

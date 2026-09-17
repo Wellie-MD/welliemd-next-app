@@ -85,7 +85,6 @@ import { getQuestionVisibilityDependents } from "@/features/treatments/programs/
 import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
 import { programsApi } from "@/features/treatments/api/programsApi";
 import { ConsentPlacementRuleDialog } from "@/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
-import { profileConsentSources } from "@/features/treatments/libraries/consents/components/ConsentVisibilityRules";
 
 export interface SharedQuestionsListProps {
   entityId: string;
@@ -239,7 +238,6 @@ export function SharedQuestionsList({
         answer_choices: Array.isArray(field.configuration?.choices) ? field.configuration.choices as string[] : [],
         order_index: 0,
       }))),
-    ...profileConsentSources,
   ], [questions, sectionFields, sectionIds]);
   const placementConsentId = String(placementConsent?.elementConfig?.sourceId || "");
   const loadPlacementConsentRule = useCallback(() =>
