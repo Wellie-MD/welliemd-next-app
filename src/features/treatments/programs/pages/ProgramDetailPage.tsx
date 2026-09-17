@@ -617,6 +617,7 @@ export default function ProgramDetailPage() {
         onOpenChange={(open) => { if (!open) setEditingConsentRule(null); }}
         consentName={editingConsentRule?.name || "this consent"}
         contextName={foundProgram.name}
+        sharedRule={editingConsentRule?.visibility_rule || editingConsentRule?.visibilityRuleGroup}
         sources={consentRuleSources}
         loadRule={loadConsentRule}
         onSave={saveConsentRule}

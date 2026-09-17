@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { consentFromRecord, consentToRecord } from "../src/features/treatments/api/mappers";
+import { consentRuleSummary } from "../src/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
 
 const femaleOnly = {
   mode: "nested" as const,
@@ -20,4 +21,6 @@ const legacy = consentFromRecord({
 });
 assert.equal(legacy.visibilityRuleGroup, undefined);
 assert.deepEqual(consentToRecord(legacy).visibility_rule, {});
+assert.equal(consentRuleSummary(undefined), "Always applies");
+assert.equal(consentRuleSummary(femaleOnly), "Sex assigned at birth equals Female");
 console.log("PASS consent library rule survives API mapping and legacy rows remain unconditional");

@@ -13,10 +13,43 @@ interface ConsentPlacementRuleDialogProps {
   loadRule: () => Promise<VisibilityRuleGroup | undefined>;
   onSave: (rule?: VisibilityRuleGroup) => Promise<void>;
   contextName: string;
+  sharedRule?: VisibilityRuleGroup;
 }
 
+const operatorLabel = (operator: string) => ({
+  eq: "equals",
+  neq: "does not equal",
+  gt: "is greater than",
+  gte: "is at least",
+  lt: "is less than",
+  lte: "is at most",
+  contains: "contains",
+  not_contains: "does not contain",
+  in: "is one of",
+  not_in: "is not one of",
+  between: "is between",
+  exists: "exists",
+  is_empty: "is empty",
+  is_not_empty: "is not empty",
+}[operator] || operator);
+
+export const consentRuleSummary = (rule?: VisibilityRuleGroup): string => {
+  const conditions = [
+    ...(rule?.rules || []).map((condition) => {
+      const source = condition.source === "patient_profile"
+        ? condition.field === "sex" ? "Sex assigned at birth" : "Patient age"
+        : condition.questionId || "Program answer";
+      const value = condition.value === undefined ? "" : ` ${condition.value}`;
+      return `${source} ${operatorLabel(condition.operator)}${value}`.trim();
+    }),
+    ...(rule?.subgroups || []).map(consentRuleSummary),
+  ].filter(Boolean);
+  if (!conditions.length) return "Always applies";
+  return conditions.join(rule?.mode === "simple" ? " OR " : " AND ");
+};
+
 export function ConsentPlacementRuleDialog({
-  open, onOpenChange, consentName, sources, loadRule, onSave, contextName,
+  open, onOpenChange, consentName, sources, loadRule, onSave, contextName, sharedRule,
 }: ConsentPlacementRuleDialogProps) {
   const [rule, setRule] = useState<VisibilityRuleGroup | undefined>();
   const [loading, setLoading] = useState(false);
@@ -72,6 +105,13 @@ export function ConsentPlacementRuleDialog({
           <p className="text-xs text-slate-600">This rule applies only to its use in {contextName}. The shared consent rule still applies.</p>
         </DialogHeader>
         <div className="min-w-0 overflow-y-auto px-4 py-4 sm:px-6">
+          <section className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-label="Shared consent visibility rule">
+            <h3 className="text-sm font-bold text-emerald-950">Shared Consent rule</h3>
+            <p className="mt-1 text-xs text-emerald-900">{consentRuleSummary(sharedRule)}</p>
+            <p className="mt-2 text-[11px] leading-relaxed text-emerald-800">
+              Set in the Consent library. This rule is read-only here and must pass together with the Program rule below.
+            </p>
+          </section>
           {loading ? <p className="text-sm text-slate-600">Loading rule…</p> : (
             <ConsentVisibilityRules
               value={rule}

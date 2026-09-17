@@ -2,6 +2,7 @@ import { ExternalLink, Eye, Shield, Sparkles, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { VisibilityRuleGroup } from "@/features/treatments/types";
 
 export interface EffectiveConsentItem {
   id: string;
@@ -9,6 +10,8 @@ export interface EffectiveConsentItem {
   source_type?: "global" | "visit_type" | "program" | "inline";
   name: string;
   required?: boolean;
+  visibility_rule?: VisibilityRuleGroup;
+  visibilityRuleGroup?: VisibilityRuleGroup;
 }
 
 export interface ProgramConsentsGrouped {
