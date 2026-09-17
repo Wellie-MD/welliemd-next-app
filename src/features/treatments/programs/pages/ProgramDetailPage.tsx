@@ -25,7 +25,10 @@ import { ProgramMetrics } from "@/features/treatments/programs/components/Progra
 import { ProgramCheckoutQuestions } from "@/features/treatments/programs/components/ProgramCheckoutQuestions";
 import { ProgramScreeningQuestions } from "@/features/treatments/programs/components/ProgramScreeningQuestions";
 import { ProgramConsents, type EffectiveConsentItem } from "@/features/treatments/programs/components/ProgramConsents";
-import { ConsentPlacementRuleDialog } from "@/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
+import {
+  ConsentPlacementRuleDialog,
+  resolveSharedConsentRule,
+} from "@/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
 import { programsApi } from "@/features/treatments/api/programsApi";
 import { ProgramEffectiveSections } from "@/features/treatments/programs/components/ProgramEffectiveSections";
 import { ProgramEligibility } from "@/features/treatments/programs/components/ProgramEligibility";
@@ -617,7 +620,7 @@ export default function ProgramDetailPage() {
         onOpenChange={(open) => { if (!open) setEditingConsentRule(null); }}
         consentName={editingConsentRule?.name || "this consent"}
         contextName={foundProgram.name}
-        sharedRule={editingConsentRule?.visibility_rule || editingConsentRule?.visibilityRuleGroup}
+        sharedRule={resolveSharedConsentRule(editingConsentRule, allConsents)}
         sources={consentRuleSources}
         loadRule={loadConsentRule}
         onSave={saveConsentRule}

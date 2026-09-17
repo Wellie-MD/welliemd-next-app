@@ -48,6 +48,27 @@ export const consentRuleSummary = (rule?: VisibilityRuleGroup): string => {
   return conditions.join(rule?.mode === "simple" ? " OR " : " AND ");
 };
 
+export const resolveSharedConsentRule = (
+  placement: {
+    id: string;
+    source_id?: string;
+    visibility_rule?: VisibilityRuleGroup;
+    visibilityRuleGroup?: VisibilityRuleGroup;
+  } | null,
+  library: Array<{
+    id: string;
+    visibilityRuleGroup?: VisibilityRuleGroup;
+  }>,
+): VisibilityRuleGroup | undefined => {
+  if (!placement) return undefined;
+  const sourceIds = new Set(
+    [placement.source_id, placement.id].filter(Boolean),
+  );
+  return library.find((consent) => sourceIds.has(consent.id))?.visibilityRuleGroup
+    || placement.visibility_rule
+    || placement.visibilityRuleGroup;
+};
+
 export function ConsentPlacementRuleDialog({
   open, onOpenChange, consentName, sources, loadRule, onSave, contextName, sharedRule,
 }: ConsentPlacementRuleDialogProps) {
