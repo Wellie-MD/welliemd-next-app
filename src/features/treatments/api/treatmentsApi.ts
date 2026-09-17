@@ -379,7 +379,10 @@ export const treatmentsApi = {
   },
 
   saveProgramQuestions: async (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
-    const { data } = await axiosInstance.put<ProgramQuestion[]>(
+    const { data } = await axiosInstance.put<ProgramQuestion[] | {
+      questions: ProgramQuestion[];
+      publication: { status: ProgramStatus; transition: string | null; message: string | null };
+    }>(
       `treatments/programs/${programId}/questions/`,
       {
         questions: questions.map((question, index) => ({
@@ -392,7 +395,7 @@ export const treatmentsApi = {
         })),
       }
     );
-    return data || [];
+    return Array.isArray(data) ? data : data.questions || [];
   },
 
   saveProgramQuestion: async (programId: string, question: ProgramQuestion): Promise<ProgramQuestion> => {
