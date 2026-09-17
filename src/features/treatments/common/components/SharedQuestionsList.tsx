@@ -1,0 +1,1245 @@
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
+import type { CommonSectionField, ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
+import { createMockId } from "@/features/treatments/common/data/factories";
+import { isCheckoutQuestionRequired } from "@/features/treatments/programs/checkout-question/constants";
+import { useQueryClient } from "@tanstack/react-query";
+import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
+import {
+  useDeleteSectionField,
+  useSaveProgramQuestion,
+  useSaveSectionField,
+  useDeleteProgramQuestion,
+  useReorderSectionFields,
+  useReorderProgramQuestions,
+  useSaveProgram,
+  useSaveProgramLabRequirements,
+  useConsents,
+  useSectionFieldsMap,
+  treatmentQueryKeys,
+} from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { toast } from "@/components/ui/use-toast";
+
+type ApiErrorLike = {
+  response?: {
+    data?: {
+      detail?: string;
+      error?: string;
+      message?: string;
+      questions?: unknown;
+      screening_questions?: unknown;
+      flow_items?: unknown;
+    };
+  };
+  message?: string;
+};
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  const apiError = error as ApiErrorLike;
+  const data = apiError.response?.data;
+  return (
+    safeAssignmentMessage(data?.questions) ||
+    safeAssignmentMessage(data?.screening_questions) ||
+    safeAssignmentMessage(data?.flow_items) ||
+    data?.detail ||
+    data?.error ||
+    data?.message ||
+    apiError.message ||
+    fallback
+  );
+};
+
+// Sub-modals & components
+import { AuthSetupModal } from "@/features/treatments/programs/components/AuthSetupModal";
+import { SectionSelectorModal } from "@/features/treatments/programs/components/SectionSelectorModal";
+import { ConsentSelectorModal } from "@/features/treatments/programs/components/ConsentSelectorModal";
+import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
+import type { ProgramLabRequirement } from "@/features/treatments/types";
+import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
+import { QuestionListFilters } from "@/features/treatments/common/components/QuestionListFilters";
+import { QuestionListHeader } from "@/features/treatments/common/components/QuestionListHeader";
+import { QuestionListTable } from "@/features/treatments/common/components/QuestionListTable";
+import { DeleteElementDialog } from "@/features/treatments/common/components/DeleteElementDialog";
+import { countQuestionTypes, filterQuestions } from "@/features/treatments/common/utils/questionList";
+import {
+  applyPersistedSectionField,
+  buildSectionFieldConfiguration,
+} from "@/features/treatments/common/utils/sectionFieldConfiguration";
+
+import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
+import {
+  PROGRAM_AUTHORING_COPY,
+  PROGRAM_SYSTEM_NODE_KIND,
+} from "@/features/treatments/programs/programAuthoringConstants";
+import { getQuestionVisibilityDependents } from "@/features/treatments/programs/utils/programQuestionVisibilityDependencies";
+import { safeAssignmentMessage } from "@/features/treatments/assignment/constants";
+import { programsApi } from "@/features/treatments/api/programsApi";
+import { ConsentPlacementRuleDialog } from "@/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
+
+export interface SharedQuestionsListProps {
+  entityId: string;
+  entityName: string;
+  entityType?: "program" | "section";
+  program?: Program;
+  initialQuestions: ProgramQuestion[];
+  headerTitle: string;
+  headerSubtitle: string;
+  onBack: () => void;
+  headerExtraActions?: React.ReactNode;
+  authConfig?: ProgramAuthConfig;
+  viewMode?: "list" | "flow";
+  onViewModeChange?: (mode: "list" | "flow") => void;
+  onOpenPreview?: () => void;
+  allConsents?: ConsentForm[];
+  onDetachSection?: (sectionId: string) => Promise<void>;
+}
+
+export function SharedQuestionsList({
+  entityId,
+  entityName,
+  entityType = "program",
+  program,
+  initialQuestions,
+  headerTitle,
+  headerSubtitle,
+  onBack,
+  headerExtraActions,
+  authConfig,
+  viewMode = "list",
+  onViewModeChange,
+  onOpenPreview,
+  allConsents = [],
+  onDetachSection,
+}: SharedQuestionsListProps) {
+  const navigate = useNavigate();
+  const [questions, setQuestions] = useState<ProgramQuestion[]>(initialQuestions);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [isReorderActive, setIsReorderActive] = useState(false);
+
+  // Modal open states
+  const [isQuestionOpen, setIsQuestionOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isSectionOpen, setIsSectionOpen] = useState(false);
+  const [isConsentOpen, setIsConsentOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [placementConsent, setPlacementConsent] = useState<ProgramQuestion | null>(null);
+
+  // Active question editing/deleting state
+  const [activeEditingQuestion, setActiveEditingQuestion] = useState<ProgramQuestion | null>(null);
+  const [questionToDeleteId, setQuestionToDeleteId] = useState<string | null>(null);
+  const [sectionToDetach, setSectionToDetach] = useState<{ id: string; name: string } | null>(null);
+
+  // Sync state if initialQuestions change
+  useEffect(() => {
+    setQuestions(initialQuestions);
+  }, [initialQuestions]);
+
+  // Mutations
+  const queryClient = useQueryClient();
+  const saveQuestionMutation = useSaveProgramQuestion(entityId);
+  const saveProgramMutation = useSaveProgram();
+  const saveProgramLabRequirementsMutation = useSaveProgramLabRequirements();
+  const deleteQuestionMutation = useDeleteProgramQuestion(entityId);
+  const reorderQuestionsMutation = useReorderProgramQuestions(entityId);
+  const saveSectionFieldMutation = useSaveSectionField(entityId);
+  const deleteSectionFieldMutation = useDeleteSectionField(entityId);
+  const reorderSectionFieldsMutation = useReorderSectionFields(entityId);
+
+  const saveProgramLabs = async (requirements: ProgramLabRequirement[]) => {
+    if (!program || entityType !== "program") return;
+    await saveProgramLabRequirementsMutation.mutateAsync({
+      programId: program.id,
+      requirements,
+    });
+    setQuestions((previous) => {
+      const withoutLabCheckout = previous.filter((question) => question.elementConfig?.labCheckout !== true);
+      if (requirements.length === 0) return withoutLabCheckout;
+      return [
+        ...withoutLabCheckout,
+        {
+          id: `lab-checkout:${program.id}`,
+          order: Math.min(...withoutLabCheckout.map((question) => question.order || 1), 1),
+          text: "Order Your Labs",
+          kind: "checkout",
+          section: PROGRAM_AUTHORING_COPY.checkoutSection,
+          required: true,
+          checkoutProducts: [],
+          checkoutProductIds: [],
+          elementConfig: { labCheckout: true, checkoutMode: "lab", labRequirements: requirements },
+        },
+      ].sort((left, right) => left.order - right.order);
+    });
+  };
+
+  // Nothing is created automatically. Patient Authentication appears only after
+  // the author adds it from the Add Element menu, and Programs project it in
+  // ProgramQuestionsList. It is a system node, never a persisted question, so it
+  // is filtered out of every save/reorder payload below.
+  const displayQuestions = questions;
+  const hasAuthentication = authConfig?.enabled === true;
+
+  // Sections have no backing Program record, so the Flow view (which always
+  // renders through ProgramFlowBuilder — see below) gets a minimal synthetic
+  // one. Auth/consent edits made from a section's canvas only update this
+  // local override; there's no Program to persist them to.
+  const [sectionFlowOverrides, setSectionFlowOverrides] = useState<Partial<Program>>({});
+  const syntheticProgram = useMemo<Program>(() => ({
+    id: entityId,
+    name: entityName,
+    stage: "intake",
+    treatmentTypeKey: "",
+    visitType: "",
+    questionCount: displayQuestions.length,
+    checkoutQuestionCount: 0,
+    status: "draft",
+    updatedAt: new Date().toISOString(),
+    slug: entityId,
+    authConfig: { email: true, phone: false, identity: false, account: true },
+    checkoutQuestions: [],
+    consentIds: [],
+    ...sectionFlowOverrides,
+  }), [entityId, entityName, displayQuestions.length, sectionFlowOverrides]);
+
+  const { data: fetchedConsents = [] } = useConsents();
+  const effectiveConsents = allConsents.length > 0 ? allConsents : fetchedConsents;
+  const sectionIds = useMemo(() => questions
+    .filter((question) => question.kind === "section")
+    .map((question) => String(question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || ""))
+    .filter(Boolean), [questions]);
+  const sectionFields = useSectionFieldsMap(sectionIds);
+  const consentRuleSources = useMemo(() => [
+    ...questions
+      .filter((question) => !["consent", "section", "checkout", "file_upload"].includes(question.kind))
+      .map((question) => ({
+        id: question.id,
+        question_text: question.text,
+        question_type: question.kind,
+        answer_choices: question.choices || [],
+        order_index: question.order,
+      })),
+    ...sectionIds.flatMap((sectionId) => (sectionFields[sectionId] || [])
+      .filter((field) => field.kind !== "checkout")
+      .map((field) => ({
+        id: field.sourceFieldId,
+        question_text: field.label,
+        question_type: field.kind,
+        answer_choices: Array.isArray(field.configuration?.choices) ? field.configuration.choices as string[] : [],
+        order_index: 0,
+      }))),
+  ], [questions, sectionFields, sectionIds]);
+  const placementConsentId = String(placementConsent?.elementConfig?.sourceId || "");
+  const loadPlacementConsentRule = useCallback(() =>
+    placementConsentId
+      ? programsApi.getConsentVisibility(entityId, placementConsentId)
+      : Promise.resolve(undefined),
+  [entityId, placementConsentId]);
+  const savePlacementConsentRule = useCallback(async (rule?: VisibilityRuleGroup) => {
+    if (!placementConsentId || entityType !== "program") return;
+    await programsApi.saveConsentVisibility(entityId, placementConsentId, rule);
+    await queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+    toast({
+      title: "Consent visibility saved",
+      description: "Publish a new Program version before assigning this change.",
+    });
+  }, [entityId, entityType, placementConsentId, queryClient]);
+
+  /**
+   * Authentication settings belong to the Program record, not to a question.
+   * Persisting them as a `personal_details` ProgramQuestion is what produced a
+   * duplicate boundary and grouped demographics at runtime;
+   * publishing such a question is now rejected by the backend.
+   */
+  const saveAuthConfig = (
+    config: ProgramAuthConfig,
+    { enabled = true, successTitle = "Authentication Settings Saved" } = {}
+  ) => {
+    // `enabled` is what records that the author added the element. Adding sets
+    // it true; removing sets it false. The rest of the config is the branch
+    // configuration and is preserved either way.
+    const nextConfig = { ...config, enabled } as ProgramAuthConfig;
+    if (entityType !== "program") {
+      // A Section has no Program record to persist to; keep the change local to
+      // its synthetic flow preview.
+      setSectionFlowOverrides((current) => ({
+        ...current,
+        authConfig: nextConfig,
+      }));
+      return;
+    }
+    saveProgramMutation.mutate(
+      {
+        id: entityId,
+        authConfig: nextConfig,
+      } as Partial<Program> & { id: string },
+      {
+        onSuccess: () => {
+          toast({ title: successTitle });
+        },
+        onError: (error: unknown) => {
+          toast({
+            title: "Error saving authentication settings",
+            description: getApiErrorMessage(
+              error,
+              "The authentication settings could not be saved."
+            ),
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  /** Remove the Patient Authentication element the author previously added. */
+  const removeAuthentication = () => {
+    saveAuthConfig(authConfig || {}, {
+      enabled: false,
+      successTitle: "Patient Authentication Removed",
+    });
+  };
+
+  // dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const listItemToCheckoutQuestion = (question: ProgramQuestion): ProgramCheckoutQuestion => ({
+    id: question.id,
+    text: question.text,
+    products: question.checkoutProducts || [],
+    visibilityRules: question.visibilityRuleGroup || { mode: "simple", rules: [] },
+    required: question.required,
+    selectionMode: question.checkoutSelectionMode,
+    minSelections: question.checkoutMinSelections,
+    maxSelections: question.checkoutMaxSelections,
+  });
+
+  // Patient Authentication cannot be dragged or duplicated and always stays
+  // first. Authors may remove it, which prevents publication until it is added
+  // again. Checkout options stay grouped at the end of the intake.
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = displayQuestions.findIndex((q) => q.id === active.id);
+    const newIndex = displayQuestions.findIndex((q) => q.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const sourceQuestion = displayQuestions[oldIndex];
+    const targetQuestion = displayQuestions[newIndex];
+
+    if (
+      sourceQuestion.elementConfig?.system === true ||
+      sourceQuestion.kind === PROGRAM_SYSTEM_NODE_KIND
+    ) {
+      return;
+    }
+    // The auth boundary owns position 1; nothing may be dropped above it.
+    if (targetQuestion.kind === PROGRAM_SYSTEM_NODE_KIND) return;
+
+    if (entityType === "program" && sourceQuestion.kind !== targetQuestion.kind &&
+        (sourceQuestion.kind === "checkout" || targetQuestion.kind === "checkout")) {
+      const isShippingAddressMove =
+        sourceQuestion.kind === "shipping_address" || targetQuestion.kind === "shipping_address";
+      toast({
+        title: isShippingAddressMove
+          ? "Shipping Address stays above checkout"
+          : "Checkout stays at the end of the intake",
+        description: isShippingAddressMove
+          ? "Keep Shipping Address before checkout/product options."
+          : "Reorder screening questions and checkout options within their own groups.",
+      });
+      return;
+    }
+
+    const previousQuestions = questions;
+    const movedQuestions = arrayMove(displayQuestions, oldIndex, newIndex);
+    const systemNodes = movedQuestions.filter(
+      (question) => question.kind === PROGRAM_SYSTEM_NODE_KIND,
+    );
+    const reordered = [
+      ...systemNodes,
+      ...movedQuestions.filter(
+        (question) => question.kind !== PROGRAM_SYSTEM_NODE_KIND,
+      ),
+    ].map((q, idx) => ({
+      ...q,
+      order: idx + 1,
+    }));
+
+    const authIndex = reordered.findIndex(
+      (question) => question.kind === PROGRAM_SYSTEM_NODE_KIND,
+    );
+    const stateRoutingIndex = reordered.findIndex(
+      (question) => question.kind === "state_routing",
+    );
+    if (authIndex !== -1 && stateRoutingIndex !== -1 && stateRoutingIndex !== authIndex + 1) {
+      toast({
+        title: "Service Area Check stays below Patient Authentication",
+        description: "This question must remain directly after the first step of the intake.",
+      });
+      return;
+    }
+
+    const shippingIndex = reordered.findIndex(
+      (question) => question.kind === "shipping_address",
+    );
+    const checkoutIndex = reordered.findIndex(
+      (question) => question.kind === "checkout",
+    );
+    if (
+      entityType === "program" &&
+      shippingIndex !== -1 &&
+      checkoutIndex !== -1 &&
+      shippingIndex > checkoutIndex
+    ) {
+      toast({
+        title: "Shipping Address stays above checkout",
+        description: "Shipping Address must remain before checkout/product options.",
+      });
+      return;
+    }
+
+    setQuestions(reordered);
+
+    if (entityType === "program" && program && sourceQuestion.kind === "checkout") {
+      const checkoutQuestions = reordered
+        .filter((question) => question.kind === "checkout")
+        .map(listItemToCheckoutQuestion);
+      treatmentsApi.saveProgram({
+        id: program.id,
+        checkoutQuestions,
+        checkoutQuestionCount: checkoutQuestions.length,
+      } as never).then(() => {
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+        toast({ title: "Checkout Order Saved" });
+      }).catch(() => {
+        setQuestions(previousQuestions);
+        toast({ title: "Error", description: "Failed to save checkout order.", variant: "destructive" });
+      });
+      return;
+    }
+
+    const persistOrder = () => {
+      const reorderMutation = entityType === "section" ? reorderSectionFieldsMutation : reorderQuestionsMutation;
+      reorderMutation.mutate(
+        // Only persisted authored question IDs reach the API. The
+        // Patient Authentication node has no backing record, so sending its
+        // synthetic ID would fail the reorder.
+        reordered
+          .filter(
+            (q) =>
+              q.kind !== "checkout" &&
+              q.kind !== PROGRAM_SYSTEM_NODE_KIND &&
+              q.elementConfig?.system !== true
+          )
+          .map((q) => q.id),
+        {
+          onSuccess: () => {
+            toast({ title: "Order Saved", description: "The list order has been successfully saved." });
+          },
+          onError: (error) => {
+            setQuestions(previousQuestions);
+            toast({
+              title: "Error",
+              description: getApiErrorMessage(error, "Failed to save the new order."),
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    };
+
+    persistOrder();
+  };
+
+  const processedQuestions = useMemo(
+    () => filterQuestions(displayQuestions, searchQuery, typeFilter),
+    [displayQuestions, searchQuery, typeFilter]
+  );
+  const typeCounts = useMemo(() => countQuestionTypes(displayQuestions), [displayQuestions]);
+
+  // Editing dispatch keeps shared Consent content in the library while this
+  // Program row edits only its placement-specific visibility rule.
+  const handleEditClick = (q: ProgramQuestion) => {
+    // Patient Authentication is a system boundary, but its existing full editor
+    // is already handled by QuestionEditorDialog/AuthEditor.
+    if (q.kind === PROGRAM_SYSTEM_NODE_KIND) {
+      setActiveEditingQuestion(q);
+      setIsQuestionOpen(true);
+      return;
+    }
+    if (q.kind === "section") {
+      const sectionId = q.elementConfig?.sourceSectionId || q.elementConfig?.sourceId;
+      if (sectionId) {
+        navigate(`${ADMIN_TREATMENT_ROUTES.sections}?sectionId=${sectionId}&view=list`);
+      }
+      return;
+    }
+    if (q.kind === "consent") {
+      const consentId = q.elementConfig?.sourceId;
+      if (consentId && entityType === "program") {
+        setPlacementConsent(q);
+        return;
+      }
+    }
+    setActiveEditingQuestion(q);
+    if (q.kind === "checkout" && entityType === "program") {
+      setIsCheckoutOpen(true);
+      return;
+    }
+    setIsQuestionOpen(true);
+  };
+
+  const attachSection = (section: { id: string; name: string; fieldCount: number }) => {
+    const sectionQuestion: ProgramQuestion = {
+      id: createMockId("q-section"),
+      order: Math.max(0, ...questions.map((question) => question.order || 0)) + 1,
+      text: section.name,
+      kind: "section",
+      section: section.name,
+      required: true,
+      elementConfig: {
+        sourceId: section.id,
+        sourceSectionId: section.id,
+        sourceSectionName: section.name,
+        fieldCount: section.fieldCount,
+        description: `${section.fieldCount} fields · Reusable from library`,
+      },
+    };
+
+    if (entityType !== "program") {
+      saveElement(sectionQuestion, "Common Section Attached");
+      return;
+    }
+
+    const existingSection = questions.some((question) =>
+      question.kind === "section" &&
+      String(question.elementConfig?.sourceSectionId || question.elementConfig?.sourceId || "") === section.id
+    );
+    if (existingSection) {
+      toast({ title: "Section already attached", description: "This section is already part of the program." });
+      return;
+    }
+
+    const checkoutQuestions = questions.filter((question) => question.kind === "checkout");
+    const screeningQuestions = questions.filter((question) =>
+      question.kind !== "checkout" && question.elementConfig?.system !== true
+    );
+    const nextQuestions = [...screeningQuestions, sectionQuestion];
+
+    treatmentsApi.saveProgramQuestions(entityId, nextQuestions).then((savedQuestions) => {
+      setQuestions([...savedQuestions, ...checkoutQuestions]);
+      queryClient.setQueryData(treatmentQueryKeys.programQuestions(entityId), savedQuestions);
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(entityId) });
+      // The `program` prop (screeningQuestions/questionCount) lives in a
+      // separate cache — without this it stays stale until something else
+      // happens to refetch it, and any full-`program` save downstream can
+      // silently resurrect the pre-section state.
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs(), exact: true });
+      toast({
+        title: "Common Section Attached",
+        description: `${section.fieldCount} fields · Reusable from library`,
+      });
+    }).catch((error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to attach the section.",
+        variant: "destructive",
+      });
+    });
+  };
+
+  // Deleting confirmation
+  const handleDeleteClick = (id: string) => {
+    setQuestionToDeleteId(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (sectionToDetach && onDetachSection) {
+      const target = sectionToDetach;
+      onDetachSection(target.id)
+        .then(() => {
+          toast({
+            title: "Section Detached",
+            description: `${target.name} and all of its projected fields were removed from this Program.`,
+          });
+        })
+        .catch((error) => {
+          toast({
+            title: "Unable to detach Section",
+            description: getApiErrorMessage(error, "The Common Section could not be detached."),
+            variant: "destructive",
+          });
+        });
+      setSectionToDetach(null);
+      setIsDeleteDialogOpen(false);
+      return;
+    }
+    if (!questionToDeleteId) {
+      setIsDeleteDialogOpen(false);
+      return;
+    }
+
+    const questionToDelete = displayQuestions.find(
+      (q) => q.id === questionToDeleteId,
+    );
+
+    // Patient Authentication is a system node with no ProgramQuestion behind it,
+    // so the generic delete mutation has nothing to target. Removing it means
+    // clearing the flag on the Program that records the author added it.
+    if (questionToDelete?.kind === PROGRAM_SYSTEM_NODE_KIND) {
+      removeAuthentication();
+      setIsDeleteDialogOpen(false);
+      setQuestionToDeleteId(null);
+      return;
+    }
+
+    // Checkout questions aren't stored in the screening-question list the
+    // generic delete mutation targets — they live on Program.checkoutQuestions.
+    // Route their removal through the same save path handleAddCheckoutSave
+    // uses, or the delete silently no-ops and the item reappears on reload.
+    if (questionToDelete?.kind === "checkout" && entityType === "program" && program) {
+      if (questionToDelete.elementConfig?.labCheckout === true) {
+        saveProgramLabs([]).then(() => {
+          toast({ title: "Lab checkout removed", description: "The required Junction panels were detached from this Program." });
+        }).catch((error) => {
+          toast({
+            title: "Error",
+            description: getApiErrorMessage(error, "Failed to remove the lab checkout question."),
+            variant: "destructive",
+          });
+        });
+        setIsDeleteDialogOpen(false);
+        return;
+      }
+      const updatedCheckout = questions
+        .filter((question) => question.kind === "checkout" && question.id !== questionToDeleteId)
+        .map(listItemToCheckoutQuestion);
+
+      treatmentsApi.saveProgram({
+        id: program.id,
+        checkoutQuestions: updatedCheckout,
+        checkoutQuestionCount: updatedCheckout.length,
+      } as never).then((savedProgram) => {
+        setQuestions((prev) => prev.filter((q) => q.id !== questionToDeleteId));
+        queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
+          current?.map((item) => item.id === savedProgram.id ? savedProgram : item)
+        );
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+        toast({ title: "Element Removed", description: "The element has been removed successfully." });
+      }).catch((error) => {
+        toast({
+          title: "Error",
+          description: getApiErrorMessage(error, "Failed to remove the checkout question."),
+          variant: "destructive",
+        });
+      });
+      setIsDeleteDialogOpen(false);
+      return;
+    }
+
+    const deleteMutation = entityType === "section" ? deleteSectionFieldMutation : deleteQuestionMutation;
+    deleteMutation.mutate(questionToDeleteId, {
+      onSuccess: () => {
+        setQuestions((prev) => prev.filter((q) => q.id !== questionToDeleteId));
+        toast({ title: "Element Removed", description: "The element has been removed successfully." });
+      },
+      onError: (error) => {
+        toast({
+          title: "Unable to remove element",
+          description: getApiErrorMessage(error, "The element could not be removed."),
+          variant: "destructive",
+        });
+      },
+    });
+    setIsDeleteDialogOpen(false);
+  };
+
+  // Add handlers
+  // Returns a Promise so the editor modal can drive an accurate
+  // saving/saved button state and knows whether to show a success flash
+  // (only on a real, awaited success) instead of firing-and-forgetting.
+  const handleAddQuestionSave = async (updatedQuestion: ProgramQuestion): Promise<void> => {
+    // Checkout questions aren't stored in the screening-question list — same
+    // reason the delete path had to special-case them (see confirmDelete).
+    // Route through the checkout-specific save path or the edit silently
+    // writes to the wrong field and reverts on reload.
+    if (updatedQuestion.kind === "checkout" && entityType === "program" && program) {
+      await handleAddCheckoutSave(
+        {
+          text: updatedQuestion.text,
+          products: updatedQuestion.checkoutProducts || [],
+          visibilityRules: updatedQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
+        },
+        { keepEditorOpen: true }
+      );
+      return;
+    }
+
+    const isEditing = questions.some((q) => q.id === updatedQuestion.id);
+
+    const mutation = entityType === "section"
+      ? saveSectionFieldMutation
+      : saveQuestionMutation;
+    const payload = entityType === "section"
+      ? {
+          id: updatedQuestion.id,
+          sectionId: entityId,
+          order: updatedQuestion.order,
+          label: updatedQuestion.text,
+          kind: updatedQuestion.kind,
+          required: updatedQuestion.required,
+          configuration: buildSectionFieldConfiguration(updatedQuestion),
+        }
+      : updatedQuestion;
+
+    try {
+      const saved = await mutation.mutateAsync(payload as never);
+      const persistedQuestion = entityType === "section"
+        ? applyPersistedSectionField(
+            updatedQuestion,
+            saved as CommonSectionField,
+          )
+        : updatedQuestion;
+      setQuestions((prev) => {
+        if (isEditing) {
+          return prev.map((q) =>
+            q.id === updatedQuestion.id ? persistedQuestion : q);
+        }
+        return [...prev, persistedQuestion];
+      });
+      toast({ title: isEditing ? "Question Updated" : "Question Added" });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: getApiErrorMessage(error, "The question could not be saved."),
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const saveElement = (element: ProgramQuestion, successTitle: string) => {
+    const isEditing = questions.some((question) => question.id === element.id);
+    const mutation = entityType === "section" ? saveSectionFieldMutation : saveQuestionMutation;
+    const payload = entityType === "section"
+      ? {
+          id: element.id,
+          sectionId: entityId,
+          order: element.order,
+          label: element.text,
+          kind: element.kind,
+          required: element.required,
+          configuration: buildSectionFieldConfiguration(element),
+        }
+      : element;
+
+    mutation.mutate(payload as never, {
+      onSuccess: (saved) => {
+        const persistedElement = entityType === "section"
+          ? applyPersistedSectionField(element, saved as CommonSectionField)
+          : element;
+        setQuestions((previous) => {
+          if (isEditing) {
+            return previous.map((question) =>
+              question.id === element.id ? persistedElement : question);
+          }
+          if (element.kind !== "state_routing" && element.kind !== "shipping_address") {
+            return [...previous, persistedElement];
+          }
+
+          const boundaryIndex = previous.findIndex((question) =>
+            element.kind === "state_routing"
+              ? question.kind === PROGRAM_SYSTEM_NODE_KIND
+              : question.kind === "checkout"
+          );
+          const insertAt = boundaryIndex === -1
+            ? previous.length
+            : boundaryIndex + (element.kind === "state_routing" ? 1 : 0);
+          return [
+            ...previous.slice(0, insertAt),
+            persistedElement,
+            ...previous.slice(insertAt),
+          ];
+        });
+        toast({ title: successTitle });
+      },
+      onError: (error) => {
+        const message = error instanceof Error ? error.message : "Unable to save this element.";
+        toast({ title: "Save failed", description: message, variant: "destructive" });
+      },
+    });
+  };
+
+  const handleAddServiceArea = () => {
+    if (questions.some((question) => question.kind === "state_routing")) {
+      toast({
+        title: "Service Area Check Already Added",
+        description: "This flow already contains a service area check.",
+      });
+      return;
+    }
+
+    saveElement({
+      id: createMockId("q-state"),
+      order: questions.length + 1,
+      text: "Service Area Check",
+      kind: "state_routing",
+      section: entityName,
+      required: true,
+    }, "Service Area Check Added");
+  };
+
+  const checkoutQuestionToListItem = (
+    checkout: ProgramCheckoutQuestion,
+    order: number
+  ): ProgramQuestion => ({
+    id: checkout.id,
+    order,
+    text: checkout.text,
+    kind: "checkout",
+    section: "Checkout",
+    required: Boolean(checkout.required)
+      || isCheckoutQuestionRequired(checkout.products, checkout.minSelections),
+    checkoutProductIds: checkout.products
+      .map((product) => product.productId)
+      .filter((productId): productId is string => Boolean(productId)),
+    checkoutProducts: checkout.products,
+    checkoutSelectionMode: checkout.selectionMode,
+    checkoutMinSelections: checkout.minSelections,
+    checkoutMaxSelections: checkout.maxSelections,
+    visibilityRuleGroup: checkout.visibilityRules,
+    elementConfig: {
+      checkoutProducts: checkout.products,
+      checkoutProductIds: checkout.products
+        .map((product) => product.productId)
+        .filter((productId): productId is string => Boolean(productId)),
+      visibilityRuleGroup: checkout.visibilityRules,
+    },
+  });
+
+  const handleAddCheckoutSave = async (
+    data: Omit<ProgramCheckoutQuestion, "id">,
+    options?: { keepEditorOpen?: boolean }
+  ) => {
+    const isEditing = !!activeEditingQuestion;
+    const checkoutId = isEditing ? activeEditingQuestion!.id : createMockId("cq");
+    const checkoutQuestion: ProgramCheckoutQuestion = {
+      id: checkoutId,
+      ...data,
+    };
+
+    if (entityType === "program" && program) {
+      const localCheckout = questions
+        .filter((question) => question.kind === "checkout" && question.elementConfig?.labCheckout !== true)
+        .map(listItemToCheckoutQuestion);
+      const currentCheckout = localCheckout.length > 0
+        ? localCheckout
+        : program.checkoutQuestions || [];
+      const updatedCheckout = isEditing
+        ? currentCheckout.map((checkout) =>
+            checkout.id === checkoutId ? checkoutQuestion : checkout
+          )
+        : [...currentCheckout, checkoutQuestion];
+
+      const savedProgram = await treatmentsApi.saveProgram({
+        id: program.id,
+        checkoutQuestions: updatedCheckout,
+        checkoutQuestionCount: updatedCheckout.length,
+      } as never);
+
+      queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
+        current?.map((item) => item.id === savedProgram.id ? savedProgram : item)
+      );
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+
+      const listItem = checkoutQuestionToListItem(
+        checkoutQuestion,
+        isEditing ? activeEditingQuestion!.order : questions.length + 1
+      );
+      setQuestions((previous) =>
+        isEditing
+          ? previous.map((question) => question.id === checkoutId ? listItem : question)
+          : [...previous, listItem]
+      );
+      toast({ title: isEditing ? "Checkout Options Saved" : "Checkout Options Added" });
+      if (!options?.keepEditorOpen) setActiveEditingQuestion(null);
+      return;
+    }
+
+    const newQuestion = checkoutQuestionToListItem(
+      checkoutQuestion,
+      isEditing ? activeEditingQuestion!.order : questions.length + 1
+    );
+    await new Promise<void>((resolve, reject) => {
+      const mutation = entityType === "section" ? saveSectionFieldMutation : saveQuestionMutation;
+      const payload = entityType === "section"
+        ? {
+            id: newQuestion.id,
+            sectionId: entityId,
+            order: newQuestion.order,
+            label: newQuestion.text,
+            kind: newQuestion.kind,
+            required: newQuestion.required,
+            configuration: newQuestion.elementConfig || {},
+          }
+        : newQuestion;
+      mutation.mutate(payload as never, {
+        onSuccess: (saved) => {
+          const persistedQuestion = entityType === "section"
+            ? applyPersistedSectionField(
+                newQuestion,
+                saved as CommonSectionField,
+              )
+            : newQuestion;
+          setQuestions((previous) => isEditing
+            ? previous.map((question) =>
+                question.id === newQuestion.id ? persistedQuestion : question)
+            : [...previous, persistedQuestion]);
+          toast({ title: isEditing ? "Checkout Options Saved" : "Checkout Options Added" });
+          resolve();
+        },
+        onError: (error) => reject(error),
+      });
+    });
+    if (!options?.keepEditorOpen) setActiveEditingQuestion(null);
+  };
+
+  // The Flow view always renders through ProgramFlowBuilder — the same
+  // React Flow canvas Programs use — matching the prototype, where Sections
+  // and Programs share one flow-view implementation. Sections have no
+  // backing Program record, so we synthesize a minimal one; auth/consent
+  // settings edited from a Section's canvas are canvas-local only (there's
+  // nowhere to persist them yet), everything else (questions, checkout)
+  // already saves through the normal section-field mutations.
+  const effectiveProgram = useMemo(
+    () => program ?? syntheticProgram,
+    [program, syntheticProgram]
+  );
+
+  if (viewMode === "flow") {
+
+    return (
+      <div className="flex min-h-screen w-full flex-col gap-6 bg-slate-50 p-6">
+        <QuestionListHeader
+          title={headerTitle}
+          subtitle={headerSubtitle}
+          extraActions={headerExtraActions}
+          reorderActive={false}
+          onBack={onBack}
+          onToggleReorder={() => onViewModeChange?.("list")}
+          onAddQuestion={() => {
+            setActiveEditingQuestion(null);
+            setIsQuestionOpen(true);
+          }}
+          onAddAuth={() => {
+            setActiveEditingQuestion(null);
+            setIsAuthOpen(true);
+          }}
+          onAddServiceArea={handleAddServiceArea}
+          onAddSection={() => {
+            setActiveEditingQuestion(null);
+            setIsSectionOpen(true);
+          }}
+          onAddConsent={() => {
+            setActiveEditingQuestion(null);
+            setIsConsentOpen(true);
+          }}
+          onAddCheckout={() => {
+            setActiveEditingQuestion(null);
+            setIsCheckoutOpen(true);
+          }}
+          hasAuthentication={hasAuthentication}
+          showAuthentication={entityType === "program"}
+        />
+        <ProgramFlowBuilder
+          program={effectiveProgram}
+          questions={questions}
+          allConsents={effectiveConsents}
+          onAddQuestion={() => {
+            setActiveEditingQuestion(null);
+            setIsQuestionOpen(true);
+          }}
+          onEditQuestion={(questionId) => {
+            const question = questions.find((item) => item.id === questionId) || null;
+            setActiveEditingQuestion(question);
+            setIsQuestionOpen(Boolean(question));
+          }}
+          onAddCheckoutQuestion={() => {
+            setActiveEditingQuestion(null);
+            setIsCheckoutOpen(true);
+          }}
+          onEditCheckoutQuestion={(checkoutQuestion) => {
+            setActiveEditingQuestion({
+              id: checkoutQuestion.id,
+              order: questions.length + 1,
+              text: checkoutQuestion.text,
+              kind: "checkout",
+              section: "Checkout",
+              required: Boolean(checkoutQuestion.required)
+                || isCheckoutQuestionRequired(checkoutQuestion.products, checkoutQuestion.minSelections),
+              checkoutProducts: checkoutQuestion.products,
+              visibilityRuleGroup: checkoutQuestion.visibilityRules,
+            });
+            setIsCheckoutOpen(true);
+          }}
+          onSaveProgram={(updatedProgram) => {
+            if (program) {
+              saveProgramMutation.mutate(updatedProgram, {
+                onError: (error) => {
+                  const message = error instanceof Error ? error.message : "Unable to save the program.";
+                  toast({ title: "Save failed", description: message, variant: "destructive" });
+                },
+              });
+            } else {
+              setSectionFlowOverrides((current) => ({
+                ...current,
+                authConfig: updatedProgram.authConfig,
+                consentIds: updatedProgram.consentIds,
+              }));
+            }
+          }}
+        />
+
+        <QuestionEditorDialog
+          open={isQuestionOpen}
+          onOpenChange={setIsQuestionOpen}
+          onSave={handleAddQuestionSave}
+          initialQuestionId={activeEditingQuestion?.id || null}
+          questions={displayQuestions}
+          programId={entityId}
+          programName={entityName}
+          programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
+          programLabRequirements={program?.labRequirements || []}
+          getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+            questionId,
+            questions,
+            program?.checkoutQuestions || [],
+            program?.labRequirements || [],
+          )}
+          onSaveLabRequirements={program ? saveProgramLabs : undefined}
+        />
+        <CheckoutQuestionModal
+          open={isCheckoutOpen}
+          onOpenChange={setIsCheckoutOpen}
+          onSave={handleAddCheckoutSave}
+          initialQuestion={activeEditingQuestion?.kind === "checkout" ? {
+            id: activeEditingQuestion.id,
+            text: activeEditingQuestion.text,
+            products: activeEditingQuestion.checkoutProducts || [],
+            visibilityRules: activeEditingQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
+          } : null}
+          programName={entityName}
+          programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
+          screeningQuestions={questions}
+          programLabRequirements={program?.labRequirements || []}
+          onSaveLabRequirements={program ? saveProgramLabs : undefined}
+          initialMode={activeEditingQuestion?.elementConfig?.labCheckout === true ? "lab" : "medicine"}
+        />
+        <AuthSetupModal
+          open={isAuthOpen}
+          onOpenChange={setIsAuthOpen}
+          initialConfig={authConfig}
+          onSave={saveAuthConfig}
+        />
+        <SectionSelectorModal
+          open={isSectionOpen}
+          onOpenChange={setIsSectionOpen}
+          excludeSectionId={entityType === "section" ? entityId : undefined}
+          visitType={effectiveProgram.visitType}
+          onSelect={attachSection}
+        />
+        <ConsentSelectorModal
+          open={isConsentOpen}
+          onOpenChange={setIsConsentOpen}
+          visitType={effectiveProgram.visitType}
+          onSelect={(consent) => {
+            saveElement({
+              id: createMockId("q-consent"),
+              order: questions.length + 1,
+              text: consent.name,
+              kind: "consent",
+              section: "Consents",
+              required: true,
+              consentText: `Patient must accept: ${consent.name}`,
+              elementConfig: { sourceId: consent.id },
+            }, "Consent Form Attached");
+          }}
+        />
+        <ConsentPlacementRuleDialog
+          open={Boolean(placementConsent)}
+          onOpenChange={(open) => { if (!open) setPlacementConsent(null); }}
+          consentName={placementConsent?.text || "this consent"}
+          contextName={entityName}
+          sources={consentRuleSources}
+          loadRule={loadPlacementConsentRule}
+          onSave={savePlacementConsentRule}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen w-full flex-col bg-slate-50 p-6">
+      <QuestionListHeader
+        title={headerTitle}
+        subtitle={headerSubtitle}
+        extraActions={headerExtraActions}
+        reorderActive={isReorderActive}
+        onBack={onBack}
+        onToggleReorder={() => setIsReorderActive((active) => !active)}
+        onAddQuestion={() => { setActiveEditingQuestion(null); setIsQuestionOpen(true); }}
+        onAddAuth={() => { setActiveEditingQuestion(null); setIsAuthOpen(true); }}
+        onAddServiceArea={handleAddServiceArea}
+        onAddSection={() => { setActiveEditingQuestion(null); setIsSectionOpen(true); }}
+        onAddConsent={() => { setActiveEditingQuestion(null); setIsConsentOpen(true); }}
+        onAddCheckout={() => { setActiveEditingQuestion(null); setIsCheckoutOpen(true); }}
+        hasAuthentication={hasAuthentication}
+        showAuthentication={entityType === "program"}
+      />
+
+      <main className="mt-7 w-full flex-1">
+        <QuestionListFilters
+          counts={typeCounts}
+          selectedType={typeFilter}
+          searchQuery={searchQuery}
+          onSelectType={setTypeFilter}
+          onSearchChange={setSearchQuery}
+        />
+        <div className="flex flex-col overflow-hidden rounded-[10px] border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.02)]">
+          <QuestionListTable
+            questions={processedQuestions}
+            reorderActive={isReorderActive}
+            sensors={sensors}
+            onDragEnd={handleDragEnd}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
+            onDetachSection={(sectionId, sectionName) => {
+              setSectionToDetach({ id: sectionId, name: sectionName });
+              setIsDeleteDialogOpen(true);
+            }}
+          />
+        </div>
+      </main>
+
+      {/* Modals & Dialogs */}
+      <QuestionEditorDialog
+        open={isQuestionOpen}
+        onOpenChange={setIsQuestionOpen}
+        onSave={handleAddQuestionSave}
+        initialQuestionId={activeEditingQuestion?.id || null}
+        questions={displayQuestions}
+        programId={entityId}
+        programName={entityName}
+        programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
+        programLabRequirements={program?.labRequirements || []}
+        getVisibilityDependents={(questionId) => getQuestionVisibilityDependents(
+          questionId,
+          questions,
+          program?.checkoutQuestions || [],
+          program?.labRequirements || [],
+        )}
+        onSaveLabRequirements={program ? saveProgramLabs : undefined}
+      />
+
+      <CheckoutQuestionModal
+        open={isCheckoutOpen}
+        onOpenChange={setIsCheckoutOpen}
+        onSave={handleAddCheckoutSave}
+        initialQuestion={
+          activeEditingQuestion
+            ? {
+                id: activeEditingQuestion.id,
+                text: activeEditingQuestion.text,
+                products: activeEditingQuestion.checkoutProducts || [],
+                visibilityRules: activeEditingQuestion.visibilityRuleGroup || {
+                  mode: "simple",
+                  rules: [],
+                },
+              }
+            : null
+        }
+        programName={entityName}
+        programTreatmentTypeKey={effectiveProgram.treatmentTypeKey}
+        screeningQuestions={questions}
+        programLabRequirements={program?.labRequirements || []}
+        onSaveLabRequirements={program ? saveProgramLabs : undefined}
+        initialMode={activeEditingQuestion?.elementConfig?.labCheckout === true ? "lab" : "medicine"}
+      />
+
+      <AuthSetupModal
+        open={isAuthOpen}
+        onOpenChange={setIsAuthOpen}
+        initialConfig={authConfig}
+        onSave={saveAuthConfig}
+      />
+
+      <SectionSelectorModal
+        open={isSectionOpen}
+        onOpenChange={setIsSectionOpen}
+        excludeSectionId={entityType === "section" ? entityId : undefined}
+        visitType={effectiveProgram.visitType}
+          onSelect={attachSection}
+      />
+
+      <ConsentSelectorModal
+        open={isConsentOpen}
+        onOpenChange={setIsConsentOpen}
+        visitType={effectiveProgram.visitType}
+        onSelect={(consent) => {
+          const consentQuestion: ProgramQuestion = {
+            id: createMockId("q-consent"),
+            order: questions.length + 1,
+            text: consent.name,
+            kind: "consent",
+            section: "Consents",
+            required: true,
+            consentText: `Patient must accept: ${consent.name}`,
+            elementConfig: { sourceId: consent.id },
+          };
+          saveElement(consentQuestion, "Consent Form Attached");
+        }}
+      />
+
+      <ConsentPlacementRuleDialog
+        open={Boolean(placementConsent)}
+        onOpenChange={(open) => { if (!open) setPlacementConsent(null); }}
+        consentName={placementConsent?.text || "this consent"}
+        contextName={entityName}
+        sources={consentRuleSources}
+        loadRule={loadPlacementConsentRule}
+        onSave={savePlacementConsentRule}
+      />
+
+      <DeleteElementDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setSectionToDetach(null);
+        }}
+        onConfirm={confirmDelete}
+        title={sectionToDetach ? `Detach ${sectionToDetach.name}?` : undefined}
+        description={sectionToDetach
+          ? "This removes the Common Section once at the parent level. All projected field rows disappear together; the library Section is not deleted."
+          : undefined}
+        actionLabel={sectionToDetach ? "Detach Section" : undefined}
+      />
+    </div>
+  );
+}
