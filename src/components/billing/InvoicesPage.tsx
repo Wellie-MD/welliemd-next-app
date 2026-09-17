@@ -714,36 +714,30 @@ function RevisionInvoiceModal({
                 </table>
               </section>
             )}
-            {!treatmentPrescription && requestedProducts.map((product, index) => (
-              <section key={`${product.product_name}-${index}`} className="border-b border-slate-200 p-5 dark:border-slate-800">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Requested · {product.product_name}
-                </h4>
-                {index === 0 && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Amount authorized at checkout — captured after prescription
-                  </p>
-                )}
-                {renderCostTable(
-                  product.medication_amount,
-                  product.shipping_amount,
-                  product.product_total,
-                  index === 0 && Number(requested?.consultation_amount || 0) === 0,
-                  product.product_name,
-                  "Total"
-                )}
-              </section>
-            ))}
-            {!treatmentPrescription && requestedProducts.length > 1 && (
+            {!treatmentPrescription && (
               <section className="border-b border-slate-200 p-5 dark:border-slate-800">
-                {renderCostTable(
-                  requested?.medication_amount,
-                  requested?.shipping_amount,
-                  requested?.product_total,
-                  false,
-                  "Medication",
-                  "Authorized total"
-                )}
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Requested
+                </h4>
+                <p className="mt-2 text-xs text-slate-400">
+                  Amount authorized at checkout — captured after prescription
+                </p>
+                {requestedProducts.map((product, index) => (
+                  <div key={`${product.product_name}-${index}`} className={index > 0 ? "mt-4 border-t pt-3 dark:border-slate-800" : "mt-2"}>
+                    {renderCostTable(
+                      product.medication_amount,
+                      product.shipping_amount,
+                      product.product_total,
+                      false,
+                      product.product_name,
+                      "Total"
+                    )}
+                  </div>
+                ))}
+                <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-2 text-xs font-bold dark:border-slate-800">
+                  <span>Authorized total</span>
+                  <span>{formatMoney(requested?.product_total)}</span>
+                </div>
               </section>
             )}
             {prescriptionEvents.map((event, index) => {
