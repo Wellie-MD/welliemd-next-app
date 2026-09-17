@@ -1,16 +1,17 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { useAuthStore } from "../store/useAuthStore";
+import { API_REQUEST_TIMEOUT_MS } from "./constants";
 
 // const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
 
 declare module "axios" {
-  export interface AxiosRequestConfig<D = any> {
+  export interface AxiosRequestConfig<D = unknown> {
     skipAuthRedirect?: boolean;
     _retry?: boolean;
   }
 
-  export interface InternalAxiosRequestConfig<D = any> {
+  export interface InternalAxiosRequestConfig<D = unknown> {
     skipAuthRedirect?: boolean;
     _retry?: boolean;
   }
@@ -28,10 +29,26 @@ const axiosInstance = axios.create({
     "Content-Type": "application/json",
   },
   withCredentials: true,
+  timeout: API_REQUEST_TIMEOUT_MS,
 });
 
 export const setHydratingState = (state: boolean) => {
   isHydrating = state;
+};
+
+type TokenInvalidResponse = {
+  code?: string;
+  detail?: string;
+  messages?: Array<{ code?: string }>;
+};
+
+const isTokenInvalidResponse = (error: AxiosError<TokenInvalidResponse>): boolean => {
+  const data = error.response?.data;
+  return (
+    data?.code === 'token_not_valid' ||
+    data?.detail === 'Given token not valid for any token type' ||
+    data?.messages?.some?.((message) => message?.code === 'token_not_valid')
+  );
 };
 
 // Request interceptor to add access token to headers
@@ -42,7 +59,15 @@ axiosInstance.interceptors.request.use(
       delete config.headers["Content-Type"];
     }
 
-    const token = useAuthStore.getState().accessToken;
+    const authState = useAuthStore.getState();
+    config.headers["X-Wellie-Portal"] = "client";
+
+    if (authState.superAdminApiBaseUrl) {
+      config.baseURL = authState.superAdminApiBaseUrl;
+      return config;
+    }
+
+    const token = authState.accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -63,6 +88,7 @@ axiosInstance.interceptors.response.use(
     const originalRequest = error.config;
     const authStore = useAuthStore.getState();
     const skipAuthRedirect = Boolean(originalRequest?.skipAuthRedirect);
+    const isSuperAdminSession = Boolean(authStore.superAdminApiBaseUrl);
     
     // Skip token refresh for auth-related endpoints
     const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
@@ -70,7 +96,12 @@ axiosInstance.interceptors.response.use(
     const isMeEndpoint = originalRequest?.url?.includes('/auth/me/');
     
     // If this is a 401 from the refresh token endpoint, log the user out
-    if (error.response?.status === 401 && isTokenRefresh) {
+    const shouldRefreshToken =
+      (error.response?.status === 401 || isTokenInvalidResponse(error)) &&
+      !isAuthEndpoint &&
+      authStore.isAuthenticated;
+
+    if ((error.response?.status === 401 || isTokenInvalidResponse(error)) && isTokenRefresh) {
       if (skipAuthRedirect) {
         return Promise.reject(error);
       }
@@ -80,9 +111,18 @@ axiosInstance.interceptors.response.use(
       window.location.href = '/auth/signin';
       return Promise.reject(error);
     }
+
+    if ((error.response?.status === 401 || error.response?.status === 403) && isSuperAdminSession) {
+      const isAuthMeEndpoint = originalRequest?.url?.includes('/auth/me/');
+      if (!skipAuthRedirect && isAuthMeEndpoint) {
+        authStore.logout();
+        window.location.href = '/auth/signin';
+      }
+      return Promise.reject(error);
+    }
     
     // Handle 401 errors for non-auth endpoints when we have an active session
-    if (error.response?.status === 401 && !isAuthEndpoint && authStore.isAuthenticated) {
+    if (shouldRefreshToken) {
       if (skipAuthRedirect) {
         return Promise.reject(error);
       }

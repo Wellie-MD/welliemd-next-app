@@ -38,6 +38,20 @@ export interface InvoiceItem {
   metadata?: Record<string, any>;
 }
 
+export interface InvoiceTreatmentPrescription {
+  contract_version?: string;
+  treatment_case_id?: string;
+  requested_set: Array<{ product_id?: string | number; source_product_id?: string | number; med_id?: string; name?: string; quantity?: number }>;
+  prescribed_set: Array<{ product_id?: string | number; source_product_id?: string | number; med_id?: string; name?: string; quantity?: number }>;
+  settlement_flow?: string;
+  requested_authorized_amount?: string;
+  prescribed_final_amount?: string;
+  base_capture_amount?: string;
+  supplemental_delta_amount?: string;
+  trace_id?: string;
+  invoice_status?: string;
+}
+
 export interface InvoicePrescriptionItem {
   name?: string;
   med_id?: string;
@@ -71,6 +85,18 @@ export interface Invoice {
   amount?: string | number;
   total_amount?: string | number;
   status?: string;
+  payment_processor?: string | null;
+  payment_references?: Array<{
+    operation_id: string | null;
+    component_key: string | null;
+    component_type: string | null;
+    operation_type: string;
+    status: string;
+    amount: string;
+    processor: string;
+    processor_transaction_id: string;
+    completed_at: string | null;
+  }>;
   is_overdue?: boolean;
   external_invoice_link?: string;
   source_tenant_order_display_id?: string;
@@ -125,6 +151,7 @@ export interface Invoice {
     hold_released_amount?: string;
     capture_status?: string;
   } | null;
+  treatment_prescription?: InvoiceTreatmentPrescription | null;
   intended_authorization_amount?: string | number;
   authorization_retry_count?: number;
   authorization_retry_exhausted_at?: string | null;
@@ -276,6 +303,7 @@ const billingService = {
       const params = { page, page_size: pageSize, ...(paramsOverride || {}) } as any;
       if (type === "reimbursement") params.invoice_type = "reimbursement";
       if (type === "saas") params.invoice_type = "saas_fee";
+      if (type === "all") params.invoice_type = "all";
       const path = "/billing/invoices/";
       const { data } = await api.get<unknown>(path, { params });
       // API returns paginated shape: { count, next, previous, results: [...] }

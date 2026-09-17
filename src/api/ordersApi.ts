@@ -41,6 +41,7 @@ export interface PatientResponses {
   questionnaireItems?: QuestionnaireItem[] | Record<string, unknown>
   medications?: unknown[]
   photos?: unknown[]
+  documents?: QuestionnaireDocument[]
   [key: string]: unknown
 }
 
@@ -51,8 +52,20 @@ export interface QuestionnairePhoto {
   data?: string
 }
 
+export interface QuestionnaireDocument {
+  question?: string
+  question_id?: string
+  mime?: string
+  filename?: string
+  upload_type?: string
+  data?: string
+}
+
 // Prescribed medication from RX_WRITTEN webhook (PrescriptionEvent.medications)
 export interface PrescriptionMedication {
+  id?: string | number
+  product_id?: string | number
+  source_product_id?: string | number
   name?: string
   prescribed_name?: string
   strength?: string
@@ -62,6 +75,33 @@ export interface PrescriptionMedication {
   medId?: string
   rxId?: string
   shipping_fee?: string | number | null
+}
+
+export interface IntakeResponseSummary {
+  source: "phase_ii"
+  program?: { id?: string | null; name?: string; release_version?: number | null }
+  sections: Array<{
+    title: string
+    responses: Array<{
+      question_id: string
+      question: string
+      answer: unknown
+      answer_type?: string
+      label_unavailable?: boolean
+    }>
+  }>
+  consents?: unknown[]
+}
+
+export interface ShippingAddressSnapshot {
+  address1?: string
+  address2?: string
+  city?: string
+  state?: string
+  postal_code?: string
+  country?: string
+  formatted?: string
+  source: "checkout_snapshot"
 }
 
 export interface PrescriptionHistoryMedication {
@@ -108,6 +148,7 @@ export interface OrderPricing {
   shipping_total?: string
   subtotal_before_discount?: string
   discount_total?: string
+  discount_amount?: string
   gross_total?: string
   grand_total?: string
   payable_amount?: string
@@ -126,6 +167,131 @@ export interface OrderActivityEvent {
   payload?: Record<string, unknown>
 }
 
+export interface OrderLineItem {
+  id: string
+  product_id?: number | null
+  product_name?: string | null
+  product_image?: string | null
+  item_type?: string
+  quantity?: string | number
+  unit_patient_price?: string | number
+  unit_shipping_fee?: string | number
+  line_total?: string | number
+  status?: string
+  is_included?: boolean
+  parent_line_item?: string | null
+  source_supply_relation_id?: number | null
+  patient_price_snapshot?: Record<string, unknown>
+  reimbursement_amount_snapshot?: Record<string, unknown> | null
+  prescription_status?: string
+  fulfilment_status?: string
+  shipment_status?: string
+  refund_status?: string
+  duration_days?: number | null
+  provider_product_id?: string | null
+  tracking_number?: string | null
+  tracking_url?: string | null
+  shipment_provider?: string | null
+  prescription_event_id?: string | null
+  prescribed_at?: string | null
+  fulfilled_at?: string | null
+  shipped_at?: string | null
+  cancelled_at?: string | null
+  refunded_amount?: string | number
+  lifecycle_snapshot?: Record<string, unknown>
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface ProductPaymentReservation {
+  id: string
+  line_item_id: string
+  product_id?: number | string | null
+  product_name?: string | null
+  processor?: string | null
+  amount?: string | number | null
+  currency?: string | null
+  authorized_amount?: string | number | null
+  captured_amount?: string | number | null
+  voided_amount?: string | number | null
+  refunded_amount?: string | number | null
+  status?: string | null
+  patient_action?: "do_not_resubmit" | "complete_required_action" | "contact_support" | null
+  safe_to_retry?: boolean
+  actions?: string[]
+}
+
+export interface TreatmentCaseSummary {
+  id: string
+  treatment_type_id?: string
+  treatment_type_key?: string | null
+  beluga_dispatch_status?: string | null
+  beluga_dispatch_reason?: string | null
+  beluga_dispatch_attempt_count?: number | null
+  program_id?: string | null
+  release_id?: string | null
+  release_version?: number | null
+  release_checksum?: string | null
+  status?: string
+  lifecycle_status?: string
+  visit_id?: string | null
+  visit_status?: string | null
+  beluga_dispatch_status?: string | null
+  treatment_total?: string
+  reimbursement_total?: string
+  common_answers?: Record<string, unknown>
+  scoped_answers?: Record<string, unknown>
+  consents?: unknown[]
+}
+
+export interface CombinedSubmissionSummary {
+  id: string
+  status?: string
+  release_id?: string | null
+  release_version?: number | null
+  release_checksum?: string
+  runtime_session_id?: string
+  pricing_snapshot?: Record<string, unknown>
+  checkout_total?: Record<string, unknown>
+  combined_payment_id?: string | null
+  combined_payment?: {
+    id: string
+    status?: string
+    currency?: string
+    authorized_amount?: string
+    captured_amount?: string
+    refunded_amount?: string
+    allocations?: Array<{
+      id: string
+      order_id: string
+      treatment_case_id: string
+      status?: string
+      allocated_amount?: string
+      captured_amount?: string
+      refunded_amount?: string
+    }>
+  } | null
+  orders?: Array<{
+    order_id: string
+    order_display_id?: string | null
+    treatment_case_id: string
+    treatment_type_id?: string
+    treatment_type_key?: string | null
+    status?: string
+    beluga_dispatch_status?: string | null
+    beluga_dispatch_reason?: string | null
+    beluga_dispatch_attempt_count?: number | null
+    treatment_total?: string
+    payment_allocation?: {
+      id: string
+      status?: string
+      allocated_amount?: string
+      captured_amount?: string
+      refunded_amount?: string
+    } | null
+  }>
+}
+
 export interface OrderSettlementTransaction {
   id: string
   processor?: string
@@ -136,8 +302,131 @@ export interface OrderSettlementTransaction {
   created_at?: string | null
 }
 
+export interface TreatmentAggregateProduct {
+  product_id?: string | number | null
+  source_product_id?: string | number | null
+  med_id?: string | null
+  name?: string | null
+  quantity?: string | number | null
+  days_supply?: number | null
+  product_role?: string | null
+  choice_group?: string | null
+}
+
+export interface TreatmentOrderAggregate {
+  clinical_status: string
+  patient_message?: string | null
+  treatment_case_id: string
+  lifecycle: {
+    status: string
+    can_withdraw: boolean
+    reauthorization_required: boolean
+    support_recovery_required: boolean
+  }
+  authority: {
+    state: string
+    version: number
+    fingerprint?: string | null
+    updated_at?: string | null
+  }
+  treatment_type: {
+    id: string
+    key?: string | null
+    name?: string | null
+  }
+  visit: {
+    id?: string | null
+    status?: string | null
+    master_id?: string | null
+  }
+  lab_gate: {
+    required: boolean
+    ready_for_provider_review: boolean
+    has_partial_results: boolean
+    recollection_required: boolean
+    critical_review_required?: boolean
+    critical_review_approved?: boolean
+    critical_reviewed_at?: string | null
+    provider_review_state: string
+    items: Array<{
+      lab_order_id: string
+      display_id?: string | null
+      panel_name?: string | null
+      required: boolean
+      status: string
+      results_status: string
+      result_count: number
+      results_complete: boolean
+      partial_results: boolean
+      recollection_required: boolean
+      result_pdf_url?: string | null
+      junction_order_id?: string | null
+      failure_reason?: string | null
+      recollection?: {
+        status: string
+        patient_charge_amount: string
+        patient_action?: string | null
+        replacement_lab_order_id?: string | null
+      } | null
+    }>
+  }
+  reconciliation: {
+    version?: number | null
+    status: string
+    requested_set: TreatmentAggregateProduct[]
+    prescribed_set: TreatmentAggregateProduct[]
+    factual_differences: {
+      unchanged_product_ids?: Array<string | number>
+      prescribed_addition_product_ids?: Array<string | number>
+      requested_absence_product_ids?: Array<string | number>
+      absence_is_authoritative?: boolean
+    }
+    unresolved_facts?: Array<Record<string, unknown>>
+    created_at?: string | null
+    revision_id?: string
+    source_event_id?: string
+    is_complete_snapshot?: boolean
+  }
+  settlement: {
+    status: string
+    patient_settled_at?: string | null
+    reimbursement_settled_at?: string | null
+    settled_at?: string | null
+    patient_action_required: boolean
+    refund_pending: boolean
+    refund_required_amount: string
+    operation_id?: string
+    patient_attempts?: number
+    reimbursement_attempts?: number
+    last_error_code?: string
+  }
+  support?: {
+    owner?: string | null
+    pending_reason?: string | null
+    retry_allowed: boolean
+    last_error_code?: string
+    last_error_detail?: string
+  }
+  siblings: Array<{
+    order_id: string
+    order_display_id?: string | null
+    treatment_case_id: string
+    treatment_type_id: string
+    treatment_type_key?: string | null
+    treatment_type_name?: string | null
+    status?: string | null
+    lifecycle_status?: string | null
+  }>
+}
+
 export interface Order {
   id: string
+  combined_submission_id?: string | null
+  treatment_case_id?: string | null
+  treatment_type_id?: string | null
+  treatment_type_key?: string | null
+  combined_payment_id?: string | null
+  payment_allocation_id?: string | null
   product?: number | string | null
   display_id?: string
   order_id?: string | null
@@ -163,6 +452,7 @@ export interface Order {
   supplemental_delta_amount?: string | null
   base_captured_amount?: string | null
   supplemental_captured_amount?: string | null
+  base_authorization_amount?: string | null
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
   netCollected?: string | null
@@ -174,6 +464,7 @@ export interface Order {
   rx_revision_refund_required_amount?: string | null
   created_at?: string
   updated_at?: string
+  updatedAt?: string
   name?: string
   email?: string
   phone?: string
@@ -197,7 +488,10 @@ export interface Order {
   discount_amount?: string | null
   shipping_fee?: string | null
   tracking_number?: string | null
+  shipping_carrier?: string | null
   patient_responses?: PatientResponses | null
+  intake_response_summary?: IntakeResponseSummary | null
+  shipping_address_snapshot?: ShippingAddressSnapshot | null
   checkout_url?: string | null
   is_archived?: boolean
   archived_at?: string | null
@@ -228,6 +522,27 @@ export interface Order {
   billing_pending_reason?: string | null
   activity_events?: OrderActivityEvent[]
   episode_id?: string | null
+  line_items?: OrderLineItem[]
+  product_payment_reservations?: ProductPaymentReservation[]
+  treatment_case_summary?: TreatmentCaseSummary | null
+  combined_payment_summary?: {
+    id: string
+    gateway?: string | null
+    status?: string
+    currency?: string
+    authorized_amount?: string
+    captured_amount?: string
+    refunded_amount?: string
+    allocation_total?: string
+    allocation?: { id: string; status?: string; allocated_amount?: string; captured_amount?: string; refunded_amount?: string }
+    allocations?: Array<{ id: string; order_id: string; treatment_case_id: string; status?: string; allocated_amount?: string; captured_amount?: string; refunded_amount?: string }>
+  } | null
+  combined_submission_summary?: CombinedSubmissionSummary | null
+  beluga_dispatch_status?: string | null
+  beluga_dispatch_reason?: string | null
+  beluga_dispatch_attempt_count?: number | null
+  treatment_aggregate?: TreatmentOrderAggregate | null
+  transaction_id?: string | number | null
 }
 
 export interface PaginatedOrdersResponse {
@@ -235,6 +550,41 @@ export interface PaginatedOrdersResponse {
   next: string | null
   previous: string | null
   results: Order[]
+}
+
+const normalizePaginatedOrders = (payload: unknown): PaginatedOrdersResponse => {
+  if (Array.isArray(payload)) {
+    return {
+      count: payload.length,
+      next: null,
+      previous: null,
+      results: payload as Order[],
+    }
+  }
+
+  const data = payload && typeof payload === "object"
+    ? payload as Record<string, unknown>
+    : {}
+  const nested = data.data && typeof data.data === "object"
+    ? data.data as Record<string, unknown>
+    : null
+  const rawResults = data.results ?? nested?.results
+  const results = Array.isArray(rawResults)
+    ? rawResults.filter((item): item is Order => Boolean(item && typeof item === "object"))
+    : []
+  const rawCount = data.count ?? nested?.count
+  const parsedCount = Number(rawCount)
+
+  return {
+    count: Number.isFinite(parsedCount) ? parsedCount : results.length,
+    next: typeof (data.next ?? nested?.next) === "string"
+      ? String(data.next ?? nested?.next)
+      : null,
+    previous: typeof (data.previous ?? nested?.previous) === "string"
+      ? String(data.previous ?? nested?.previous)
+      : null,
+    results,
+  }
 }
 
 export interface OrderRefundRequest {
@@ -301,8 +651,8 @@ const ENDPOINT = '/orders/'
 
 export const fetchOrders = async (params?: Record<string, unknown>): Promise<PaginatedOrdersResponse> => {
   try {
-    const { data } = await api.get<PaginatedOrdersResponse>(ENDPOINT, { params })
-    return data
+    const { data } = await api.get<unknown>(ENDPOINT, { params })
+    return normalizePaginatedOrders(data)
   } catch (error) {
     console.error('Failed to fetch orders:', error)
     throw error
@@ -311,8 +661,8 @@ export const fetchOrders = async (params?: Record<string, unknown>): Promise<Pag
 
 export const fetchOrdersByPatient = async (patientId: string, params?: Record<string, unknown>): Promise<PaginatedOrdersResponse> => {
   try {
-    const { data } = await api.get<PaginatedOrdersResponse>(ENDPOINT, { params: { ...params, patient_id: patientId } })
-    return data
+    const { data } = await api.get<unknown>(ENDPOINT, { params: { ...params, patient_id: patientId } })
+    return normalizePaginatedOrders(data)
   } catch (error) {
     console.error(`Failed to fetch orders for patient ${patientId}:`, error)
     throw error
@@ -371,6 +721,25 @@ export const updateOrder = async (id: string, payload: Partial<Order>): Promise<
     console.error(`Failed to update order ${id}:`, error)
     throw error
   }
+}
+
+export interface CriticalLabReviewResponse {
+  case_id: string
+  critical_lab_review_status: string
+  critical_result_fingerprint: string
+  release_queued: boolean
+  reviewed_at: string
+}
+
+export const approveCriticalLabReview = async (
+  caseId: string,
+  note = "",
+): Promise<CriticalLabReviewResponse> => {
+  const { data } = await api.post<CriticalLabReviewResponse>(
+    `/orders/treatment-cases/${caseId}/critical-lab-review/`,
+    { note },
+  )
+  return data
 }
 
 export const archiveOrder = async (id: string): Promise<Order> => {
@@ -469,13 +838,16 @@ export const changeProduct = async (
   newProductId: number | string,
   quantity?: number | string,
   dryRun?: boolean
-): Promise<any> => {
-  const { data } = await api.post(`/orders/${orderId}/change-product/`, {
+): Promise<Record<string, unknown>> => {
+  const { data } = await api.post<Record<string, unknown>>(`/orders/${orderId}/change-product/`, {
     new_product_id: newProductId,
     ...(quantity !== undefined ? { quantity } : {}),
     ...(dryRun ? { dry_run: true } : {}),
   })
-  return (data?.data || data)
+  const nested = data.data
+  return nested && typeof nested === 'object' && !Array.isArray(nested)
+    ? nested as Record<string, unknown>
+    : data
 }
 
 export const updateOrderQuestionnaireImages = async (
@@ -501,7 +873,10 @@ export interface FilterOption {
 
 const extractResults = (data: unknown): FilterOption[] => {
   if (Array.isArray(data)) return data
-  if (data && typeof data === 'object' && 'results' in data && Array.isArray((data as any).results)) return (data as any).results
+  if (data && typeof data === 'object' && 'results' in data) {
+    const results = (data as { results?: unknown }).results
+    if (Array.isArray(results)) return results as FilterOption[]
+  }
   return []
 }
 
@@ -533,6 +908,7 @@ export const ordersApi = {
   fetchPrescriptionHistory,
   createOrder,
   updateOrder,
+  approveCriticalLabReview,
   archiveOrder,
   unarchiveOrder,
   deleteOrder,

@@ -32,6 +32,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { usePermissions } from "@/hooks/usePermissions"
 import {
   Tooltip,
   TooltipContent,
@@ -52,6 +53,7 @@ const settingsMenuItems = [
   { title: "Webhooks", url: "/dashboard/settings/webhooks-apis", icon: Webhook },
   { title: "SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
   { title: "Email and Sending Domain", url: "/dashboard/settings/email-domain", icon: Globe },
+  { title: "Integrations", url: "/dashboard/settings/integrations", icon: Plug2 },
   { title: "Beluga Settings", url: "/dashboard/settings/beluga-settings", icon: Cloud },
   { title: "Patient Resources", url: "/dashboard/settings/patient-resources", icon: BookOpen },
 ]
@@ -69,9 +71,21 @@ export function SettingsSidebar({
   const location = useLocation()
   const currentPath = location.pathname
   const { logos, isLoading } = useBranding()
+  const { hasRole } = usePermissions()
+  const canManageIntegrationCredentials =
+    hasRole("Super Admin") || hasRole("Primary Owner") || hasRole("Admin")
+  const visibleMenuItems = settingsMenuItems.filter(
+    (item) => !item.requiresCredentialManager || canManageIntegrationCredentials
+  )
   // const collapsed = state === "collapsed"
 
   const isActive = (path: string) => currentPath === path
+
+  const handleNavigation = () => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      onToggle()
+    }
+  }
 
   // Wrapper for menu items with tooltip when collapsed
   const MenuItemWrapper = ({ children, title }: { children: React.ReactNode, title: string }) => {
@@ -95,8 +109,8 @@ export function SettingsSidebar({
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-30 h-svh bg-background border-r transition-all duration-200",
-        collapsed ? "w-16" : "w-64"
+        "fixed left-0 top-0 z-30 h-svh bg-background border-r transition-all duration-200 md:translate-x-0",
+        collapsed ? "w-16 -translate-x-full" : "w-64 translate-x-0"
       )}
     >
       {/* <Sidebar collapsible="icon" className="border-r flex flex-col h-full overflow-hidden"> */}
@@ -134,7 +148,10 @@ export function SettingsSidebar({
                 <SidebarMenuItem>
                   <MenuItemWrapper title="Back to App">
                     <SidebarMenuButton
-                      onClick={() => navigate("/dashboard")}
+                      onClick={() => {
+                        navigate("/dashboard")
+                        handleNavigation()
+                      }}
                       className={`
                         group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                         ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}
@@ -156,11 +173,12 @@ export function SettingsSidebar({
                 )}
 
                 {/* Settings Menu Items */}
-                {settingsMenuItems.map((item) => (
+                {visibleMenuItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <MenuItemWrapper title={item.title}>
                       <NavLink
                         to={item.url}
+                        onClick={handleNavigation}
                         className={`
                           group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                           ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}

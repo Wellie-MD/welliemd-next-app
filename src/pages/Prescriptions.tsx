@@ -1,16 +1,18 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Eye, Download, Settings, TestTube, Archive } from "lucide-react"
+import { Eye, Settings } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval } from "date-fns"
-import mockData from "@/data/mockData.json"
 import { exportToCSV } from "@/utils/exportUtils"
+import { ordersApi } from "@/api/ordersApi"
+import type { Order } from "@/api/ordersApi"
+import { TREATMENT_CLINICAL_STATUS_LABELS } from "@/features/treatments/orders/constants"
 
 const prescriptionColumns = [
   { key: "user", label: "User" },
   { key: "prescriptionNumber", label: "Prescription #" },
+  { key: "products", label: "Products" },
   { key: "date", label: "Date" },
   { key: "prescriptionStatus", label: "Prescription Status" },
   { key: "refillStatus", label: "Refill Status" },
@@ -23,15 +25,95 @@ const prescriptionColumns = [
 ]
 
 // Adjusted filters based on the actual data values shown in your table
-const prescriptionStatusFilters = ["All", "Active", "Completed", "Expired", "On Hold"]
+const prescriptionStatusFilters = [
+  "All", "Active", "Pending", "Completed", "On Hold",
+  ...Object.values(TREATMENT_CLINICAL_STATUS_LABELS),
+]
 const refillStatusFilters = ["All", "Eligible", "Pending", "Not Eligible"]
-const pharmacyFilters = ["All", "CityCare Pharmacy", "HealthFirst Pharmacy", "Wellness Hub Pharmacy", "CarePlus Pharmacy", "LifeLine Pharmacy", "MedTrust Pharmacy", "QuickMeds Pharmacy", "PrimeCare Pharmacy"]
 
 // Helper function to parse date in DD/MM/YYYY format
 const parseDate = (dateString: string) => {
   if (!dateString) return new Date()
+  const isoDate = new Date(dateString)
+  if (!Number.isNaN(isoDate.getTime())) return isoDate
   const [day, month, year] = dateString.split('/')
   return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+}
+
+type PrescriptionRow = {
+  user: string
+  prescriptionNumber: string
+  products: string
+  date: string
+  prescriptionStatus: string
+  refillStatus: string
+  remainingRefills: number
+  nextRefillDate: string
+  expirationDate: string
+  sentToGoGoMeds: string
+  sentAt: string
+  pharmacyName: string
+  orderId: string
+  lineItemId: string
+}
+
+function derivePrescriptionRows(orders: Order[]): PrescriptionRow[] {
+  return orders.flatMap((order) => {
+    const aggregate = order.treatment_aggregate
+    if (aggregate) {
+      const products = aggregate.reconciliation.prescribed_set.length
+        ? aggregate.reconciliation.prescribed_set
+        : aggregate.reconciliation.requested_set
+      const clinicalStatus = TREATMENT_CLINICAL_STATUS_LABELS[aggregate.clinical_status] || aggregate.clinical_status.split("_").join(" ")
+      const orderReference = order.order_id || order.display_id || order.id
+      return [{
+        user: order.patient?.full_name || order.name || order.email || "-",
+        prescriptionNumber: String(orderReference),
+        products: products.map((product) => product.name || product.med_id || `Product ${product.product_id || ""}`.trim()).join(", ") || "Awaiting provider decision",
+        date: order.prescribed_at || order.created_at || "",
+        prescriptionStatus: clinicalStatus,
+        refillStatus: "Not Eligible",
+        remainingRefills: 0,
+        nextRefillDate: "—",
+        expirationDate: "—",
+        sentToGoGoMeds: order.status === "shipped" ? "Yes" : "No",
+        sentAt: order.shipped_at || "—",
+        pharmacyName: order.pharmacy_name || order.pharmacy_display || "—",
+        orderId: String(order.id),
+        lineItemId: aggregate.treatment_case_id,
+      }]
+    }
+    const lines = Array.isArray(order.line_items) ? order.line_items : []
+    return lines
+      .filter((line) => line.item_type !== "supply" && line.item_type !== "shipping_adjustment")
+      .map((line) => {
+        const lineStatus = String(line.prescription_status || "pending").toLowerCase()
+        const prescriptionStatus = lineStatus === "prescribed"
+          ? "Active"
+          : lineStatus === "cancelled" || line.refund_status === "refunded"
+            ? "Completed"
+            : lineStatus === "unresolved"
+              ? "On Hold"
+              : "Pending"
+        const orderReference = order.order_id || order.display_id || order.id
+        return {
+          user: order.patient?.full_name || order.name || order.email || "-",
+          prescriptionNumber: line.prescription_event_id || `${orderReference}-${line.id.slice(0, 8)}`,
+          products: line.product_name || order.product_name || "Product",
+          date: line.prescribed_at || order.prescribed_at || order.created_at || "",
+          prescriptionStatus,
+          refillStatus: "Not Eligible",
+          remainingRefills: 0,
+          nextRefillDate: "—",
+          expirationDate: "—",
+          sentToGoGoMeds: line.shipment_status === "shipped" ? "Yes" : "No",
+          sentAt: line.shipped_at || "—",
+          pharmacyName: order.pharmacy_name || order.pharmacy_display || "—",
+          orderId: String(order.id),
+          lineItemId: line.id,
+        }
+      })
+  })
 }
 
 export default function Prescriptions() {
@@ -43,10 +125,37 @@ export default function Prescriptions() {
   const [showArchived, setShowArchived] = useState(false)
   const [date, setDate] = useState<DateRange | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
+  const [prescriptions, setPrescriptions] = useState<PrescriptionRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const pharmacyFilters = useMemo(
+    () => ["All", ...Array.from(new Set(prescriptions.map((item) => item.pharmacyName).filter((name) => name !== "—")))],
+    [prescriptions],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setLoadError(null)
+    ordersApi.fetchOrders({ page: 1, page_size: 100, ordering: "-created_at" })
+      .then((response) => {
+        if (!cancelled) setPrescriptions(derivePrescriptionRows(response.results || []))
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPrescriptions([])
+          setLoadError("Unable to load prescriptions. Please retry.")
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [refreshKey])
 
   // Comprehensive filtering logic based on prescription data
   const filteredPrescriptions = useMemo(() => {
-    return mockData.prescriptions.filter(prescription => {
+    return prescriptions.filter(prescription => {
       // Search filter - search across multiple fields
       const matchesSearch = !searchTerm || 
         prescription.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,7 +193,7 @@ export default function Prescriptions() {
 
       return matchesSearch && matchesPrescriptionStatus && matchesRefillStatus && matchesPharmacy && matchesDateRange
     })
-  }, [mockData.prescriptions, searchTerm, activePrescriptionStatusFilter, activeRefillStatusFilter, activePharmacyFilter, date, refreshKey])
+  }, [prescriptions, searchTerm, activePrescriptionStatusFilter, activeRefillStatusFilter, activePharmacyFilter, date])
 
   // Create filter configuration with actual data values
   const filters = [
@@ -104,35 +213,14 @@ export default function Prescriptions() {
       value: activeRefillStatusFilter === status ? status : undefined,
       onClick: () => setActiveRefillStatusFilter(status)
     })),
-    // Pharmacy filters - using actual pharmacy names from your table (shortened for display)
-    {
-      key: 'pharmacy-gogoMeds',
-      label: 'GoGoMeds',
+    // Pharmacy filters are derived from the authoritative orders response.
+    ...pharmacyFilters.slice(1).map((pharmacy) => ({
+      key: `pharmacy-${pharmacy}`,
+      label: pharmacy,
       type: 'button' as const,
-      value: activePharmacyFilter.includes('GoGoMeds') ? 'GoGoMeds' : undefined,
-      onClick: () => setActivePharmacyFilter(activePharmacyFilter === 'All' ? 'GoGoMeds' : 'All')
-    },
-    {
-      key: 'pharmacy-cvs',
-      label: 'CVS',
-      type: 'button' as const,
-      value: activePharmacyFilter.includes('CVS') ? 'CVS' : undefined,
-      onClick: () => setActivePharmacyFilter(activePharmacyFilter === 'All' ? 'CVS' : 'All')
-    },
-    {
-      key: 'pharmacy-walgreens',
-      label: 'Walgreens',
-      type: 'button' as const,
-      value: activePharmacyFilter.includes('Walgreens') ? 'Walgreens' : undefined,
-      onClick: () => setActivePharmacyFilter(activePharmacyFilter === 'All' ? 'Walgreens' : 'All')
-    },
-    {
-      key: 'pharmacy-riteaid',
-      label: 'Rite Aid',
-      type: 'button' as const,
-      value: activePharmacyFilter.includes('Rite Aid') ? 'Rite Aid' : undefined,
-      onClick: () => setActivePharmacyFilter(activePharmacyFilter === 'All' ? 'Rite Aid' : 'All')
-    },
+      value: activePharmacyFilter === pharmacy ? pharmacy : undefined,
+      onClick: () => setActivePharmacyFilter(activePharmacyFilter === pharmacy ? 'All' : pharmacy),
+    })),
     // Test Mode toggle
     {
       key: 'test-mode',
@@ -163,7 +251,6 @@ export default function Prescriptions() {
 
   const handleRefresh = useCallback(() => {
     setRefreshKey(prev => prev + 1)
-    console.log("Refreshing prescriptions data...")
   }, [])
 
   const handleExport = useCallback(() => {
@@ -198,21 +285,31 @@ export default function Prescriptions() {
         </div>
       </div>
 
-      <DataTable
-        data={filteredPrescriptions}
-        columns={prescriptionColumns}
-        searchPlaceholder="Search by prescription id, patient name, patient id or pharmacy name"
-        showDatePicker={true}
-        showExport={true}
-        showResetFilters={true}
-        filters={filters}
-        dateRange={date}
-        onDateRangeChange={setDate}
-        onSearch={setSearchTerm}
-        onResetFilters={handleResetFilters}
-        onExport={handleExport}
-        onRefresh={handleRefresh}
-      />
+      {loadError && (
+        <div className="mb-4 flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <span>{loadError}</span>
+          <Button variant="outline" size="sm" onClick={handleRefresh}>Retry</Button>
+        </div>
+      )}
+      {loading ? (
+        <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">Loading prescriptions…</div>
+      ) : (
+        <DataTable
+          data={filteredPrescriptions}
+          columns={prescriptionColumns}
+          searchPlaceholder="Search by prescription id, patient name, patient id or pharmacy name"
+          showDatePicker={true}
+          showExport={true}
+          showResetFilters={true}
+          filters={filters}
+          dateRange={date}
+          onDateRangeChange={setDate}
+          onSearch={setSearchTerm}
+          onResetFilters={handleResetFilters}
+          onExport={handleExport}
+          onRefresh={handleRefresh}
+        />
+      )}
     </div>
   )
 }

@@ -1,0 +1,192 @@
+import { ExternalLink, Pill, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { CustomProgram, Program } from "@/features/treatments/types";
+import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
+import { resolveCustomProgramNames } from "@/features/treatments/custom-programs/utils/customProgramDisplay";
+import { cn } from "@/lib/utils";
+import {
+  readinessToneClass,
+  resolveCustomProgramReadiness,
+} from "@/features/treatments/custom-programs/utils/customProgramReadiness";
+
+interface CustomProgramCardProps {
+  customProgram: CustomProgram;
+  programs?: Program[];
+  onOpenBuilder?: (program: CustomProgram) => void;
+  onPreview?: (program: CustomProgram) => void;
+  onViewStartUrl?: (program: CustomProgram) => void;
+}
+
+export function CustomProgramCard({
+  customProgram,
+  programs = [],
+  onOpenBuilder,
+  onPreview,
+  onViewStartUrl,
+}: CustomProgramCardProps) {
+  const isMulti = isCustomProgramMulti(customProgram);
+  const readiness = resolveCustomProgramReadiness(customProgram);
+
+  const renderIcon = () => {
+    const iconClass = "h-[17px] w-[17px]";
+    if (customProgram.icon === "pill") {
+      return <Pill className={iconClass} />;
+    }
+    return <Sparkles className={iconClass} />;
+  };
+
+  const getIconFrameClass = () =>
+    cn(
+      "flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg",
+      customProgram.icon === "pill"
+        ? "bg-emerald-50 text-emerald-700"
+        : "bg-pink-50 text-pink-700"
+    );
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      if (dateStr.includes("/")) return dateStr;
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const routedTreatmentNames = resolveCustomProgramNames(customProgram, programs);
+  const routedTreatmentCount = routedTreatmentNames.length;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden rounded-xl border transition-all duration-150 hover:shadow-md dark:bg-[#171b27] dark:hover:shadow-none",
+        isMulti
+          ? "border-pink-200 bg-gradient-to-b from-pink-50/70 via-white to-white dark:border-pink-200/80"
+          : "border-slate-200 bg-white dark:border-slate-700"
+      )}
+    >
+      <div
+        className={cn(
+          "border-b border-slate-100 p-3.5 dark:border-slate-700",
+          isMulti && "dark:bg-gradient-to-b dark:from-pink-100/85 dark:via-slate-400/65 dark:to-slate-500/40"
+        )}
+      >
+        <div className="flex min-w-0 flex-1 items-start gap-2.5">
+          <div className={getIconFrameClass()}>
+            {renderIcon()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 font-semibold text-sm text-slate-900 leading-tight dark:text-slate-50">
+              <span>{customProgram.name}</span>
+              {isMulti && (
+                <span className="rounded-[3px] border border-pink-200 bg-pink-50 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wider text-[#9d174d]">
+                  Multi
+                </span>
+              )}
+            </div>
+            <div className="mt-1 truncate text-[11.5px] text-slate-400 leading-none dark:text-slate-500">
+              {customProgram.description}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 flex-col gap-3 border-b border-slate-100 bg-white p-3.5 dark:border-slate-700 dark:bg-[#171b27]">
+        <div>
+          <div className="flex items-start justify-between gap-2">
+            <div className="font-semibold text-[13px] text-slate-900 leading-tight dark:text-slate-50">
+              {customProgram.onboardingName || customProgram.name}
+            </div>
+            <span
+              className={cn(
+                "shrink-0 rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide",
+                readinessToneClass(readiness.status),
+              )}
+              title={readiness.detail}
+            >
+              {readiness.label}
+            </span>
+          </div>
+          <div className="text-[11.5px] text-slate-400 mt-1 dark:text-slate-500">
+            {customProgram.runtimeSummary?.status === "ready"
+              ? `${customProgram.runtimeSummary.effectiveQuestionCount} patient steps · ${customProgram.runtimeSummary.screeningQuestionCount} screening questions`
+              : customProgram.runtimeSummary
+                ? `${customProgram.runtimeSummary.screeningQuestionCount} screening questions · republish required`
+                : `${customProgram.questionCount || 0} questions`}
+            {customProgram.updatedAt && ` · updated ${formatDate(customProgram.updatedAt)}`}
+          </div>
+          {!readiness.runnable && (
+            <div className="mt-1.5 text-[10.5px] leading-snug text-amber-700 dark:text-amber-500">
+              {readiness.detail}
+            </div>
+          )}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2" data-testid="custom-program-card-actions">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => onOpenBuilder?.(customProgram)}
+            className="w-full rounded-lg bg-blue-600 px-3 py-1.5 text-[11.5px] font-semibold text-white hover:bg-blue-700"
+          >
+            Open builder
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onPreview?.(customProgram)}
+            className="w-full rounded-lg border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-transparent dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Preview
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onViewStartUrl?.(customProgram)}
+            disabled={!onViewStartUrl}
+            className="w-full gap-1.5 rounded-lg border-blue-200 bg-blue-50 px-3 py-1.5 text-[11.5px] font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-400/30 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20 sm:col-span-2"
+            aria-label={`View and copy intake URL for ${customProgram.name}`}
+            data-testid="custom-program-url-action"
+            title="View and copy intake URL"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span>View and copy intake URL</span>
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex-1 bg-[#fafbfc] p-3.5 rounded-b-xl dark:bg-[#121620]">
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          Routes into · {routedTreatmentCount} {routedTreatmentCount === 1 ? "treatment" : "treatments"}
+        </div>
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {routedTreatmentNames.length > 0 ? (
+            routedTreatmentNames.map((name) => (
+              <span
+                key={name}
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-700 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-300"
+              >
+                {name}
+              </span>
+            ))
+          ) : (
+            <span className="text-[11.5px] italic text-slate-400 dark:text-slate-500">No routed treatments configured</span>
+          )}
+          {customProgram.consentIds.length > 0 && (
+            <span
+              className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-300"
+            >
+              {customProgram.consentIds.length} universal consents
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

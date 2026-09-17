@@ -271,7 +271,7 @@ export default function CouponCodes() {
       label: "Products", width: "100px", 
       render: (...a: any[]) => {
         const products = getRow<Coupon>(...a).applicable_products || []
-        return products.length === 0 ? "All" : `${products.length} products`
+        return products.length === 0 ? "None" : `${products.length} products`
       }
     },
     {
@@ -284,7 +284,7 @@ export default function CouponCodes() {
           "first_order": "First Order",
           "all_orders": "All Orders",
           "n_orders": "N Orders",
-          "first_payment": "First Payment"
+          "first_payment": "First Order"
         }
         return usageLabel[row.usage_type || "one_time"] || row.usage_type || "One Time"
       },
@@ -345,9 +345,9 @@ export default function CouponCodes() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Coupon Codes</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
           <Button variant="outline" className="gap-2" onClick={() => navigate("/dashboard/coupon-codes/new")}>
             <Plus className="h-4 w-4" />
             Add new

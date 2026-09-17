@@ -3,7 +3,7 @@ interface Column {
     label: string
     render?: (value: any, row: any) => React.ReactNode
   }
-  
+
   export const exportToCSV = (data: any[], columns: Column[], filename: string) => {
     const csvContent = [
       // Header row
@@ -53,4 +53,3 @@ export const fetchAllPaginatedResults = async <T>(
 
   return allResults
 }
-  

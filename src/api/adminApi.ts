@@ -15,10 +15,18 @@ const adminApi = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor to add access token
+// Request interceptor to add access token and handle super admin sessions
 adminApi.interceptors.request.use(
   (config) => {
-    const token = useAuthStore.getState().accessToken;
+    const authState = useAuthStore.getState();
+    config.headers["X-Wellie-Portal"] = "client";
+
+    if (authState.superAdminApiBaseUrl) {
+      config.baseURL = authState.superAdminApiBaseUrl;
+      return config;
+    }
+
+    const token = authState.accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

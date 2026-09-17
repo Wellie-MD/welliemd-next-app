@@ -176,16 +176,16 @@ export default function CouponInsights() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center h-[200px] relative">
-            <div className="relative flex items-center justify-center">
+            <div className="relative flex w-full max-w-full items-center justify-center">
               {/* Circular visualization element */}
-              <div className="w-32 h-32 rounded-full border-8 border-blue-50 dark:border-blue-900/40 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-2xl font-extrabold text-blue-600">${insights?.total_discount_amount ?? 0}</div>
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border-8 border-blue-50 dark:border-blue-900/40 sm:h-32 sm:w-32">
+                <div className="max-w-[80px] text-center sm:max-w-[104px]">
+                  <div className="max-w-full break-all text-xl font-extrabold leading-tight text-blue-600 sm:text-2xl">${insights?.total_discount_amount ?? 0}</div>
                   <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Total</div>
                 </div>
               </div>
               {/* Decorative progress ring */}
-              <svg className="absolute w-36 h-36 -rotate-90">
+              <svg aria-hidden="true" viewBox="0 0 144 144" className="pointer-events-none absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 -rotate-90 sm:h-36 sm:w-36">
                 <circle
                   cx="72"
                   cy="72"
@@ -211,21 +211,21 @@ export default function CouponInsights() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Top coupons</CardTitle>
           </CardHeader>
-          <CardContent className="h-[200px]">
+          <CardContent className="min-h-[200px]">
             {insights?.top_coupons && insights.top_coupons.length > 0 ? (
               <div className="space-y-4 pt-2">
                 {insights.top_coupons.map((coupon, idx) => (
-                  <div key={coupon.code} className="flex items-center justify-between group">
-                    <div className="flex items-center gap-3">
+                  <div key={coupon.code} className="group flex min-w-0 items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className="w-8 h-8 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 flex items-center justify-center text-xs font-bold">
                         #{idx + 1}
                       </div>
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition-colors uppercase">{coupon.code}</div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition-colors uppercase">{coupon.code}</div>
                         <div className="text-[11px] text-muted-foreground truncate max-w-[120px]">{coupon.name}</div>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <div className="text-sm font-bold text-gray-900 dark:text-slate-100">{coupon.uses} uses</div>
                       <div className="text-[11px] text-green-600 dark:text-emerald-300 font-medium">-${coupon.savings}</div>
                     </div>
@@ -251,8 +251,8 @@ export default function CouponInsights() {
 
         {/* Filters Bar */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-col gap-4 md:flex-row">
+            <div className="relative min-w-0 w-full md:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by code, order ref, or name..."
@@ -262,11 +262,11 @@ export default function CouponInsights() {
               />
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 min-w-[200px]">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Filter by code</span>
+            <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center md:gap-4">
+              <div className="flex min-w-0 w-full items-center gap-2 md:w-auto md:min-w-[200px]">
+                <span className="shrink-0 text-xs font-semibold text-muted-foreground uppercase">Filter by code</span>
                 <Select value={codeFilter} onValueChange={setCodeFilter}>
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger className="h-10 min-w-0 flex-1 md:flex-none">
                     <SelectValue placeholder="All Codes" />
                   </SelectTrigger>
                   <SelectContent>
@@ -278,7 +278,7 @@ export default function CouponInsights() {
                 </Select>
               </div>
 
-              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-blue-600 dark:text-blue-400 font-semibold gap-1">
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="w-full justify-center text-blue-600 dark:text-blue-400 font-semibold gap-1 md:w-auto">
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset Filters
               </Button>

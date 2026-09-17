@@ -253,14 +253,14 @@ const columns = [
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start justify-between gap-3 min-[321px]:flex-row min-[321px]:items-center">
         <h1 className="text-2xl font-bold">Affiliate Programs</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setShowCreate(true)}>
+        <div className="flex items-center gap-2 max-[320px]:w-full max-[320px]:flex-wrap">
+          <Button variant="outline" className="gap-2 max-[320px]:min-w-0 max-[320px]:flex-1" onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4" />
             Add New
           </Button>
-          <Button className="gap-2" onClick={() => setLinkAffiliate({ id: '', slug: '', name: '', referral_link: '' } as Affiliate)}>
+          <Button className="gap-2 max-[320px]:min-w-0 max-[320px]:flex-1" onClick={() => setLinkAffiliate({ id: '', slug: '', name: '', referral_link: '' } as Affiliate)}>
             <Link2 className="h-4 w-4" />
             Links
           </Button>

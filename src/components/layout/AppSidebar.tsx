@@ -1,11 +1,10 @@
-import { useState, useEffect, Fragment, type ReactNode } from "react";
+import { useState, useEffect, useMemo, Fragment, type ReactNode } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   ChartLine,
   Users,
   Stethoscope,
   ShoppingBag,
-  ScrollText,
   MessageSquare,
   Package,
   TrendingUp,
@@ -16,6 +15,7 @@ import {
   MessageCircle,
   MapPin,
   ChevronDown,
+  Smartphone,
 } from "lucide-react";
 
 import {
@@ -44,6 +44,8 @@ import {
 import { PermissionGate } from "@/components/auth/PermissionGate";
 import { Permissions } from "@/constants/permissions";
 import { useBranding } from "@/contexts/BrandingContext";
+import { DEFAULT_CLIENT_LOGO_PATH } from "@/constants/branding";
+import { usePhase2Flags, type Phase2Milestone } from "@/features/phase2/Phase2Flags";
 
 type Props = { unseenCount?: number };
 
@@ -63,15 +65,27 @@ const menuSections = [
         icon: ShoppingBag,
         permission: Permissions.ORDER_LIST, // All roles
         children: [
-          { title: "Orders", url: "/dashboard/orders" },
-          { title: "Payments", url: "/dashboard/orders/payments" },
+          { title: "Rx Orders", url: "/dashboard/orders" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs", milestone: "milestone_1" as const },
         ],
+      },
+      {
+        title: "Payments",
+        url: "/dashboard/orders/payments",
+        icon: CreditCard,
+        permission: Permissions.ORDER_LIST, // All roles
       },
       {
         title: "Messages",
         url: "/dashboard/messages",
         icon: MessageSquare,
         permission: Permissions.MESSAGE_LIST, // All roles
+      },
+      {
+        title: "Wearables",
+        url: "/dashboard/wearables",
+        icon: Smartphone,
+        milestone: "milestone_2" as const,
       },
 
       {
@@ -91,6 +105,15 @@ const menuSections = [
     label: "TOOLS & SERVICES",
     items: [
       {
+        title: "Treatments",
+        icon: Stethoscope,
+        milestone: "milestone_3" as const,
+        children: [
+          { title: "Custom Programs", url: "/dashboard/treatments/custom-programs" },
+          { title: "Programs", url: "/dashboard/treatments/programs" },
+        ],
+      },
+      {
         title: "Questionnaires",
         url: "/dashboard/questionnaires",
         icon: FileText,
@@ -101,8 +124,10 @@ const menuSections = [
         icon: Package,
         permission: Permissions.PRODUCT_MANAGE, // All roles (view only for CS)
         children: [
-          { title: "Products", url: "/dashboard/products" },
-          { title: "Routing", url: "/dashboard/products/routing" },
+          { title: "Medications", url: "/dashboard/products" },
+          { title: "Lab Tests", url: "/dashboard/products/labs", milestone: "milestone_1" as const },
+          { title: "Supplies", url: "/dashboard/products/supplies" },
+          { title: "Routing", url: "/dashboard/products/routing", milestone: "milestone_3" as const },
         ],
       },
     ],
@@ -155,16 +180,42 @@ const menuSections = [
 ];
 
 export function AppSidebar({ unseenCount = 0 }: Props) {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
+  const { isEnabled } = usePhase2Flags();
   const location = useLocation();
   const currentPath = location.pathname;
   const [openSections, setOpenSections] = useState<string[]>([]);
   const collapsed = state === "collapsed";
+  const visibleMenuSections = useMemo(
+    () => menuSections.map((section) => ({
+      ...section,
+      items: section.items
+        .filter((item) => {
+          const milestone = ("milestone" in item ? item.milestone : undefined) as Phase2Milestone | undefined;
+          return !milestone || isEnabled(milestone);
+        })
+        .map((item) => ({
+          ...item,
+          children: item.children?.filter((child) => {
+            const milestone = ("milestone" in child ? child.milestone : undefined) as Phase2Milestone | undefined;
+            return !milestone || isEnabled(milestone);
+          }),
+        }))
+        .filter((item) => !item.children || item.children.length > 0),
+    })).filter((section) => section.items.length > 0),
+    [isEnabled]
+  );
+
+  const handleNavigation = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   // Auto-open sections when a child is active
   useEffect(() => {
     const activeParents: string[] = [];
-    menuSections.forEach((section) => {
+    visibleMenuSections.forEach((section) => {
       section.items.forEach((item) => {
         if (item.children?.some((child) => currentPath.startsWith(child.url))) {
           activeParents.push(item.title);
@@ -172,7 +223,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
       });
     });
     setOpenSections((prev) => [...new Set([...prev, ...activeParents])]);
-  }, [currentPath]);
+  }, [currentPath, visibleMenuSections]);
 
   const toggleSection = (title: string) => {
     if (collapsed) return;
@@ -216,30 +267,28 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
   };
 
   function SidebarLogo() {
-  const { state } = useSidebar()
-  const { logos, isLoading } = useBranding()
+    const { state } = useSidebar()
+    const { logos } = useBranding()
 
-  if (state === "collapsed") return null
+    if (state === "collapsed") return null
 
-  if (isLoading) return null
+    const logoUrl = logos?.transparent || logos?.square || DEFAULT_CLIENT_LOGO_PATH
 
-  if (!logos?.square) return null
-
-  const logoUrl = logos.square
-
-  return (
-    <div className="brand-logo-shell">
-      <img
-        src={logoUrl}
-        alt="Logo"
-        className="h-8 w-auto max-w-[200px] object-contain"
-        onError={(e) => {
-          e.currentTarget.style.display = "none"
-        }}
-      />
-    </div>
-  )
-}
+    return (
+      <div className="brand-logo-shell">
+        <img
+          src={logoUrl}
+          alt="WellieMD"
+          className="h-7 w-auto max-w-[180px] object-contain"
+          onError={(e) => {
+            if (!e.currentTarget.src.endsWith(DEFAULT_CLIENT_LOGO_PATH)) {
+              e.currentTarget.src = DEFAULT_CLIENT_LOGO_PATH
+            }
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <Sidebar
@@ -248,15 +297,15 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
     >
       <div className="flex w-full justify-between p-4">
         <SidebarLogo />
-        <SidebarTrigger className="text-gray-600 dark:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-900/40 rounded-md p-1" />
+        <SidebarTrigger className="rounded-md p-1 text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--primary-soft))] hover:text-primary dark:text-slate-100 dark:hover:bg-slate-900/40" />
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex flex-col h-full">
-          {menuSections.map((section, sectionIndex) => (
+          {visibleMenuSections.map((section, sectionIndex) => (
             <Fragment key={section.label}>
               {!collapsed && (
                 <div className="px-3 pt-4 pb-2 first:pt-2">
-                  <SidebarGroupLabel className="text-xs font-semibold text-gray-400 dark:text-slate-200 uppercase tracking-wider">
+                  <SidebarGroupLabel className="text-[9.5px] font-semibold text-[hsl(var(--text-tertiary))] dark:text-slate-200 uppercase tracking-[0.08em]">
                     {section.label}
                   </SidebarGroupLabel>
                 </div>
@@ -294,26 +343,23 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                       <SidebarMenuButton
                                         className={`
                                           group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                          ${
-                                            collapsed
-                                              ? "p-2 justify-center w-10 h-10 mx-auto"
-                                              : "px-3 py-2.5 justify-between"
+                                          ${collapsed
+                                            ? "p-2 justify-center w-10 h-10 mx-auto"
+                                            : "px-3 py-2.5 justify-between"
                                           }
-                                          ${
-                                            isActive
-                                              ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
-                                              : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                          ${isActive
+                                            ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                            : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                           }
                                         `}
                                       >
                                         <div className="flex items-center min-w-0">
                                           <item.icon
-                                          className={`h-5 w-5 flex-shrink-0 ${
-                                            isActive
-                                              ? "text-[#12517A] dark:text-slate-100"
-                                              : "text-gray-500 dark:text-slate-100 group-"
-                                          }`}
-                                        />
+                                            className={`h-5 w-5 flex-shrink-0 ${isActive
+                                                ? "text-primary dark:text-slate-100"
+                                                : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
+                                              }`}
+                                          />
                                           {!collapsed && (
                                             <span className="ml-3 font-medium truncate">
                                               {item.title}
@@ -324,15 +370,13 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                           <ChevronDown
                                             className={`
                                               h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
-                                              ${
-                                                isOpen
-                                                  ? "rotate-0"
-                                                  : "-rotate-90"
+                                              ${isOpen
+                                                ? "rotate-0"
+                                                : "-rotate-90"
                                               }
-                                              ${
-                                                isActive
-                                                  ? "text-[#12517A]"
-                                                  : "text-gray-400 dark:text-slate-200 group-"
+                                              ${isActive
+                                                ? "text-primary"
+                                                : "text-gray-400 dark:text-slate-200 group-"
                                               }
                                             `}
                                           />
@@ -342,7 +386,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
 
                                     {!collapsed && (
                                       <CollapsibleContent className="transition-all duration-300 ease-in-out">
-                                        <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
+                                        <div className="ml-6 mt-2 space-y-1 border-l border-border pl-4">
                                           {item.children.map((child) => (
                                             <SidebarMenuButton
                                               key={child.title}
@@ -350,12 +394,12 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                             >
                                               <NavLink
                                                 to={child.url}
+                                                onClick={handleNavigation}
                                                 className={`
                                                   flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                                ${
-                                                  currentPath === child.url
-                                                      ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px] dark:bg-slate-900/30 dark:text-slate-100 dark:border-slate-300"
-                                                      : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                                ${currentPath === child.url
+                                                    ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                                    : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                                   }
                                                 `}
                                               >
@@ -376,31 +420,28 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                     <NavLink
                                       to={item.url}
                                       end
+                                      onClick={handleNavigation}
                                       className={`
                                         group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                        ${
-                                          collapsed
-                                            ? "p-2 justify-center w-10 h-10 mx-auto relative"
-                                            : "px-3 py-2.5"
+                                        ${collapsed
+                                          ? "p-2 justify-center w-10 h-10 mx-auto relative"
+                                          : "px-3 py-2.5"
                                         }
-                                        ${
-                                          currentPath === item.url
-                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-800 dark:text-slate-100"
-                                            : "text-gray-600 dark:text-slate-300 hover:bg-[#F8FBFC] dark:hover:bg-slate-800"
+                                        ${currentPath === item.url
+                                          ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-800 dark:text-slate-100"
+                                          : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-300 dark:hover:bg-slate-800"
                                         }
                                       `}
                                     >
                                       <div
-                                        className={`relative ${
-                                          collapsed ? "" : "mr-3"
-                                        }`}
+                                        className={`relative ${collapsed ? "" : "mr-3"
+                                          }`}
                                       >
                                         <item.icon
-                                          className={`h-5 w-5 flex-shrink-0 ${
-                                            currentPath === item.url
-                                              ? "text-[#12517A] dark:text-slate-100"
-                                              : "text-gray-500 dark:text-slate-400 group-"
-                                          }`}
+                                          className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
+                                              ? "text-primary dark:text-slate-100"
+                                              : "text-[hsl(var(--text-secondary))] dark:text-slate-400 group-"
+                                            }`}
                                         />
                                       </div>
 
@@ -425,26 +466,23 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                   <SidebarMenuButton
                                     className={`
                                       group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                      ${
-                                        collapsed
-                                          ? "p-2 justify-center w-10 h-10 mx-auto"
-                                          : "px-3 py-2.5 justify-between"
+                                      ${collapsed
+                                        ? "p-2 justify-center w-10 h-10 mx-auto"
+                                        : "px-3 py-2.5 justify-between"
                                       }
-                                    ${
-                                      isActive
-                                        ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
-                                        : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
-                                    }
+                                    ${isActive
+                                        ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                        : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                      }
                                   `}
-                                >
+                                  >
                                     <div className="flex items-center min-w-0">
                                       <item.icon
-                                      className={`h-5 w-5 flex-shrink-0 ${
-                                        isActive
-                                          ? "text-[#12517A] dark:text-slate-100"
-                                          : "text-gray-500 dark:text-slate-100 group-"
-                                      }`}
-                                    />
+                                        className={`h-5 w-5 flex-shrink-0 ${isActive
+                                            ? "text-primary dark:text-slate-100"
+                                            : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
+                                          }`}
+                                      />
                                       {!collapsed && (
                                         <span className="ml-3 font-medium truncate">
                                           {item.title}
@@ -456,10 +494,9 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                         className={`
                                           h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
                                           ${isOpen ? "rotate-0" : "-rotate-90"}
-                                          ${
-                                            isActive
-                                              ? "text-[#12517A]"
-                                              : "text-gray-400 dark:text-slate-200 group-"
+                                          ${isActive
+                                            ? "text-primary"
+                                            : "text-gray-400 dark:text-slate-200 group-"
                                           }
                                         `}
                                       />
@@ -469,7 +506,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
 
                                 {!collapsed && (
                                   <CollapsibleContent className="transition-all duration-300 ease-in-out">
-                                    <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
+                                    <div className="ml-6 mt-2 space-y-1 border-l border-border pl-4">
                                       {item.children.map((child) => (
                                         <SidebarMenuButton
                                           key={child.title}
@@ -477,12 +514,12 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                         >
                                           <NavLink
                                             to={child.url}
+                                            onClick={handleNavigation}
                                             className={`
                                               flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                              ${
-                                                currentPath === child.url
-                                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px] dark:bg-slate-900/30 dark:text-slate-100 dark:border-slate-300"
-                                                  : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                              ${currentPath === child.url
+                                                ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                                : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                               }
                                             `}
                                           >
@@ -503,32 +540,29 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                 <NavLink
                                   to={item.url}
                                   end
+                                  onClick={handleNavigation}
                                   className={`
                                     group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                    ${
-                                      collapsed
-                                        ? "p-2 justify-center w-10 h-10 mx-auto relative"
-                                        : "px-3 py-2.5"
+                                    ${collapsed
+                                      ? "p-2 justify-center w-10 h-10 mx-auto relative"
+                                      : "px-3 py-2.5"
                                     }
-                                    ${
-                                      currentPath === item.url
-                                        ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
-                                        : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                    ${currentPath === item.url
+                                      ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                      : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                     }
                                   `}
                                 >
                                   {/* icon wrapper lets us overlay a dot when collapsed */}
                                   <div
-                                    className={`relative ${
-                                      collapsed ? "" : "mr-3"
-                                    }`}
-                                  >
-                                      <item.icon
-                                      className={`h-5 w-5 flex-shrink-0 ${
-                                        currentPath === item.url
-                                          ? "text-[#12517A] dark:text-slate-100"
-                                          : "text-gray-500 dark:text-slate-100 group-"
+                                    className={`relative ${collapsed ? "" : "mr-3"
                                       }`}
+                                  >
+                                    <item.icon
+                                      className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
+                                          ? "text-primary dark:text-slate-100"
+                                          : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
+                                        }`}
                                     />
                                     {/* tiny dot when collapsed */}
                                     {item.title === "Messages" &&

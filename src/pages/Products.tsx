@@ -81,6 +81,7 @@ export default function Products() {
   const [purchaseType, setPurchaseType] = useState(ALL_VALUE)
   const [pharmacy, setPharmacy] = useState(ALL_VALUE)
   const [status, setStatus] = useState(ALL_VALUE)
+  const [treatmentType, setTreatmentType] = useState(ALL_VALUE)
   const [editing, setEditing] = useState<Product | null>(null)
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -103,6 +104,7 @@ export default function Products() {
       if (purchaseType !== ALL_VALUE) params.purchase_type = purchaseType as ProductListParams["purchase_type"]
       if (pharmacy !== ALL_VALUE) params.pharmacy = pharmacy
       if (status !== ALL_VALUE) params.is_active = status === "active"
+      if (treatmentType !== ALL_VALUE) params.treatment_type = treatmentType
 
       const response = await productApi.listProducts(params)
 
@@ -132,7 +134,7 @@ export default function Products() {
     } finally {
       setLoading(false)
     }
-  }, [category, pageSize, pharmacy, purchaseType, search, status, toast])
+  }, [category, pageSize, pharmacy, purchaseType, search, status, toast, treatmentType])
 
   useEffect(() => {
     fetchProducts(1, pageSize)
@@ -202,11 +204,25 @@ export default function Products() {
       .sort((a, b) => a.label.localeCompare(b.label))
   }, [allKnownProducts])
 
+  const treatmentTypeOptions = useMemo(
+    () =>
+      dedupeOptions(
+        allKnownProducts
+          .filter((product) => product.treatment_type_id && product.treatment_type_name)
+          .map((product) => ({
+            value: String(product.treatment_type_id),
+            label: String(product.treatment_type_name),
+          })),
+      ).sort((a, b) => a.label.localeCompare(b.label)),
+    [allKnownProducts],
+  )
+
   const hasActiveFilters =
     category !== ALL_VALUE ||
     purchaseType !== ALL_VALUE ||
     pharmacy !== ALL_VALUE ||
     status !== ALL_VALUE ||
+    treatmentType !== ALL_VALUE ||
     Boolean(search.trim())
 
   const showingStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
@@ -217,6 +233,7 @@ export default function Products() {
     setPurchaseType(ALL_VALUE)
     setPharmacy(ALL_VALUE)
     setStatus(ALL_VALUE)
+    setTreatmentType(ALL_VALUE)
     setSearch("")
     setCurrentPage(1)
   }
@@ -228,21 +245,21 @@ export default function Products() {
   }
 
   return (
-    <div className="min-h-full bg-slate-50 dark:bg-slate-950/20 px-5 py-8 sm:px-7 lg:px-9">
+    <div className="min-h-full bg-slate-50 dark:bg-slate-950/20 px-4 py-6 sm:px-7 lg:px-9">
       <div className="space-y-6">
         <div>
-          <h1 className="text-[26px] font-bold leading-8 tracking-normal text-slate-950 dark:text-slate-50">
+          <h1 className="text-xl sm:text-[26px] font-bold leading-8 tracking-normal text-slate-950 dark:text-slate-50">
             Products
           </h1>
-          <div className="mt-1 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <div className="mt-1 flex items-center gap-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             <span>Home</span>
             <span className="text-slate-400 dark:text-slate-500">›</span>
             <span>Products</span>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
+          <div className="grid min-w-0 flex-1 gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 2xl:grid-cols-7">
             <FilterSelect
               label="Category"
               value={category}
@@ -274,6 +291,16 @@ export default function Products() {
               }}
             />
             <FilterSelect
+              label="Treatment Type"
+              value={treatmentType}
+              placeholder="All Treatment Types"
+              options={treatmentTypeOptions}
+              onValueChange={(value) => {
+                setTreatmentType(value)
+                setCurrentPage(1)
+              }}
+            />
+            <FilterSelect
               label="Status"
               value={status}
               placeholder="All Statuses"
@@ -291,7 +318,7 @@ export default function Products() {
                 Search
               </label>
               <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                 <Input
                   value={search}
                   onChange={(event) => {
@@ -299,17 +326,17 @@ export default function Products() {
                     setCurrentPage(1)
                   }}
                   placeholder="Search products..."
-                  className="h-11 w-full rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-10 text-[15px] text-slate-700 dark:text-slate-200 shadow-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-sky-300"
+                  className="h-11 w-full rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-9 text-xs sm:text-[15px] text-slate-700 dark:text-slate-200 shadow-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-sky-300"
                 />
               </div>
             </div>
             {hasActiveFilters && (
-              <div className="flex items-end">
+              <div className="flex items-end col-span-1 sm:col-span-auto">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={resetFilters}
-                  className="h-11 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-[15px] font-semibold text-slate-950 dark:text-slate-200 shadow-none hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  className="h-11 w-full sm:w-auto rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-xs sm:text-[15px] font-semibold text-slate-950 dark:text-slate-200 shadow-none hover:bg-slate-50 dark:hover:bg-slate-800/50"
                 >
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Reset Filters
@@ -318,29 +345,83 @@ export default function Products() {
             )}
           </div>
 
-          <div className="pb-3 text-sm text-slate-500 dark:text-slate-400 xl:text-right">
+          <div className="shrink-0 self-start pb-1 text-xs text-slate-500 dark:text-slate-400 sm:pb-3 sm:text-sm 2xl:self-end 2xl:text-right">
             Showing {showingStart}-{showingEnd} of {totalCount}
           </div>
         </div>
 
         <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <div className="overflow-x-auto">
+          {/* Mobile View (< md) */}
+          <div className="block md:hidden divide-y divide-slate-200 dark:divide-slate-800">
+            {loading ? (
+              <div className="h-40 flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Loading products...</span>
+              </div>
+            ) : products.length > 0 ? (
+              products.map((product) => (
+                <div
+                  key={product.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setEditing(product)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") setEditing(product)
+                  }}
+                  className="p-4 cursor-pointer space-y-2.5 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-sm text-slate-950 dark:text-slate-100">
+                        {product.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {getProductPharmacyName(product) || "No Pharmacy"} • {formatDrugForm(product.rx_drug_form)}
+                      </p>
+                    </div>
+                    <Pill tone={product.is_active ? "green" : "red"}>
+                      {product.is_active ? "Active" : "Inactive"}
+                    </Pill>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 pt-1 text-xs">
+                    <Pill tone="blue">{product.category_name || "Uncategorized"}</Pill>
+                    <Pill tone="blue">{getPurchaseTypeLabel(product.purchase_type)}</Pill>
+                    {product.treatment_type_name && (
+                      <Pill tone="blue">{product.treatment_type_name}</Pill>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="h-36 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                No products found.
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <Table className="min-w-[1120px] text-[15px]">
               <TableHeader>
                 <TableRow className="border-slate-200 dark:border-slate-800 hover:bg-transparent">
                   <ProductTableHead className="w-[35%]">Name</ProductTableHead>
                   <ProductTableHead>Category</ProductTableHead>
                   <ProductTableHead>Pharmacy</ProductTableHead>
-                  <ProductTableHead>Drug Form</ProductTableHead>
+                  <ProductTableHead className="whitespace-nowrap">Drug Form</ProductTableHead>
                   <ProductTableHead>Status</ProductTableHead>
-                  <ProductTableHead>Purchase Type</ProductTableHead>
-                  <ProductTableHead>Created At</ProductTableHead>
+                  <ProductTableHead className="whitespace-nowrap">Purchase Type</ProductTableHead>
+                  <ProductTableHead>
+                    <span className="whitespace-nowrap">Treatment Type</span> /{" "}
+                    <span className="whitespace-nowrap">Routing (New)</span>
+                  </ProductTableHead>
+                  <ProductTableHead className="whitespace-nowrap">Created At</ProductTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center">
+                    <TableCell colSpan={8} className="h-40 text-center">
                       <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
                         <Loader2 className="h-5 w-5 animate-spin" />
                         <span>Loading products...</span>
@@ -375,12 +456,32 @@ export default function Products() {
                       <ProductTableCell>
                         <Pill tone="blue">{getPurchaseTypeLabel(product.purchase_type)}</Pill>
                       </ProductTableCell>
+                      <ProductTableCell>
+                        {product.product_type === "supply" ? (
+                          <span className="text-xs text-slate-400">Not applicable</span>
+                        ) : (
+                          <div className="space-y-1">
+                            <Pill tone={product.treatment_type_name ? "blue" : "red"}>
+                              {product.treatment_type_name || "Unassigned"}
+                            </Pill>
+                            {product.treatment_type_is_active === false && (
+                              <Pill tone="red">Inactive Treatment Type</Pill>
+                            )}
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Intake: {product.derived_intake_visit_type || "Not configured"}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Follow-up: {product.derived_followup_visit_type || "Not configured"}
+                            </div>
+                          </div>
+                        )}
+                      </ProductTableCell>
                       <ProductTableCell>{formatDate(product.created_at)}</ProductTableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">
+                    <TableCell colSpan={8} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">
                       No products found.
                     </TableCell>
                   </TableRow>
@@ -390,7 +491,7 @@ export default function Products() {
           </div>
 
           <div className="flex flex-col gap-4 border-t border-slate-200 dark:border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               <span>Rows per page</span>
               <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
                 <SelectTrigger className="h-9 w-[72px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-755 dark:text-slate-200">
@@ -406,7 +507,7 @@ export default function Products() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               <span>
                 Page {currentPage} of {totalPages}
               </span>
@@ -471,7 +572,7 @@ function FilterSelect({
         {label}
       </label>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="h-11 min-w-[194px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-[15px] text-slate-500 dark:text-slate-300 shadow-none focus:ring-1 focus:ring-sky-300">
+        <SelectTrigger className="h-11 w-full rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-[15px] text-slate-500 dark:text-slate-300 shadow-none focus:ring-1 focus:ring-sky-300">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

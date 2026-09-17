@@ -10,6 +10,7 @@ export interface BrandLogos {
     round: string;
     transparent: string;
     favicon: string;
+    header_logo?: string;
 }
 
 /** Optional S3 metadata per logo slot (stored inside Client.branding_config JSON). */
@@ -21,6 +22,7 @@ export type LogosMeta = Partial<Record<keyof BrandLogos, LogoSlotMeta>>;
 
 export interface BrandSettings {
     logos: BrandLogos;
+    logo_url?: string;
     logosMeta?: LogosMeta;
     // loginPageImage has been deprecated in favor of a shared login video.
     // Kept optional for backward compatibility with existing data.
@@ -33,6 +35,14 @@ export interface BrandSettings {
     seoTitle?: string;
     seoDescription?: string;
     seoImage?: string;
+    clientId?: string;
+    clientName?: string;
+}
+
+interface BrandSettingsEnvelope {
+    branding: BrandSettings;
+    client_id?: string;
+    client_name?: string;
 }
 
 export interface PublicBrandSettings {
@@ -49,8 +59,16 @@ export interface PublicBrandSettings {
  * Fetch existing brand settings (requires authentication)
  */
 export async function fetchBrandSettings(): Promise<BrandSettings> {
-    const response = await axiosInstance.get<BrandSettings>('/brand-settings/');
-    return response.data;
+    const response = await axiosInstance.get<BrandSettings | BrandSettingsEnvelope>('/brand-settings/');
+    const payload = response.data;
+    if ('branding' in payload) {
+        return {
+            ...payload.branding,
+            clientId: payload.client_id,
+            clientName: payload.client_name,
+        };
+    }
+    return payload;
 }
 
 /**

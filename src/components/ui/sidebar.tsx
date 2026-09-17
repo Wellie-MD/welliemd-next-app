@@ -19,7 +19,7 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
+const SIDEBAR_WIDTH = "14.25rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
@@ -258,7 +258,8 @@ const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar, state } = useSidebar()
+  const { toggleSidebar, state, isMobile, openMobile } = useSidebar()
+  const isExpanded = isMobile ? openMobile : state === "expanded"
 
   return (
     <Button
@@ -273,13 +274,14 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-       {state === "expanded" ? (
+       {isExpanded ? (
         <X className="h-4 w-4" />
+      ) : isMobile ? (
+        <PanelLeft className="h-4 w-4" />
       ) : (
         <ChevronsRight className="h-4 w-4" />
       )}
 
-      {/* <PanelLeft /> */}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

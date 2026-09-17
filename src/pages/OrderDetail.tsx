@@ -1,81 +1,27 @@
-import { ChangeProductModal, PendingProductChange } from "@/components/orders/ChangeProductModal"
-
-import React, { Component, ErrorInfo, ReactNode } from "react";
-
-class GlobalErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: 20, color: 'red', background: 'white', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999 }}>
-          <h1>React Crashed</h1>
-          <pre>{this.state.error?.toString()}</pre>
-          <pre>{this.state.error?.stack}</pre>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Order, ordersApi, PrescriptionHistoryEvent, PrescriptionHistoryMedication } from "@/api/ordersApi"
 import { paymentGatewayApi } from "@/api/paymentGatewayApi"
 import { patientPaymentMethodsApi, PatientPaymentMethod, PatientPaymentGateway } from "@/api/patientPaymentMethodsApi"
-import { PatientResponsesModal } from "@/components/orders/PatientResponsesModal"
+import { useToast } from "@/hooks/use-toast"
+import { useClientMessages } from "@/contexts/MessagesContext"
 import {
-  User,
-  Mail,
-  Phone,
-  MapPin,
   Calendar,
-  Package,
   CreditCard,
   FileText,
   Stethoscope,
-  Receipt,
-  Pencil,
   Truck,
-  ClipboardList,
-  Undo2,
-  RotateCw,
-  Copy,
-  Edit,
-  ExternalLink,
-  Download,
+  Loader2,
 } from "lucide-react"
 import { format } from "date-fns"
-import { Loader2 } from "lucide-react"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -86,35 +32,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useToast } from "@/hooks/use-toast"
-import { PermissionGate } from "@/components/auth/PermissionGate"
-import { Permissions } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useClientMessages } from "@/contexts/MessagesContext"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
-const statusColors: Record<string, string> = {
-  created: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600",
-  processing: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
-  visit_failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
-  payment_pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
-  visit_pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800",
-  consult_scheduled: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border-sky-200 dark:border-sky-800",
-  consult_rescheduled: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
-  consult_canceled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
-  no_show: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800",
-  referred: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800",
-  prescribed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
-  billing_pending: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
-  rx_sent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
-  shipped: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
-  in_transit: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
-  out_for_delivery: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
-  delivered: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800",
-  delivery_failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
-  canceled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
+// Import Sub-Components
+import { OrderHeaderCard } from "@/components/orders/details/OrderHeaderCard"
+import { OrderProductsSection } from "@/components/orders/details/OrderProductsSection"
+import { TreatmentRoutingSection } from "@/components/orders/details/TreatmentRoutingSection"
+import { OrderPricingBreakdown } from "@/components/orders/details/OrderPricingBreakdown"
+import { ClientReimbursementSection } from "@/components/orders/details/ClientReimbursementSection"
+import { OrderPatientCard } from "@/components/orders/details/OrderPatientCard"
+import { OrderPaymentCard } from "@/components/orders/details/OrderPaymentCard"
+import { OrderTimelineCard } from "@/components/orders/details/OrderTimelineCard"
+import { OrderMetadataSection } from "@/components/orders/details/OrderMetadataSection"
+import { OrderMedicalCard } from "@/components/orders/details/OrderMedicalCard"
+import { OrderPharmacyCard } from "@/components/orders/details/OrderPharmacyCard"
+import { RefundVoidModal } from "@/components/orders/details/RefundVoidModal"
+import { UpdateStatusModal } from "@/components/orders/details/UpdateStatusModal"
+import { RetryPaymentModal } from "@/components/orders/details/RetryPaymentModal"
+import { PatientResponsesModal } from "@/components/orders/PatientResponsesModal"
+import { ChangeProductModal, PendingProductChange } from "@/components/orders/ChangeProductModal"
+
+const normalizeGateway = (value?: string | null): PatientPaymentGateway | null => {
+  if (!value) return null
+  const normalized = value.toLowerCase()
+  if (normalized.includes("authorize")) return "authorize_net"
+  if (normalized.includes("stripe")) return "stripe"
+  if (normalized.includes("nmi")) return "nmi"
+  return null
 }
 
 const statusLabels: Record<string, string> = {
@@ -139,12 +84,15 @@ const statusLabels: Record<string, string> = {
   canceled: "Canceled",
 }
 
-const recoveryStatusColors: Record<string, string> = {
-  recovery_pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
-}
-
 const recoveryStatusLabels: Record<string, string> = {
   recovery_pending: "Recovery Pending",
+}
+
+const gatewayLabel = (gateway: PatientPaymentGateway | null) => {
+  if (gateway === "authorize_net") return "Authorize.Net"
+  if (gateway === "nmi") return "NMI"
+  if (gateway === "stripe") return "Stripe"
+  return "payment gateway"
 }
 
 type TimelineItem = {
@@ -155,28 +103,15 @@ type TimelineItem = {
   iconBg: string
 }
 
-const normalizeGateway = (value?: string | null): PatientPaymentGateway | null => {
-  if (!value) return null
-  const normalized = value.toLowerCase()
-  if (normalized.includes("authorize")) return "authorize_net"
-  if (normalized.includes("stripe")) return "stripe"
-  if (normalized.includes("nmi")) return "nmi"
-  return null
-}
-
-const gatewayLabel = (gateway: PatientPaymentGateway | null) => {
-  if (gateway === "authorize_net") return "Authorize.Net"
-  if (gateway === "nmi") return "NMI"
-  if (gateway === "stripe") return "Stripe"
-  return "payment gateway"
-}
-
-function OrderDetailInner() {
+export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+
+  // Modals state
   const [showPatientResponses, setShowPatientResponses] = useState(false)
   const [showRefundDialog, setShowRefundDialog] = useState(false)
   const [refundAmount, setRefundAmount] = useState("")
@@ -193,11 +128,17 @@ function OrderDetailInner() {
   const [statusTrackingNumber, setStatusTrackingNumber] = useState("")
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
   const [showRetryPaymentDialog, setShowRetryPaymentDialog] = useState(false)
+
+  // Retry payment state
   const [paymentMethods, setPaymentMethods] = useState<PatientPaymentMethod[]>([])
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false)
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null)
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
   const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
+  const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
+  const retrySingleFlightRef = useRef(false)
+
+  // Quick actions loading states
   const [sendCheckoutLinkLoading, setSendCheckoutLinkLoading] = useState(false)
   const [resendReceiptLoading, setResendReceiptLoading] = useState(false)
   const [downloadReceiptLoading, setDownloadReceiptLoading] = useState(false)
@@ -210,15 +151,8 @@ function OrderDetailInner() {
   } | null>(null)
   const [prescriptionHistoryLoading, setPrescriptionHistoryLoading] = useState(false)
   const [prescriptionHistoryError, setPrescriptionHistoryError] = useState<string | null>(null)
-  const retrySingleFlightRef = useRef(false)
-  const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
-  const { conversations, loading: conversationsLoading } = useClientMessages()
-  const patientUserId = order?.patient?.user_id
-  const orderThreadMasterId = order?.mrn?.trim() || ""
-  const hasExistingThread = Boolean(
-    orderThreadMasterId && conversations.some((c) => c.master_id === orderThreadMasterId)
-  )
+  const { conversations: messages = [], conversationsLoading } = useClientMessages()
 
   const openPrescriptionHistory = async () => {
     if (!order) return
@@ -238,6 +172,64 @@ function OrderDetailInner() {
   const isUuid = (s: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
 
+  const patientUserId = order?.patient?.user_id
+  const orderThreadMasterId = order?.mrn?.trim() || ""
+  const hasExistingThread = Boolean(
+    orderThreadMasterId && (messages || []).some((message) => message.master_id === orderThreadMasterId)
+  )
+
+  // Initial Fetch
+  useEffect(() => {
+    if (!orderId) {
+      setError("Order ID is required")
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    const fetchFn = isUuid(orderId)
+      ? ordersApi.fetchOrder(orderId, true)
+      : ordersApi.fetchOrderByOrderId(orderId, true)
+
+    fetchFn
+      .then((data) => {
+        if (!cancelled) setOrder(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.response?.data?.detail || "Failed to load order")
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orderId])
+
+  const refetchOrder = async (forceFresh = true): Promise<void> => {
+    if (!orderId) return
+    const fetchFn = isUuid(orderId)
+      ? ordersApi.fetchOrder(orderId, forceFresh)
+      : ordersApi.fetchOrderByOrderId(orderId, forceFresh)
+    try {
+      const fresh = await fetchFn
+      setOrder(fresh)
+    } catch {
+      // Best effort refetch
+    }
+  }
+
+  const refetchOrderWithRetries = async (): Promise<void> => {
+    await refetchOrder(true)
+    const delays = [800, 1800, 3200]
+    for (const delayMs of delays) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+      await refetchOrder(true)
+    }
+  }
+
+  // Handle Track Message Thread
   const handleTrackThread = () => {
     if (!orderThreadMasterId) {
       toast({
@@ -265,25 +257,20 @@ function OrderDetailInner() {
     navigate(`/dashboard/messages?master_id=${encodeURIComponent(orderThreadMasterId)}`)
   }
 
+  // Quick Action Handlers
   const handleSendCheckoutLink = async () => {
     if (!order?.id || sendCheckoutLinkLoading) return
-
     try {
       setSendCheckoutLinkLoading(true)
       const response = await ordersApi.sendCheckoutLink(order.id)
-      toast({
-        title: response.message || "Checkout link email processed.",
-      })
-    } catch (err: unknown) {
+      toast({ title: response.message || "Checkout link email processed." })
+    } catch (err: any) {
       const message =
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.response?.data?.detail ||
         "Failed to send checkout link email."
-      toast({
-        title: message,
-        variant: "destructive",
-      })
+      toast({ title: message, variant: "destructive" })
     } finally {
       setSendCheckoutLinkLoading(false)
     }
@@ -291,7 +278,6 @@ function OrderDetailInner() {
 
   const handleDownloadReceipt = async () => {
     if (!order?.id || downloadReceiptLoading) return
-
     try {
       setDownloadReceiptLoading(true)
       const blob = await ordersApi.downloadReceipt(order.id)
@@ -303,16 +289,10 @@ function OrderDetailInner() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-    } catch (err: unknown) {
+    } catch (err: any) {
       const message =
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
-        "Failed to download receipt."
-      toast({
-        title: message,
-        variant: "destructive",
-      })
+        err?.response?.data?.message || err?.response?.data?.error || "Failed to download receipt."
+      toast({ title: message, variant: "destructive" })
     } finally {
       setDownloadReceiptLoading(false)
     }
@@ -320,7 +300,6 @@ function OrderDetailInner() {
 
   const handleResendReceipt = async () => {
     if (!order?.id || resendReceiptLoading) return
-
     try {
       setResendReceiptLoading(true)
       const response = await ordersApi.resendReceipt(order.id)
@@ -328,119 +307,158 @@ function OrderDetailInner() {
         title: response.message || "Receipt email sent.",
         description: response.recipient_email ? `Sent to ${response.recipient_email}` : undefined,
       })
-    } catch (err: unknown) {
+    } catch (err: any) {
       const message =
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
-        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
-        "Failed to resend receipt."
-      toast({
-        title: message,
-        variant: "destructive",
-      })
+        err?.response?.data?.message || err?.response?.data?.error || "Failed to resend receipt."
+      toast({ title: message, variant: "destructive" })
     } finally {
       setResendReceiptLoading(false)
     }
   }
 
+  // Handle Update Status
+  const handleStatusUpdateSubmit = async (newStatus: string, statusTrackingNumber?: string) => {
+    if (!order?.id || !newStatus) return
+    try {
+      setStatusUpdateLoading(true)
+      const payload: Partial<Order> = { status: newStatus } as Partial<Order>
+      if (newStatus === "shipped" && statusTrackingNumber?.trim()) {
+        payload.tracking_number = statusTrackingNumber.trim()
+      }
+      await ordersApi.updateOrder(order.id, payload)
+      setShowStatusDialog(false)
+      toast({ title: `Status updated to ${newStatus}` })
+      await refetchOrderWithRetries()
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.response?.data?.detail || "Failed to update status"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setStatusUpdateLoading(false)
+    }
+  }
+
+  // Handle Refund / Void
+  const handleRefundSubmit = async (data: {
+    amount?: string
+    refundTarget: "auto" | "base" | "supplemental"
+    reason: string
+    reasonDescription: string
+    notes: string
+  }) => {
+    if (!order?.id) return
+    try {
+      setRefundLoading(true)
+      await ordersApi.refundOrder(order.id, {
+        amount: data.amount,
+        refund_target: data.refundTarget,
+        reason: data.reason,
+        reason_description: data.reasonDescription,
+        notes: data.notes,
+      })
+      setShowRefundDialog(false)
+      toast({ title: isAuthorized ? "Authorization voided" : "Refund processed successfully" })
+      await refetchOrderWithRetries()
+    } catch (err: any) {
+      const message = err?.response?.data?.detail || "Failed to process refund"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setRefundLoading(false)
+    }
+  }
+
+  // Load Payment Methods for Retry Modal
   useEffect(() => {
-    if (!orderId) {
-      setError("Order ID is required")
-      setLoading(false)
+    if (!showRetryPaymentDialog || !order) {
+      setPaymentMethods([])
+      setPaymentMethodsError(null)
       return
     }
+
     let cancelled = false
-    setLoading(true)
-    setError(null)
-    const fetchFn = isUuid(orderId)
-      ? ordersApi.fetchOrder(orderId, true)
-      : ordersApi.fetchOrderByOrderId(orderId, true)
-    fetchFn
-      .then((data) => {
-        if (!cancelled) setOrder(data)
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err?.response?.data?.detail || "Failed to load order")
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [orderId])
+    const loadMethods = async () => {
+      setPaymentMethodsLoading(true)
+      setPaymentMethodsError(null)
 
-  const remainingRefundable = useMemo(() => {
-    const amount = order?.refundableAmount ? parseFloat(order.refundableAmount) : 0
-    return Number.isNaN(amount) ? 0 : amount
-  }, [order?.refundableAmount])
+      let resolvedGateway = normalizeGateway(order.paymentProcessor)
+      try {
+        const config = await paymentGatewayApi.getConfig()
+        resolvedGateway = normalizeGateway(config?.payment_config?.payment_gateway) || resolvedGateway
+      } catch {
+        // Fallback
+      }
 
-  const baseRemainingRefundable = useMemo(() => {
-    const amount = order?.baseRefundableAmount ? parseFloat(order.baseRefundableAmount) : 0
-    return Number.isNaN(amount) ? 0 : amount
-  }, [order?.baseRefundableAmount])
-
-  const supplementalRemainingRefundable = useMemo(() => {
-    const amount = order?.supplementalRefundableAmount
-      ? parseFloat(order.supplementalRefundableAmount)
-      : 0
-    return Number.isNaN(amount) ? 0 : amount
-  }, [order?.supplementalRefundableAmount])
-
-  const appliedCouponCodes = useMemo(() => {
-    if (!order) return ""
-
-    const fromOrderField = (order.coupon_code || "").trim()
-    const data = order as unknown as Record<string, unknown>
-    const codes = new Set<string>()
-
-    if (fromOrderField) {
-      codes.add(fromOrderField)
-    }
-
-    const couponObj = data.coupon as { code?: string } | undefined
-    if (couponObj?.code?.trim()) {
-      codes.add(couponObj.code.trim())
-    }
-
-    const couponCodes = data.coupon_codes
-    if (Array.isArray(couponCodes)) {
-      couponCodes.forEach((code) => {
-        if (typeof code === "string" && code.trim()) {
-          codes.add(code.trim())
+      if (!resolvedGateway || !patientUserId) {
+        if (!cancelled) {
+          setPaymentMethodsError("Unable to determine gateway or missing patient user ID")
+          setPaymentMethodsLoading(false)
         }
-      })
+        return
+      }
+
+      if (!cancelled) setRetryGateway(resolvedGateway)
+
+      try {
+        const methods = await patientPaymentMethodsApi.listPaymentMethods(resolvedGateway, patientUserId)
+        if (!cancelled) setPaymentMethods(methods)
+      } catch (err: any) {
+        if (!cancelled) {
+          setPaymentMethodsError(err?.response?.data?.detail || "Failed to load payment methods")
+        }
+      } finally {
+        if (!cancelled) setPaymentMethodsLoading(false)
+      }
     }
 
-    const appliedCoupons = data.applied_coupons
-    if (Array.isArray(appliedCoupons)) {
-      appliedCoupons.forEach((coupon) => {
-        if (typeof coupon === "string" && coupon.trim()) {
-          codes.add(coupon.trim())
-          return
-        }
-        if (
-          coupon &&
-          typeof coupon === "object" &&
-          "code" in coupon &&
-          typeof (coupon as { code?: unknown }).code === "string"
-        ) {
-          const code = ((coupon as { code?: string }).code || "").trim()
-          if (code) {
-            codes.add(code)
-          }
-        }
-      })
+    loadMethods()
+    return () => {
+      cancelled = true
     }
+  }, [showRetryPaymentDialog, order, patientUserId])
 
-    return Array.from(codes).join(", ")
-  }, [order])
-
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return "—"
+  // Handle Retry Payment Submit
+  const handleRetryPaymentSubmit = async (selectedPaymentMethodId: string) => {
+    if (retrySingleFlightRef.current || retryPaymentLoading || !order?.id) return
     try {
-      return format(new Date(dateString), "MMM d, yyyy")
-    } catch {
-      return dateString
+      retrySingleFlightRef.current = true
+      setRetryPaymentLoading(true)
+      const result = await ordersApi.retryPayment(order.id, {
+        saved_payment_method_id: selectedPaymentMethodId,
+      })
+
+      if (!result.success) {
+        toast({ title: result.error || result.detail || "Retry payment failed", variant: "destructive" })
+        return
+      }
+
+      toast({ title: "Payment retry completed successfully." })
+      setShowRetryPaymentDialog(false)
+      await refetchOrderWithRetries()
+    } catch (err: any) {
+      const message = err?.response?.data?.error || err?.response?.data?.detail || "Retry payment failed"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setRetryPaymentLoading(false)
+      retrySingleFlightRef.current = false
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[500px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (error || !order) {
+    return (
+      <div className="p-6 lg:p-8 space-y-4">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/orders")}>
+          Back to Orders
+        </Button>
+        <p className="text-destructive font-medium">{error || "Order not found."}</p>
+      </div>
+    )
   }
 
   const formatDateTime = (dateString?: string | null) => {
@@ -452,108 +470,7 @@ function OrderDetailInner() {
     }
   }
 
-  const formatBookingSchedule = (dateString?: string | null) => {
-    if (!dateString) return "—"
-    try {
-      return format(new Date(dateString), "MMM d, yyyy h:mm a")
-    } catch {
-      return dateString
-    }
-  }
-
-  useEffect(() => {
-    if (!showRetryPaymentDialog) {
-      setPaymentMethods([])
-      setPaymentMethodsError(null)
-      setSelectedPaymentMethodId("")
-      setRetryGateway(null)
-      setPaymentMethodsLoading(false)
-      return
-    }
-
-    if (!order) return
-    let cancelled = false
-
-    const loadPaymentMethods = async () => {
-      setPaymentMethodsLoading(true)
-      setPaymentMethodsError(null)
-      setPaymentMethods([])
-      setSelectedPaymentMethodId("")
-
-      let resolvedGateway = normalizeGateway(order.paymentProcessor)
-      try {
-        const config = await paymentGatewayApi.getConfig()
-        const configGateway = normalizeGateway(config?.payment_config?.payment_gateway)
-        resolvedGateway = configGateway || resolvedGateway
-      } catch {
-        // Ignore config lookup failures; fallback to order processor.
-      }
-
-      if (!resolvedGateway) {
-        if (!cancelled) {
-          setPaymentMethodsError("Unable to determine payment gateway for retry.")
-          setRetryGateway(null)
-          setPaymentMethodsLoading(false)
-        }
-        return
-      }
-
-      if (!patientUserId) {
-        if (!cancelled) {
-          setPaymentMethodsError("Patient profile is missing a user ID.")
-          setRetryGateway(resolvedGateway)
-          setPaymentMethodsLoading(false)
-        }
-        return
-      }
-
-      if (!cancelled) {
-        setRetryGateway(resolvedGateway)
-      }
-
-      try {
-        const methods = await patientPaymentMethodsApi.listPaymentMethods(resolvedGateway, patientUserId)
-        if (cancelled) return
-        setPaymentMethods(methods)
-        const defaultMethod = methods.find((method) => method.is_default) || methods[0]
-        setSelectedPaymentMethodId(defaultMethod?.id || "")
-      } catch (err: unknown) {
-        if (!cancelled) {
-          const message =
-            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-            "Failed to load saved payment methods"
-          setPaymentMethodsError(message)
-        }
-      } finally {
-        if (!cancelled) {
-          setPaymentMethodsLoading(false)
-        }
-      }
-    }
-
-    loadPaymentMethods()
-    return () => { cancelled = true }
-  }, [showRetryPaymentDialog, order, patientUserId])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-      </div>
-    )
-  }
-
-  if (error || !order) {
-    return (
-      <div className="p-6 lg:p-8 space-y-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/orders")}>
-          Back to Orders
-        </Button>
-        <p className="text-destructive">{error || "Order not found."}</p>
-      </div>
-    )
-  }
-
+  // Calculated values
   const status = order.orderStatus || order.status || "created"
   const canonicalStatus = String(order.status || order.orderStatus || "").toLowerCase()
   const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
@@ -564,14 +481,21 @@ function OrderDetailInner() {
   const paymentRecoveryLabel = isPrescribedStatus && paymentRecoveryState
     ? (recoveryStatusLabels[paymentRecoveryState] || paymentRecoveryState)
     : null
-
-  const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const paymentStatus = (
+    order.combined_payment_summary?.allocation?.status ||
+    order.paymentStatus ||
+    ""
+  ).toLowerCase()
   const terminalPaymentDateStatuses = new Set(["voided", "refunded", "canceled", "cancelled"])
   const paymentDisplayDate = terminalPaymentDateStatuses.has(paymentStatus)
     ? (order.paymentUpdatedAt || order.paymentDate)
     : order.paymentDate
   const paymentAuthorizationDate = order.paymentDate || paymentDisplayDate
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
+  const remainingRefundable = order?.refundableAmount ? parseFloat(order.refundableAmount) || 0 : 0
+  const baseRemainingRefundable = order?.baseRefundableAmount ? parseFloat(order.baseRefundableAmount) || 0 : 0
+  const supplementalRemainingRefundable = order?.supplementalRefundableAmount ? parseFloat(order.supplementalRefundableAmount) || 0 : 0
+
   const isAuthorized = paymentStatus === "authorized"
   const isRefundable = remainingRefundable > 0
   const isLocked = isAuthorized || isRefundable
@@ -599,36 +523,72 @@ function OrderDetailInner() {
   const isAllowedStatus = isPreCheckoutProductChange || isSubmittedVisitProductChange
   const canChangeProduct = isAllowedStatus && (!isLocked || isSubmittedVisitProductChange)
   const canRefundOrVoid = isAuthorized || isRefundable
-  const canUseReceipt = ["captured", "approved", "succeeded", "refunded"].includes(paymentStatus) || paymentCaptured
-
-  const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
-  const initialReqPrice = parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
-  const initialReqShipping = parseAmt(order?.requested_medicines?.[0]?.shipping_fee) ?? 0;
-  const initialReqDiscount = parseAmt(order?.pricing?.discount_total ?? (order?.pricing as any)?.discount_amount ?? order?.discount_amount) ?? 0;
-  let trueAuthAmount = parseAmt((order as any)?.base_authorization_amount);
-  if (trueAuthAmount == null) {
-    trueAuthAmount = Math.max(0, initialReqPrice - initialReqDiscount) + initialReqShipping;
-  }
-  const trueCapAmount = parseAmt((order as any)?.base_captured_amount) ?? parseAmt(order?.pricing?.grand_total) ?? 0;
-  const trueHoldReleasedAmt = Math.max(0, trueAuthAmount - trueCapAmount);
-  const timelineCapturedStatuses = new Set(["captured", "approved", "succeeded"])
-  const timelineSettlementTransactions = Array.isArray(order.payment_settlement_transactions)
-    ? order.payment_settlement_transactions
-    : []
-  const timelineCapturedFromTransactions = timelineSettlementTransactions.reduce((total, tx) => {
-    const txStatus = String(tx.status || "").toLowerCase()
-    if (!timelineCapturedStatuses.has(txStatus)) return total
-    return total + (parseAmt(tx.amount) ?? 0)
-  }, 0)
-  const timelineCapturedFromFields =
-    (parseAmt((order as any)?.base_captured_amount) ?? 0) +
-    (parseAmt((order as any)?.supplemental_captured_amount) ?? 0)
-  const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
-  const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
+  const canUseReceipt = [
+    "captured",
+    "approved",
+    "succeeded",
+    "paid",
+    "completed",
+    "refunded",
+  ].includes(paymentStatus)
   const changeProductTooltip =
     isSubmittedVisitProductChange
       ? "Product change will resend the updated prescription to the submitted visit."
       : "Product change is available before payment authorization or for eligible submitted visits before fulfillment is shipped."
+
+  const parseTimelineAmount = (value: unknown): number | null => {
+    if (value === null || value === undefined || value === "") return null
+    const parsed = Number.parseFloat(String(value))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  const initialRequestedPrice =
+    parseTimelineAmount(order.requested_medicines?.[0]?.price) ??
+    parseTimelineAmount(order.pricing?.subtotal_before_discount ?? order.original_price) ??
+    0
+  const initialRequestedShipping = parseTimelineAmount(order.requested_medicines?.[0]?.shipping_fee) ?? 0
+  const initialRequestedDiscount =
+    parseTimelineAmount(order.pricing?.discount_total ?? order.discount_amount) ?? 0
+  let trueAuthAmount = parseTimelineAmount(
+    (order as Order & { base_authorization_amount?: string | number | null }).base_authorization_amount,
+  )
+  if (trueAuthAmount == null) {
+    trueAuthAmount = Math.max(0, initialRequestedPrice - initialRequestedDiscount) + initialRequestedShipping
+  }
+  const timelineCapturedStatuses = new Set(["captured", "approved", "succeeded"])
+  const timelineSettlementTransactions = Array.isArray(order.payment_settlement_transactions)
+    ? order.payment_settlement_transactions
+    : []
+  const timelineCapturedFromTransactions = timelineSettlementTransactions.reduce((total, transaction) => {
+    const transactionStatus = String(transaction.status || "").toLowerCase()
+    if (!timelineCapturedStatuses.has(transactionStatus)) return total
+    return total + (parseTimelineAmount(transaction.amount) ?? 0)
+  }, 0)
+  const timelineCapturedFromFields =
+    (parseTimelineAmount(order.base_captured_amount) ?? 0) +
+    (parseTimelineAmount(order.supplemental_captured_amount) ?? 0)
+  const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
+  const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
+
+  const appliedCouponCodes = (() => {
+    const data = order as unknown as Record<string, unknown>
+    const codes = new Set<string>()
+    const addCode = (value: unknown) => {
+      if (typeof value === "string" && value.trim()) codes.add(value.trim())
+    }
+
+    addCode(data.coupon_code)
+    if (data.coupon && typeof data.coupon === "object") {
+      addCode((data.coupon as { code?: unknown }).code)
+    }
+    if (Array.isArray(data.coupon_codes)) data.coupon_codes.forEach(addCode)
+    if (Array.isArray(data.applied_coupons)) {
+      data.applied_coupons.forEach((coupon) => {
+        if (typeof coupon === "string") addCode(coupon)
+        else if (coupon && typeof coupon === "object") addCode((coupon as { code?: unknown }).code)
+      })
+    }
+    return Array.from(codes).join(", ")
+  })()
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
@@ -639,28 +599,6 @@ function OrderDetailInner() {
     { value: "service_not_rendered", label: "Service Not Rendered" },
     { value: "other", label: "Other" },
   ]
-
-  const refetchOrder = async (forceFresh = true): Promise<void> => {
-    if (!orderId) return
-    const fetchFn = isUuid(orderId)
-      ? ordersApi.fetchOrder(orderId, forceFresh)
-      : ordersApi.fetchOrderByOrderId(orderId, forceFresh)
-    try {
-      const fresh = await fetchFn
-      setOrder(fresh)
-    } catch {
-      // no-op: best-effort refresh
-    }
-  }
-
-  const refetchOrderWithRetries = async (): Promise<void> => {
-    await refetchOrder(true)
-    const delays = [800, 1800, 3200]
-    for (const delayMs of delays) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs))
-      await refetchOrder(true)
-    }
-  }
 
   const handleUpdateOrder = async () => {
     if (!order?.id || !pendingProductChange) return
@@ -718,61 +656,6 @@ function OrderDetailInner() {
       toast({ title: message, variant: "destructive" })
     } finally {
       setStatusUpdateLoading(false)
-    }
-  }
-
-  const handleRefundSubmit = async () => {
-    if (!order?.id) return
-    if (!refundReason) {
-      toast({ title: "Refund reason required", variant: "destructive" })
-      return
-    }
-    if (isRefundable) {
-      if (!refundAmount) {
-        toast({ title: "Refund amount required", variant: "destructive" })
-        return
-      }
-      const amountNum = parseFloat(refundAmount)
-      if (Number.isNaN(amountNum) || amountNum <= 0) {
-        toast({ title: "Enter a valid refund amount", variant: "destructive" })
-        return
-      }
-      if (amountNum > remainingRefundable) {
-        toast({ title: "Refund amount exceeds remaining refundable amount", variant: "destructive" })
-        return
-      }
-      if (refundTarget === "base" && amountNum > baseRemainingRefundable) {
-        toast({ title: "Refund amount exceeds base refundable amount", variant: "destructive" })
-        return
-      }
-      if (refundTarget === "supplemental" && amountNum > supplementalRemainingRefundable) {
-        toast({ title: "Refund amount exceeds supplemental refundable amount", variant: "destructive" })
-        return
-      }
-    }
-    try {
-      setRefundLoading(true)
-      await ordersApi.refundOrder(order.id, {
-        amount: isRefundable ? refundAmount : undefined,
-        refund_target: refundTarget,
-        reason: refundReason,
-        reason_description: refundReasonDescription,
-        notes: refundNotes,
-      })
-      setShowRefundDialog(false)
-      setRefundAmount("")
-      setRefundTarget("auto")
-      setRefundReasonDescription("")
-      setRefundNotes("")
-      toast({ title: isAuthorized ? "Authorization voided" : "Refund processed" })
-      await refetchOrderWithRetries()
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "Failed to process refund"
-      toast({ title: message, variant: "destructive" })
-    } finally {
-      setRefundLoading(false)
     }
   }
 
@@ -1567,9 +1450,11 @@ function OrderDetailInner() {
     order.product_name ||
     "—"
   const rawPrescribedMedicineName =
-    order.prescribed_medicines?.[0]?.name ||
-    order.prescription_medications?.[0]?.name ||
-    null
+    order.prescribed_pricing_summary?.items?.length
+      ? order.prescribed_pricing_summary.items.map((item: any) => `${item.name}${Number(item.quantity) > 1 ? ` (x${item.quantity})` : ''}`).join(", ")
+      : order.prescribed_medicines?.[0]?.name ||
+        order.prescription_medications?.[0]?.name ||
+        null
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
   const isSameMedicinePlaceholder =
     prescribedNameNormalized === "same med" ||
@@ -1770,204 +1655,55 @@ function OrderDetailInner() {
           ? "Authorize.Net Trans ID"
           : "Processor Ref"
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      {/* Top Header Card */}
+      <OrderHeaderCard
+        order={order}
+        onTrackThread={handleTrackThread}
+        onSendCheckoutLink={handleSendCheckoutLink}
+        onOpenStatusModal={() => setShowStatusDialog(true)}
+        sendCheckoutLinkLoading={sendCheckoutLinkLoading}
+      />
+
+      {/* Main 2-Column Responsive Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left column */}
-        <div className="lg:col-span-8 space-y-6 min-w-0">
-          {/* Breadcrumbs & Title */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-            <div>
-              <Breadcrumb className="mb-1">
-                <BreadcrumbList className="text-sm text-slate-500 dark:text-slate-400">
-                  <BreadcrumbItem>
-                    <BreadcrumbLink asChild>
-                      <Link to="/dashboard/orders" className="hover:text-slate-700 dark:hover:text-slate-300">
-                        Orders
-                      </Link>
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="text-slate-400">/</BreadcrumbSeparator>
-                  <BreadcrumbItem>
-                    <BreadcrumbPage className="text-slate-900 dark:text-white font-medium">
-                      Order Details
-                    </BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Order {orderTitle}</h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {order?.checkout_url && (
-                <>
-                  <Button size="sm" variant="outline" className="bg-white text-xs h-8" onClick={handleSendCheckoutLink} disabled={sendCheckoutLinkLoading}>
-                    <Mail className="h-3.5 w-3.5 mr-1.5" />
-                    {sendCheckoutLinkLoading ? "Sending..." : "Email Checkout Link"}
-                  </Button>
-                  <Button size="sm" variant="outline" className="bg-white text-xs h-8" onClick={() => {
-                    navigator.clipboard.writeText(order.checkout_url || "")
-                    toast({ title: "Copied!" })
-                  }}>
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Copy Checkout Link
-                  </Button>
-                </>
-              )}
-              <Button size="sm" variant="outline" className="bg-white text-xs h-8" onClick={handleTrackThread}>
-                <Truck className="h-3.5 w-3.5 mr-1.5" />
-                Track
-              </Button>
-              <PermissionGate permission={Permissions.ORDER_UPDATE}>
-                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8" onClick={() => setShowStatusDialog(true)}>
-                  <Edit className="h-3.5 w-3.5 mr-1.5" />
-                  Update Status
-                </Button>
-              </PermissionGate>
-            </div>
-          </div>
+        {/* Left Primary Operational Column */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Treatment Routing & Multi-Treatment Aggregate */}
+          <TreatmentRoutingSection order={order} />
 
-          {/* Summary Bar */}
-          <div className="rounded-xl border bg-card p-0 overflow-x-auto shadow-sm">
-            <div className="flex items-center min-w-max divide-x divide-border">
-              <div className="px-5 py-4 flex-1">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Status</span>
-                <span className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 rounded-full px-2 py-0.5 text-[11px] font-bold border">
-                  <span className="h-1 w-1 rounded-full bg-current"></span>
-                  {statusDisplay}
-                </span>
-              </div>
-              <div className="px-5 py-4 flex-1">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                  {paymentInfoAmountLabel}
-                </span>
-                <span className="block text-base font-bold text-teal-600">
-                  ${paymentInfoAmount}
-                </span>
-                {hasSplitSettlement && refundedAmount > 0 && (
-                  <span className="block text-[9px] text-slate-500 mt-0.5">
-                    net of ${refundedAmount.toFixed(2)} refund
-                  </span>
-                )}
-                {hasSplitSettlement && refundedAmount === 0 && (
-                  <span className="block text-[9px] text-slate-500 mt-0.5">
-                    {settlementTransactions.length} txns
-                  </span>
-                )}
-                {!hasSplitSettlement && !paymentCaptured && (
-                  <span className="block text-[9px] text-slate-500 mt-0.5">
-                    not yet captured
-                  </span>
-                )}
-              </div>
-              <div className="px-5 py-4 flex-1">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Patient</span>
-                <span className="block text-[13px] font-semibold text-slate-900 dark:text-white">
-                  {order?.name || "—"}
-                </span>
-              </div>
-              <div className="px-5 py-4 flex-1">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Order Date</span>
-                <span className="block text-[13px] font-semibold text-slate-900 dark:text-white">
-                  {formatDate(order?.created_at) || "—"}
-                </span>
-              </div>
-              <div className="px-5 py-4 flex-1">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Pharmacy</span>
-                <span className="block text-[13px] font-semibold text-slate-900 dark:text-white">
-                  {pharmacyDisplayName || "—"}
-                </span>
-              </div>
-            </div>
-          </div>
-          {/* Product Details */}
-          <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
-            <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
-              <h3 className="font-semibold text-slate-900 dark:text-white">Product Details</h3>
-              {canChangeProduct ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-white text-xs font-semibold uppercase tracking-wider h-8"
-                  onClick={handleUpdateOrder}
-                  disabled={!pendingProductChange || updateOrderLoading}
-                >
-                  {updateOrderLoading ? "Updating..." : "Update Order"}
-                </Button>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex cursor-not-allowed">
-                      <Button size="sm" variant="outline" disabled className="bg-white text-xs font-semibold uppercase tracking-wider h-8 pointer-events-none">
-                        Update Order
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs text-xs">
-                    {changeProductTooltip}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-            <div className="flex flex-col">
+          {/* Products & Line Items Section */}
+          <OrderProductsSection
+            order={order}
+            selectedProductId={selectedProductId}
+            onSelectProduct={setSelectedProductId}
+            canChangeProduct={canChangeProduct}
+            changeProductTooltip={changeProductTooltip}
+            onChangeProductClick={() => setShowChangeProductModal(true)}
+            pendingProductChange={pendingProductChange}
+          />
 
+          {/* Pricing Breakdown & Split Capture */}
+          <OrderPricingBreakdown
+            order={order}
+            selectedProductId={selectedProductId}
+            onSelectProduct={setSelectedProductId}
+            onResendReceipt={handleResendReceipt}
+            onDownloadReceipt={handleDownloadReceipt}
+            resendReceiptLoading={resendReceiptLoading}
+            downloadReceiptLoading={downloadReceiptLoading}
+            canUseReceipt={canUseReceipt}
+          />
 
-              {/* Requested Block */}
-              <div className="px-6 py-1">
-                <div className="text-[11px] font-bold tracking-wide uppercase text-slate-500 border-t-0 pt-2 pb-1.5 flex items-center gap-2 flex-wrap">
-                  Requested (Original)
-                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                    {requestedMedicineName}
-                  </span>
-                  <div className="ml-auto">
-                    {canChangeProduct ? (
-                      <button
-                        className="text-[11px] font-semibold text-slate-500 border border-slate-200 rounded-md px-2 py-0.5 cursor-pointer hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
-                        onClick={() => setShowChangeProductModal(true)}
-                      >
-                        Change
-                      </button>
-                    ) : (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex cursor-not-allowed">
-                            <button
-                              className="text-[11px] font-semibold text-slate-400 border border-slate-200 rounded-md px-2 py-0.5 pointer-events-none opacity-50"
-                              disabled
-                            >
-                              Change
-                            </button>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs text-xs">
-                          {changeProductTooltip}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                </div>
+          {/* B2B Client Reimbursement Section */}
+          <ClientReimbursementSection
+            order={order}
+            selectedProductId={selectedProductId}
+          />
 
-                <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                  <span className="text-slate-500 dark:text-slate-400">Product amount</span>
-                  <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(requestedProductAmount)}</span>
-                </div>
-                {previewDiscountAmount > 0 && (
-                  <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                    <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
-                    <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                  <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
-                  <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(Math.max(0, requestedProductAmount - previewDiscountAmount))}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                  <span className="text-slate-500 dark:text-slate-400">Shipping</span>
-                  <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(requestedProductShippingAmount)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
-                  <span className="text-slate-900 dark:text-white font-bold">Requested total</span>
-                  <span className="text-slate-900 dark:text-white font-bold tabular-nums">${formatMoney(Math.max(0, requestedProductAmount - previewDiscountAmount) + requestedProductShippingAmount)}</span>
-                </div>
-              </div>
+          {/* Clinical & System Metadata */}
+          <OrderMetadataSection order={order} />
+
 
               {/* Prescribed Block */}
               <div className="px-6 py-1 mt-1">
@@ -1982,9 +1718,17 @@ function OrderDetailInner() {
                   <>
                     <div className="text-[11px] font-bold tracking-wide uppercase text-slate-500 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap">
                       Prescribed (Latest)
-                      <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
-                        {prescribedMedicineDisplayName}
-                      </span>
+                      {order.prescribed_pricing_summary?.items?.length > 0 ? (
+                        order.prescribed_pricing_summary.items.map((item: any, idx: number) => (
+                          <span key={idx} className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                            {item.name} {Number(item.quantity) > 1 ? `(x${item.quantity})` : ""}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                          {prescribedMedicineDisplayName}
+                        </span>
+                      )}
                       {showFullSplitLayout && (
                         <button
                           type="button"
@@ -2018,115 +1762,52 @@ function OrderDetailInner() {
                       </>
                     ) : (
                       <>
-                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                          <span className="text-slate-500 dark:text-slate-400">Product amount</span>
-                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
-                        </div>
-                        {previewDiscountAmount > 0 && (
+                        {order.prescribed_pricing_summary?.items?.length > 0 ? (
+                          order.prescribed_pricing_summary.items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center py-1.5 text-[13.5px]">
+                              <span className="text-slate-500 dark:text-slate-400">
+                                {item.name} {Number(item.quantity) > 1 ? `(x${item.quantity})` : ""}
+                              </span>
+                              <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(Number(item.subtotal))}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                            <span className="text-slate-500 dark:text-slate-400">Product amount</span>
+                            <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
+                          </div>
+                        )}
+                        {(Number(order.prescribed_pricing_summary?.coupon_discount || previewDiscountAmount)) > 0 && (
                           <div className="flex justify-between items-center py-1.5 text-[13.5px]">
                             <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
-                            <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
+                            <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${Number(order.prescribed_pricing_summary?.coupon_discount || previewDiscountAmount).toFixed(2)}</span>
                           </div>
                         )}
                         <div className="flex justify-between items-center py-1.5 text-[13.5px]">
                           <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
-                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${productSubtotalPrice}</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${order.prescribed_pricing_summary ? formatMoney(Number(order.prescribed_pricing_summary.subtotal)) : productSubtotalPrice}</span>
                         </div>
                         <div className="flex justify-between items-center py-1.5 text-[13.5px]">
                           <span className="text-slate-500 dark:text-slate-400">Shipping</span>
-                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(previewShippingFee)}</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(Number(order.prescribed_pricing_summary?.shipping || previewShippingFee))}</span>
                         </div>
                         <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
                           <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
-                          <span className="text-slate-900 dark:text-white font-bold tabular-nums">${prescribedFinalDisplay ?? totalPrice}</span>
+                          <span className="text-slate-900 dark:text-white font-bold tabular-nums">${order.prescribed_pricing_summary ? formatMoney(Number(order.prescribed_pricing_summary.final_total)) : (prescribedFinalDisplay ?? totalPrice)}</span>
                         </div>
                       </>
                     )}
                   </>
                 )}
               </div>
-
-              {/* Total Row */}
-              <div className="flex justify-between items-start px-6 py-4 mt-2 border-t border-slate-200 dark:border-slate-800">
-                <div className="font-extrabold text-base text-slate-900 dark:text-white">
-                  {isAuthorized ? "Authorized total" : (refundedAmount > 0 ? "Net total" : "Charged total")}
-                </div>
-                <div className="text-right flex flex-col items-end">
-                  <div className="text-[22px] font-extrabold text-teal-600 dark:text-teal-400 tabular-nums">
-                    ${netTotalPrice}
-                  </div>
-                  {refundedAmount > 0 && (
-                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1">
-                      net of ${refundedAmount.toFixed(2)} refund
-                    </div>
-                  )}
-                  {hasSplitSettlement && (
-                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1">
-                      {remainingToCaptureAmount > 0 ? (
-                        <span className="text-amber-600 dark:text-amber-400 font-medium">Remaining to capture: ${formatMoney(remainingToCaptureAmount)}</span>
-                      ) : (
-                        <span>Fully captured</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Order Status */}
-          <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
-            <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <h3 className="font-semibold text-slate-900 dark:text-white">Order Timeline</h3>
-                {paymentRecoveryLabel ? (
-                  <span
-                    className={cn(
-                      "px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                      recoveryStatusColors[paymentRecoveryState] || "bg-amber-100 text-amber-700 border-amber-200"
-                    )}
-                  >
-                    {paymentRecoveryLabel}
-                  </span>
-                ) : null}
-              </div>
-              <button
-                className="text-sm text-slate-500 hover:text-primary flex items-center gap-1"
-                onClick={() => {
-                  setNewStatus(status)
-                  setStatusTrackingNumber(order.tracking_number || "")
-                  setShowStatusDialog(true)
-                }}
-              >
-                <Pencil className="h-4 w-4" /> Update Status
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="relative pl-4">
-                <div className="absolute left-[35px] top-2 bottom-4 w-px bg-slate-200 dark:bg-slate-700" />
-                <div className="space-y-8">
-                  {renderedTimelineItems.map((item, idx) => (
-                    <div key={idx} className="relative flex gap-4">
-                      <TimelineIcon name={item.icon} iconBg={item.iconBg} />
-                      <div className="flex-1 pt-1">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
-                          <p className="font-medium text-slate-900 dark:text-white">{item.title}</p>
-                          <span className="text-xs text-slate-400 whitespace-nowrap">{item.date}</span>
-                        </div>
-                        {item.description && (
-                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 whitespace-pre-line">{item.description}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Order Activity & History Timeline */}
+          <OrderTimelineCard order={order} />
         </div>
 
-        {/* Right column */}
+        {/* Right Sidebar Column */}
         <div className="lg:col-span-4 space-y-6">
+          {/* Medical Details Card */}
+          <OrderMedicalCard order={order} />
           {/* Prescription & Fulfillment */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -2159,480 +1840,61 @@ function OrderDetailInner() {
                 <span className="text-sm font-semibold text-slate-600">No tracking info</span>
               </div>
             )}
+          {/* Patient Details Card */}
+          <OrderPatientCard
+            order={order}
+            onOpenPatientResponses={() => setShowPatientResponses(true)}
+          />
 
-            <div className="space-y-2 text-[13.5px]">
-              <div className="flex justify-between items-start gap-4">
-                <span className="text-slate-500 min-w-20">Product</span>
-                <span className="text-slate-900 dark:text-white font-medium text-right leading-tight">
-                  {displayProductName}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500">Pharmacy</span>
-                <span className="text-slate-900 dark:text-white font-medium">{pharmacyDisplayName || "—"}</span>
-              </div>
+          {/* Pharmacy & Fulfillment Card */}
+          <OrderPharmacyCard order={order} />
 
-              {/* Only show if we have prescription meds */}
-              {order.prescription_medications && order.prescription_medications.length > 0 ? (
-                order.prescription_medications.map((med, idx) => (
-                  <React.Fragment key={idx}>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Medication</span>
-                      <span className="text-slate-900 dark:text-white font-medium text-right">{med.prescribed_name || med.name || "—"}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Strength</span>
-                      <span className="text-slate-900 dark:text-white font-medium">{med.strength || "None"}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Qty</span>
-                      <span className="text-slate-900 dark:text-white font-medium">{med.quantity || "0"}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Refills</span>
-                      <span className="text-slate-900 dark:text-white font-medium">{med.refills || "0"}</span>
-                    </div>
-                    {med.rxId && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">RX ID</span>
-                        <span className="text-slate-900 dark:text-white font-mono text-xs">{med.rxId}</span>
-                      </div>
-                    )}
-                    {med.medId && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">Med ID</span>
-                        <span className="text-slate-900 dark:text-white font-mono text-xs break-all text-right ml-4">{med.medId}</span>
-                      </div>
-                    )}
-                  </React.Fragment>
-                ))
-              ) : (
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Prescription</span>
-                  <span className="text-slate-900 dark:text-white font-medium">Awaiting provider decision</span>
-                </div>
-              )}
-
-              {order.prescription_source_received_at && (
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">RX received</span>
-                  <span className="text-slate-900 dark:text-white text-xs">{formatDateTime(order.prescription_source_received_at)}</span>
-                </div>
-              )}
-              {order.prescription_source_event_id && (
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">RX Event ID</span>
-                  <span className="text-slate-900 dark:text-white font-mono text-xs break-all text-right ml-4">{order.prescription_source_event_id}</span>
-                </div>
-              )}
-              {(order.mrn || order.visitStatus) && (
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Master ID</span>
-                  <span className="text-slate-900 dark:text-white font-mono text-xs break-all text-right ml-4">{order.mrn || order.visitStatus}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Assigned Provider */}
-          <div className="bg-card rounded-xl shadow-sm border p-6">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <Stethoscope className="h-4 w-4 text-slate-400" />
-              Assigned Provider
-            </h3>
-            <div className="space-y-3 text-[13.5px]">
-              <div className="flex items-start gap-3">
-                <span className="text-slate-400 mt-0.5"><Stethoscope className="h-4 w-4" /></span>
-                <span className="text-slate-600 dark:text-slate-400">Doctor: <span className="font-semibold text-slate-900 dark:text-white">{order.doctor_name || order.provider_network || "—"}</span></span>
-              </div>
-              {order.booking_scheduled_at && (
-                <div className="flex items-start gap-3">
-                  <span className="text-slate-400 mt-0.5"><Calendar className="h-4 w-4" /></span>
-                  <span className="text-slate-600 dark:text-slate-400">Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatBookingSchedule(order.booking_scheduled_at)}</span></span>
-                </div>
-              )}
-              {order.booking_location && (
-                <div className="flex items-start gap-3">
-                  <span className="text-slate-400 mt-0.5"><ExternalLink className="h-4 w-4" /></span>
-                  <a href={order.booking_location} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{order.booking_location}</a>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Patient & Shipping */}
-          <div className="bg-card rounded-xl shadow-sm border p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-900 dark:text-white">Patient & Shipping</h3>
-              <Button variant="link" size="sm" className="text-xs font-semibold text-blue-600 h-auto p-0" onClick={() => setShowPatientResponses(true)}>
-                View Patient Responses
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-3 mb-5">
-              <Avatar className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 border border-blue-100 flex items-center justify-center">
-                <AvatarFallback className="font-bold text-sm">
-                  {(order.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="font-bold text-[15px] text-slate-900 dark:text-white">
-                {order.name || "—"}
-              </div>
-            </div>
-
-            <div className="space-y-2 mb-6">
-              <div className="flex items-center gap-2 text-[13px] text-slate-500">
-                <Mail className="h-3.5 w-3.5 text-slate-400" />
-                <span>{order.email || "—"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-[13px] text-slate-500">
-                <Phone className="h-3.5 w-3.5 text-slate-400" />
-                <span>{order.phone || "—"}</span>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                <MapPin className="h-3 w-3" /> SHIPPING ADDRESS
-              </div>
-              <p className="text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed whitespace-nowrap overflow-hidden text-ellipsis">
-                {order.shipping_address || order.address || "—"}
-              </p>
-            </div>
-          </div>
-
-          {/* Support Notes */}
-          <div className="bg-card rounded-xl shadow-sm border p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <ClipboardList className="h-4 w-4 text-slate-400" />
-                Support Notes
-              </h3>
-              <Button size="sm" variant="secondary" className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 text-xs font-semibold h-7 border border-blue-100">
-                Add New
-              </Button>
-            </div>
-            <p className="text-[13px] text-slate-500 dark:text-slate-400 italic">
-              {order.notes || "No notes found."}
-            </p>
-          </div>
-
-          {/* Payment Info */}
-          <div className="bg-card rounded-xl shadow-sm border p-6">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-slate-400" />
-              Payment Info
-            </h3>
-
-            <div className="space-y-2 text-[13px] mb-6">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Date</span>
-                <span className="text-slate-900 dark:text-white font-medium">{formatDate(paymentDisplayDate) || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Gateway</span>
-                <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Trans ID</span>
-                <span className="text-slate-900 dark:text-white font-mono text-xs">{order.paymentTransactionId || "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">{processorReferenceLabel}</span>
-                <span className="text-slate-900 dark:text-white font-mono text-xs">
-                  {order.paymentProcessorTransactionId || "—"}
-                </span>
-              </div>
-            </div>
-
-            {settlementTransactions.length > 0 && (
-              <div className="bg-muted/30 border rounded-lg p-4 mb-4">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">
-                  {hasSplitSettlement ? "SPLIT CAPTURE TRANSACTIONS" : "CAPTURE"}
-                </div>
-                <div className="space-y-2">
-                  {settlementTransactions.map((tx: any) => {
-                    const role = tx.settlement_role || "base_capture"
-                    const ref = tx.processor_transaction_id || "—"
-                    const amt = parseMoney(tx.amount) ?? 0
-                    return (
-                      <div key={tx.id} className="flex justify-between items-center text-[12px]">
-                        <span className="text-slate-500 w-32">{role}</span>
-                        <span className="font-mono text-slate-600 flex-1 text-right mr-3 truncate">{ref}</span>
-                        <span className={`font-semibold w-20 text-right ${amt < 0 ? "text-red-600" : "text-slate-900 dark:text-white"}`}>
-                          {amt < 0 ? `−$${Math.abs(amt).toFixed(2)}` : `$${amt.toFixed(2)}`}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-                {hasSplitSettlement && (
-                  <div className="flex justify-between font-bold pt-3 border-t mt-3 text-[13px]">
-                    <span className="text-slate-900">Total captured</span>
-                    <span className="text-slate-900">${formatMoney((parseMoney(order.netCollected) ?? 0) + refundedAmount)}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!isPending && !isAuthorized && !isPaymentFailure && (
-              (refundedAmount > 0 || order.paymentStatus === "partially_captured" || trueHoldReleasedAmt > 0) ? (() => {
-                const holdReleasedAmt = refundedAmount > 0 ? refundedAmount : trueHoldReleasedAmt;
-                const authDisplayAmt = Math.max((parseMoney(order.netCollected) ?? 0) + holdReleasedAmt, trueAuthAmount);
-                return (
-                  <div className="bg-card border rounded-lg p-4 mb-4 space-y-2 text-[13.5px]">
-                    <div className="flex justify-between text-slate-600">
-                      <span>Authorized</span>
-                      <span className="font-semibold">${formatMoney(authDisplayAmt)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-600">
-                      <span>Hold released</span>
-                      <span className="font-semibold text-red-600">−${holdReleasedAmt.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t font-bold">
-                      <span className="text-slate-900">Captured</span>
-                      <span className="text-slate-900">${netCollectedPrice}</span>
-                    </div>
-                  </div>
-                );
-              })() : settlementTransactions.length === 0 ? (
-                <div className="bg-card border rounded-lg p-4 mb-4 flex justify-between font-bold text-[13.5px]">
-                  <span className="text-slate-900">Captured</span>
-                  <span className="text-slate-900">${netCollectedPrice}</span>
-                </div>
-              ) : null
-            )}
-
-            {settlementTransactions.length === 0 && isAuthorized && (
-              <div className="flex justify-between font-bold text-[13.5px] mb-4">
-                <span className="text-slate-900">Authorized</span>
-                <span className="text-slate-900">${formatMoney(previewOriginalPrice)}</span>
-              </div>
-            )}
-
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-[13px] text-slate-500">Status</span>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                  {((refundStatusLabel || (trueHoldReleasedAmt > 0 ? "partially_captured" : order.paymentStatus) || "—") as string).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                </span>
-              </div>
-            </div>
-
-            {canUseReceipt && (
-              <div className="flex flex-wrap justify-end gap-2 mb-6">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-[11px] h-7 border-slate-200 text-slate-700 hover:bg-slate-50 dark:text-slate-200"
-                  onClick={handleDownloadReceipt}
-                  disabled={downloadReceiptLoading}
-                >
-                  {downloadReceiptLoading ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <Download className="h-3 w-3 mr-1" />
-                  )}
-                  Download Receipt
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-[11px] h-7 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
-                  onClick={handleResendReceipt}
-                  disabled={resendReceiptLoading}
-                >
-                  {resendReceiptLoading ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <Mail className="h-3 w-3 mr-1" />
-                  )}
-                  Resend Receipt
-                </Button>
-              </div>
-            )}
-
-            {(hasSplitSettlement || settlementTransactions.length > 0) && (
-              <div className="bg-muted/30 border rounded-lg p-4 mb-6 space-y-2 text-[12px]">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Remaining base to capture</span>
-                  <span className="text-slate-400">${splitRemainingBaseDisplay}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Remaining supplemental to capture</span>
-                  <span className="text-slate-400">${splitRemainingSupplementalDisplay}</span>
-                </div>
-                <div className="flex justify-between font-bold pt-2 border-t mt-1">
-                  <span className="text-slate-900">Total remaining to capture</span>
-                  <span className="text-slate-900">${splitRemainingTotalDisplay}</span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-between items-center pt-2 border-t">
-              <span className="font-bold text-[14px] text-slate-900 dark:text-white">
-                {refundedAmount > 0 ? "Net captured" : (settlementTransactions.length > 0 ? "Captured total" : "Net captured")}
-              </span>
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-lg text-slate-900 dark:text-white">
-                  ${isPending ? "0.00" : netCollectedPrice}
-                </span>
-                {canRefundOrVoid && (
-                  <PermissionGate permission={Permissions.REFUND_CREATE}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-[11px] font-bold h-7 border-red-200 text-red-600 hover:bg-red-50 px-2"
-                      onClick={() => setShowRefundDialog(true)}
-                    >
-                      <Undo2 className="h-3 w-3 mr-1" /> {isAuthorized ? "Void" : "Refund"}
-                    </Button>
-                  </PermissionGate>
-                )}
-              </div>
-            </div>
-
-            {canRetryPayment && (
-              <PermissionGate permission={Permissions.ORDER_UPDATE}>
-                <div className="mt-4 pt-4 border-t flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-[11px] h-7 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
-                    onClick={() => setShowRetryPaymentDialog(true)}
-                  >
-                    <RotateCw className="h-3 w-3 mr-1" /> Retry Payment
-                  </Button>
-                </div>
-              </PermissionGate>
-            )}
-          </div>
+          {/* Payment Card & Actions */}
+          <OrderPaymentCard
+            order={order}
+            canRefundOrVoid={canRefundOrVoid}
+            canRetryPayment={canRetryPayment}
+            isAuthorized={isAuthorized}
+            isRefundable={isRefundable}
+            onRefundClick={() => setShowRefundDialog(true)}
+            onRetryClick={() => setShowRetryPaymentDialog(true)}
+          />
         </div>
       </div>
+      </div>
 
-      {/* Retry Payment Dialog */}
-      <Dialog open={showRetryPaymentDialog} onOpenChange={setShowRetryPaymentDialog}>
-        <DialogContent className="max-w-lg w-full">
-          <DialogHeader>
-            <DialogTitle>Retry Patient Payment</DialogTitle>
-            <DialogDescription>
-              {retryModalDescription}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div
-              className={cn(
-                "rounded-md border px-3 py-2 text-xs",
-                retryGatewayMismatch
-                  ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
-                  : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-              )}
-            >
-              This order was originally processed via <strong>{orderProcessorGatewayLabel}</strong>. Before retrying,
-              ensure the client gateway is set to <strong>{orderProcessorGatewayLabel}</strong>.
-              {retryGatewayMismatch ? (
-                <> Current retry gateway is <strong>{retryGatewayLabel}</strong>.</>
-              ) : null}
-            </div>
+      {/* Modals & Dialogs */}
+      <RefundVoidModal
+        open={showRefundDialog}
+        onOpenChange={setShowRefundDialog}
+        order={order}
+        onSubmit={handleRefundSubmit}
+        loading={refundLoading}
+        remainingRefundable={remainingRefundable}
+        baseRemainingRefundable={baseRemainingRefundable}
+        supplementalRemainingRefundable={supplementalRemainingRefundable}
+        isAuthorized={isAuthorized}
+        isRefundable={isRefundable}
+      />
 
-            {hasSplitSettlement && (
-              <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3 text-sm space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Remaining base to capture</span>
-                  <span className="font-medium text-slate-900 dark:text-white">${splitRemainingBaseDisplay}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Remaining supplemental to capture</span>
-                  <span className="font-medium text-slate-900 dark:text-white">${splitRemainingSupplementalDisplay}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-2">
-                  <span className="font-semibold text-slate-900 dark:text-white">Total remaining to capture</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">${splitRemainingTotalDisplay}</span>
-                </div>
-              </div>
-            )}
+      <UpdateStatusModal
+        open={showStatusDialog}
+        onOpenChange={setShowStatusDialog}
+        currentStatus={status}
+        onSubmit={handleStatusUpdateSubmit}
+        loading={statusUpdateLoading}
+      />
 
-            {!hasSplitSettlement && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500 dark:text-slate-400">{retryAmountLabel}</span>
-                <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
-              </div>
-            )}
-
-            {paymentMethodsLoading && (
-              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading saved payment methods...
-              </div>
-            )}
-
-            {!paymentMethodsLoading && paymentMethodsError && (
-              <p className="text-sm text-destructive">{paymentMethodsError}</p>
-            )}
-
-            {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                No saved payment methods found for this patient.
-              </p>
-            )}
-
-            {retryGatewayMismatch && (
-              <p className="text-sm text-amber-700 dark:text-amber-300">
-                Retry is disabled until client gateway matches the order processor ({orderProcessorGatewayLabel}).
-              </p>
-            )}
-
-            {!paymentMethodsLoading && paymentMethods.length > 0 && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Saved payment method</label>
-                <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a card" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {paymentMethods.map((method) => {
-                      const brand = method.card_brand ? method.card_brand.toUpperCase() : "CARD"
-                      const last4 = method.masked_card_number ? method.masked_card_number.slice(-4) : "----"
-                      const expMonth = method.card_expiry_month ? String(method.card_expiry_month).padStart(2, "0") : ""
-                      const expYear = method.card_expiry_year ? String(method.card_expiry_year) : ""
-                      const expLabel = expMonth && expYear ? `exp ${expMonth}/${expYear}` : ""
-                      const defaultLabel = method.is_default ? " • default" : ""
-                      return (
-                        <SelectItem key={method.id} value={method.id}>
-                          {brand} •••• {last4}{expLabel ? ` (${expLabel})` : ""}{defaultLabel}
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowRetryPaymentDialog(false)}
-                disabled={retryPaymentLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleRetryPayment}
-                disabled={
-                  retryPaymentLoading ||
-                  paymentMethodsLoading ||
-                  retryGatewayMismatch ||
-                  Boolean(paymentMethodsError) ||
-                  !selectedPaymentMethodId
-                }
-              >
-                {retryPaymentLoading ? "Retrying..." : "Retry Payment"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <RetryPaymentModal
+        open={showRetryPaymentDialog}
+        onOpenChange={setShowRetryPaymentDialog}
+        paymentMethods={paymentMethods}
+        loadingMethods={paymentMethodsLoading}
+        methodsError={paymentMethodsError}
+        onSubmit={handleRetryPaymentSubmit}
+        retryLoading={retryPaymentLoading}
+        retryAmount={remainingRefundable || parseFloat(order.amount || "0")}
+      />
 
       {/* Refund / Void Dialog */}
       <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
@@ -2723,7 +1985,18 @@ function OrderDetailInner() {
               <Button variant="outline" onClick={() => setShowRefundDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleRefundSubmit} disabled={refundLoading}>
+              <Button
+                onClick={() =>
+                  handleRefundSubmit({
+                    amount: isRefundable ? refundAmount : undefined,
+                    refundTarget,
+                    reason: refundReason,
+                    reasonDescription: refundReasonDescription,
+                    notes: refundNotes,
+                  })
+                }
+                disabled={refundLoading}
+              >
                 {refundLoading ? "Processing..." : isAuthorized ? "Void Authorization" : "Process Refund"}
               </Button>
             </div>
@@ -2813,6 +2086,7 @@ function OrderDetailInner() {
         open={showPatientResponses}
         onOpenChange={setShowPatientResponses}
         patientResponses={order.patient_responses}
+        intakeResponseSummary={order.intake_response_summary}
         patientName={order.name || "Patient"}
         checkoutUrl={order.checkout_url}
         orderId={order.id}
@@ -2828,19 +2102,18 @@ function OrderDetailInner() {
             }
           })
         }}
-      />
-      {order && (
+        />
+      {showChangeProductModal && (
         <ChangeProductModal
-          order={order}
           open={showChangeProductModal}
-          quantity={quantity}
           onOpenChange={setShowChangeProductModal}
-          onApply={(change) => setPendingProductChange(change)}
+          order={order}
+          onProductChanged={(updatedOrder) => {
+            setOrder(updatedOrder as Order)
+            toast({ title: "Product changed successfully" })
+          }}
         />
       )}
     </div>
   )
 }
-
-
-export default function OrderDetail() { return <GlobalErrorBoundary><OrderDetailInner /></GlobalErrorBoundary>; }

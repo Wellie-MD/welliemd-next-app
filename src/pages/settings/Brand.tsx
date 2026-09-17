@@ -292,6 +292,7 @@ export default function Brand() {
       const updatedLogos = { ...formData.logos };
       let updatedLoginImg = formData.loginPageImage;
       let updatedLogosMeta = { ...(formData.logosMeta || {}) };
+      let updatedLogoUrl = formData.logo_url;
 
       // Upload all pending files in parallel for speed
       const entries = Object.entries(filesToUpload);
@@ -311,6 +312,10 @@ export default function Brand() {
               ...updatedLogosMeta,
               [slot]: { s3Key },
             };
+            if (slot === "square") {
+              updatedLogos.header_logo = url;
+              updatedLogoUrl = url;
+            }
           }
           if (path === "loginPageImage") updatedLoginImg = url;
         }
@@ -321,6 +326,7 @@ export default function Brand() {
         logos: updatedLogos,
         loginPageImage: updatedLoginImg,
         logosMeta: updatedLogosMeta,
+        logo_url: updatedLogoUrl,
       });
 
       // Sync local state with what was actually saved so subsequent
@@ -330,6 +336,7 @@ export default function Brand() {
         logos: updatedLogos,
         loginPageImage: updatedLoginImg,
         logosMeta: updatedLogosMeta,
+        logo_url: updatedLogoUrl,
       }));
 
       toast({

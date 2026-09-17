@@ -5,6 +5,7 @@ import adminApi from "@/api/adminApi";
 
 export interface Client {
   id: string;
+  platform_client_id?: string;
   name: string;
   api_endpoint: string;
   admin_panel_domain?: string;
@@ -40,6 +41,7 @@ function normalizeUrlForComparison(url?: string): string {
 
 type ClientApiRecord = {
   id: string;
+  platform_client_id?: string;
   name: string;
   api_endpoint?: string;
   admin_panel_domain?: string;
@@ -60,6 +62,7 @@ function toClientRecord(value: unknown): ClientApiRecord | null {
 
   return {
     id: String(record.id),
+    platform_client_id: typeof record.platform_client_id === "string" ? record.platform_client_id : undefined,
     name: typeof record.name === "string" ? record.name : "",
     api_endpoint: typeof record.api_endpoint === "string" ? record.api_endpoint : undefined,
     admin_panel_domain: typeof record.admin_panel_domain === "string" ? record.admin_panel_domain : undefined,
@@ -113,6 +116,7 @@ export function useClients(search: string = "") {
         if (meClient) {
           meClientFromDb = {
             id: meClient.id,
+            platform_client_id: meClient.platform_client_id,
             name: meClient.name,
             api_endpoint: ensureTrailingSlash(meClient.api_endpoint),
             admin_panel_domain: meClient.admin_panel_domain,
@@ -147,6 +151,7 @@ export function useClients(search: string = "") {
 
       const normalized: Client[] = list.map((c) => ({
         id: c.id,
+        platform_client_id: c.platform_client_id,
         name: c.name,
         api_endpoint: ensureTrailingSlash(c.api_endpoint),
         admin_panel_domain: c.admin_panel_domain,
