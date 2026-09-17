@@ -241,10 +241,19 @@ export function SharedQuestionsList({
   ], [questions, sectionFields, sectionIds]);
   const placementConsentId = String(placementConsent?.elementConfig?.sourceId || "");
   const loadPlacementConsentRule = useCallback(() =>
-    placementConsentId
+    placementConsentId && entityType === "program"
       ? programsApi.getConsentVisibility(entityId, placementConsentId)
       : Promise.resolve(undefined),
-  [entityId, placementConsentId]);
+  [entityId, entityType, placementConsentId]);
+  const loadSharedConsentRule = useCallback(() =>
+    placementConsentId && entityType === "program"
+      ? programsApi.getConsentRules(entityId, placementConsentId)
+          .then((rules) => rules.sharedRule)
+      : Promise.resolve(
+          effectiveConsents.find((consent) => consent.id === placementConsentId)
+            ?.visibilityRuleGroup,
+        ),
+  [effectiveConsents, entityId, entityType, placementConsentId]);
   const savePlacementConsentRule = useCallback(async (rule?: VisibilityRuleGroup) => {
     if (!placementConsentId || entityType !== "program") return;
     await programsApi.saveConsentVisibility(entityId, placementConsentId, rule);
@@ -1089,6 +1098,7 @@ export function SharedQuestionsList({
           contextName={entityName}
           sources={consentRuleSources}
           loadRule={loadPlacementConsentRule}
+          loadSharedRule={loadSharedConsentRule}
           onSave={savePlacementConsentRule}
         />
       </div>
@@ -1224,6 +1234,7 @@ export function SharedQuestionsList({
         contextName={entityName}
         sources={consentRuleSources}
         loadRule={loadPlacementConsentRule}
+        loadSharedRule={loadSharedConsentRule}
         onSave={savePlacementConsentRule}
       />
 
