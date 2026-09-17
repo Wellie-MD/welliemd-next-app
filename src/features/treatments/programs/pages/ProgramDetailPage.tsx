@@ -162,6 +162,12 @@ export default function ProgramDetailPage() {
       ? programsApi.getConsentVisibility(foundProgram.id, editingConsentRule.id)
       : Promise.resolve(undefined),
   [editingConsentRule, foundProgram]);
+  const loadSharedConsentRule = useCallback(() =>
+    editingConsentRule && foundProgram
+      ? programsApi.getConsentRules(foundProgram.id, editingConsentRule.id)
+          .then((rules) => rules.sharedRule)
+      : Promise.resolve(undefined),
+  [editingConsentRule, foundProgram]);
   const saveConsentRule = useCallback(async (rule?: VisibilityRuleGroup) => {
     if (!editingConsentRule || !foundProgram) return;
     await programsApi.saveConsentVisibility(foundProgram.id, editingConsentRule.id, rule);
@@ -623,6 +629,7 @@ export default function ProgramDetailPage() {
         sharedRule={resolveSharedConsentRule(editingConsentRule, allConsents)}
         sources={consentRuleSources}
         loadRule={loadConsentRule}
+        loadSharedRule={loadSharedConsentRule}
         onSave={saveConsentRule}
       />
 

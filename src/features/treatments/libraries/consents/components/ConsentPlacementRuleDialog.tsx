@@ -11,6 +11,7 @@ interface ConsentPlacementRuleDialogProps {
   consentName: string;
   sources: QuestionOption[];
   loadRule: () => Promise<VisibilityRuleGroup | undefined>;
+  loadSharedRule?: () => Promise<VisibilityRuleGroup | undefined>;
   onSave: (rule?: VisibilityRuleGroup) => Promise<void>;
   contextName: string;
   sharedRule?: VisibilityRuleGroup;
@@ -70,9 +71,10 @@ export const resolveSharedConsentRule = (
 };
 
 export function ConsentPlacementRuleDialog({
-  open, onOpenChange, consentName, sources, loadRule, onSave, contextName, sharedRule,
+  open, onOpenChange, consentName, sources, loadRule, loadSharedRule, onSave, contextName, sharedRule,
 }: ConsentPlacementRuleDialogProps) {
   const [rule, setRule] = useState<VisibilityRuleGroup | undefined>();
+  const [authoritativeSharedRule, setAuthoritativeSharedRule] = useState<VisibilityRuleGroup | undefined>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,11 +87,18 @@ export function ConsentPlacementRuleDialog({
     let active = true;
     setLoading(true);
     setRule(undefined);
+    setAuthoritativeSharedRule(undefined);
     setLoadFailed(false);
     setError(null);
     setShowErrors(false);
-    void loadRule().then((loaded) => {
-      if (active) setRule(loaded);
+    void Promise.all([
+      loadRule(),
+      loadSharedRule ? loadSharedRule() : Promise.resolve(sharedRule),
+    ]).then(([loadedPlacement, loadedShared]) => {
+      if (active) {
+        setRule(loadedPlacement);
+        setAuthoritativeSharedRule(loadedShared);
+      }
     }).catch(() => {
       if (active) {
         setLoadFailed(true);
@@ -99,7 +108,7 @@ export function ConsentPlacementRuleDialog({
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [open, loadRule]);
+  }, [open, loadRule, loadSharedRule, sharedRule]);
 
   const save = async () => {
     if (consentRuleIssues(rule).length) {
@@ -128,7 +137,7 @@ export function ConsentPlacementRuleDialog({
         <div className="min-w-0 overflow-y-auto px-4 py-4 sm:px-6">
           <section className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-label="Shared consent visibility rule">
             <h3 className="text-sm font-bold text-emerald-950">Shared Consent rule</h3>
-            <p className="mt-1 text-xs text-emerald-900">{consentRuleSummary(sharedRule)}</p>
+            <p className="mt-1 text-xs text-emerald-900">{consentRuleSummary(authoritativeSharedRule ?? sharedRule)}</p>
             <p className="mt-2 text-[11px] leading-relaxed text-emerald-800">
               Set in the Consent library. This rule is read-only here and must pass together with the Program rule below.
             </p>

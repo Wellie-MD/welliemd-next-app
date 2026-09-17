@@ -67,13 +67,26 @@ export interface ProgramEffectiveContent {
 }
 
 export const programsApi = {
+  getConsentRules: async (programId: string, consentId: string): Promise<{
+    placementRule?: VisibilityRuleGroup;
+    sharedRule?: VisibilityRuleGroup;
+  }> => {
+    const { data } = await axiosInstance.get<{
+      visibility_rule: VisibilityRuleGroup | Record<string, never>;
+      shared_visibility_rule: VisibilityRuleGroup | Record<string, never>;
+    }>(TREATMENT_PROGRAM_ENDPOINTS.consentVisibility(programId, consentId));
+    return {
+      placementRule: data.visibility_rule && Object.keys(data.visibility_rule).length
+        ? data.visibility_rule as VisibilityRuleGroup
+        : undefined,
+      sharedRule: data.shared_visibility_rule && Object.keys(data.shared_visibility_rule).length
+        ? data.shared_visibility_rule as VisibilityRuleGroup
+        : undefined,
+    };
+  },
+
   getConsentVisibility: async (programId: string, consentId: string): Promise<VisibilityRuleGroup | undefined> => {
-    const { data } = await axiosInstance.get<{ visibility_rule: VisibilityRuleGroup | Record<string, never> }>(
-      TREATMENT_PROGRAM_ENDPOINTS.consentVisibility(programId, consentId),
-    );
-    return data.visibility_rule && Object.keys(data.visibility_rule).length
-      ? data.visibility_rule as VisibilityRuleGroup
-      : undefined;
+    return (await programsApi.getConsentRules(programId, consentId)).placementRule;
   },
 
   saveConsentVisibility: async (programId: string, consentId: string, rule?: VisibilityRuleGroup) => {
