@@ -75,6 +75,21 @@ export interface B2BInvoice {
   external_invoice_link?: string;
   payment_method?: string;
 
+  requested_breakdown?: {
+    product_name?: string;
+    products?: Array<{
+      product_name: string;
+      medication_amount: string;
+      shipping_amount: string;
+      product_total: string;
+    }>;
+    medication_amount?: string;
+    shipping_amount?: string;
+    product_total?: string;
+    consultation_amount?: string;
+    consult_mode?: string;
+  } | null;
+
   intended_authorization_amount?: string;
   authorization_retry_count?: number;
   authorization_retry_exhausted_at?: string | null;

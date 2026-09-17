@@ -504,6 +504,14 @@ function RevisionInvoiceModal({
   const requestedTotalAmount = requested?.prescribed_differs
     ? requested?.original_requested_product_total
     : requested?.product_total;
+  const requestedProducts = requested?.products?.length
+    ? requested.products
+    : [{
+        product_name: requestedLabel,
+        medication_amount: requestedMedicationAmount || "0.00",
+        shipping_amount: requestedShippingAmount || "0.00",
+        product_total: requestedTotalAmount || "0.00",
+      }];
   const splitCaptureAdjustmentMirrorsBase = Boolean(
     requested?.prescribed_differs &&
     adjustments.some((adjustment) => {
@@ -706,22 +714,38 @@ function RevisionInvoiceModal({
                 </table>
               </section>
             )}
-            {!treatmentPrescription && <section className="border-b border-slate-200 p-5 dark:border-slate-800">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Requested · {requestedLabel}
-              </h4>
-              <p className="mt-2 text-xs text-slate-400">
-                Amount authorized at checkout — captured after prescription
-              </p>
-              {renderCostTable(
-                requestedMedicationAmount,
-                requestedShippingAmount,
-                requestedTotalAmount,
-                Number(requested?.consultation_amount || 0) === 0,
-                requestedLabel,
-                "Authorized total"
-              )}
-            </section>}
+            {!treatmentPrescription && requestedProducts.map((product, index) => (
+              <section key={`${product.product_name}-${index}`} className="border-b border-slate-200 p-5 dark:border-slate-800">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Requested · {product.product_name}
+                </h4>
+                {index === 0 && (
+                  <p className="mt-2 text-xs text-slate-400">
+                    Amount authorized at checkout — captured after prescription
+                  </p>
+                )}
+                {renderCostTable(
+                  product.medication_amount,
+                  product.shipping_amount,
+                  product.product_total,
+                  index === 0 && Number(requested?.consultation_amount || 0) === 0,
+                  product.product_name,
+                  "Total"
+                )}
+              </section>
+            ))}
+            {!treatmentPrescription && requestedProducts.length > 1 && (
+              <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+                {renderCostTable(
+                  requested?.medication_amount,
+                  requested?.shipping_amount,
+                  requested?.product_total,
+                  false,
+                  "Medication",
+                  "Authorized total"
+                )}
+              </section>
+            )}
             {prescriptionEvents.map((event, index) => {
               // index 0 is the initial capture, which the "Treatment
               // prescription" summary panel above already shows -- render
