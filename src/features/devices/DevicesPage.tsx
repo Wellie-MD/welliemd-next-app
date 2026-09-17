@@ -1,0 +1,594 @@
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
+import { ErrorUtils } from '@/shared/lib/errors';
+import ConnectState from './components/ConnectState';
+import ConnectedState from './components/ConnectedState';
+import TelemetryDashboard from './components/TelemetryDashboard';
+import DataPrivacyCard from './components/DataPrivacyCard';
+import DevicesSkeleton from './components/DevicesSkeleton';
+import {
+  WEIGHT_DEFAULT,
+  DEVICE_METRICS_DEFAULT,
+} from './constants';
+import type { Connection, WeightData, DeviceMetrics, Consent } from './types';
+import DeviceModals from './components/DeviceModals';
+import { usePhase2Flags } from '@/features/phase2/Phase2Flags';
+import {
+  getConnections,
+  getDeviceData,
+  createLinkSession,
+  deregisterProvider,
+  reconnectProvider,
+  syncConnections,
+  formatConnection,
+  getConsent,
+  updateConsent,
+  deleteHealthData,
+  getVitalsHistory,
+  logWeight,
+  getHealthGoal,
+  saveHealthGoal
+} from './api';
+import { useProfile } from '../profile/hooks/use-profile';
+import { profileService } from '../profile/services/profile.service';
+import { useOAuthConnectionPolling } from './hooks/useOAuthConnectionPolling';
+import { useAllowedProviders } from './hooks/useAllowedProviders';
+import { buildWeightData } from './utils/weight-data';
+
+export default function DevicesPage() {
+  const { isEnabled } = usePhase2Flags();
+  const bmiEnhancementsEnabled = isEnabled('milestone_2');
+  const { patientProfile, updatePatientProfile } = useProfile();
+
+  /* State */
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [weight, setWeight] = useState<WeightData>({ ...WEIGHT_DEFAULT });
+  const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics>({ ...DEVICE_METRICS_DEFAULT });
+  const [consent, setConsent] = useState<Consent>({ given: false, date: null });
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const allowedProviders = useAllowedProviders();
+  const [connectionSyncError, setConnectionSyncError] = useState('');
+  const connectionRequestIdRef = useRef(0);
+  const [priorityModalOpen, setPriorityModalOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState(30);
+
+  const fetchDeviceDataList = useCallback(async (days = 30, skipLiveSync = true) => {
+    try {
+      const data = await getDeviceData(days, skipLiveSync);
+      if (data) {
+        setDeviceMetrics(prev => ({
+          ...prev,
+          ...(data.steps && { steps: data.steps }),
+          ...(data.sleep && { sleep: data.sleep }),
+          ...(data.restingHr && { restingHr: data.restingHr }),
+          ...(data.activeDays && { activeDays: data.activeDays }),
+          ...(data.readiness != null && { readiness: data.readiness }),
+          ...(data.recovery != null && { recovery: data.recovery }),
+          ...(data.sleepScore != null && { sleepScore: data.sleepScore }),
+          ...(data.stepsSeries && { stepsSeries: data.stepsSeries }),
+          ...(data.sleepSeries && { sleepSeries: data.sleepSeries }),
+          ...(data.sleepDetail && { sleepDetail: data.sleepDetail }),
+          ...(data.workoutsCount !== undefined && { workoutsCount: data.workoutsCount }),
+          ...(data.recentWorkouts && { recentWorkouts: data.recentWorkouts }),
+          ...(data.glucoseSeries && { glucoseSeries: data.glucoseSeries }),
+          ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
+          ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
+          ...(data.customQueries && { customQueries: data.customQueries }),
+        }));
+      }
+    } catch (e) {
+      console.error('Failed to fetch device data', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (timeRange === 90 || timeRange === 365) {
+      toast.info('Fetching your extended historical data. This may take a moment...', {
+        duration: 4000,
+      });
+    }
+    fetchDeviceDataList(timeRange, true);
+  }, [timeRange, fetchDeviceDataList]);
+
+  // Initial live sync on mount (background)
+  useEffect(() => {
+    getDeviceData(7, false)
+      .then(() => {
+        // Re-fetch the UI data from the DB now that the background sync has completed
+        fetchDeviceDataList(timeRange, true);
+      })
+      .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchConnectionsList = useCallback(async (skipConnections = false) => {
+    setLoading(true);
+    const connectionRequestId = skipConnections ? null : ++connectionRequestIdRef.current;
+    try {
+      const [connectionsResult, vitalsResult, goalResult, profileResult] = await Promise.allSettled([
+        skipConnections ? Promise.resolve(null) : getConnections(),
+        getVitalsHistory(timeRange),
+        bmiEnhancementsEnabled ? getHealthGoal() : Promise.resolve({ goal: null }),
+        profileService.getPatientProfile(),
+      ]);
+
+      if (
+        connectionsResult.status === 'fulfilled'
+        && connectionsResult.value !== null
+        && connectionRequestId === connectionRequestIdRef.current
+      ) {
+        const formatted = connectionsResult.value.map(formatConnection);
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
+      }
+
+      setWeight(prev => {
+        let priorityList = ['questionnaire', 'patient_portal', 'wearable'];
+        if (profileResult.status === 'fulfilled' && profileResult.value) {
+          priorityList = profileResult.value.vitals_source_priority || priorityList;
+        }
+        const next = vitalsResult.status === 'fulfilled'
+          ? buildWeightData(vitalsResult.value, prev, priorityList)
+          : prev;
+        return {
+          ...next,
+          targetBmi: goalResult.status === 'fulfilled' && goalResult.value.goal
+            ? Number(goalResult.value.goal.target_bmi)
+            : next.targetBmi,
+        };
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [timeRange, bmiEnhancementsEnabled]);
+
+  useEffect(() => {
+    fetchConnectionsList().finally(() => setInitialLoading(false));
+  }, [fetchConnectionsList]);
+
+  useEffect(() => {
+    const refreshConnectionsAfterPageShow = () => {
+      void fetchConnectionsList();
+    };
+
+    window.addEventListener('pageshow', refreshConnectionsAfterPageShow);
+    return () => window.removeEventListener('pageshow', refreshConnectionsAfterPageShow);
+  }, [fetchConnectionsList]);
+
+  const handleRefreshStatus = useCallback(async () => {
+    setConnectionSyncError('');
+    const connectionRequestId = ++connectionRequestIdRef.current;
+    try {
+      const conns = await syncConnections();
+      const formatted = conns.map((c) => formatConnection(c));
+      if (connectionRequestId === connectionRequestIdRef.current) {
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
+      }
+      
+      // Also refresh the device data via live sync
+      fetchDeviceDataList(timeRange, false);
+      
+      return formatted;
+    } catch {
+      setConnectionSyncError('Unable to check the connection right now. Please try again.');
+      return null;
+    }
+  }, [fetchDeviceDataList, timeRange]);
+
+  const handleOAuthConnectionComplete = useCallback(() => {
+    void fetchConnectionsList(true);
+  }, [fetchConnectionsList]);
+
+  useOAuthConnectionPolling({
+    connections,
+    refreshConnectionStatus: handleRefreshStatus,
+    onConnected: handleOAuthConnectionComplete,
+    setConnectionSyncError,
+  });
+
+  useEffect(() => {
+    async function loadConsent() {
+      try {
+        const response = await getConsent();
+        if (response.success && response.consent) {
+          setConsent({
+            given: response.consent.consent_granted,
+            date: response.consent.updated_at
+              ? new Date(response.consent.updated_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : null,
+          });
+        }
+      } catch {
+        setConsent({ given: false, date: null });
+      }
+    }
+    loadConsent();
+  }, []);
+
+  // Device picker (connect state) filters
+  const [devCat, setDevCat] = useState('all');
+  const [devQuery, setDevQuery] = useState('');
+  // Device picker modal state
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerCat, setPickerCat] = useState('all');
+  const [pickerQuery, setPickerQuery] = useState('');
+
+  // Modal states
+  const [goalModalOpen, setGoalModalOpen] = useState(false);
+  const [goalInput, setGoalInput] = useState('');
+  const [logWeightOpen, setLogWeightOpen] = useState(false);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [consentReviewOnly, setConsentReviewOnly] = useState(false);
+  const [deleteDataOpen, setDeleteDataOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkProvider, setLinkProvider] = useState('');
+  const [linkErrorOpen, setLinkErrorOpen] = useState(false);
+  const [linkErrorMsg, setLinkErrorMsg] = useState('');
+
+  /* ─── Connect Device ─── */
+  const handleConnect = useCallback(
+    (providerId: string) => {
+      const p = allowedProviders.find((x) => x.id === providerId);
+      if (!p) return;
+
+      if (!consent.given) {
+        setConsentOpen(true);
+        // Store pending provider
+        (window as any).__pendingProvider = providerId;
+        return;
+      }
+
+      if (p.mobile) {
+        setLinkErrorMsg(
+          `${p.name} is only available on the phone — connect it from the mobile app, there's nothing to link here on the web.`
+        );
+        setLinkErrorOpen(true);
+        return;
+      }
+
+      if (!patientProfile?.id) {
+        setLinkErrorMsg("Patient profile not loaded yet. Please try again.");
+        setLinkErrorOpen(true);
+        return;
+      }
+
+      setLinkOpen(true);
+      setLinkProvider(p.name);
+
+      createLinkSession(providerId, patientProfile.id)
+        .then((res) => {
+          setLinkOpen(false);
+          if (res.demo) {
+            fetchConnectionsList();
+            return;
+          }
+          if (res.authorization_url) {
+            window.location.assign(res.authorization_url);
+          } else {
+            throw new Error("No authorization URL returned from backend.");
+          }
+        })
+        .catch((err) => {
+          setLinkOpen(false);
+          setLinkErrorMsg(err?.error?.message || err?.error || err?.message || "Failed to initiate device connection.");
+          setLinkErrorOpen(true);
+        });
+    },
+    [consent.given, patientProfile, allowedProviders, fetchConnectionsList]
+  );
+
+  /* ─── Disconnect Device ─── */
+  const handleDisconnect = useCallback(
+    (providerId: string) => {
+      const conn = connections.find((c) => c.provider === providerId);
+      if (!conn || !conn.id) {
+        setConnections((prev) => {
+          const next = prev.filter((c) => c.provider !== providerId);
+          setDeviceConnected(next.length > 0);
+          return next;
+        });
+        return;
+      }
+
+      setLoading(true);
+      deregisterProvider(conn.id)
+        .then(() => {
+          setConnections((prev) => {
+            const next = prev.filter((c) => c.provider !== providerId);
+            setDeviceConnected(next.length > 0);
+            return next;
+          });
+        })
+        .catch((error: any) => {
+          if (error?.error) {
+            const errorMsg = typeof error.error === 'string' 
+              ? error.error 
+              : error.error.message || "Failed to disconnect device.";
+            toast.error(errorMsg);
+          } else {
+            toast.error(error?.message || "Failed to disconnect device.");
+          }
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    },
+    [connections]
+  );
+
+  /* ─── Reconnect ─── */
+  const handleReconnect = useCallback((providerId: string) => {
+    const conn = connections.find((c) => c.provider === providerId);
+    if (!conn || !conn.id) {
+      handleConnect(providerId);
+      return;
+    }
+
+    setLinkOpen(true);
+    const p = allowedProviders.find((x) => x.id === providerId);
+    if (p) setLinkProvider(p.name);
+
+    reconnectProvider(conn.id)
+      .then((res) => {
+        setLinkOpen(false);
+        if (res.demo) {
+          fetchConnectionsList();
+          return;
+        }
+        if (res.success && res.session?.oauth_url) {
+          window.location.assign(res.session.oauth_url);
+        } else {
+          throw new Error("No authorization URL returned from backend.");
+        }
+      })
+      .catch((err) => {
+        setLinkOpen(false);
+        setLinkErrorMsg(err?.error?.message || err?.error || err?.message || "Failed to initiate reconnection.");
+        setLinkErrorOpen(true);
+      });
+  }, [connections, handleConnect, allowedProviders, fetchConnectionsList]);
+
+  /* ─── Goal Modal ─── */
+  const handleOpenGoal = useCallback(() => {
+    setGoalInput(weight.targetBmi ? String(weight.targetBmi) : '');
+    setGoalModalOpen(true);
+  }, [weight.targetBmi]);
+
+  const handleSaveGoal = useCallback(() => {
+    const v = Number(goalInput);
+    if (v >= 10 && v <= 80) {
+      saveHealthGoal(v)
+        .then((response) => {
+          setWeight((prev) => ({ ...prev, targetBmi: response.goal ? Number(response.goal.target_bmi) : null }));
+          setGoalModalOpen(false);
+        })
+        .catch((error: any) => {
+          if (error?.error) {
+            const errorMsg = typeof error.error === 'string' 
+              ? error.error 
+              : error.error.message || "Failed to save health goal.";
+            toast.error(errorMsg);
+          } else {
+            toast.error(error?.message || "Failed to save health goal.");
+          }
+        });
+    } else {
+      toast.error("Please enter a valid target BMI between 10 and 80.");
+    }
+  }, [goalInput]);
+
+  const handleSaveLogWeight = useCallback(async (v: number) => {
+    try {
+      await logWeight(v);
+      const [history, profile] = await Promise.all([
+        getVitalsHistory(),
+        profileService.getPatientProfile()
+      ]);
+      const priorityList = profile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
+      setWeight((prev) => buildWeightData(history, prev, priorityList));
+    } catch (error: any) {
+      if (error?.error) {
+        const errorMsg = typeof error.error === 'string' 
+          ? error.error 
+          : error.error.message || "Failed to log weight.";
+        toast.error(errorMsg);
+      } else {
+        toast.error(error?.message || "Failed to log weight.");
+      }
+    }
+  }, []);
+
+  const handleSavePriority = useCallback(async (priorityList: string[]) => {
+    if (!patientProfile?.id) return;
+    try {
+      await updatePatientProfile({
+        phone: patientProfile.phone || '',
+        date_of_birth: patientProfile.date_of_birth || '',
+        address: patientProfile.address || '',
+        address_line_2: patientProfile.address_line_2 || '',
+        city: patientProfile.city || '',
+        state: patientProfile.state || '',
+        zip_code: patientProfile.zip_code || '',
+        sex: (patientProfile.sex as any) || 'Male',
+        allergies: patientProfile.allergies || '',
+        medical_conditions: patientProfile.medical_conditions || '',
+        self_reported_meds: patientProfile.self_reported_meds || '',
+        vitals_source_priority: priorityList,
+      });
+      const history = await getVitalsHistory();
+      setWeight((prev) => buildWeightData(history, prev, priorityList));
+    } catch (error: any) {
+      console.error("Failed to save priority", error);
+      if (error?.error) {
+        const errorMsg = typeof error.error === 'string' 
+          ? error.error 
+          : error.error.message || "Failed to save data source priority.";
+        toast.error(errorMsg);
+      } else {
+        toast.error(error?.message || "Failed to save data source priority.");
+      }
+    }
+  }, [patientProfile, updatePatientProfile]);
+
+  /* ─── Consent (from non-review / "Before you connect") ─── */
+  const handleAgreeConsent = useCallback(() => {
+    setLoading(true);
+    updateConsent(true, patientProfile?.id)
+      .then((response) => {
+        if (response.success && response.consent) {
+          setConsent({
+            given: response.consent.consent_granted,
+            date: response.consent.updated_at
+              ? new Date(response.consent.updated_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : null,
+          });
+        }
+        setConsentOpen(false);
+        // Connect the pending provider
+        const pendingId = (window as any).__pendingProvider;
+        if (pendingId) {
+          (window as any).__pendingProvider = null;
+          handleConnect(pendingId);
+        }
+      })
+      .catch((error: any) => {
+        toast.error(ErrorUtils.getErrorMessage(error, 'You are not allowed to connect wearables at this time.'));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [patientProfile?.id, handleConnect]);
+
+  /* ─── Delete Data ─── */
+  const handleConfirmDeleteData = useCallback(() => {
+    setLoading(true);
+    deleteHealthData(true, patientProfile?.id, "User requested delete from patient portal")
+      .then(() => {
+        setConnections([]);
+        setDeviceConnected(false);
+        setConsent({ given: false, date: null });
+        setDeviceMetrics({ ...DEVICE_METRICS_DEFAULT });
+        setWeight({ ...WEIGHT_DEFAULT });
+        setDeleteDataOpen(false);
+      })
+      .catch((error: any) => {
+        if (error?.error) {
+          const errorMsg = typeof error.error === 'string' 
+            ? error.error 
+            : error.error.message || "Failed to delete health data.";
+          toast.error(errorMsg);
+        } else {
+          toast.error(error?.message || "Failed to delete health data.");
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [patientProfile?.id]);
+
+  return (
+    <div className="pg" id="pg-devices" aria-busy={loading}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <p className="km-page-title" style={{ fontFamily: "'Playfair Display', serif", fontSize: 31, fontWeight: 600, letterSpacing: '-0.5px', marginBottom: 4 }}>Devices</p>
+          <p className="km-page-sub" style={{ fontSize: 13.5, color: 'var(--km-tm)', marginBottom: 0 }}>
+            Connect a wearable to share your health data with your care team
+            <span className="badge bn" style={{ fontSize: 10, verticalAlign: 'middle', marginLeft: 4, padding: '3px 9px', borderRadius: 20, background: 'var(--km-s3)', color: 'var(--km-t2)', fontWeight: 700 }}>Live data</span>
+          </p>
+        </div>
+        <button
+          onClick={() => setPriorityModalOpen(true)}
+          style={{
+            fontSize: 12.5,
+            padding: '8px 14px',
+            background: 'var(--km-s1)',
+            color: 'var(--km-t)',
+            border: '1px solid var(--km-b)',
+            borderRadius: 10,
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginTop: 4,
+          }}
+        >
+          Data Sources Priority
+        </button>
+      </div>
+      {initialLoading ? <DevicesSkeleton /> : <>
+        {deviceConnected ? (
+          <ConnectedState
+            connections={connections}
+            allowedProviders={allowedProviders}
+            onDisconnect={handleDisconnect}
+            onReconnect={handleReconnect}
+            onConnectAnother={() => { setPickerCat('all'); setPickerQuery(''); setPickerOpen(true); }}
+            onRefreshStatus={handleRefreshStatus}
+            syncError={connectionSyncError}
+          />
+        ) : (
+          <ConnectState
+            allowedProviders={allowedProviders}
+            devCat={devCat}
+            devQuery={devQuery}
+            onSetCategory={setDevCat}
+            onSearchChange={setDevQuery}
+            onConnect={handleConnect}
+          />
+        )}
+        <TelemetryDashboard 
+          deviceMetrics={deviceMetrics} 
+          weight={weight} 
+          onOpenGoalModal={handleOpenGoal}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange} 
+        />
+        {deviceConnected && <DataPrivacyCard consent={consent} onOpenConsent={() => { setConsentReviewOnly(true); setConsentOpen(true); }} onOpenDeleteData={() => setDeleteDataOpen(true)} />}
+      </>}
+      <DeviceModals
+        pickerOpen={pickerOpen}
+        setPickerOpen={setPickerOpen}
+        pickerCat={pickerCat}
+        setPickerCat={setPickerCat}
+        pickerQuery={pickerQuery}
+        setPickerQuery={setPickerQuery}
+        allowedProviders={allowedProviders}
+        onConnect={handleConnect}
+        goalModalOpen={bmiEnhancementsEnabled && goalModalOpen}
+        setGoalModalOpen={setGoalModalOpen}
+        goalInput={goalInput}
+        setGoalInput={setGoalInput}
+        weight={weight}
+        onSaveGoal={handleSaveGoal}
+        logWeightOpen={logWeightOpen}
+        setLogWeightOpen={setLogWeightOpen}
+        onSaveLogWeight={handleSaveLogWeight}
+        consentOpen={consentOpen}
+        setConsentOpen={setConsentOpen}
+        consentReviewOnly={consentReviewOnly}
+        onAgreeConsent={handleAgreeConsent}
+        deleteDataOpen={deleteDataOpen}
+        setDeleteDataOpen={setDeleteDataOpen}
+        onConfirmDeleteData={handleConfirmDeleteData}
+        linkOpen={linkOpen}
+        linkProvider={linkProvider}
+        linkErrorOpen={linkErrorOpen}
+        setLinkErrorOpen={setLinkErrorOpen}
+        linkErrorMsg={linkErrorMsg}
+        priorityModalOpen={priorityModalOpen}
+        setPriorityModalOpen={setPriorityModalOpen}
+        onSavePriority={handleSavePriority}
+        initialPriority={patientProfile?.vitals_source_priority ?? null}
+      />
+    </div>
+  );
+}

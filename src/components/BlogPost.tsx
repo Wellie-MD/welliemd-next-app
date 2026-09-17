@@ -2,10 +2,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Calendar, Clock, Bookmark, Heart, AlertCircle } from "lucide-react";
 import { resourcesApi, type BlogResource } from "@/features/resources/api";
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 export default function BlogPost() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
   const [post, setPost] = useState<BlogResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function BlogPost() {
   }, [id]);
 
   const handleToggleLike = async () => {
-    if (!post) return;
+    if (isImpersonated || !post) return;
     try {
       const result = await resourcesApi.toggleLike(post.id);
       setIsLiked(result.status === 'liked');
@@ -45,7 +47,7 @@ export default function BlogPost() {
   };
 
   const handleToggleBookmark = async () => {
-    if (!post) return;
+    if (isImpersonated || !post) return;
     try {
       const result = await resourcesApi.toggleBookmark(post.id);
       setIsBookmarked(result.status === 'added');
@@ -144,15 +146,17 @@ export default function BlogPost() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 className={`km-btn ${isLiked ? 'km-btn-primary' : 'km-btn-outline'}`}
-                style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', borderRadius: '50%' }}
+                style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', borderRadius: '50%', opacity: isImpersonated ? 0.5 : 1, cursor: isImpersonated ? 'not-allowed' : 'pointer' }}
                 onClick={handleToggleLike}
+                disabled={isImpersonated}
               >
                 <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
               </button>
               <button
                 className={`km-btn ${isBookmarked ? 'km-btn-primary' : 'km-btn-outline'}`}
-                style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', borderRadius: '50%' }}
+                style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', borderRadius: '50%', opacity: isImpersonated ? 0.5 : 1, cursor: isImpersonated ? 'not-allowed' : 'pointer' }}
                 onClick={handleToggleBookmark}
+                disabled={isImpersonated}
               >
                 <Bookmark size={16} fill={isBookmarked ? "currentColor" : "none"} />
               </button>

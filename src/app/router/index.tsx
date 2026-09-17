@@ -5,6 +5,7 @@ import { ProtectedRoute } from './protected-route';
 import { LoadingSkeleton } from '@/components/common/loading-skeleton';
 import DashboardLayout from '@/layouts/dashboard-layout';
 import Dashboard from '@/components/Dashboard';
+import { Phase2CapabilityGate, Phase2Gate } from '@/features/phase2/Phase2Flags';
 
 const SignIn = React.lazy(() => import('@/pages/auth/SignIn'));
 const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
@@ -24,8 +25,11 @@ const PaymentMethodsPage = React.lazy(() => import('@/components/payments/Paymen
 const Blog = React.lazy(() => import('@/components/Blog'));
 const BlogPost = React.lazy(() => import('@/components/BlogPost'));
 const Labs = React.lazy(() => import('@/features/labs/LabsPage'));
+const Devices = React.lazy(() => import('@/features/devices/DevicesPage'));
 const ExploreTreatments = React.lazy(() => import('@/components/ExploreTreatments'));
 const Help = React.lazy(() => import('@/components/Help'));
+const SuperAdminAccessLaunch = React.lazy(() => import('@/components/SuperAdminAccessLaunch'));
+
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -45,6 +49,7 @@ export const AppRouter: React.FC = () => {
           <Route path="/auth/signin" element={<SignIn />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
+          <Route path="/superadmin-access/launch" element={<SuperAdminAccessLaunch />} />
           <Route
             path="/follow-up/:sessionId"
             element={
@@ -78,8 +83,21 @@ export const AppRouter: React.FC = () => {
             <Route path="orders/:orderId" element={<OrderDetail />} />
             <Route path="blog" element={<Blog />} />
             <Route path="blog/:id" element={<BlogPost />} />
-            <Route path="labs" element={<Labs />} />
-            <Route path="explore" element={<ExploreTreatments />} />
+            <Route path="labs" element={
+              <Phase2Gate milestone="milestone_1" fallback={<Navigate to="/dashboard" replace />}>
+                <Labs />
+              </Phase2Gate>
+            } />
+            <Route path="devices" element={
+              <Phase2CapabilityGate capability="junction_labs" fallback={<Navigate to="/dashboard" replace />}>
+                <Devices />
+              </Phase2CapabilityGate>
+            } />
+            <Route path="explore" element={
+              <Phase2Gate milestone="milestone_3" fallback={<Navigate to="/dashboard" replace />}>
+                <ExploreTreatments />
+              </Phase2Gate>
+            } />
             
             {/* Settings and Help pages */}
             <Route path="settings" element={<Settings />} />

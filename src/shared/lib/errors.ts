@@ -152,6 +152,34 @@ export class ServerError extends AppError {
   }
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const messageFromRecord = (value: Record<string, unknown>): string | null => {
+  if (typeof value.message === 'string' && value.message.trim()) {
+    return value.message;
+  }
+
+  if (typeof value.detail === 'string' && value.detail.trim()) {
+    return value.detail;
+  }
+
+  if (typeof value.error === 'string' && value.error.trim()) {
+    return value.error;
+  }
+
+  if (isRecord(value.error)) {
+    const nestedErrorMessage = messageFromRecord(value.error);
+    if (nestedErrorMessage) return nestedErrorMessage;
+  }
+
+  if (isRecord(value.response) && isRecord(value.response.data)) {
+    return messageFromRecord(value.response.data);
+  }
+
+  return null;
+};
+
 /**
  * Error utility functions
  */
@@ -173,7 +201,7 @@ export const ErrorUtils = {
   /**
    * Extract error message from unknown error
    */
-  getErrorMessage: (error: unknown): string => {
+  getErrorMessage: (error: unknown, fallback = 'An unknown error occurred'): string => {
     if (ErrorUtils.isAppError(error)) {
       return error.message;
     }
@@ -185,8 +213,12 @@ export const ErrorUtils = {
     if (typeof error === 'string') {
       return error;
     }
+
+    if (isRecord(error)) {
+      return messageFromRecord(error) || fallback;
+    }
     
-    return 'An unknown error occurred';
+    return fallback;
   },
 
   /**

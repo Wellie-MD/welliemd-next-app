@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
+import { useAuthStore } from "@/features/auth/store/auth.store";
 
 /** Get the display name for a treatment — prefer template name over visit_type slug */
 function getTreatmentName(visit: Visit): string {
@@ -59,6 +60,7 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
 
 export default function Appointments() {
   const navigate = useNavigate();
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +85,7 @@ export default function Appointments() {
   };
 
   const handleResume = async (visitId: string) => {
+    if (isImpersonated) return;
     setResumingId(visitId);
     try {
       const result = await VisitService.resumeQuestionnaire(visitId);
@@ -279,8 +282,10 @@ export default function Appointments() {
                           </div>
                           <button
                             className="km-btn-large-grey"
-                            disabled={resumingId === visit.id}
+                            disabled={resumingId === visit.id || isImpersonated}
+                            style={{ opacity: isImpersonated ? 0.5 : 1, cursor: isImpersonated ? 'not-allowed' : 'pointer' }}
                             onClick={() => {
+                              if (isImpersonated) return;
                               if (checkoutPending && visit.checkout_url) {
                                 window.location.assign(visit.checkout_url);
                                 return;

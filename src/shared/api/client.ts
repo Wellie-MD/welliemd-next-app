@@ -2,6 +2,11 @@ import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestCo
 
 import { env, debugLog } from '@/config/env';
 import { ApiErrorCode, ApiResponse, HttpStatus } from './types';
+import {
+  clearActiveSuperAdminSession,
+  getActiveSuperAdminSession,
+  setActiveSuperAdminSession,
+} from './superadmin-session';
 
 // Import the token manager we created
 import { tokenManager } from '@/features/auth/services/token-manager';
@@ -77,7 +82,12 @@ const normalizeUrl = (url: string = ''): string => {
   return url.endsWith('/') ? url : `${url}/`;
 };
 
-const getPersistedAccessToken = (): string | null => {
+const getPersistedSuperAdminSession = (): { apiBaseUrl: string } | null => {
+  const activeSession = getActiveSuperAdminSession();
+  if (activeSession) {
+    return activeSession;
+  }
+
   if (typeof window === 'undefined') {
     return null;
   }
@@ -89,15 +99,21 @@ const getPersistedAccessToken = (): string | null => {
     }
 
     const parsed = JSON.parse(raw);
-    const accessToken = parsed?.state?.tokens?.accessToken;
-    return typeof accessToken === 'string' && accessToken.trim() ? accessToken : null;
+    const apiBaseUrl = parsed?.state?.superAdminApiBaseUrl;
+    if (typeof apiBaseUrl === 'string' && apiBaseUrl.trim()) {
+      const session = { apiBaseUrl };
+      setActiveSuperAdminSession(session);
+      return session;
+    }
+    return null;
   } catch (error) {
-    debugLog('Failed to read persisted auth token:', error);
+    debugLog('Failed to read persisted Super Admin session:', error);
     return null;
   }
 };
 
 const clearPersistedAuthStore = (): void => {
+  clearActiveSuperAdminSession();
   if (typeof window === 'undefined') return;
   try {
     // Zustand persist uses the key `auth-store` (see auth.store.ts).
@@ -128,11 +144,22 @@ const createApiClient = (): AxiosInstance => {
       }
       // Skip auth for certain endpoints
       if (config.skipAuth) {
+        config.headers = config.headers || {};
+        config.headers['X-Wellie-Portal'] = 'patient';
+        return config;
+      }
+
+      const superAdminSession = getPersistedSuperAdminSession();
+      if (superAdminSession) {
+        config.baseURL = superAdminSession.apiBaseUrl;
+        config.headers = config.headers || {};
+        config.headers['X-Wellie-Portal'] = 'patient';
+        config.headers['X-Request-ID'] = crypto.randomUUID();
         return config;
       }
 
       // Add access token if available
-      const accessToken = tokenManager.getAccessToken() || getPersistedAccessToken();
+      const accessToken = tokenManager.getAccessToken();
       if (accessToken) {
         tokenManager.setAccessToken(accessToken);
         config.headers = config.headers || {};
@@ -141,6 +168,7 @@ const createApiClient = (): AxiosInstance => {
 
       // Add request ID for tracing
       config.headers = config.headers || {};
+      config.headers['X-Wellie-Portal'] = 'patient';
       config.headers['X-Request-ID'] = crypto.randomUUID();
 
       debugLog('API Request:', {
@@ -162,6 +190,26 @@ const createApiClient = (): AxiosInstance => {
     (response: AxiosResponse) => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+      const superAdminSession = getPersistedSuperAdminSession();
+
+      if ((error.response?.status === 401 || error.response?.status === 403) && superAdminSession) {
+        const isAuthMeEndpoint = originalRequest?.url?.includes('/auth/me/');
+        if (!isAuthMeEndpoint) {
+          return Promise.reject(transformAxiosError(error));
+        }
+
+        clearPersistedAuthStore();
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+        const normalizedPath = pathname.replace(/\/+$/, '');
+        const isOnSignIn = normalizedPath === '/auth/signin';
+
+        if (!isOnSignIn && !didRedirectToSignIn) {
+          didRedirectToSignIn = true;
+          window.location.href = '/auth/signin';
+        }
+
+        return Promise.reject(transformAxiosError(error));
+      }
 
       // If the error is 401 and we haven't already tried to refresh the token
       if (error.response?.status === 401 && !originalRequest._retry) {

@@ -7,6 +7,7 @@
  * - Get follow-up status
  */
 import { apiClient } from '@/shared/api/client';
+import { env } from '@/config/env';
 
 export interface FollowUp {
     id: string;
@@ -30,6 +31,23 @@ export interface FollowUpStartResponse {
     success: boolean;
     follow_up_url: string;
     error?: string;
+}
+
+function enrichFollowUpUrl(rawUrl: string): string {
+    if (!rawUrl) {
+        return rawUrl;
+    }
+
+    try {
+        const url = new URL(rawUrl, window.location.origin);
+        if (!url.searchParams.get('api_base_url') && env.VITE_API_BASE_URL) {
+            url.searchParams.set('api_base_url', env.VITE_API_BASE_URL.replace(/\/api\/v1\/?$/, ''));
+        }
+        return url.toString();
+    } catch (error) {
+        console.warn('Failed to enrich follow-up URL:', error);
+        return rawUrl;
+    }
 }
 
 /**
@@ -79,7 +97,10 @@ export async function startFollowUp(followUpId: string): Promise<FollowUpStartRe
             `/questionnaires/follow-ups/${followUpId}/start_portal/`
         );
 
-        return response.data;
+        return {
+            ...response.data,
+            follow_up_url: enrichFollowUpUrl(response.data.follow_up_url),
+        };
     } catch (error: any) {
         console.error('Error starting follow-up:', error);
         return {

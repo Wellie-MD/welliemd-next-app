@@ -28,6 +28,8 @@ export const API_CONFIG = {
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login/',
+    IMPERSONATE_LOGIN: '/auth/impersonate-login/',
+    END_IMPERSONATION: '/auth/end-impersonation/',
     LOGOUT: '/auth/logout/',
     REGISTER: '/auth/register/',
     ME: '/auth/me/',
@@ -48,6 +50,7 @@ export const API_ENDPOINTS = {
       MY_PROFILE: '/medical/patients/my_profile/',
       CREATE_PROFILE: '/medical/patients/create_profile/',
       UPDATE_PROFILE: '/medical/patients/update_profile/',
+      SAVE_VITALS: '/medical/patients/save_vitals/',
     },
   },
   MESSAGES: {
@@ -57,8 +60,11 @@ export const API_ENDPOINTS = {
   PAYMENTS: {
     CONFIG: "/questionnaires/frontend/payment-config/",
     STRIPE_PAYMENT_METHODS: "/stripe/payment-methods/",
-    NMI_PAYMENT_METHODS: "/nmi/payment-methods/",
+    NMI_PAYMENT_METHODS: "/payments/payment-methods/",
     AUTHNET_PAYMENT_METHODS: "/authorizenet/payment-methods/",
+  },
+  TREATMENTS: {
+    AVAILABLE: '/treatments/available/',
   },
   RESOURCES: {
     LIST: "/patient/resources/",

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock } from 'lucide-react';
 import { getPatientFollowUps } from './api';
 import type { FollowUp } from './api';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 interface FollowUpListProps {
   questionnaireAppUrl?: string; // We'll keep this in case needed for routing later
@@ -11,6 +12,7 @@ interface FollowUpListProps {
 
 export function FollowUpList({ onStartFollowUp }: FollowUpListProps) {
   const navigate = useNavigate();
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,6 +125,8 @@ export function FollowUpList({ onStartFollowUp }: FollowUpListProps) {
             <button 
               className={inProgress ? 'km-qbtn km-qbtn-cont' : 'km-qbtn'}
               onClick={() => handleStart(f)}
+              disabled={isImpersonated}
+              style={{ opacity: isImpersonated ? 0.5 : 1, cursor: isImpersonated ? 'not-allowed' : 'pointer' }}
             >
               {inProgress ? 'Continue' : 'Start Questionnaire'}
             </button>

@@ -11,6 +11,7 @@ const envSchema = z.object({
   VITE_ENABLE_FEATURE_FLAGS: z.coerce.boolean().default(false),
   VITE_ENABLE_ANALYTICS: z.coerce.boolean().default(false),
   VITE_ENABLE_ERROR_REPORTING: z.coerce.boolean().default(false),
+  VITE_ENABLE_INTERCOM: z.coerce.boolean().default(false),
   VITE_APP_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   VITE_APP_VERSION: z.string().default('1.0.0'),
   VITE_APP_NAME: z.string().default('WellieMD'),

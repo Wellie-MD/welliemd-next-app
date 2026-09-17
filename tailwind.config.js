@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+// Force Tailwind rebuild
 import { designTokens } from './src/theme/tokens';
 
 export default {

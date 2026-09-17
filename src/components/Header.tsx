@@ -3,6 +3,7 @@ import { Sun, Moon } from "lucide-react";
 import { UserProfileDropdown } from "./common/user-profile-dropdown";
 import { NotificationsDropdown } from "./common/notifications-dropdown";
 import { useAuth } from "@/features/auth";
+import { useAuthStore } from "@/features/auth/store/auth.store";
 import { useDropdown } from "@/contexts/DropdownContext";
 import { env } from "@/config/env";
 import { useBranding } from "@/features/branding/hooks/useBranding";
@@ -17,6 +18,8 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = false, isMobile = false }: HeaderProps) {
   const { isAuthenticated } = useAuth();
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
+  const bannerH = isImpersonated ? 44 : 0;
   const { closeAll } = useDropdown();
   const { logos } = useBranding();
   const { theme, setTheme } = useTheme();
@@ -37,7 +40,7 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
     <header
       style={{
         position: "fixed",
-        top: 0,
+        top: bannerH,
         zIndex: 100,
         width: "100%",
         background: isDark ? "rgba(10,10,10,0.9)" : "rgba(244,242,238,0.92)",

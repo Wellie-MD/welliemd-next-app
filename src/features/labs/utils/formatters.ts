@@ -1,0 +1,21 @@
+/**
+ * Simple display formatters for the labs feature.
+ */
+
+export function formatDate(dateString: string | null): string {
+  if (!dateString) return 'N/A';
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+export function formatMoney(value?: { amount: string } | null): string {
+  const amount = Number.parseFloat(value?.amount || '0');
+  return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : '$0.00';
+}
