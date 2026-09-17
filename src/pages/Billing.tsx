@@ -350,6 +350,14 @@ export default function Billing() {
     const requestedTotalAmount = requested?.prescribed_differs
       ? requested?.original_requested_product_total
       : requested?.product_total;
+    const requestedProducts = requested?.products?.length
+      ? requested.products
+      : [{
+          product_name: requestedLabel,
+          medication_amount: requestedMedicationAmount || "0.00",
+          shipping_amount: requestedShippingAmount || "0.00",
+          product_total: requestedTotalAmount || "0.00",
+        }];
     const splitCaptureAdjustmentMirrorsBase = Boolean(
       requested?.prescribed_differs &&
       adjustments.some((adjustment) => {
@@ -834,20 +842,34 @@ export default function Billing() {
                   </table>
                 </section>
               )}
-              {!treatmentPrescription && (
-                <section className="border-b px-5 py-4">
+              {!treatmentPrescription && requestedProducts.map((product, index) => (
+                <section key={`${product.product_name}-${index}`} className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Requested · {requestedLabel}
+                    Requested · {product.product_name}
                   </h4>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Amount authorized at checkout — captured after prescription
-                  </p>
+                  {index === 0 && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Amount authorized at checkout — captured after prescription
+                    </p>
+                  )}
                   {renderCostTable(
-                    requestedMedicationAmount,
-                    requestedShippingAmount,
-                    requestedTotalAmount,
-                    Number(requested?.consultation_amount || 0) === 0,
-                    requestedLabel,
+                    product.medication_amount,
+                    product.shipping_amount,
+                    product.product_total,
+                    index === 0 && Number(requested?.consultation_amount || 0) === 0,
+                    product.product_name,
+                    "Total"
+                  )}
+                </section>
+              ))}
+              {!treatmentPrescription && requestedProducts.length > 1 && (
+                <section className="border-b px-5 py-4">
+                  {renderCostTable(
+                    requested?.medication_amount,
+                    requested?.shipping_amount,
+                    requested?.product_total,
+                    false,
+                    "Medication",
                     "Authorized total"
                   )}
                 </section>

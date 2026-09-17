@@ -152,6 +152,12 @@ export interface B2BInvoice {
   authorization_next_retry_at?: string | null;
   requested_breakdown?: {
     product_name?: string;
+    products?: Array<{
+      product_name: string;
+      medication_amount: string;
+      shipping_amount: string;
+      product_total: string;
+    }>;
     medication_amount?: string;
     shipping_amount?: string;
     product_total?: string;
