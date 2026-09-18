@@ -1,13 +1,20 @@
 import React from "react"
 import { Order } from "@/api/ordersApi"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Truck, ExternalLink } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Building2, Truck, ExternalLink, FileText, Loader2 } from "lucide-react"
 
 interface OrderPharmacyCardProps {
   order: Order
+  rxPdfLoading?: boolean
+  onViewRxPdf?: () => void
 }
 
-export const OrderPharmacyCard: React.FC<OrderPharmacyCardProps> = ({ order }) => {
+export const OrderPharmacyCard: React.FC<OrderPharmacyCardProps> = ({
+  order,
+  rxPdfLoading = false,
+  onViewRxPdf,
+}) => {
   const pharmacyName = order.pharmacy_name || order.pharmacy_display
   const shipmentLines = (order.line_items || []).filter(
     (line) => line.fulfilment_status || line.shipment_status || line.tracking_number || line.shipment_provider
@@ -52,6 +59,26 @@ export const OrderPharmacyCard: React.FC<OrderPharmacyCardProps> = ({ order }) =
             <span>{carriers.length ? carriers.join(", ") : "Not recorded"}</span>
           </span>
         </div>
+
+        {order.has_rx_pdf && onViewRxPdf && (
+          <div className="flex justify-between items-center text-muted-foreground gap-2">
+            <span className="text-[11px] uppercase tracking-wider font-semibold flex-shrink-0">Prescription PDF:</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[11px] h-7 border-slate-200 text-slate-700 hover:bg-slate-50 dark:text-slate-200"
+              onClick={onViewRxPdf}
+              disabled={rxPdfLoading}
+            >
+              {rxPdfLoading ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <FileText className="h-3 w-3 mr-1" />
+              )}
+              View PDF
+            </Button>
+          </div>
+        )}
 
         {trackingLines.map((line) => (
           <div

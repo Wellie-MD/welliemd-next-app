@@ -142,6 +142,7 @@ export default function OrderDetail() {
   const [sendCheckoutLinkLoading, setSendCheckoutLinkLoading] = useState(false)
   const [resendReceiptLoading, setResendReceiptLoading] = useState(false)
   const [downloadReceiptLoading, setDownloadReceiptLoading] = useState(false)
+  const [rxPdfLoading, setRxPdfLoading] = useState(false)
   const [showPrescriptionHistory, setShowPrescriptionHistory] = useState(false)
   const [prescriptionHistory, setPrescriptionHistory] = useState<{
     patient_name?: string | null
@@ -295,6 +296,29 @@ export default function OrderDetail() {
       toast({ title: message, variant: "destructive" })
     } finally {
       setDownloadReceiptLoading(false)
+    }
+  }
+
+  const handleViewRxPdf = async () => {
+    if (!order?.id || rxPdfLoading) return
+
+    try {
+      setRxPdfLoading(true)
+      // Fetched fresh on every click, never cached -- the presigned URL is short-lived.
+      const response = await ordersApi.fetchRxPdfUrl(order.id)
+      window.open(response.url, "_blank", "noopener,noreferrer")
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to open prescription PDF."
+      toast({
+        title: message,
+        variant: "destructive",
+      })
+    } finally {
+      setRxPdfLoading(false)
     }
   }
 
@@ -1847,7 +1871,11 @@ export default function OrderDetail() {
           />
 
           {/* Pharmacy & Fulfillment Card */}
-          <OrderPharmacyCard order={order} />
+          <OrderPharmacyCard
+            order={order}
+            rxPdfLoading={rxPdfLoading}
+            onViewRxPdf={handleViewRxPdf}
+          />
 
           {/* Payment Card & Actions */}
           <OrderPaymentCard
