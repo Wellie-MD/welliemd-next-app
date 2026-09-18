@@ -313,6 +313,10 @@ export default function Billing() {
     const treatmentPrescription = invoice.treatment_prescription;
     const adjustments = invoice.revision_adjustments || [];
     const rawPrescriptionEvents = invoice.prescription_events || [];
+    const hasPrescriptionEvidence = Boolean(treatmentPrescription) || rawPrescriptionEvents.some((event) => {
+      const name = (event.name || "").trim().toLowerCase();
+      return Boolean(name) && name !== "revised prescription" && name !== "original prescription";
+    });
     const summary = invoice.adjustment_summary;
     const netAdjustment = Number(summary?.net_adjustment || 0);
     const requestedProductName = requested?.product_name || "";
@@ -371,7 +375,10 @@ export default function Billing() {
       })
     );
     const showImplicitBaseRevision = Boolean(
-      requested?.prescribed_differs && adjustments.length === 0 && !splitCaptureAdjustmentMirrorsBase
+      hasPrescriptionEvidence &&
+      requested?.prescribed_differs &&
+      adjustments.length === 0 &&
+      !splitCaptureAdjustmentMirrorsBase
     );
     type RevisionAdjustment = NonNullable<B2BInvoice["revision_adjustments"]>[number];
     const normalizeProductName = (value?: string) => (value || "").trim().toLowerCase();
@@ -400,6 +407,7 @@ export default function Billing() {
       (adjustment) => revisionSortNumber(adjustment) === 0
     );
     const basePrescriptionEvent: B2BInvoicePrescriptionEvent | null =
+      hasPrescriptionEvidence &&
       sortedConcreteAdjustments.length > 0 &&
       !hasAdjustmentInitial &&
       Boolean(requested?.product_name) &&
@@ -425,29 +433,31 @@ export default function Billing() {
             ],
           }
         : null;
-    const adjustmentBackedEvents = [
-      ...(basePrescriptionEvent ? [basePrescriptionEvent] : []),
-      ...sortedConcreteAdjustments.map((adjustment): B2BInvoicePrescriptionEvent => ({
-        name: adjustment.product_name,
-        event_kind: revisionSortNumber(adjustment) === 0 ? "initial_prescription" : "revision",
-        revision_number: revisionSortNumber(adjustment) === 0 ? null : revisionSortNumber(adjustment),
-        occurred_at: adjustment.created_at || null,
-        webhook_event_id: "",
-        medication_amount: adjustment.medication_amount,
-        shipping_amount: adjustment.shipping_amount,
-        product_total: adjustment.product_total,
-        patient_total: adjustment.product_total,
-        items: [
-          {
+    const adjustmentBackedEvents = hasPrescriptionEvidence
+      ? [
+          ...(basePrescriptionEvent ? [basePrescriptionEvent] : []),
+          ...sortedConcreteAdjustments.map((adjustment): B2BInvoicePrescriptionEvent => ({
             name: adjustment.product_name,
+            event_kind: revisionSortNumber(adjustment) === 0 ? "initial_prescription" : "revision",
+            revision_number: revisionSortNumber(adjustment) === 0 ? null : revisionSortNumber(adjustment),
+            occurred_at: adjustment.created_at || null,
+            webhook_event_id: "",
             medication_amount: adjustment.medication_amount,
             shipping_amount: adjustment.shipping_amount,
             product_total: adjustment.product_total,
-            patient_amount: adjustment.product_total,
-          },
-        ],
-      })),
-    ];
+            patient_total: adjustment.product_total,
+            items: [
+              {
+                name: adjustment.product_name,
+                medication_amount: adjustment.medication_amount,
+                shipping_amount: adjustment.shipping_amount,
+                product_total: adjustment.product_total,
+                patient_amount: adjustment.product_total,
+              },
+            ],
+          })),
+        ]
+      : [];
     const rawHasPositiveEvent = rawPrescriptionEvents.some((event) => moneyNumber(event.product_total) > 0);
     const prescriptionEvents = adjustmentBackedEvents.length > 0
       ? adjustmentBackedEvents
@@ -519,6 +529,7 @@ export default function Billing() {
         })
       : adjustments;
     const firstFallbackIsInitialPrescription = Boolean(
+      hasPrescriptionEvidence &&
       prescriptionEvents.length === 0 &&
       fallbackAdjustments.length > 0 &&
       fallbackAdjustments[0]?.kind === "no_charge_revision" &&
