@@ -113,6 +113,7 @@ export function DoseMappingFormModal({
         title: "Error",
         description:
           error.response?.data?.detail ||
+          error.response?.data?.error ||
           error.response?.data?.patient_label?.[0] ||
           "Failed to save dose mapping",
         variant: "destructive",

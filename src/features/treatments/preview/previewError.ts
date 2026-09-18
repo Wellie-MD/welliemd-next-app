@@ -1,0 +1,67 @@
+type ErrorDetails = string | string[] | Record<string, unknown>;
+
+const flattenDetails = (details: unknown): string[] => {
+  if (typeof details === "string") return [details];
+  if (Array.isArray(details)) return details.flatMap(flattenDetails);
+  if (details && typeof details === "object") {
+    return Object.values(details as Record<string, unknown>).flatMap(flattenDetails);
+  }
+  return [];
+};
+
+export const getPreviewErrorMessage = (error: unknown) => {
+  const err = error as {
+    response?: {
+      status?: number;
+      data?: { details?: ErrorDetails; detail?: string; error?: string } | string;
+    };
+    message?: string;
+  };
+
+  let rawData = err?.response?.data;
+  if (typeof rawData === "string") {
+    try {
+      rawData = JSON.parse(rawData);
+    } catch {
+      // Not JSON string
+    }
+  }
+
+  const dataObj = typeof rawData === "object" && rawData !== null ? rawData : {};
+  const messages = flattenDetails(dataObj.details).filter((message) =>
+    message.trim(),
+  );
+  const hasRuleContract = Boolean(
+    dataObj.details &&
+    typeof dataObj.details === "object" &&
+    !Array.isArray(dataObj.details) &&
+    "rule_contract" in dataObj.details,
+  );
+
+  if (messages.length) {
+    if (hasRuleContract) return messages.join(" ");
+    // The API provides the field-level reason (for example, an invalid section
+    // scope). Preserve it rather than replacing it with the HTTP 409 status or
+    // advice for a different configuration area.
+    return messages.join(" ");
+  }
+
+  if (typeof dataObj.detail === "string" && dataObj.detail.trim()) {
+    return dataObj.detail;
+  }
+
+  if (dataObj.error === "preview_configuration_invalid" || err?.response?.status === 409) {
+    return "The questionnaire preview is blocked by a configuration conflict. Resolve the reported configuration issue, then refresh the preview.";
+  }
+
+  if (typeof dataObj.error === "string" && dataObj.error.trim()) {
+    return dataObj.error;
+  }
+
+  const rawMessage = err?.message || "";
+  if (/status code 409/i.test(rawMessage)) {
+    return "The questionnaire preview is blocked by a configuration conflict. Resolve the reported configuration issue, then refresh the preview.";
+  }
+
+  return rawMessage || "The questionnaire preview could not be prepared.";
+};

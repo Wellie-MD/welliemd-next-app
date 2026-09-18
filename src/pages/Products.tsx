@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   X,
@@ -8,6 +9,8 @@ import {
   Users,
   Plus,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Check,
   Pencil,
   Trash2,
@@ -37,8 +40,10 @@ import {
   Dialog,
   DialogContent,
   DialogClose,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { ProductFormModal } from "@/components/products/ProductFormModal";
+import { useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import {
   AssignmentBatch,
   AssignmentPair,
@@ -62,6 +67,13 @@ interface ProductForAssignment {
   rx_drug_form?: string;
   purchase_type?: "one_time" | "subscription";
   created_at?: string;
+  product_type?: "single" | "bundle" | "supply";
+  treatment_type_name?: string | null;
+  treatment_type_is_active?: boolean | null;
+  derived_intake_visit_type?: string | null;
+  derived_followup_visit_type?: string | null;
+  restrict_visit_types?: boolean;
+  allowed_visit_types?: string[];
 }
 
 interface PaginatedProductsResponse {
@@ -84,7 +96,7 @@ interface ApiError {
   };
 }
 
-const PAGE_SIZE = 250;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 type AssignmentOperation = "assign" | "reassign";
 type BulkProgressStatus = "idle" | "running" | "completed" | "partial" | "stopped";
@@ -407,19 +419,19 @@ function FilterSelect({
   const active = value !== "all";
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative w-full" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={`flex min-w-44 items-center justify-between gap-3 rounded-lg border bg-white px-3.5 py-2.5 text-sm outline-none transition-all duration-150 ${
+        className={`flex w-full items-center justify-between gap-2 rounded-lg border bg-white px-3.5 py-2.5 text-xs sm:text-sm outline-none transition-all duration-150 ${
           active
             ? "border-sky-400 text-slate-800 font-semibold"
             : "border-slate-200 text-slate-500 font-normal hover:border-slate-300"
         }`}
       >
-        {current.l}
+        <span className="truncate">{current.l}</span>
         <ChevronDown
-          className={`h-4 w-4 transition-transform duration-150 text-slate-400 ${
+          className={`h-4 w-4 shrink-0 transition-transform duration-150 text-slate-400 ${
             open ? "rotate-180" : ""
           }`}
         />
@@ -436,13 +448,13 @@ function FilterSelect({
                 onChange(it.v);
                 setOpen(false);
               }}
-              className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-sm hover:bg-slate-50 transition-colors ${
+              className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-xs sm:text-sm hover:bg-slate-50 transition-colors ${
                 it.v === value ? "bg-sky-50 text-sky-700 font-semibold" : "text-slate-800"
               }`}
             >
-              {it.l}
+              <span className="truncate">{it.l}</span>
               {it.v === value && (
-                <Check className="h-3.5 w-3.5 text-sky-500" />
+                <Check className="h-3.5 w-3.5 shrink-0 text-sky-500" />
               )}
             </button>
           ))}
@@ -454,6 +466,9 @@ function FilterSelect({
 
 export default function Products() {
   const hasFetchedRef = useRef(false);
+  const openedProductReference = useRef<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const targetProductReference = searchParams.get("product");
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Data states
@@ -465,8 +480,8 @@ export default function Products() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [totalProducts, setTotalProducts] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   // Selection states
   const [selectedProducts, setSelectedProducts] = useState<Set<number>>(
@@ -484,8 +499,32 @@ export default function Products() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [pharmacyFilter, setPharmacyFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [treatmentTypeFilter, setTreatmentTypeFilter] = useState<string>("all");
+  const [visitTypeFilter, setVisitTypeFilter] = useState<string>("all");
   const [productSearch, setProductSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+
+  const { data: treatmentTypes = [] } = useTreatmentTypes();
+  const visitTypeOptions = useMemo(() => {
+    const options = new Set<string>();
+    treatmentTypes.forEach((t) => {
+      if (t.intakeVisitType) options.add(t.intakeVisitType);
+      if (t.followupVisitType) options.add(t.followupVisitType);
+    });
+    if (options.size === 0) {
+      return ["weightloss", "weightlossFollowup", "ED", "EDFollowup", "TRT", "TRTFollowup"];
+    }
+    return Array.from(options);
+  }, [treatmentTypes]);
+
+  const displayedProducts = useMemo(() => {
+    if (visitTypeFilter === "all") return products;
+    return products.filter((p) => {
+      const allowed = p.allowed_visit_types || [];
+      const restricted = p.restrict_visit_types || false;
+      return !restricted || allowed.includes(visitTypeFilter);
+    });
+  }, [products, visitTypeFilter]);
 
   // Modals open state
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -506,15 +545,17 @@ export default function Products() {
   const [lastAssignmentOperation, setLastAssignmentOperation] =
     useState<AssignmentOperation>("assign");
 
-  // Check if more products available
-  const hasMoreProducts = products.length < totalProducts;
+  const totalPages = Math.max(1, Math.ceil(totalProducts / pageSize));
+  const showingStart = totalProducts === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingEnd = Math.min(currentPage * pageSize, totalProducts);
 
   // Fetch products with filters
-  const fetchProducts = useCallback(async (page: number, replace: boolean = false) => {
+  const fetchProducts = useCallback(async (page: number = 1, size: number = pageSize) => {
     try {
+      setLoading(true);
       const params: Record<string, string | number | boolean> = {
         page,
-        page_size: PAGE_SIZE,
+        page_size: size,
         is_admin_product: true,
       };
 
@@ -530,6 +571,9 @@ export default function Products() {
       if (statusFilter !== "all") {
         params.is_active = statusFilter === "active";
       }
+      if (treatmentTypeFilter !== "all") {
+        params.treatment_type = treatmentTypeFilter;
+      }
       if (productSearch.trim()) {
         params.search = productSearch.trim();
       }
@@ -540,7 +584,7 @@ export default function Products() {
       );
 
       const results = response.data.results || [];
-      setProducts((prev) => (replace ? results : [...prev, ...results]));
+      setProducts(results);
       setSelectedProductCache((prev) => {
         const next = new Map(prev);
         results.forEach((product) => next.set(product.id, product));
@@ -555,8 +599,10 @@ export default function Products() {
         description: "Failed to load products",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-  }, [categoryFilter, typeFilter, pharmacyFilter, statusFilter, productSearch]);
+  }, [categoryFilter, typeFilter, pharmacyFilter, statusFilter, treatmentTypeFilter, productSearch, pageSize]);
 
   // Initial load
   useEffect(() => {
@@ -577,7 +623,7 @@ export default function Products() {
         setClients(Array.isArray(clientsData) ? clientsData : []);
 
         // Fetch products on page 1
-        await fetchProducts(1, true);
+        await fetchProducts(1, pageSize);
       } catch (error) {
         console.error("Failed to fetch initial data:", error);
         toast({
@@ -595,32 +641,18 @@ export default function Products() {
       setInitialLoadDone(true);
     };
     init();
-  }, [fetchProducts]);
+  }, [fetchProducts, pageSize]);
 
   // Filter change trigger
   useEffect(() => {
     if (!initialLoadDone) return;
 
     const delayDebounceFn = setTimeout(() => {
-      fetchProducts(1, true);
+      fetchProducts(1, pageSize);
     }, 300); // 300ms debounce for search input
 
     return () => clearTimeout(delayDebounceFn);
-  }, [fetchProducts, initialLoadDone]);
-
-  // Load more handler
-  const handleLoadMore = async () => {
-    if (loadingMore || !hasMoreProducts) return;
-
-    try {
-      setLoadingMore(true);
-      await fetchProducts(currentPage + 1, false);
-    } catch (error) {
-      console.error("Failed to load more products:", error);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  }, [fetchProducts, initialLoadDone, pageSize]);
 
   // Filter clients based on search
   const filteredClients = useMemo(() => {
@@ -738,6 +770,7 @@ export default function Products() {
     setTypeFilter("all");
     setPharmacyFilter("all");
     setStatusFilter("all");
+    setTreatmentTypeFilter("all");
     setProductSearch("");
   };
 
@@ -772,6 +805,56 @@ export default function Products() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (
+      !targetProductReference ||
+      openedProductReference.current === targetProductReference
+    ) {
+      return;
+    }
+
+    const productId = Number(targetProductReference);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      openedProductReference.current = targetProductReference;
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("product");
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
+    openedProductReference.current = targetProductReference;
+    let active = true;
+    productApi
+      .getProduct(productId)
+      .then((product) => {
+        if (!active) return;
+        setSelectedProduct(product as Product);
+        setIsProductModalOpen(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        toast({
+          title: "Product unavailable",
+          description: "The selected product could not be opened.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (!active) return;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("product");
+        setSearchParams(nextParams, { replace: true });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    searchParams,
+    setSearchParams,
+    targetProductReference,
+  ]);
 
   const fetchChangeHistory = useCallback(
     async (product: ProductForAssignment, filter: ChangeHistoryFilter) => {
@@ -970,12 +1053,17 @@ export default function Products() {
           description: `${successCount} assignment pair(s) completed successfully.`,
         });
         clearAllSelections();
+        // Refresh so "needs re-assignment" badges and assignment state reflect the server.
+        await fetchProducts(1, true);
       } else {
         toast({
           title: "Bulk Assignment Completed With Failures",
           description: `${successCount} succeeded, ${failureCount} failed. Review the result dialog for retry options.`,
           variant: "destructive",
         });
+        if (successCount > 0) {
+          await fetchProducts(1, true);
+        }
       }
     } catch (error) {
       console.error("Bulk assignment stopped:", error);
@@ -1133,16 +1221,16 @@ export default function Products() {
       ` }} />
 
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">
             Products
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-500">
             Products <span className="px-1 text-slate-400">›</span> Products
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <button
             onClick={() => {
               if (selectedProducts.size > 0) {
@@ -1156,7 +1244,7 @@ export default function Products() {
                 });
               }
             }}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
+            className="flex-1 sm:flex-none justify-center rounded-lg border border-slate-200 bg-white px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
           >
             Assign Product
           </button>
@@ -1165,17 +1253,17 @@ export default function Products() {
               setSelectedProduct(null);
               setIsProductModalOpen(true);
             }}
-            className="flex items-center gap-2 rounded-lg bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2.5 text-sm font-semibold transition-colors outline-none"
+            className="flex-1 sm:flex-none justify-center items-center gap-2 rounded-lg bg-sky-400 hover:bg-sky-500 text-slate-950 px-3.5 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold transition-colors outline-none flex"
           >
             <Plus className="h-4 w-4" /> Create New
           </button>
         </div>
       </div>
 
-      {/* Filters Row */}
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      {/* Filters Grid */}
+      <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7 gap-3 items-end">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Category
           </label>
           <FilterSelect
@@ -1194,7 +1282,7 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Purchase Type
           </label>
           <FilterSelect
@@ -1210,7 +1298,7 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Pharmacy
           </label>
           <FilterSelect
@@ -1229,7 +1317,7 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Status
           </label>
           <FilterSelect
@@ -1245,16 +1333,57 @@ export default function Products() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Treatment Type
+          </label>
+          <FilterSelect
+            label="All Treatment Types"
+            value={
+              treatmentTypeFilter === "all"
+                ? "all"
+                : treatmentTypes.find(
+                    (type) => String(type.id) === treatmentTypeFilter,
+                  )?.name || treatmentTypeFilter
+            }
+            options={treatmentTypes.map((type) => type.name)}
+            onChange={(value) => {
+              if (value === "all") {
+                setTreatmentTypeFilter("all");
+                return;
+              }
+              const selected = treatmentTypes.find(
+                (type) => type.name === value,
+              );
+              setTreatmentTypeFilter(selected ? String(selected.id) : "all");
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Visit Type
+          </label>
+          <FilterSelect
+            label="All Visit Types"
+            value={visitTypeFilter === "all" ? "all" : visitTypeFilter}
+            options={visitTypeOptions}
+            onChange={(val) => {
+              setVisitTypeFilter(val);
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">
             Search
           </label>
-          <div className="relative">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
               placeholder="Search products..."
-              className="flex min-w-44 items-center justify-between gap-3 rounded-lg border bg-white pl-9 pr-8 py-2.5 text-sm outline-none focus:ring-1 focus:ring-sky-400 focus:border-sky-400 transition-all text-slate-800"
+              className="flex w-full items-center gap-2 rounded-lg border bg-white pl-9 pr-8 py-2.5 text-xs sm:text-sm outline-none focus:ring-1 focus:ring-sky-400 focus:border-sky-400 transition-all text-slate-800"
               style={{
                 borderColor: productSearch ? "#38bdf8" : "#e2e8f0",
                 fontWeight: productSearch ? 600 : 400
@@ -1276,6 +1405,7 @@ export default function Products() {
           typeFilter !== "all" ||
           pharmacyFilter !== "all" ||
           statusFilter !== "all" ||
+          treatmentTypeFilter !== "all" ||
           productSearch !== "") && (
           <button
             onClick={resetFilters}
@@ -1290,243 +1420,398 @@ export default function Products() {
         </span>
       </div>
 
-      {/* Products Table Card */}
+      {/* Products Data Container (Mobile Cards + Desktop Table) */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full table-fixed border-collapse text-[11px] xl:text-sm">
-          <colgroup>
-            <col className="w-[34px] xl:w-[50px]" />
-            <col className="w-[15%]" />
-            <col className="w-[13%]" />
-            <col className="w-[16%]" />
-            <col className="w-[9%]" />
-            <col className="w-[9%]" />
-            <col className="w-[11%]" />
-            <col className="w-[9%]" />
-            <col className="w-[88px] xl:w-[100px]" />
-          </colgroup>
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/50">
-              <th className="px-2 py-3 text-left xl:px-5">
-                <CustomCheckbox
-                  checked={allChecked}
-                  indeterminate={someChecked}
-                  onChange={toggleAllProducts}
-                />
-              </th>
-              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
-                Name
-              </th>
-              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
-                Category
-              </th>
-              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
-                Pharmacy / Manufacturer
-              </th>
-              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
-                Drug Form
-              </th>
-              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
-                Status
-              </th>
-              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
-                Purchase Type
-              </th>
-              <th className="px-2 py-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 break-words xl:px-4 xl:text-xs">
-                Created At
-              </th>
-              <th className="px-1 py-3 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-500 xl:px-4 xl:text-xs">
-                
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white">
-            {products.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={9}
-                  className="px-4 py-12 text-center text-sm text-slate-400"
+        {/* Mobile View (< md) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {displayedProducts.length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-400">
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-sky-500" />
+                  Fetching products...
+                </div>
+              ) : (
+                "No products match these filters."
+              )}
+            </div>
+          ) : (
+            displayedProducts.map((product) => {
+              const isSelected = selectedProducts.has(product.id);
+              return (
+                <div
+                  key={product.id}
+                  onClick={() => toggleProduct(product)}
+                  className={`p-4 transition-colors cursor-pointer space-y-3 ${
+                    isSelected ? "bg-sky-50/70" : "bg-white hover:bg-slate-50/60"
+                  }`}
                 >
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <Loader2 className="h-5 w-5 animate-spin mr-2 text-sky-500" />
-                      Fetching products...
-                    </div>
-                  ) : (
-                    "No products match these filters."
-                  )}
-                </td>
-              </tr>
-            ) : (
-              products.map((product) => {
-                const isSelected = selectedProducts.has(product.id);
-                return (
-                  <tr
-                    key={product.id}
-                    className="transition-colors cursor-pointer border-b border-slate-100"
-                    style={{
-                      background: isSelected ? "#e3f3fb" : "#fff",
-                    }}
-                    onClick={() => toggleProduct(product)}
-                  >
-                    <td className="px-2 py-4 xl:px-5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
                       <CustomCheckbox
                         checked={isSelected}
                         onChange={() => toggleProduct(product)}
                       />
-                    </td>
-                    <td className="px-2 py-4 font-semibold text-slate-800 break-words xl:px-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="min-w-0 max-w-full break-words">{product.name}</span>
-                        {product.is_modified_need_to_re_assigned && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge
-                                  variant="destructive"
-                                  className="text-[10px] h-4 px-1.5 font-bold"
-                                >
-                                  UPDATED
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>You have updated this product.</p>
-                                <p>
-                                  You need to re-assign it to clients to push
-                                  the updates.
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-slate-900 text-sm">{product.name}</span>
+                          {product.is_modified_need_to_re_assigned && (
+                            <Badge variant="destructive" className="text-[10px] h-4 px-1.5 font-bold">
+                              UPDATED
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {product.pharmacy_name || "No Pharmacy"} {product.manufacturer_name ? `• ${product.manufacturer_name}` : ""}
+                        </p>
                       </div>
-                    </td>
-                    <td className="px-2 py-4 xl:px-4">
-                      <Pill>{product.category_name || "-"}</Pill>
-                    </td>
-                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
-                      {product.pharmacy_name || "-"}
-                      {product.manufacturer_name && (
-                        <span className="block text-xs mt-0.5 text-slate-400 break-words">
-                          {product.manufacturer_name}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
-                      {product.rx_drug_form || "-"}
-                    </td>
-                    <td className="px-2 py-4 xl:px-4">
-                      <Badge
-                        variant={product.is_active ? "default" : "secondary"}
-                        className={
-                          product.is_active
-                            ? "max-w-full whitespace-normal break-words rounded-md bg-emerald-50 text-[11px] text-emerald-700 border border-emerald-100 hover:bg-emerald-50 xl:text-xs"
-                            : "max-w-full whitespace-normal break-words rounded-md bg-slate-100 text-[11px] text-slate-600 border border-slate-200 hover:bg-slate-100 xl:text-xs"
-                        }
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100"
+                        onClick={() => openEditProduct(product)}
                       >
-                        {product.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </td>
-                    <td className="px-2 py-4 xl:px-4">
-                      {product.purchase_type ? (
-                        <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-2 py-4 text-slate-500 break-words xl:px-4">
-                      {formatDate(product.created_at)}
-                    </td>
-                    <td className="px-1 py-4 text-right xl:px-4" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1 whitespace-nowrap xl:gap-3">
-                        <button
-                          type="button"
-                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-slate-400 outline-none"
-                          title="View change history"
-                          onClick={() => openChangeHistory(product)}
-                        >
-                          <History className="h-4.5 w-4.5" />
-                        </button>
-                        <button
-	                          type="button"
-	                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-slate-400 outline-none"
-	                          onClick={() => openEditProduct(product)}
-	                        >
-                          <Pencil className="h-4.5 w-4.5" />
-                        </button>
-                        <button
-                          type="button"
-                          className="inline-flex h-6 w-6 items-center justify-center hover:opacity-70 text-red-400 outline-none"
-                          onClick={() => handleDelete(product)}
-                        >
-                          <Trash2 className="h-4.5 w-4.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="p-1.5 text-red-400 hover:text-red-600 rounded-md hover:bg-red-50"
+                        onClick={() => handleDelete(product)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
 
-        {/* Load More Trigger */}
-        {hasMoreProducts && (
-          <div className="px-6 py-4 border-t border-slate-100 flex justify-center bg-slate-50/50">
-            <button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="min-w-[200px] border border-slate-200 bg-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50"
-            >
-              {loadingMore ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Loading...
-                </span>
+                  <div className="flex flex-wrap gap-1.5 pt-1 text-xs">
+                    <Pill>{product.category_name || "Uncategorized"}</Pill>
+                    <Badge
+                      variant={product.is_active ? "default" : "secondary"}
+                      className={
+                        product.is_active
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                          : "bg-slate-100 text-slate-600 border border-slate-200"
+                      }
+                    >
+                      {product.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    {product.purchase_type && (
+                      <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
+                    )}
+                    {product.treatment_type_name && (
+                      <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                        {product.treatment_type_name}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop View (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full border-collapse text-sm min-w-[950px]">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/50">
+                <th className="px-5 py-3 text-left w-[50px]">
+                  <CustomCheckbox
+                    checked={allChecked}
+                    indeterminate={someChecked}
+                    onChange={toggleAllProducts}
+                  />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Category
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span className="whitespace-nowrap">Pharmacy</span> /{" "}
+                  <span className="whitespace-nowrap">Manufacturer</span>
+                </th>
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Drug Form
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Status
+                </th>
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Purchase Type
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span className="whitespace-nowrap">Treatment Type</span> /{" "}
+                  <span className="whitespace-nowrap">Derived Routing (New)</span>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Restrictions (Legacy)
+                </th>
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Created At
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-[100px]">
+
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {displayedProducts.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={11}
+                    className="px-4 py-12 text-center text-sm text-slate-400"
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 animate-spin mr-2 text-sky-500" />
+                        Fetching products...
+                      </div>
+                    ) : (
+                      "No products match these filters."
+                    )}
+                  </td>
+                </tr>
               ) : (
-                `Load More (${products.length} of ${totalProducts})`
+                displayedProducts.map((product) => {
+                  const isSelected = selectedProducts.has(product.id);
+                  return (
+                    <tr
+                      key={product.id}
+                      className="transition-colors cursor-pointer border-b border-slate-100"
+                      style={{
+                        background: isSelected ? "#e3f3fb" : "#fff",
+                      }}
+                      onClick={() => toggleProduct(product)}
+                    >
+                      <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                        <CustomCheckbox
+                          checked={isSelected}
+                          onChange={() => toggleProduct(product)}
+                        />
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-slate-800">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span>{product.name}</span>
+                          {product.is_modified_need_to_re_assigned && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant="destructive"
+                                    className="text-[10px] h-4 px-1.5 font-bold"
+                                  >
+                                    UPDATED
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>You have updated this product.</p>
+                                  <p>
+                                    You need to re-assign it to clients to push
+                                    the updates.
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <Pill>{product.category_name || "-"}</Pill>
+                      </td>
+                      <td className="px-4 py-4 text-slate-500">
+                        {product.pharmacy_name || "-"}
+                        {product.manufacturer_name && (
+                          <span className="block text-xs mt-0.5 text-slate-400">
+                            {product.manufacturer_name}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-slate-500">
+                        {product.rx_drug_form || "-"}
+                      </td>
+                      <td className="px-4 py-4">
+                        <Badge
+                          variant={product.is_active ? "default" : "secondary"}
+                          className={
+                            product.is_active
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50"
+                              : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-100"
+                          }
+                        >
+                          {product.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-4">
+                        {product.purchase_type ? (
+                          <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {product.product_type === "supply" ? (
+                          <span className="text-xs text-slate-400">Not applicable</span>
+                        ) : product.treatment_type_name ? (
+                          <div className="space-y-1">
+                            <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                              {product.treatment_type_name}
+                            </Badge>
+                            {product.treatment_type_is_active === false && (
+                              <Badge variant="outline" className="ml-1 border-amber-200 bg-amber-50 text-amber-700">
+                                Inactive Treatment Type
+                              </Badge>
+                            )}
+                            <div className="text-[10px] text-slate-500">
+                              Intake: {product.derived_intake_visit_type || "Not configured"}
+                            </div>
+                            <div className="text-[10px] text-slate-500">
+                              Follow-up: {product.derived_followup_visit_type || "Not configured"}
+                            </div>
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+                            Unassigned
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {product.restrict_visit_types ? (
+                          <div className="flex flex-wrap gap-1">
+                            {(product.allowed_visit_types || []).map((vt: string) => (
+                              <Badge key={vt} variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                                {vt}
+                              </Badge>
+                            ))}
+                            {(product.allowed_visit_types || []).length === 0 && (
+                              <span className="text-xs text-amber-600 font-medium">None</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Unrestricted</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-slate-500">
+                        {formatDate(product.created_at)}
+                      </td>
+                      <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            className="hover:opacity-70 text-slate-400 outline-none"
+                            onClick={() => openEditProduct(product)}
+                          >
+                            <Pencil className="h-4.5 w-4.5" />
+                          </button>
+                          <button
+                            type="button"
+                            className="hover:opacity-70 text-red-400 outline-none"
+                            onClick={() => handleDelete(product)}
+                          >
+                            <Trash2 className="h-4.5 w-4.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
-            </button>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Server Pagination Footer */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 sm:px-6 py-4 border-t border-slate-200 bg-slate-50/50">
+          <div className="flex items-center gap-4 text-xs sm:text-sm text-slate-500">
+            <span>
+              Showing {showingStart}-{showingEnd} of {totalProducts}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline">Rows per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  const newSize = Number(e.target.value);
+                  setPageSize(newSize);
+                  fetchProducts(1, newSize);
+                }}
+                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none focus:border-sky-400"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        )}
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs sm:text-sm text-slate-600 font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => fetchProducts(currentPage - 1)}
+                disabled={currentPage <= 1 || loading}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => fetchProducts(currentPage + 1)}
+                disabled={currentPage >= totalPages || loading}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Floating Action Bar */}
       {selectedProducts.size > 0 && (
         <div
-          className="fixed bottom-7 left-1/2 z-40 flex items-center gap-4 rounded-2xl px-5 py-3 shadow-2xl bg-slate-950"
+          className="fixed bottom-4 left-1/2 z-40 flex w-[calc(100vw-2rem)] max-w-lg items-center justify-between gap-3 rounded-2xl px-4 py-3 shadow-2xl bg-slate-950 text-xs sm:text-sm"
           style={{
             animation: "barIn .2s cubic-bezier(.2,.8,.3,1)",
             transform: "translateX(-50%)",
           }}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <span
-              className="flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-bold bg-sky-400 text-slate-950"
+              className="flex h-6 min-w-6 sm:h-7 sm:min-w-7 items-center justify-center rounded-full px-1.5 text-xs font-bold bg-sky-400 text-slate-950"
             >
               {selectedProducts.size}
             </span>
-            <span className="text-sm font-medium text-white">
+            <span className="font-medium text-white truncate">
               {selectedProducts.size} product{selectedProducts.size > 1 ? "s" : ""} selected
             </span>
           </div>
-          <div className="h-5 w-px bg-slate-800" />
-          <button
-            onClick={() => setSelectedProducts(new Set())}
-            className="text-sm font-medium text-slate-400 hover:text-white transition-colors outline-none"
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => {
-              setSelectedClients(new Set());
-              setClientSearch("");
-              setIsAssignModalOpen(true);
-            }}
-            className="flex items-center gap-2 rounded-xl bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2 text-sm font-semibold transition-colors outline-none"
-          >
-            <Users className="h-4 w-4" />
-            Assign to Clients
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setSelectedProducts(new Set())}
+              className="font-medium text-slate-400 hover:text-white transition-colors outline-none px-2"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => {
+                setSelectedClients(new Set());
+                setClientSearch("");
+                setIsAssignModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-sky-400 hover:bg-sky-500 text-slate-950 px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors outline-none"
+            >
+              <Users className="h-4 w-4" />
+              Assign
+            </button>
+          </div>
         </div>
       )}
 
@@ -1538,7 +1823,7 @@ export default function Products() {
         onSuccess={() => {
           setIsProductModalOpen(false);
           setSelectedProduct(null);
-          fetchProducts(1, true); // reload page 1
+          fetchProducts(1, pageSize); // reload page 1
         }}
       />
 
@@ -1554,13 +1839,14 @@ export default function Products() {
 
       {/* Assign Dialog */}
       <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden gap-0 rounded-2xl border-none shadow-2xl bg-white">
-          <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
-            <div className="flex items-center gap-3">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-5xl flex-col gap-0 overflow-hidden rounded-2xl border-none bg-white p-0 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)]">
+          <DialogTitle className="sr-only">Assign products to clients</DialogTitle>
+          <div className="shrink-0 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex min-w-0 items-center gap-3 pr-8">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50">
                 <Users className="h-5 w-5 text-sky-600" />
               </div>
-              <div className="text-left">
+              <div className="min-w-0 text-left">
                 <h3 className="text-base font-semibold text-slate-800">
                   Assign products to clients
                 </h3>
@@ -1571,9 +1857,9 @@ export default function Products() {
             </div>
           </div>
 
-          <div className="flex" style={{ height: 400 }}>
+          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:h-[min(31rem,calc(100dvh-12rem))] md:grid-cols-[minmax(0,2fr)_minmax(18rem,3fr)] md:overflow-hidden">
             {/* Left Column: Selected Products (Read-Only) */}
-            <div className="w-2/5 overflow-y-auto px-5 py-4 bg-slate-50/50 border-r border-slate-100">
+            <div className="min-h-[12rem] min-w-0 overflow-y-auto border-b border-slate-100 bg-slate-50/50 px-4 py-4 sm:px-5 md:min-h-0 md:border-b-0 md:border-r">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Selected products ({selectedProducts.size})
               </p>
@@ -1601,13 +1887,13 @@ export default function Products() {
             </div>
 
             {/* Right Column: Client Selection */}
-            <div className="w-3/5 flex flex-col bg-white">
-              <div className="px-5 pb-2 pt-4">
-                <div className="flex items-center justify-between mb-2">
+            <div className="flex min-h-[16rem] min-w-0 flex-col bg-white md:min-h-0">
+              <div className="px-4 pb-2 pt-4 sm:px-5">
+                <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     Assign to clients
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedClients(new Set(filteredClients.map((c) => c.id)))}
@@ -1645,7 +1931,7 @@ export default function Products() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-2 py-2">
+              <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
                 {filteredClients.length === 0 ? (
                   <p className="px-3 py-6 text-center text-sm text-slate-400">
                     No clients found.
@@ -1699,19 +1985,19 @@ export default function Products() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4 bg-slate-50/50">
+          <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
             <span className="text-sm text-slate-500 font-medium">
               {selectedClients.size} client{selectedClients.size === 1 ? "" : "s"} selected
             </span>
-            <div className="flex gap-2">
-              <DialogClose className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 bg-white text-slate-700 outline-none">
+            <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:shrink-0">
+              <DialogClose className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition-colors hover:bg-slate-50 sm:px-4">
                 Cancel
               </DialogClose>
               <button
                 type="button"
                 disabled={selectedClients.size === 0 || loading}
                 onClick={handleAssign}
-                className="rounded-lg bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none"
+                className="rounded-lg bg-sky-400 px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition-colors hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
               >
                 Assign
               </button>
@@ -1719,7 +2005,7 @@ export default function Products() {
                 type="button"
                 disabled={selectedClients.size === 0 || loading}
                 onClick={handleReAssign}
-                className="rounded-lg px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed border border-sky-200 text-sky-700 bg-sky-50 hover:bg-sky-100 outline-none"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 outline-none transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
               >
                 <RefreshCw className="h-3.5 w-3.5 animate-spin-slow" />
                 Re-assign

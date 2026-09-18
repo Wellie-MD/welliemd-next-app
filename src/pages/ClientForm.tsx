@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import JunctionIntegrationPanel from "@/components/clients/junction/JunctionIntegrationPanel";
 import type { AxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ import { B2BBillingDisplay } from "@/components/billing/B2BBillingDisplay";
 import { B2BInvoiceList } from "@/components/billing/B2BInvoiceList";
 import { BillingLockStatusCard } from "@/components/billing/BillingLockStatusCard";
 import { BillingConfigEditor } from "@/components/billing/BillingConfigEditor";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 // Helper component for field info tooltips
 const FieldInfo = ({ content }: { content: string }) => (
@@ -79,6 +81,7 @@ type ClientCreationDetails = {
 };
 
 export default function ClientForm() {
+  const { isEnabled } = usePhase2Flags();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -528,10 +531,11 @@ export default function ClientForm() {
           onValueChange={setActiveTab}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="domains">Domains</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Basic Information */}
@@ -1135,6 +1139,30 @@ export default function ClientForm() {
             {/* B2B Billing - Only show in edit mode */}
             {isEditMode && id && (
               <>
+                {isEnabled("milestone_2") && <Card className="border shadow-sm">
+                  <CardContent className="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p className="font-semibold">Product billing configuration</p>
+                      <p className="text-sm text-muted-foreground">
+                        Configure medication and shipping reimbursement per product.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        navigate(
+                          `/dashboard/billing/product-billing/${id}?name=${encodeURIComponent(
+                            clientName || existingClient?.name || formData.name || "Client",
+                          )}`,
+                        )
+                      }
+                    >
+                      Configure products
+                    </Button>
+                  </CardContent>
+                </Card>}
+
                 {/* Section 2: Billing Status - Lock state indicator */}
                 <BillingLockStatusCard clientId={id} />
 
@@ -1147,6 +1175,23 @@ export default function ClientForm() {
                 {/* Section 5: B2B Invoices - Invoice history */}
                 <B2BInvoiceList clientId={id} />
               </>
+            )}
+          </TabsContent>
+
+          {/* Tab 4: Integrations */}
+          <TabsContent value="integrations" className="space-y-6">
+            {isEditMode && id ? (
+              isEnabled("milestone_1") ? (
+                <JunctionIntegrationPanel clientId={id} />
+              ) : (
+                <div className="rounded-md border bg-muted/30 p-6 text-sm text-muted-foreground">
+                  Junction Labs is not enabled for this environment.
+                </div>
+              )
+            ) : (
+              <div className="rounded-md border bg-muted/30 p-6 text-sm text-muted-foreground">
+                Save the client first, then provision and manage its Junction integration here.
+              </div>
             )}
           </TabsContent>
 

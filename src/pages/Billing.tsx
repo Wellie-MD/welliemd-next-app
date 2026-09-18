@@ -1,24 +1,44 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { clientApi } from "@/api/clientApi";
 import type { B2BInvoice, B2BInvoicePrescriptionEvent, B2BInvoicePrescriptionItem } from "@/types/b2bBilling";
-import { GitBranch, Search, X } from "lucide-react";
+import { GitBranch, Search, ChevronRight, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { TreatmentPrescriptionInvoiceSets } from "@/features/treatments/orders/components/TreatmentPrescriptionInvoiceSets";
+import { usePhase2Flags } from "@/features/phase2/Phase2Flags";
 
 type DisplayInvoice = B2BInvoice & {
   supplementalInvoices?: B2BInvoice[];
 };
 
+function productIdentityDiagnostics(invoice: B2BInvoice) {
+  return [
+    ...(invoice.requested_breakdown?.product_identity_diagnostics || []),
+    ...(invoice.revision_adjustments || []).flatMap(
+      (adjustment) => adjustment.product_identity_diagnostics || []
+    ),
+    ...(invoice.prescription_events || []).flatMap((event) => [
+      ...(event.product_identity_diagnostic ? [event.product_identity_diagnostic] : []),
+      ...(event.items || [])
+        .map((item) => item.product_identity_diagnostic)
+        .filter((diagnostic): diagnostic is NonNullable<typeof diagnostic> => Boolean(diagnostic)),
+    ]),
+  ];
+}
+
 export default function Billing() {
   const queryClient = useQueryClient();
+  const { snapshot } = usePhase2Flags();
+  const labsEnabled = snapshot.capabilities.junction_labs;
   const [invoiceType, setInvoiceType] = useState<
-    "all" | "reimbursement" | "credit_note" | "saas_fee"
+    "all" | "reimbursement" | "lab" | "credit_note" | "saas_fee"
   >("all");
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [selected, setSelected] = useState<B2BInvoice | null>(null);
+  const [selected, setSelected] = useState<DisplayInvoice | null>(null);
   const [status, setStatus] = useState("");
   const [ordering, setOrdering] = useState("-issued_at");
   const [page, setPage] = useState(1);
@@ -112,8 +132,20 @@ export default function Billing() {
     return formatLabel(li?.item_type);
   };
 
+  const isLabInvoice = (inv: B2BInvoice) =>
+    (inv.line_items || []).some(
+      (item) => item.metadata?.source_type === "standalone_lab_order"
+    );
+
   const formatBreakdown = (inv: B2BInvoice) => {
     const items = (inv as any).line_items ?? [];
+    if (isLabInvoice(inv)) {
+      const labTotal = items.reduce(
+        (sum: number, item: any) => sum + parseFloat(item.total_amount || 0),
+        0
+      );
+      return `Lab: $${labTotal.toFixed(2)}`;
+    }
     const pharmacy = items
       .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
       .reduce(
@@ -274,8 +306,11 @@ export default function Billing() {
     return <span className={`rounded-full border px-2 py-0.5 text-[10px] ${classes}`}>{label}</span>;
   };
 
-  const renderRevisionInvoiceModal = (invoice: B2BInvoice) => {
+  const renderRevisionInvoiceModal = (invoice: DisplayInvoice) => {
+    const orderType = isLabInvoice(invoice) ? "Lab" : "Rx";
+    const invoiceTypeLabel = orderType === "Lab" ? "Lab Reimbursement" : "Reimbursement";
     const requested = invoice.requested_breakdown;
+    const treatmentPrescription = invoice.treatment_prescription;
     const adjustments = invoice.revision_adjustments || [];
     const rawPrescriptionEvents = invoice.prescription_events || [];
     const summary = invoice.adjustment_summary;
@@ -637,14 +672,20 @@ export default function Billing() {
       );
     };
 
-    return (
+    const supplementalInvoices = invoice.supplementalInvoices || [];
+    const supplementalTotal = supplementalInvoices.reduce(
+      (sum, child) => sum + moneyNumber(child.total_amount),
+      0
+    );
+
+    return createPortal(
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
         <div className="w-full max-w-[880px] overflow-hidden rounded-xl border bg-white shadow-2xl">
           <header className="border-b px-5 py-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                  Reimbursement invoice
+                  {orderType} invoice
                 </div>
                 <div className="mt-1 font-mono text-xs text-muted-foreground">{invoice.invoice_number}</div>
                 <div className="mt-3 flex items-center gap-3">
@@ -654,7 +695,7 @@ export default function Billing() {
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {(invoice as any).client_name || "-"} · {getClientOrderNumber(invoice)}
+                  {(invoice as any).client_name || "-"} · {orderType} order {getClientOrderNumber(invoice)}
                 </div>
               </div>
               <button onClick={() => setSelected(null)} className="rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted">
@@ -663,13 +704,67 @@ export default function Billing() {
             </div>
           </header>
 
+          {supplementalInvoices.length > 0 && (
+            <div className="border-b bg-amber-50 px-5 py-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
+                <GitBranch className="h-3.5 w-3.5" />
+                Split Capture · {supplementalInvoices.length} supplemental invoice
+                {supplementalInvoices.length > 1 ? "s" : ""}
+              </div>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="rounded-lg border border-amber-200 bg-white px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-amber-700">Base invoice</div>
+                  <div className="font-semibold text-amber-900">
+                    {invoice.invoice_number}: {money(invoice.total_amount)}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-white px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-amber-700">Supplemental total</div>
+                  <div className="font-semibold text-amber-900">{money(supplementalTotal)}</div>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-white px-3 py-2">
+                  <div className="text-[10px] uppercase tracking-wide text-amber-700">Combined settlement</div>
+                  <div className="font-semibold text-amber-900">
+                    {money(moneyNumber(invoice.total_amount) + supplementalTotal)}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 overflow-x-auto rounded-lg border border-amber-200 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="bg-amber-100/70">
+                    <tr>
+                      <th className="px-3 py-1.5 text-left font-medium">Invoice #</th>
+                      <th className="px-3 py-1.5 text-left font-medium">Status</th>
+                      <th className="px-3 py-1.5 text-left font-medium">Issued</th>
+                      <th className="px-3 py-1.5 text-right font-medium">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supplementalInvoices.map((child) => (
+                      <tr key={child.id} className="border-t border-amber-100">
+                        <td className="px-3 py-1.5 font-medium">{child.invoice_number}</td>
+                        <td className="px-3 py-1.5">{formatLabel(child.status)}</td>
+                        <td className="px-3 py-1.5">
+                          {child.issued_at || child.created_at
+                            ? new Date(child.issued_at || child.created_at).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-1.5 text-right">{money(child.total_amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="grid md:grid-cols-[320px_1fr]">
             <aside className="border-b md:border-b-0 md:border-r">
               <section className="border-b px-5 py-4">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
                 {infoRow("Client", (invoice as any).client_name || "-")}
-                {infoRow("Client order #", <span className="font-mono">{getClientOrderNumber(invoice)}</span>)}
-                {infoRow("Type", "Reimbursement")}
+                {infoRow(`${orderType} order #`, <span className="font-mono">{getClientOrderNumber(invoice)}</span>)}
+                {infoRow("Type", invoiceTypeLabel)}
                 {infoRow("Issued", invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString() : "-")}
               </section>
               <section className="border-b px-5 py-4">
@@ -693,6 +788,12 @@ export default function Billing() {
                     {hasReleasedHold && infoRow("Captured amount", money(capturedInvoiceTotal))}
                     {hasReleasedHold && infoRow("Hold released", <span className="text-emerald-600">−{money(holdReleasedAmount)}</span>)}
                     {infoRow("Capture status", captureStatusLabel)}
+                    {(invoice.payment_references || []).map((reference) =>
+                      infoRow(
+                        `${reference.operation_type === "capture" ? "Capture" : "Authorization"} transaction`,
+                        <span className="font-mono break-all">{reference.processor_transaction_id}</span>,
+                      ),
+                    )}
                     {infoRow("Auth retry count", invoice.authorization_retry_count ?? 0)}
                     {infoRow("Next auth retry", invoice.authorization_next_retry_at ? new Date(invoice.authorization_next_retry_at).toLocaleString() : "—")}
                     {infoRow("Auth error code", invoice.authorization_last_error_code || "—")}
@@ -703,6 +804,19 @@ export default function Billing() {
             </aside>
 
             <main>
+              {productIdentityDiagnostics(invoice).length > 0 && (
+                <div className="border-b bg-amber-50 px-5 py-4 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+                  <div className="font-semibold">Product identity warning</div>
+                  <p className="mt-1 text-amber-800 dark:text-amber-300">
+                    The canonical source product was used for billing because the supplied Beluga medicine ID resolved to a different catalog product.
+                  </p>
+                </div>
+              )}
+              {treatmentPrescription && (
+                <div className="border-b p-5">
+                  <TreatmentPrescriptionInvoiceSets contract={treatmentPrescription} />
+                </div>
+              )}
               {Number(requested?.consultation_amount || 0) > 0 && (
                 <section className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Consultation</h4>
@@ -720,23 +834,31 @@ export default function Billing() {
                   </table>
                 </section>
               )}
-              <section className="border-b px-5 py-4">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Requested · {requestedLabel}
-                </h4>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Amount authorized at checkout — captured after prescription
-                </p>
-                {renderCostTable(
-                  requestedMedicationAmount,
-                  requestedShippingAmount,
-                  requestedTotalAmount,
-                  Number(requested?.consultation_amount || 0) === 0,
-                  requestedLabel,
-                  "Authorized total"
-                )}
-              </section>
+              {!treatmentPrescription && (
+                <section className="border-b px-5 py-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Requested · {requestedLabel}
+                  </h4>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Amount authorized at checkout — captured after prescription
+                  </p>
+                  {renderCostTable(
+                    requestedMedicationAmount,
+                    requestedShippingAmount,
+                    requestedTotalAmount,
+                    Number(requested?.consultation_amount || 0) === 0,
+                    requestedLabel,
+                    "Authorized total"
+                  )}
+                </section>
+              )}
               {prescriptionEvents.map((event, index) => {
+                // index 0 is the initial capture, which the "Treatment
+                // prescription" summary panel above already shows -- render
+                // only the actual revisions (index > 0) alongside it so a
+                // normal single-capture invoice doesn't show the same
+                // product/amounts twice.
+                if (treatmentPrescription && index === 0) return null;
                 const revisionNumber = index;
                 const adjustment = prescriptionEventAdjustmentMap.get(index) || adjustmentForRevision(revisionNumber);
                 const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
@@ -757,7 +879,7 @@ export default function Billing() {
                   </section>
                 );
               })}
-              {prescriptionEvents.length === 0 && showImplicitBaseRevision && (
+              {!treatmentPrescription && prescriptionEvents.length === 0 && showImplicitBaseRevision && (
                 <section className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Initial prescription · {requested?.product_name || "Prescribed product"}
@@ -774,6 +896,7 @@ export default function Billing() {
                 </section>
               )}
               {fallbackAdjustments.map((adjustment, index) => {
+                const isNoCharge = adjustment.kind === "no_charge_revision";
                 const explicitRevisionNumber = Number(adjustment.revision_number);
                 const isInitialFallback = firstFallbackIsInitialPrescription && index === 0;
                 const normalizedRevisionNumber = firstFallbackIsInitialPrescription && Number.isFinite(explicitRevisionNumber) && explicitRevisionNumber > 0
@@ -838,13 +961,14 @@ export default function Billing() {
             )}
           </footer>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 
-  const renderCreditNoteModal = (invoice: B2BInvoice) => {
+  const renderCreditNoteModal = (invoice: DisplayInvoice) => {
     const isRefunded = invoice.status === "refunded";
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
         <div className="w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-2xl">
           <header className="border-b px-5 py-5">
@@ -943,12 +1067,13 @@ export default function Billing() {
             )}
           </footer>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 
-  const renderSaasInvoiceModal = (invoice: B2BInvoice) => {
-    return (
+  const renderSaasInvoiceModal = (invoice: DisplayInvoice) => {
+    return createPortal(
       <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
         <div className="w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-2xl">
           <header className="border-b px-5 py-5">
@@ -1058,12 +1183,14 @@ export default function Billing() {
             )}
           </footer>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   };
 
   return (
     <div className="p-6 space-y-6">
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Invoices</h1>
       </div>
@@ -1072,6 +1199,7 @@ export default function Billing() {
         {[
           { key: "all", label: "All Invoices" },
           { key: "reimbursement", label: "Reimbursement Billings" },
+          ...(labsEnabled ? [{ key: "lab", label: "Lab Invoices" }] : []),
           { key: "credit_note", label: "Credit Notes" },
           { key: "saas_fee", label: "Monthly SaaS Fee Invoices" },
         ].map((tab) => (
@@ -1092,7 +1220,7 @@ export default function Billing() {
       <Card className="shadow-sm">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-            <div className="relative">
+            <div className="relative sm:col-span-2 lg:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 className="w-full pl-9 pr-3 py-2 rounded-md border bg-background text-sm focus:ring-1 focus:ring-primary"
@@ -1163,7 +1291,10 @@ export default function Billing() {
       <Card className="shadow-sm">
         <CardContent className="p-6">
           {isLoading && (
-            <div className="text-sm text-muted-foreground">Loading invoices…</div>
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Loading invoices…
+            </div>
           )}
           {error && (
             <div className="text-sm text-red-500">Failed to load invoices.</div>
@@ -1234,7 +1365,7 @@ export default function Billing() {
                           {(inv as any).client_name || (inv as any).client?.name || "-"}
                         </td>
                         <td className="px-6 py-4">
-                          {formatLabel(inv.invoice_type)}
+                          {isLabInvoice(inv) ? "Lab Reimbursement" : formatLabel(inv.invoice_type)}
                         </td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">
                           <div>{formatBreakdown(inv)}</div>
@@ -1293,7 +1424,7 @@ export default function Billing() {
       {selected && selected.invoice_type === "credit_note" && renderCreditNoteModal(selected)}
       {selected && selected.invoice_type === "saas_fee" && renderSaasInvoiceModal(selected)}
 
-      {refundTargets.length > 0 && (
+      {refundTargets.length > 0 && createPortal(
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4">
           <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
             <div className="p-5">
@@ -1325,7 +1456,8 @@ export default function Billing() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

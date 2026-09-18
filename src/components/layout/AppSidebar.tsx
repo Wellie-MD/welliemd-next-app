@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
   BarChart3,
@@ -20,7 +20,8 @@ import {
   ChevronRight,
   Archive,
   ShieldCheck,
-  type LucideIcon
+  Activity,      // <- used for Sense insights
+  type LucideIcon,
 } from "lucide-react"
 
 import {
@@ -36,6 +37,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { usePhase2Flags, type Phase2Milestone } from "@/features/phase2/Phase2Flags"
 import {
   Tooltip,
   TooltipContent,
@@ -46,6 +48,7 @@ import {
 type MenuChild = {
   title: string
   url: string
+  milestone?: Phase2Milestone
 }
 
 type MenuItem = {
@@ -53,11 +56,31 @@ type MenuItem = {
   url?: string
   icon: LucideIcon
   children?: MenuChild[]
+  milestone?: Phase2Milestone
 }
 
 type MenuSection = {
   label: string
   items: MenuItem[]
+}
+
+const normalizePath = (path: string) => {
+  const normalized = path.replace(/\/+$/, "")
+  return normalized || "/"
+}
+
+const isPathMatch = (currentPath: string, route: string) => {
+  const normalizedPath = normalizePath(currentPath)
+  const normalizedRoute = normalizePath(route)
+
+  return normalizedPath === normalizedRoute || normalizedPath.startsWith(`${normalizedRoute}/`)
+}
+
+const getMostSpecificActiveChildUrl = (currentPath: string, sections: MenuSection[]) => {
+  return sections
+    .flatMap((section) => section.items.flatMap((item) => item.children ?? []))
+    .filter((child) => isPathMatch(currentPath, child.url))
+    .sort((left, right) => right.url.length - left.url.length)[0]?.url
 }
 
 const menuSections: MenuSection[] = [
@@ -66,6 +89,7 @@ const menuSections: MenuSection[] = [
     items: [
       { title: "Home", url: "/dashboard", icon: BarChart3 },
       { title: "Clients", url: "/dashboard/clients", icon: Users },
+      { title: "Patients", url: "/dashboard/patients", icon: Users },
       { title: "Users & Permissions", url: "/dashboard/users-permissions", icon: ShieldCheck },
       // {
       //   title: "Treatments",
@@ -77,13 +101,16 @@ const menuSections: MenuSection[] = [
       // },
       {
         title: "Orders",
-        url: "/dashboard/orders",
         icon: ShoppingBag,
+        children: [
+          { title: "Rx Orders", url: "/dashboard/orders" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs", milestone: "milestone_1" },
+        ],
       },
       { title: "Payments", url: "/dashboard/payments", icon: CreditCard },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
-      { 
-        title: "Analytics", 
+      {
+        title: "Analytics",
         icon: TrendingUp,
         children: [
           { title: "Client Performance", url: "/dashboard/analytics/performance" },
@@ -95,6 +122,18 @@ const menuSections: MenuSection[] = [
   {
     label: "TOOLS & SERVICES",
     items: [
+      {
+        title: "Treatments",
+        icon: Stethoscope,
+        milestone: "milestone_3",
+        children: [
+          { title: "Custom Programs", url: "/dashboard/treatments/custom-programs" },
+          { title: "Programs", url: "/dashboard/treatments/programs" },
+          { title: "Sections", url: "/dashboard/treatments/sections" },
+          { title: "Consents", url: "/dashboard/treatments/consents" },
+          { title: "Treatment Types", url: "/dashboard/treatments/treatment-types" },
+        ]
+      },
       { title: "Questionnaires", url: "/dashboard/questionnaires", icon: FileText },
 
       {
@@ -106,24 +145,30 @@ const menuSections: MenuSection[] = [
         ]
       },
 
+      
       {
         title: "Products",
         icon: Package,
         children: [
-          { title: "Products", url: "/dashboard/products" },
+          { title: "Medicine", url: "/dashboard/products" },
           { title: "Supplies", url: "/dashboard/products/supplies" },
-          { title: "Configuration", url: "/dashboard/products/config" }
+          { title: "Labs", url: "/dashboard/products/labs", milestone: "milestone_1" },
+          { title: "Test Catalog", url: "/dashboard/products/labs/catalog", milestone: "milestone_1" },
+          { title: "Junction Settings", url: "/dashboard/products/labs/settings", milestone: "milestone_1" },
+          { title: "Configuration", url: "/dashboard/products/config", milestone: "milestone_3" }
         ]
       },
-
+      
       {
         title: "Archive",
         icon: Archive,
         children: [
+          { title: "Archive", url: "/dashboard/archive" },
           { title: "Archive Products", url: "/dashboard/products/archive" },
-          { title: "Archive Templates", url: "/dashboard/questionnaires/archive" }
-        ]
+          { title: "Archive Templates", url: "/dashboard/questionnaires/archive" },
+        ],
       },
+      { title: "Sense", url: "/dashboard/tools/sense", icon: Activity, milestone: "milestone_2" },
     ]
   },
   {
@@ -140,7 +185,7 @@ const menuSections: MenuSection[] = [
   // --- Removed "SALES & CHANNELS" on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
 
   //   {
-  //     label: "SALES & CHANNELS", 
+  //     label: "SALES & CHANNELS",
   //     items: [
   // {
   //         title: "Finances",
@@ -162,10 +207,39 @@ const menuSections: MenuSection[] = [
   //   }
 ]
 
+type SidebarChildItem = {
+  title: string;
+  url: string;
+};
+
+type SidebarItem = {
+  title: string;
+  url?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  children?: SidebarChildItem[];
+};
+
 export function AppSidebar() {
   const { state } = useSidebar()
+  const { isEnabled } = usePhase2Flags()
   const location = useLocation()
   const currentPath = location.pathname
+  const visibleMenuSections = useMemo(
+    () => menuSections.map((section) => ({
+      ...section,
+      items: section.items
+        .filter((item) => !item.milestone || isEnabled(item.milestone))
+        .map((item) => ({
+          ...item,
+          children: item.children?.filter(
+            (child) => !child.milestone || isEnabled(child.milestone)
+          ),
+        }))
+        .filter((item) => !item.children || item.children.length > 0),
+    })).filter((section) => section.items.length > 0),
+    [isEnabled]
+  )
+  const activeChildUrl = getMostSpecificActiveChildUrl(currentPath, visibleMenuSections)
   const [openSections, setOpenSections] = useState<string[]>([])
 
   const collapsed = state === "collapsed"
@@ -174,16 +248,16 @@ export function AppSidebar() {
   useEffect(() => {
     const activeParents: string[] = []
 
-    menuSections.forEach(section => {
+    visibleMenuSections.forEach(section => {
       section.items.forEach(item => {
-        if (item.children?.some(child => currentPath.startsWith(child.url))) {
+        if (item.children?.some(child => child.url === activeChildUrl)) {
           activeParents.push(item.title)
         }
       })
     })
 
     setOpenSections(prev => [...new Set([...prev, ...activeParents])])
-  }, [currentPath])
+  }, [activeChildUrl, visibleMenuSections])
 
   const toggleSection = (title: string) => {
     if (collapsed) return
@@ -194,9 +268,9 @@ export function AppSidebar() {
     )
   }
 
-  const isItemActive = (item: MenuItem) => {
+  const isItemActive = (item: SidebarItem) => {
     if (item.children) {
-      return item.children.some((child) => currentPath.startsWith(child.url))
+      return item.children.some((child) => child.url === activeChildUrl)
     }
     return currentPath === item.url
   }
@@ -226,29 +300,29 @@ export function AppSidebar() {
 
     return (
       <img
-        src="/welliemd_logo.png"
+        src="/welliemd_dark_logo_transparent.png"
         alt="Welliemd"
-        className="h-8 w-auto"
+        className="h-7 w-auto"
       />
     )
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
-      <div className="flex w-full justify-between p-4">
+    <Sidebar collapsible="icon" className="border-r border-white/[0.06]">
+      <div className="flex w-full justify-between border-b border-white/[0.06] px-5 pb-3.5 pt-[18px]">
         <SidebarLogo />
-        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+        <SidebarTrigger className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200" />
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
-        {menuSections.map((section, sectionIndex) => (
+        {visibleMenuSections.map((section, sectionIndex) => (
           <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>
             {!collapsed && (
-              <SidebarGroupLabel className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <SidebarGroupLabel className="text-[10px] font-semibold text-white/25 uppercase tracking-[0.08em]">
                 {section.label}
               </SidebarGroupLabel>
             )}
             {collapsed && sectionIndex > 0 && (
-              <div className="w-full h-px bg-gray-200 my-2 mx-2"></div>
+              <div className="w-full h-px bg-white/[0.08] my-2 mx-2"></div>
             )}
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1">
@@ -267,13 +341,13 @@ export function AppSidebar() {
                                   group flex w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                                   ${collapsed ? "items-center p-2 justify-center" : "h-auto min-h-10 items-start overflow-visible px-3 py-2.5 justify-between"}
                                   ${isActive
-                                    ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                    : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                    ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
+                                    : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
                                   }
                                 `}
                               >
                                 <div className="flex items-center min-w-0">
-                                  <item.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-[#12517A]" : "text-gray-500 group-hover:text-[#12517A]"
+                                  <item.icon className={`h-[15px] w-[15px] flex-shrink-0 ${isActive ? "text-blue-400" : "text-slate-400 group-hover:text-slate-300"
                                     }`} />
                                   {!collapsed && (
                                     <span className="ml-3 min-w-0 whitespace-normal break-words font-medium leading-tight">
@@ -286,7 +360,7 @@ export function AppSidebar() {
                                     className={`
                                       h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
                                       ${isOpen ? "transform rotate-0" : "transform -rotate-90"}
-                                      ${isActive ? "text-[#12517A]" : "text-gray-400 group-hover:text-[#12517A]"}
+                                      ${isActive ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"}
                                     `}
                                   />
                                 )}
@@ -294,16 +368,16 @@ export function AppSidebar() {
                             </CollapsibleTrigger>
                             {!collapsed && (
                               <CollapsibleContent className="transition-all duration-300 ease-in-out">
-                                <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
+                                <div className="ml-6 mt-2 space-y-1 border-l border-white/[0.08] pl-4">
                                   {item.children.map((child) => (
                                     <SidebarMenuButton key={child.title} asChild>
                                       <NavLink
                                         to={child.url}
                                         className={`
-                                          flex h-auto min-h-8 w-full items-start overflow-visible px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                          ${currentPath === child.url
-                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px]"
-                                            : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                          flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
+                                          ${child.url === activeChildUrl
+                                            ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
+                                            : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
                                           }
                                         `}
                                       >
@@ -326,15 +400,15 @@ export function AppSidebar() {
                                 group flex w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                                 ${collapsed ? "items-center p-2 justify-center" : "h-auto min-h-10 items-start overflow-visible px-3 py-2.5"}
                                 ${currentPath === item.url
-                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                  : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                  ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
+                                  : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
                                 }
                               `}
                             >
                               <item.icon
                                 className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
-                                    ? "text-[#12517A]"
-                                    : "text-gray-500 group-hover:text-[#12517A]"
+                                  ? "text-blue-400"
+                                  : "text-slate-400 group-hover:text-slate-300"
                                   }`}
                               />
                               {!collapsed && (

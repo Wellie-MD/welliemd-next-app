@@ -1,6 +1,8 @@
 import axios from 'axios';
 import api from '../api/axiosInstance';
 import { useAuthStore, type AuthUser } from '../store/useAuthStore';
+import { cookieAuthRequestBody } from './auth-session-contract';
+import { withRefreshLock } from './refresh-coordinator';
 
 interface LoginCredentials {
   email: string;
@@ -85,24 +87,25 @@ const fetchProfileWithToken = async (accessToken: string): Promise<AuthUser> => 
   return data;
 };
 
-const performRefresh = async (refreshToken: string): Promise<RefreshedSession> => {
+const performRefresh = async (): Promise<RefreshedSession> => {
   const refreshAxios = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
     withCredentials: true,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Wellie-Portal': 'admin' },
   });
-  const { data } = await refreshAxios.post<RefreshResponse>('/auth/token/refresh/', {
-    refresh: refreshToken,
-  });
+  const { data } = await refreshAxios.post<RefreshResponse>(
+    '/auth/token/refresh/',
+    cookieAuthRequestBody(),
+  );
   if (!data.access || !data.refresh || !data.user_id) {
     throw new Error('Refresh response did not include an access token and user identity');
   }
   return { accessToken: data.access, refreshToken: data.refresh, userId: data.user_id };
 };
 
-const getRefreshedSession = async (refreshToken: string): Promise<RefreshedSession> => {
+const getRefreshedSession = async (): Promise<RefreshedSession> => {
   if (!refreshPromise) {
-    refreshPromise = performRefresh(refreshToken).finally(() => {
+    refreshPromise = withRefreshLock('admin', performRefresh).finally(() => {
       refreshPromise = null;
     });
   }
@@ -184,8 +187,9 @@ export const authService = {
 
   logout: async (): Promise<void> => {
     try {
-      const refreshToken = useAuthStore.getState().refreshToken;
-      await api.post('/auth/logout/', refreshToken ? { refresh: refreshToken } : {});
+      await api.post('/auth/logout/', cookieAuthRequestBody(), {
+        headers: { 'X-Wellie-Portal': 'admin' },
+      });
     } catch (error) {
       console.error('Logout failed, clearing client-side state anyway.', error);
     } finally {
@@ -195,9 +199,7 @@ export const authService = {
 
   refreshAccessToken: async (expectedUserId?: string): Promise<string | null> => {
     try {
-      const refreshToken = useAuthStore.getState().refreshToken;
-      if (!refreshToken) throw new Error('No tab refresh token available');
-      const refreshed = await getRefreshedSession(refreshToken);
+      const refreshed = await getRefreshedSession();
       assertSameIdentity(expectedUserId, refreshed.userId, 'token refresh');
       useAuthStore.getState().setAccessToken(refreshed.accessToken);
       useAuthStore.getState().setRefreshToken(refreshed.refreshToken);
@@ -235,9 +237,7 @@ export const authService = {
     authStore.setLoading(true);
 
     try {
-      const refreshToken = useAuthStore.getState().refreshToken;
-      if (!refreshToken) throw new Error('No tab refresh token available');
-      const refreshed = await getRefreshedSession(refreshToken);
+      const refreshed = await getRefreshedSession();
       assertSameIdentity(expectedUserId, refreshed.userId, 'session hydration');
       const profile = await fetchProfileWithToken(refreshed.accessToken);
       assertSameIdentity(refreshed.userId, profile.id, 'profile hydration');

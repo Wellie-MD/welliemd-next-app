@@ -3,23 +3,33 @@ interface Column {
     label: string
     render?: (value: any, row: any) => React.ReactNode
   }
-  
+
   export const exportToCSV = (data: any[], columns: Column[], filename: string) => {
+    // Escape a CSV field value per RFC 4180
+    const escapeCSVField = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      // Quote field if it contains comma, newline, or quote
+      if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
     const csvContent = [
       // Header row
-      columns.map(col => col.label).join(','),
+      columns.map(col => escapeCSVField(col.label)).join(','),
       // Data rows
       ...data.map(row =>
-        columns.map(col => {
-          const value = row[col.key]
-          // Escape commas and quotes in CSV
-          return typeof value === 'string' && (value.includes(',') || value.includes('"'))
-            ? `"${value.replace(/"/g, '""')}"`
-            : value
-        }).join(',')
+        columns.map(col => escapeCSVField(row[col.key])).join(',')
       )
     ].join('\n')
-  
+
+    // Validate data not empty
+    if (data.length === 0) {
+      return; // Silent fail for empty exports
+    }
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
@@ -30,4 +40,3 @@ interface Column {
     link.click()
     document.body.removeChild(link)
   }
-  
