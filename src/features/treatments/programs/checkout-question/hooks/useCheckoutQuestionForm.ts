@@ -7,6 +7,7 @@ import {
 import { formatCheckoutQuestionText } from "../utils/checkoutTitleUtils";
 import { checkoutSelectorsFromProducts } from "../utils/catalogOptions";
 import { toast } from "@/components/ui/use-toast";
+import { effectiveSupplyDuration } from "../utils/supplyDuration";
 
 type ProductForm = ProgramCheckoutProduct;
 type VisibilityRuleGroupForm = VisibilityRuleGroup;
@@ -68,6 +69,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           productId: product.productId,
           sourceProductId: product.sourceProductId,
           rxDaysSupply: product.rxDaysSupply,
+          refills: product.refills,
           price: product.price,
           productRole: product.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
           choiceGroup: product.choiceGroup,
@@ -173,6 +175,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     }
 
     const seenSelectors = new Map<string, number>();
+    const seenGroupDurations = new Map<string, number>();
     for (const [index, product] of validProducts.entries()) {
       const selectorKey = [
         product.categoryId || product.category,
@@ -189,6 +192,27 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
         return;
       }
       seenSelectors.set(selectorKey, index);
+      if (
+        product.productRole === PROGRAM_PRODUCT_ROLE.primaryChoice
+        && product.choiceGroup
+        && product.rxDaysSupply
+      ) {
+        const durationKey = `${product.choiceGroup.trim().toLowerCase()}:${effectiveSupplyDuration(product.rxDaysSupply, product.refills)}`;
+        const firstDurationIndex = seenGroupDurations.get(durationKey);
+        if (firstDurationIndex !== undefined) {
+          toast({
+            title: "Duplicate supply duration",
+            description: (
+              `Options ${firstDurationIndex + 1} and ${index + 1} both use a `
+              + `${effectiveSupplyDuration(product.rxDaysSupply, product.refills)}-day coverage Product in choice group "${product.choiceGroup}". `
+              + "Use one exact Product for each duration."
+            ),
+            variant: "destructive",
+          });
+          return;
+        }
+        seenGroupDurations.set(durationKey, index);
+      }
     }
 
     const normalizeGroup = (group: VisibilityRuleGroupForm | undefined): VisibilityRuleGroupForm | undefined => {

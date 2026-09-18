@@ -1,4 +1,5 @@
-import { ChevronDown, Package, Trash2 } from "lucide-react";
+import { useEffect } from "react";
+import { CheckCircle2, ChevronDown, MapPin, Package, Trash2 } from "lucide-react";
 import type { ProductCategory } from "@/api/productCategories";
 import type { ProductDoseMapping } from "@/api/productDoseMappings";
 import type { TitrationCategory } from "@/api/titrationCategories";
@@ -15,11 +16,13 @@ import {
   productsForRegimen,
   regimensForProducts,
 } from "../utils/catalogOptions";
+import type { LabVisibilityQuestionOption } from "../utils/labVisibilityQuestions";
+import { supplyDurationLabel } from "../utils/supplyDuration";
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
   index: number;
   productCount: number;
-  visibilityQuestions: unknown[];
+  visibilityQuestions: LabVisibilityQuestionOption[];
   categories: ProductCategory[];
   titrationCategories: TitrationCategory[];
   doseMappings: ProductDoseMapping[];
@@ -32,6 +35,8 @@ interface CheckoutProductRowProps {
   ) => void;
   onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
+  selectedForGrouping: boolean;
+  onGroupingSelectionChange: (index: number, selected: boolean) => void;
 }
 
 const createEmptyGroup = (): VisibilityRuleGroup => ({
@@ -46,6 +51,46 @@ export const matchingProductsCountClassName =
 const sameCatalogName = (left?: string, right?: string) =>
   Boolean(left && right && left.trim().toLowerCase() === right.trim().toLowerCase());
 
+const normalizeCatalogName = (value?: string | number | null) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const catalogNamesMatch = (left?: string | number | null, right?: string | number | null) => {
+  const normalizedLeft = normalizeCatalogName(left);
+  const normalizedRight = normalizeCatalogName(right);
+  if (!normalizedLeft || !normalizedRight) return false;
+  return (
+    normalizedLeft === normalizedRight
+    || normalizedLeft.includes(normalizedRight)
+    || normalizedRight.includes(normalizedLeft)
+  );
+};
+
+const idsMatch = (left?: string | number | null, right?: string | number | null) =>
+  Boolean(left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right));
+
+const resolveCatalogProduct = (product: ProgramCheckoutProduct, catalogProducts: Product[]) => {
+  const savedIds = [product.productId, product.sourceProductId].filter(Boolean);
+  const byId = catalogProducts.find((item) =>
+    savedIds.some((savedId) => idsMatch(item.id, savedId) || idsMatch(item.source_product_id, savedId))
+  );
+  if (byId) return byId;
+
+  return catalogProducts.find((item) => {
+    const categoryMatches = !product.category || catalogNamesMatch(item.category_name || item.treatment, product.category);
+    const regimenMatches = !product.regimen || catalogNamesMatch(item.titration_category_name, product.regimen);
+    const doseMatches = !product.doseLabel || catalogNamesMatch(
+      item.dose_mapping_label || item.dose_mapping_name || item.dose,
+      product.doseLabel,
+    );
+    return categoryMatches && regimenMatches && doseMatches;
+  });
+};
+
 export function CheckoutProductRow({
   product,
   index,
@@ -59,18 +104,29 @@ export function CheckoutProductRow({
   onProductFieldChange,
   onProductPriceChange,
   onProductVisibilityChange,
+  selectedForGrouping,
+  onGroupingSelectionChange,
 }: CheckoutProductRowProps) {
+  const linkedCatalogProduct = resolveCatalogProduct(product, catalogProducts);
   const selectedCategoryId =
-    product.categoryId ||
-    categories.find((category) => sameCatalogName(category.name, product.category))?.id;
+    product.categoryId
+    || linkedCatalogProduct?.category
+    || categories.find((category) => sameCatalogName(category.name, product.category))?.id;
   const selectedRegimenId =
-    product.regimenId ||
+    product.regimenId
+    || linkedCatalogProduct?.titration_category
+    ||
     titrationCategories.find((category) => sameCatalogName(category.name, product.regimen))?.id;
   const selectedDoseMappingId =
-    product.doseMappingId ||
+    product.doseMappingId
+    || linkedCatalogProduct?.dose_mapping
+    ||
     doseMappings.find(
       (mapping) =>
-        sameCatalogName(mapping.patient_label || mapping.name, product.doseLabel) &&
+        sameCatalogName(
+          mapping.patient_label || mapping.name,
+          product.doseLabel || linkedCatalogProduct?.dose_mapping_label,
+        ) &&
         (!selectedCategoryId || mapping.category === selectedCategoryId)
     )?.id;
   const categoryProducts = productsForCategory(catalogProducts, selectedCategoryId);
@@ -78,7 +134,100 @@ export function CheckoutProductRow({
   const availableRegimens = regimensForProducts(titrationCategories, categoryProducts);
   const regimenProducts = productsForRegimen(categoryProducts, selectedRegimenId);
   const categoryDoses = dosesForProducts(doseMappings, regimenProducts, selectedCategoryId);
-  const matchingProducts = productsForDose(regimenProducts, selectedDoseMappingId);
+  const selectedCategory = categories.find((item) => Number(item.id) === Number(selectedCategoryId));
+  const selectedRegimen = titrationCategories.find((item) => Number(item.id) === Number(selectedRegimenId));
+  const selectedDoseMapping = doseMappings.find((item) => Number(item.id) === Number(selectedDoseMappingId));
+  const durationLabel = supplyDurationLabel(
+    linkedCatalogProduct?.rx_days_supply ?? product.rxDaysSupply,
+    linkedCatalogProduct?.refills ?? product.refills,
+  );
+  const patientPrice = Number(
+    linkedCatalogProduct?.base_price ?? linkedCatalogProduct?.price ?? product.price ?? 0,
+  );
+  const stateLabel = linkedCatalogProduct?.service_states?.length
+    ? linkedCatalogProduct.service_states.join(", ")
+    : "All configured Program states";
+  const linkedSupplyCount = linkedCatalogProduct?.linked_supplies?.length || 0;
+  const medicineConfigured = Boolean(linkedCatalogProduct?.beluga_medicine_id);
+
+  useEffect(() => {
+    if (!linkedCatalogProduct) return;
+
+    const nextCategory = selectedCategory?.name || linkedCatalogProduct.category_name || linkedCatalogProduct.treatment || product.category;
+    const nextRegimen = selectedRegimen?.name || linkedCatalogProduct.titration_category_name || product.regimen;
+    const nextDose =
+      selectedDoseMapping?.patient_label ||
+      selectedDoseMapping?.name ||
+      linkedCatalogProduct.dose_mapping_label ||
+      linkedCatalogProduct.dose_mapping_name ||
+      linkedCatalogProduct.dose ||
+      product.doseLabel;
+    const nextProductId = String(linkedCatalogProduct.id);
+    const nextSourceProductId = linkedCatalogProduct.source_product_id
+      ? String(linkedCatalogProduct.source_product_id)
+      : undefined;
+    const nextPrice = linkedCatalogProduct.base_price !== undefined ? Number(linkedCatalogProduct.base_price) : product.price;
+    const nextDuration = linkedCatalogProduct.rx_days_supply || undefined;
+    const nextRefills = Number.isInteger(linkedCatalogProduct.refills)
+      ? linkedCatalogProduct.refills
+      : undefined;
+
+    if (selectedCategoryId && product.categoryId !== selectedCategoryId) {
+      onProductFieldChange(index, "categoryId", selectedCategoryId);
+    }
+    if (nextCategory && product.category !== nextCategory) {
+      onProductFieldChange(index, "category", nextCategory);
+    }
+    if (selectedRegimenId && product.regimenId !== selectedRegimenId) {
+      onProductFieldChange(index, "regimenId", selectedRegimenId);
+    }
+    if (nextRegimen && product.regimen !== nextRegimen) {
+      onProductFieldChange(index, "regimen", nextRegimen);
+    }
+    if (selectedDoseMappingId && product.doseMappingId !== selectedDoseMappingId) {
+      onProductFieldChange(index, "doseMappingId", selectedDoseMappingId);
+    }
+    if (nextDose && product.doseLabel !== nextDose) {
+      onProductFieldChange(index, "doseLabel", nextDose);
+    }
+    if (product.productId !== nextProductId) {
+      onProductFieldChange(index, "productId", nextProductId);
+    }
+    if (product.sourceProductId !== nextSourceProductId) {
+      onProductFieldChange(index, "sourceProductId", nextSourceProductId);
+    }
+    if (nextPrice !== undefined && product.price !== nextPrice) {
+      onProductFieldChange(index, "price", nextPrice);
+    }
+    if (product.rxDaysSupply !== nextDuration) {
+      onProductFieldChange(index, "rxDaysSupply", nextDuration);
+    }
+    if (product.refills !== nextRefills) {
+      onProductFieldChange(index, "refills", nextRefills);
+    }
+  }, [
+    index,
+    linkedCatalogProduct,
+    onProductFieldChange,
+    product.category,
+    product.categoryId,
+    product.doseLabel,
+    product.doseMappingId,
+    product.price,
+    product.productId,
+    product.regimen,
+    product.regimenId,
+    product.rxDaysSupply,
+    product.refills,
+    product.sourceProductId,
+    selectedCategory?.name,
+    selectedCategoryId,
+    selectedDoseMapping?.name,
+    selectedDoseMapping?.patient_label,
+    selectedDoseMappingId,
+    selectedRegimen?.name,
+    selectedRegimenId,
+  ]);
   const handleCategoryChange = (value: string) => {
     const category = categories.find((item) => String(item.id) === value);
     onProductFieldChange(index, "categoryId", category?.id);
@@ -91,6 +240,7 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "sourceProductId", undefined);
     onProductFieldChange(index, "price", undefined);
     onProductFieldChange(index, "rxDaysSupply", undefined);
+    onProductFieldChange(index, "refills", undefined);
   };
 
   const handleRegimenChange = (value: string) => {
@@ -103,22 +253,51 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "sourceProductId", undefined);
     onProductFieldChange(index, "price", undefined);
     onProductFieldChange(index, "rxDaysSupply", undefined);
+    onProductFieldChange(index, "refills", undefined);
   };
 
   const handleDoseChange = (value: string) => {
     const doseMapping = doseMappings.find((item) => String(item.id) === value);
     onProductFieldChange(index, "doseMappingId", doseMapping?.id);
     onProductFieldChange(index, "doseLabel", doseMapping?.patient_label || doseMapping?.name || "");
+    const candidates = productsForDose(regimenProducts, doseMapping?.id);
+    const onlyProduct = candidates.length === 1 ? candidates[0] : undefined;
+    const nextCategory = categoryProducts.find((item) => Number(item.category) === Number(doseMapping?.category));
+    onProductFieldChange(index, "productId", onlyProduct ? String(onlyProduct.id) : undefined);
+    onProductFieldChange(
+      index,
+      "sourceProductId",
+      onlyProduct?.source_product_id ? String(onlyProduct.source_product_id) : undefined
+    );
+    onProductFieldChange(
+      index,
+      "price",
+      onlyProduct?.base_price !== undefined ? Number(onlyProduct.base_price) : undefined
+    );
+    onProductFieldChange(index, "rxDaysSupply", onlyProduct?.rx_days_supply || undefined);
+    onProductFieldChange(index, "refills", onlyProduct?.refills ?? undefined);
     if (doseMapping && !product.categoryId) {
       onProductFieldChange(index, "categoryId", doseMapping.category);
       onProductFieldChange(index, "category", doseMapping.category_name);
+    }
+    if (onlyProduct) {
+      onProductFieldChange(index, "categoryId", onlyProduct.category);
+      onProductFieldChange(index, "category", onlyProduct.category_name || onlyProduct.treatment || nextCategory?.category_name || product.category);
+      onProductFieldChange(index, "regimenId", onlyProduct.titration_category);
+      onProductFieldChange(index, "regimen", onlyProduct.titration_category_name || product.regimen);
     }
   };
 
   return (
     <div className="relative space-y-3.5 rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-          <label className="flex items-center gap-2 text-[12px] font-bold text-slate-700">
+        <label className="flex items-center gap-2 text-[12px] font-bold text-slate-700">
+          <input
+            type="checkbox"
+            checked={selectedForGrouping}
+            onChange={(event) => onGroupingSelectionChange(index, event.target.checked)}
+            aria-label={`Select Product ${index + 1} for supply grouping`}
+          />
           Product {index + 1}
         </label>
         {productCount > 1 && (
@@ -189,13 +368,25 @@ export function CheckoutProductRow({
 
       {product.category && product.regimen && product.doseLabel && (
         <div className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-3">
+          <div className="text-[12px] font-bold text-slate-900">
+            {linkedCatalogProduct?.name || product.doseLabel}
+          </div>
           <div className="text-[11.5px] font-semibold leading-relaxed text-emerald-800">
             {product.doseLabel} · {product.category} · {product.regimen} regimen
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+          <div className="grid gap-2 text-[11px] text-slate-600 sm:grid-cols-2">
             <span className="flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5 text-emerald-700" />
-                All matching active Products will be resolved; supply variants for the same medication will be grouped for the patient.
+              {durationLabel} · ${patientPrice.toFixed(2)}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-emerald-700" />
+              {stateLabel}
+            </span>
+            <span>{linkedSupplyCount} linked {linkedSupplyCount === 1 ? "supply" : "supplies"}</span>
+            <span className={medicineConfigured ? "text-emerald-700" : "font-semibold text-amber-700"}>
+              <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />
+              {medicineConfigured ? "Medicine ID configured" : "Medicine ID missing"}
             </span>
           </div>
         </div>

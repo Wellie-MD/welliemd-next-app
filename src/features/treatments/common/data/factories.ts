@@ -49,6 +49,8 @@ export const checkoutProductFactory = (
   doseLabel: overrides.doseLabel,
   productId: overrides.productId,
   sourceProductId: overrides.sourceProductId,
+  rxDaysSupply: overrides.rxDaysSupply,
+  refills: overrides.refills,
   price: overrides.price,
   productRole: overrides.productRole,
   choiceGroup: overrides.choiceGroup,

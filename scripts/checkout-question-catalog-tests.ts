@@ -29,6 +29,10 @@ import {
   requirementPolicyLabel,
 } from "../src/features/treatments/programs/components/programLabRequirementCatalog.js";
 import { matchingProductsCountClassName } from "../src/features/treatments/programs/checkout-question/components/CheckoutProductRow.js";
+import {
+  effectiveSupplyDuration,
+  supplyDurationLabel,
+} from "../src/features/treatments/programs/checkout-question/utils/supplyDuration.js";
 
 const product = (overrides: Partial<Product>): Product => ({
   id: 1,
@@ -273,6 +277,7 @@ const groupedQuestion = checkoutQuestionFromRecord(
         choice_group: "supply-group",
         patient_label: "Semaglutide 0.25 mg",
         rx_days_supply: 30,
+        refills: 0,
       },
       {
         option_id: "option-60",
@@ -280,6 +285,7 @@ const groupedQuestion = checkoutQuestionFromRecord(
         choice_group: "supply-group",
         patient_label: "Semaglutide 0.25 mg",
         rx_days_supply: 60,
+        refills: 2,
       },
     ],
   },
@@ -290,12 +296,18 @@ assert.deepEqual(
     group: item.choiceGroup,
     label: item.patientLabel,
     duration: item.rxDaysSupply,
+    refills: item.refills,
   })),
   [
-    { group: "supply-group", label: "Semaglutide 0.25 mg", duration: 30 },
-    { group: "supply-group", label: "Semaglutide 0.25 mg", duration: 60 },
+    { group: "supply-group", label: "Semaglutide 0.25 mg", duration: 30, refills: 0 },
+    { group: "supply-group", label: "Semaglutide 0.25 mg", duration: 60, refills: 2 },
   ],
 );
+
+assert.equal(effectiveSupplyDuration(30, 0), 30);
+assert.equal(effectiveSupplyDuration(30, 2), 90);
+assert.equal(supplyDurationLabel(30, 0), "30-day supply");
+assert.equal(supplyDurationLabel(30, 2), "30-day supply + 2 refills");
 
 const multiSelectQuestion = checkoutQuestionFromRecord(
   {

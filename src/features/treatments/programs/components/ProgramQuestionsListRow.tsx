@@ -11,6 +11,7 @@ import {
   PROGRAM_QUESTION_KIND_LABELS,
 } from "@/features/treatments/programs/programAuthoringConstants";
 import { formatCheckoutQuestionText } from "@/features/treatments/programs/checkout-question/utils/checkoutTitleUtils";
+import { supplyDurationLabel } from "@/features/treatments/programs/checkout-question/utils/supplyDuration";
 
 interface ProgramQuestionsListRowProps {
   question: ProgramQuestion;
@@ -85,7 +86,7 @@ export function ProgramQuestionsListRow({
     : isLabCheckout
       ? `${Array.isArray(question.elementConfig?.labRequirements) ? question.elementConfig?.labRequirements.length : 0} labs`
       : isCheckout
-      ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen}` : "", product.rxDaysSupply ? `${product.rxDaysSupply}-day supply` : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
+      ? question.checkoutProducts?.map((product) => [product.regimen ? `${product.regimen}` : "", product.rxDaysSupply ? supplyDurationLabel(product.rxDaysSupply, product.refills) : ""].filter(Boolean).join(" · ")).filter(Boolean).join(", ")
       : question.elementConfig?.description;
 
   const navigateToSection = () => {

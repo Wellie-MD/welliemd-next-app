@@ -7,6 +7,7 @@ import type { Product } from "@/api/products";
 import type { CombinedLabPanel } from "@/features/labs/types";
 import type { CheckoutOfferMode } from "./CheckoutOfferTypeSection";
 import { checkoutPatientPreviewTitle } from "../utils/catalogProductDisplay";
+import { supplyDurationLabel } from "../utils/supplyDuration";
 import {
   targetCostToClient,
   targetKey,
@@ -194,9 +195,7 @@ export function CheckoutPatientPreview({
                             data-testid={`select-preview-product-${index}`}
                           >
                             <span className="block text-[10.5px] font-bold text-slate-700">
-                              {product.rxDaysSupply
-                                ? `${product.rxDaysSupply}-day supply`
-                                : "Supply duration missing"}
+                              {supplyDurationLabel(product.rxDaysSupply, product.refills)}
                             </span>
                             {product.price !== undefined && (
                               <span className="mt-0.5 block text-[11px] font-extrabold text-slate-900">

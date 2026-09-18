@@ -313,6 +313,10 @@ export default function Billing() {
     const treatmentPrescription = invoice.treatment_prescription;
     const adjustments = invoice.revision_adjustments || [];
     const rawPrescriptionEvents = invoice.prescription_events || [];
+    const hasPrescriptionEvidence = Boolean(treatmentPrescription) || rawPrescriptionEvents.some((event) => {
+      const name = (event.name || "").trim().toLowerCase();
+      return Boolean(name) && name !== "revised prescription" && name !== "original prescription";
+    });
     const summary = invoice.adjustment_summary;
     const netAdjustment = Number(summary?.net_adjustment || 0);
     const requestedProductName = requested?.product_name || "";
@@ -350,6 +354,14 @@ export default function Billing() {
     const requestedTotalAmount = requested?.prescribed_differs
       ? requested?.original_requested_product_total
       : requested?.product_total;
+    const requestedProducts = requested?.products?.length
+      ? requested.products
+      : [{
+          product_name: requestedLabel,
+          medication_amount: requestedMedicationAmount || "0.00",
+          shipping_amount: requestedShippingAmount || "0.00",
+          product_total: requestedTotalAmount || "0.00",
+        }];
     const splitCaptureAdjustmentMirrorsBase = Boolean(
       requested?.prescribed_differs &&
       adjustments.some((adjustment) => {
@@ -363,7 +375,10 @@ export default function Billing() {
       })
     );
     const showImplicitBaseRevision = Boolean(
-      requested?.prescribed_differs && adjustments.length === 0 && !splitCaptureAdjustmentMirrorsBase
+      hasPrescriptionEvidence &&
+      requested?.prescribed_differs &&
+      adjustments.length === 0 &&
+      !splitCaptureAdjustmentMirrorsBase
     );
     type RevisionAdjustment = NonNullable<B2BInvoice["revision_adjustments"]>[number];
     const normalizeProductName = (value?: string) => (value || "").trim().toLowerCase();
@@ -392,6 +407,7 @@ export default function Billing() {
       (adjustment) => revisionSortNumber(adjustment) === 0
     );
     const basePrescriptionEvent: B2BInvoicePrescriptionEvent | null =
+      hasPrescriptionEvidence &&
       sortedConcreteAdjustments.length > 0 &&
       !hasAdjustmentInitial &&
       Boolean(requested?.product_name) &&
@@ -417,29 +433,31 @@ export default function Billing() {
             ],
           }
         : null;
-    const adjustmentBackedEvents = [
-      ...(basePrescriptionEvent ? [basePrescriptionEvent] : []),
-      ...sortedConcreteAdjustments.map((adjustment): B2BInvoicePrescriptionEvent => ({
-        name: adjustment.product_name,
-        event_kind: revisionSortNumber(adjustment) === 0 ? "initial_prescription" : "revision",
-        revision_number: revisionSortNumber(adjustment) === 0 ? null : revisionSortNumber(adjustment),
-        occurred_at: adjustment.created_at || null,
-        webhook_event_id: "",
-        medication_amount: adjustment.medication_amount,
-        shipping_amount: adjustment.shipping_amount,
-        product_total: adjustment.product_total,
-        patient_total: adjustment.product_total,
-        items: [
-          {
+    const adjustmentBackedEvents = hasPrescriptionEvidence
+      ? [
+          ...(basePrescriptionEvent ? [basePrescriptionEvent] : []),
+          ...sortedConcreteAdjustments.map((adjustment): B2BInvoicePrescriptionEvent => ({
             name: adjustment.product_name,
+            event_kind: revisionSortNumber(adjustment) === 0 ? "initial_prescription" : "revision",
+            revision_number: revisionSortNumber(adjustment) === 0 ? null : revisionSortNumber(adjustment),
+            occurred_at: adjustment.created_at || null,
+            webhook_event_id: "",
             medication_amount: adjustment.medication_amount,
             shipping_amount: adjustment.shipping_amount,
             product_total: adjustment.product_total,
-            patient_amount: adjustment.product_total,
-          },
-        ],
-      })),
-    ];
+            patient_total: adjustment.product_total,
+            items: [
+              {
+                name: adjustment.product_name,
+                medication_amount: adjustment.medication_amount,
+                shipping_amount: adjustment.shipping_amount,
+                product_total: adjustment.product_total,
+                patient_amount: adjustment.product_total,
+              },
+            ],
+          })),
+        ]
+      : [];
     const rawHasPositiveEvent = rawPrescriptionEvents.some((event) => moneyNumber(event.product_total) > 0);
     const prescriptionEvents = adjustmentBackedEvents.length > 0
       ? adjustmentBackedEvents
@@ -511,6 +529,7 @@ export default function Billing() {
         })
       : adjustments;
     const firstFallbackIsInitialPrescription = Boolean(
+      hasPrescriptionEvidence &&
       prescriptionEvents.length === 0 &&
       fallbackAdjustments.length > 0 &&
       fallbackAdjustments[0]?.kind === "no_charge_revision" &&
@@ -837,19 +856,27 @@ export default function Billing() {
               {!treatmentPrescription && (
                 <section className="border-b px-5 py-4">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Requested · {requestedLabel}
+                    Requested
                   </h4>
                   <p className="mt-2 text-xs text-muted-foreground">
                     Amount authorized at checkout — captured after prescription
                   </p>
-                  {renderCostTable(
-                    requestedMedicationAmount,
-                    requestedShippingAmount,
-                    requestedTotalAmount,
-                    Number(requested?.consultation_amount || 0) === 0,
-                    requestedLabel,
-                    "Authorized total"
-                  )}
+                  {requestedProducts.map((product, index) => (
+                    <div key={`${product.product_name}-${index}`} className={index > 0 ? "mt-4 border-t pt-3" : "mt-2"}>
+                      {renderCostTable(
+                        product.medication_amount,
+                        product.shipping_amount,
+                        product.product_total,
+                        false,
+                        product.product_name,
+                        "Total"
+                      )}
+                    </div>
+                  ))}
+                  <div className="mt-3 flex items-center justify-between border-t pt-2 text-xs font-bold">
+                    <span>Authorized total</span>
+                    <span>{money(requested?.product_total)}</span>
+                  </div>
                 </section>
               )}
               {prescriptionEvents.map((event, index) => {

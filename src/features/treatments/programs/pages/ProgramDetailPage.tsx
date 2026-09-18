@@ -26,7 +26,6 @@ import { ProgramCheckoutQuestions } from "@/features/treatments/programs/compone
 import { ProgramScreeningQuestions } from "@/features/treatments/programs/components/ProgramScreeningQuestions";
 import { ProgramConsents, type EffectiveConsentItem } from "@/features/treatments/programs/components/ProgramConsents";
 import { ConsentPlacementRuleDialog } from "@/features/treatments/libraries/consents/components/ConsentPlacementRuleDialog";
-import { profileConsentSources } from "@/features/treatments/libraries/consents/components/ConsentVisibilityRules";
 import { programsApi } from "@/features/treatments/api/programsApi";
 import { ProgramEffectiveSections } from "@/features/treatments/programs/components/ProgramEffectiveSections";
 import { ProgramEligibility } from "@/features/treatments/programs/components/ProgramEligibility";
@@ -95,7 +94,6 @@ export default function ProgramDetailPage() {
         answer_choices: Array.isArray(field.configuration?.choices) ? field.configuration.choices as string[] : [],
         order_index: 0,
       }))),
-    ...profileConsentSources,
   ], [allQuestions, sectionIds, sectionFields]);
   const {
     data: effectiveContent,
