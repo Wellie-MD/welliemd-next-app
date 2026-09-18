@@ -5,6 +5,7 @@ import type {
   CustomProgram,
   Program,
   ProgramCheckoutProduct,
+  ProgramCheckoutSelector,
   ProgramCheckoutQuestion,
   ProgramQuestion,
   TreatmentType,
@@ -119,6 +120,38 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
   ),
 });
 
+const checkoutSelectorFromRecord = (record: CheckoutRecord, index: number): ProgramCheckoutSelector => {
+  const selector: ProgramCheckoutSelector = {
+    id: String(record.id ?? record.selector_id ?? `checkout-selector-${index + 1}`),
+    categoryId: Number(record.categoryId ?? record.category_id) || undefined,
+    regimenId: Number(record.regimenId ?? record.regimen_id ?? record.titration_category_id) || undefined,
+    doseMappingId: Number(record.doseMappingId ?? record.dose_mapping_id) || undefined,
+  };
+  if (record.category !== undefined || record.category_name !== undefined) {
+    selector.category = String(record.category ?? record.category_name ?? "");
+  }
+  if (record.regimen !== undefined || record.titration_category !== undefined) {
+    selector.regimen = String(record.regimen ?? record.titration_category ?? "");
+  }
+  if (record.doseLabel !== undefined || record.dose_label !== undefined || record.dose !== undefined) {
+    selector.doseLabel = String(record.doseLabel ?? record.dose_label ?? record.dose ?? "");
+  }
+  if (record.productRole !== undefined || record.product_role !== undefined) {
+    selector.productRole = (record.productRole || record.product_role) as ProgramCheckoutSelector["productRole"];
+  }
+  if (record.choiceGroup !== undefined || record.choice_group !== undefined) {
+    selector.choiceGroup = String(record.choiceGroup ?? record.choice_group ?? "");
+  }
+  if (record.patientLabel !== undefined || record.patient_label !== undefined) {
+    selector.patientLabel = String(record.patientLabel ?? record.patient_label ?? "");
+  }
+  const visibilityRules = checkoutVisibilityGroup(
+    record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule,
+  );
+  if (visibilityRules) selector.visibilityRules = visibilityRules;
+  return selector;
+};
+
 export const checkoutQuestionFromRecord = (raw: unknown, index: number): ProgramCheckoutQuestion => {
   const record = raw as CheckoutRecord;
   const checkoutConfig = (record.checkout_config ?? record.checkoutConfig) as CheckoutRecord | undefined;
@@ -126,6 +159,14 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
     record.products ?? record.answer_choices ?? record.options ?? checkoutConfig?.products ?? []
   ) as CheckoutRecord[];
   const products = rawProducts.map(checkoutProductFromRecord);
+  const rawSelectors = (
+    record.selectors ?? record.product_selectors ?? checkoutConfig?.selectors ?? []
+  );
+  const selectors = Array.isArray(rawSelectors)
+    ? rawSelectors
+      .filter((selector): selector is CheckoutRecord => Boolean(selector && typeof selector === "object"))
+      .map(checkoutSelectorFromRecord)
+    : [];
   const minSelections = Number(
     record.minSelections
     ?? record.min_selections
@@ -135,6 +176,7 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
     id: String(record.id ?? record.source_id ?? `checkout-question-${index + 1}`),
     text: String(record.text ?? record.question_text ?? record.prompt ?? "Checkout Options"),
     products,
+    selectors,
     visibilityRules: checkoutVisibilityGroup(
       record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule ?? record.conditional_logic,
     ) ?? { mode: "simple", rules: [], subgroups: [] },

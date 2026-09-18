@@ -14,6 +14,10 @@ import {
   targetName,
   type ProgramLabTarget,
 } from "../../components/programLabRequirementCatalog";
+import {
+  checkoutPreviewGroupKey,
+  expandCheckoutSelectorsForPreview,
+} from "../utils/catalogOptions";
 
 interface CheckoutPatientPreviewProps {
   validProducts: ProgramCheckoutProduct[];
@@ -43,10 +47,14 @@ export function CheckoutPatientPreview({
   labPanels = [],
   combinedLabPanels = [],
 }: CheckoutPatientPreviewProps) {
+  const selectorPreview = validProducts.some((product) => !product.productId);
+  const previewProducts = selectorPreview
+    ? expandCheckoutSelectorsForPreview(validProducts, catalogProducts)
+    : validProducts;
   const groups = Object.values(
-    validProducts.reduce<Record<string, ProgramCheckoutProduct[]>>(
+    previewProducts.reduce<Record<string, ProgramCheckoutProduct[]>>(
       (result, product) => {
-        const key = product.choiceGroup || `product-${product.id}`;
+        const key = checkoutPreviewGroupKey(product);
         result[key] = [...(result[key] || []), product];
         return result;
       },
@@ -170,7 +178,7 @@ export function CheckoutPatientPreview({
                     </div>
                     <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       {group.map((product) => {
-                        const index = validProducts.indexOf(product);
+                        const index = previewProducts.indexOf(product);
                         const selected = selectedPreviewIdx === index;
                         return (
                           <button

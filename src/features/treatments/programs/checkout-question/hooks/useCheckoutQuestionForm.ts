@@ -5,13 +5,14 @@ import {
   PROGRAM_PRODUCT_ROLE,
 } from "../constants";
 import { formatCheckoutQuestionText } from "../utils/checkoutTitleUtils";
+import { checkoutSelectorsFromProducts } from "../utils/catalogOptions";
 import { toast } from "@/components/ui/use-toast";
 
 type ProductForm = ProgramCheckoutProduct;
 type VisibilityRuleGroupForm = VisibilityRuleGroup;
 
 const isProductComplete = (product: ProductForm): boolean => Boolean(
-  product.category && product.regimen && product.doseLabel && product.productId,
+  product.category && product.regimen && product.doseLabel,
 );
 
 const createEmptyProducts = (): ProductForm[] => [
@@ -42,8 +43,21 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
   useEffect(() => {
     if (!open) return;
     if (initialQuestion) {
-      setProducts(
-        (initialQuestion.products || []).map((product) => ({
+      const persistedProducts = initialQuestion.selectors?.length
+        ? initialQuestion.selectors.map((selector) => ({
+          id: selector.id,
+          categoryId: selector.categoryId,
+          category: selector.category || "",
+          regimenId: selector.regimenId,
+          regimen: selector.regimen || "",
+          doseMappingId: selector.doseMappingId,
+          doseLabel: selector.doseLabel || "",
+          productRole: selector.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
+          choiceGroup: selector.choiceGroup,
+          patientLabel: selector.patientLabel,
+          visibilityRules: selector.visibilityRules,
+        }))
+        : (initialQuestion.products || []).map((product) => ({
           id: product.id,
           categoryId: product.categoryId,
           category: product.category,
@@ -59,8 +73,8 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           choiceGroup: product.choiceGroup,
           patientLabel: product.patientLabel,
           visibilityRules: product.visibilityRules,
-        }))
-      );
+        }));
+      setProducts(persistedProducts);
       setVisibilityRuleGroup(
         initialQuestion.visibilityRules
           ? {
@@ -148,51 +162,33 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           .join(" / ");
         return `Option ${index + 1}${label ? ` (${label})` : ""}`;
       });
-      const message = `${labels.join(", ")} is incomplete. Complete Category, Regimen, Dose Level, and Catalog Product before saving.`;
+      const message = `${labels.join(", ")} is incomplete. Complete Category, Regimen, and Dose Level before saving.`;
       setFormError(message);
       toast({ title: "Incomplete Product option", description: message, variant: "destructive" });
       return;
     }
     if (validProducts.length === 0) {
-      setFormError("Configure at least one complete option with Category, Regimen, Dose Level, and Catalog Product.");
+      setFormError("Configure at least one complete option with Category, Regimen, and Dose Level.");
       return;
     }
 
-    const seenProducts = new Map<string, number>();
-    const seenGroupDurations = new Map<string, number>();
+    const seenSelectors = new Map<string, number>();
     for (const [index, product] of validProducts.entries()) {
-      const productId = String(product.productId);
-      const firstIndex = seenProducts.get(productId);
+      const selectorKey = [
+        product.categoryId || product.category,
+        product.regimenId || product.regimen,
+        product.doseMappingId || product.doseLabel,
+      ].join(":");
+      const firstIndex = seenSelectors.get(selectorKey);
       if (firstIndex !== undefined) {
         const label = [product.category, product.regimen, product.doseLabel]
           .filter(Boolean)
           .join(" / ");
-        const message = `${label || "This Product"} is selected in options ${firstIndex + 1} and ${index + 1}. A Checkout Question can use the same catalog Product only once. Choose a different Product, or remove the duplicate option.`;
-        toast({ title: "Duplicate Product option", description: message, variant: "destructive" });
+        const message = `${label || "This selection"} is configured in options ${firstIndex + 1} and ${index + 1}. Each Category, Regimen, and Dose combination can be configured only once.`;
+        toast({ title: "Duplicate product criteria", description: message, variant: "destructive" });
         return;
       }
-      seenProducts.set(productId, index);
-      if (
-        product.productRole === PROGRAM_PRODUCT_ROLE.primaryChoice
-        && product.choiceGroup
-        && product.rxDaysSupply
-      ) {
-        const durationKey = `${product.choiceGroup.trim().toLowerCase()}:${product.rxDaysSupply}`;
-        const firstDurationIndex = seenGroupDurations.get(durationKey);
-        if (firstDurationIndex !== undefined) {
-          toast({
-            title: "Duplicate supply duration",
-            description: (
-              `Options ${firstDurationIndex + 1} and ${index + 1} both use a `
-              + `${product.rxDaysSupply}-day Product in choice group "${product.choiceGroup}". `
-              + "Use one exact Product for each duration."
-            ),
-            variant: "destructive",
-          });
-          return;
-        }
-        seenGroupDurations.set(durationKey, index);
-      }
+      seenSelectors.set(selectorKey, index);
     }
 
     const normalizeGroup = (group: VisibilityRuleGroupForm | undefined): VisibilityRuleGroupForm | undefined => {
@@ -205,27 +201,15 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return { mode: group.mode, rules, subgroups };
     };
 
-    const normalizeProduct = (product: ProductForm): ProductForm => {
-      const sourceProductId =
-        product.sourceProductId && product.sourceProductId !== product.productId
-          ? product.sourceProductId
-          : undefined;
-      return {
-        ...product,
-        sourceProductId,
-        productRole: product.productRole || PROGRAM_PRODUCT_ROLE.optionalAddon,
-        choiceGroup: product.choiceGroup,
-      };
-    };
-
     setIsSaving(true);
     setFormError(null);
     try {
       await onSave({
         text: formatCheckoutQuestionText(validProducts),
-        products: validProducts.map((product) => ({
-          ...normalizeProduct(product),
-          visibilityRules: normalizeGroup(product.visibilityRules),
+        products: [],
+        selectors: checkoutSelectorsFromProducts(validProducts).map((selector) => ({
+          ...selector,
+          visibilityRules: normalizeGroup(selector.visibilityRules),
         })),
         visibilityRules: normalizeGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
         required: false,

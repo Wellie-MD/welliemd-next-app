@@ -50,6 +50,7 @@ export function CheckoutEditor({
         category: "Glutathione",
         regimen: "Rapid",
         doseLabel: activeQuestion.text || "Glutathione 200mg",
+        productRole: "primary_choice",
       }
     ];
 
@@ -57,6 +58,7 @@ export function CheckoutEditor({
       id: activeQuestion.id,
       text: activeQuestion.text,
       products: activeQuestion.checkoutProducts?.length ? activeQuestion.checkoutProducts : fallbackProducts,
+      selectors: activeQuestion.checkoutSelectors,
       visibilityRules: activeQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
       required: false,
       selectionMode: "multiple",
@@ -86,6 +88,7 @@ export function CheckoutEditor({
         required: data.required ?? false,
         visibilityRuleGroup: data.visibilityRules,
         checkoutProducts: data.products,
+        checkoutSelectors: data.selectors,
         checkoutProductIds: data.products.map((product) => product.productId || product.id),
         checkoutSelectionMode: data.selectionMode,
         checkoutMinSelections: data.minSelections,

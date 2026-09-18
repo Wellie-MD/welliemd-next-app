@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+import assert from "assert";
 import type { Product } from "../src/api/products.js";
 import {
   categoriesWithProducts,
@@ -6,6 +6,11 @@ import {
   productsForCategory,
   productsForDose,
   productsForRegimen,
+  checkoutSelectorsFromProducts,
+  checkoutPreviewGroupKey,
+  catalogProductsForCheckoutPreview,
+  expandCheckoutSelectorsForPreview,
+  productsForSelector,
   regimensForProducts,
   selectableCatalogProducts,
 } from "../src/features/treatments/programs/checkout-question/utils/catalogOptions.js";
@@ -23,6 +28,7 @@ import {
   requirementForTarget,
   requirementPolicyLabel,
 } from "../src/features/treatments/programs/components/programLabRequirementCatalog.js";
+import { matchingProductsCountClassName } from "../src/features/treatments/programs/checkout-question/components/CheckoutProductRow.js";
 
 const product = (overrides: Partial<Product>): Product => ({
   id: 1,
@@ -35,6 +41,9 @@ const product = (overrides: Partial<Product>): Product => ({
   ...overrides,
 });
 
+assert.match(matchingProductsCountClassName, /!border-0/);
+assert.match(matchingProductsCountClassName, /!outline-none/);
+
 const products = selectableCatalogProducts([
   product({ id: 1, name: "Weight Starter", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),
   product({ id: 2, name: "Weight Maintenance", category: 10, titration_category: 101, dose_mapping: 1001, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),
@@ -44,6 +53,13 @@ const products = selectableCatalogProducts([
 ]);
 
 assert.deepEqual(products.map((item) => item.id), [1, 2, 3]);
+assert.deepEqual(
+  catalogProductsForCheckoutPreview([
+    product({ id: 1, name: "Weight Starter", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),
+    product({ id: 6, name: "Other Treatment Same Clinical Keys", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-other", treatment_type_key: "other" }),
+  ], "weight").map((item) => item.id),
+  [1],
+);
 assert.deepEqual(
   selectableCatalogProducts([
     product({ id: 1, name: "Weight Starter", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),
@@ -90,6 +106,92 @@ assert.deepEqual(
 );
 assert.deepEqual(productsForDose(dailyProducts, 2000).map((item) => item.id), [3]);
 
+const selectorMatches = productsForSelector(
+  [
+    ...products,
+    product({ id: 6, name: "Weight Starter - Pharmacy B", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),
+  ],
+  { categoryId: 10, regimenId: 100, doseMappingId: 1000 },
+);
+assert.deepEqual(selectorMatches.map((item) => item.id), [1, 6]);
+
+const selectorRows = checkoutSelectorsFromProducts([
+  {
+    id: "row-1",
+    categoryId: 10,
+    category: "Weight",
+    regimenId: 100,
+    regimen: "Starter",
+    doseMappingId: 1000,
+    doseLabel: "0.25 mg",
+    productId: "1",
+    productRole: "primary_choice",
+  },
+  {
+    id: "row-2",
+    categoryId: 10,
+    category: "Weight",
+    regimenId: 100,
+    regimen: "Starter",
+    doseMappingId: 1000,
+    doseLabel: "0.25 mg",
+    productId: "6",
+    productRole: "primary_choice",
+  },
+]);
+assert.deepEqual(selectorRows.map((selector) => selector.id), ["row-1"]);
+const previewRows = expandCheckoutSelectorsForPreview(selectorRows, [
+  ...products,
+  product({ id: 6, name: "Weight Starter - Pharmacy B", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-weight", treatment_type_key: "weight", rx_days_supply: 60, base_price: "129.00" }),
+]);
+assert.deepEqual(previewRows.map((item) => item.productId), ["1", "6"]);
+assert.deepEqual(previewRows.map((item) => item.rxDaysSupply), [undefined, 60]);
+
+const groupedPreviewRows = expandCheckoutSelectorsForPreview(
+  [selectorRows[0]],
+  [
+    product({
+      id: 11,
+      name: "Semaglutide 0.25 mg - 30 days",
+      base_medication_name: "Semaglutide 0.25 mg",
+      category: 10,
+      titration_category: 100,
+      dose_mapping: 1000,
+      rx_days_supply: 30,
+    }),
+    product({
+      id: 12,
+      name: "Semaglutide 0.25 mg - 60 days",
+      base_medication_name: "Semaglutide 0.25 mg",
+      category: 10,
+      titration_category: 100,
+      dose_mapping: 1000,
+      rx_days_supply: 60,
+    }),
+  ],
+);
+assert.equal(groupedPreviewRows[0].choiceGroup, groupedPreviewRows[1].choiceGroup);
+assert.equal(groupedPreviewRows[0].patientLabel, "Semaglutide 0.25 mg");
+assert.equal(
+  checkoutPreviewGroupKey(groupedPreviewRows[0]),
+  checkoutPreviewGroupKey(groupedPreviewRows[1]),
+);
+
+const labeledPreviewRows = expandCheckoutSelectorsForPreview(
+  [selectorRows[0]],
+  [product({
+    id: 13,
+    name: "Alternative Tirzepatide 15 mg - 30 days",
+    base_medication_name: "Tirzepatide",
+    category: 10,
+    titration_category: 100,
+    dose_mapping: 1000,
+    dose_mapping_label: "15 mg",
+    rx_days_supply: 30,
+  })],
+);
+assert.equal(labeledPreviewRows[0].patientLabel, "Tirzepatide 15 mg");
+
 const persistedQuestion = checkoutQuestionFromRecord(
   {
     id: "checkout-1",
@@ -126,6 +228,20 @@ assert.deepEqual(persistedQuestion.products[0], {
   patientLabel: undefined,
   visibilityRules: undefined,
 });
+
+const selectorQuestion = checkoutQuestionFromRecord(
+  {
+    id: "checkout-selector",
+    selectors: [
+      { id: "selector-1", categoryId: 10, regimenId: 100, doseMappingId: 1000 },
+    ],
+    products: [],
+  },
+  4,
+);
+assert.deepEqual(selectorQuestion.selectors, [
+  { id: "selector-1", categoryId: 10, regimenId: 100, doseMappingId: 1000 },
+]);
 
 const persistedQuestionWithSourceProduct = checkoutQuestionFromRecord(
   {

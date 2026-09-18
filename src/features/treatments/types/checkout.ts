@@ -7,6 +7,20 @@ export type ProgramProductRole =
   | "clinician_only"
   | "informational";
 
+export interface ProgramCheckoutSelector {
+  id: string;
+  categoryId?: number;
+  category?: string;
+  regimenId?: number;
+  regimen?: string;
+  doseMappingId?: number;
+  doseLabel?: string;
+  productRole?: ProgramProductRole;
+  choiceGroup?: string;
+  patientLabel?: string;
+  visibilityRules?: VisibilityRuleGroup;
+}
+
 export interface ProgramCheckoutProduct {
   id: string;
   /** Backend product category identifier; label is retained for display/backward compatibility. */
@@ -41,6 +55,8 @@ export interface ProgramCheckoutQuestion {
   id: string;
   text: string;
   products: ProgramCheckoutProduct[];
+  /** Authoring criteria; the backend resolves these into exact Products. */
+  selectors?: ProgramCheckoutSelector[];
   visibilityRules: VisibilityRuleGroup;
   required?: boolean;
   selectionMode?: "single" | "multiple";

@@ -823,6 +823,7 @@ export function SharedQuestionsList({
       .map((product) => product.productId)
       .filter((productId): productId is string => Boolean(productId)),
     checkoutProducts: checkout.products,
+    checkoutSelectors: checkout.selectors,
     checkoutSelectionMode: checkout.selectionMode,
     checkoutMinSelections: checkout.minSelections,
     checkoutMaxSelections: checkout.maxSelections,
@@ -1045,6 +1046,7 @@ export function SharedQuestionsList({
             id: activeEditingQuestion.id,
             text: activeEditingQuestion.text,
             products: activeEditingQuestion.checkoutProducts || [],
+            selectors: activeEditingQuestion.checkoutSelectors,
             visibilityRules: activeEditingQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
           } : null}
           programName={entityName}
@@ -1170,6 +1172,7 @@ export function SharedQuestionsList({
                 id: activeEditingQuestion.id,
                 text: activeEditingQuestion.text,
                 products: activeEditingQuestion.checkoutProducts || [],
+                selectors: activeEditingQuestion.checkoutSelectors,
                 visibilityRules: activeEditingQuestion.visibilityRuleGroup || {
                   mode: "simple",
                   rules: [],

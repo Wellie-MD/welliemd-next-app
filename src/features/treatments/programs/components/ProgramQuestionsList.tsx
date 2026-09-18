@@ -60,12 +60,14 @@ export function ProgramQuestionsList({ program, initialQuestions, effectiveConte
           .map((product) => product.productId)
           .filter((productId): productId is string => Boolean(productId)),
         checkoutProducts: checkout.products,
+        checkoutSelectors: checkout.selectors,
         checkoutSelectionMode: checkout.selectionMode,
         checkoutMinSelections: checkout.minSelections,
         checkoutMaxSelections: checkout.maxSelections,
         visibilityRuleGroup: checkout.visibilityRules,
         elementConfig: {
           checkoutProducts: checkout.products,
+          checkoutSelectors: checkout.selectors,
           checkoutProductIds: checkout.products
             .map((product) => product.productId)
             .filter((productId): productId is string => Boolean(productId)),

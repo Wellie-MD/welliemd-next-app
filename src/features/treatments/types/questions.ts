@@ -1,4 +1,4 @@
-import type { ProgramCheckoutProduct } from "./checkout";
+import type { ProgramCheckoutProduct, ProgramCheckoutSelector } from "./checkout";
 
 export type QuestionKind =
   | "text"
@@ -86,6 +86,7 @@ export interface ProgramQuestion {
   consentText?: string;
   checkoutProductIds?: string[];
   checkoutProducts?: ProgramCheckoutProduct[];
+  checkoutSelectors?: ProgramCheckoutSelector[];
   checkoutSelectionMode?: "single" | "multiple";
   checkoutMinSelections?: number;
   checkoutMaxSelections?: number;
