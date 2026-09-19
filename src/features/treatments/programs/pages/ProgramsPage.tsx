@@ -27,6 +27,7 @@ import { ProgramCard } from "@/features/treatments/programs/components/ProgramCa
 import type { Program, ProgramStatus } from "@/features/treatments/types";
 import { cn } from "@/lib/utils";
 import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
+import { useToast } from "@/hooks/use-toast";
 
 type ProgramsFilter = "all" | "missing_follow_up";
 type ProgramsSort = "recent" | "alpha";
@@ -56,6 +57,7 @@ const statusSegmentClassName = (active: boolean) =>
 
 export default function ProgramsPage() {
   const { brandSettings } = useBranding();
+  const { toast } = useToast();
   const { data: programs = [], isLoading } = usePrograms();
   const { currentClient } = useClients();
   const updateProgramSlug = useUpdateProgramSlug();
@@ -190,7 +192,17 @@ export default function ProgramsPage() {
 
   const handleProgramStatusChange = async (program: Program, status: ProgramStatus) => {
     if (program.status === status) return;
-    await updateProgramStatus.mutateAsync({ programId: program.id, status });
+    try {
+      await updateProgramStatus.mutateAsync({ programId: program.id, status });
+    } catch (error) {
+      toast({
+        title: getTreatmentApiErrorMessage(
+          error,
+          status === "published" ? "Program could not be published" : "Program could not be unpublished"
+        ),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCopyProgramUrl = async (program: Program) => {
