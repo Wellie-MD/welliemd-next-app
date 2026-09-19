@@ -178,16 +178,14 @@ export const authService = {
         const authStore = useAuthStore.getState();
         authStore.setAccessToken(newAccessToken);
         
-        // Update user data to ensure consistency
+        // Refresh user data in the background. The original request should
+        // be retried as soon as the access token is available; waiting for
+        // /auth/me/ here can make otherwise healthy requests hit the client
+        // request timeout when several endpoints refresh together.
         if (authStore.user) {
-          try {
-            const userData = await authService.getMe();
-            if (userData) {
-              authStore.setUser(userData);
-            }
-          } catch (error) {
+          void authService.getMe().catch((error) => {
             console.warn('Failed to refresh user data after token refresh:', error);
-          }
+          });
         }
         
         return newAccessToken;
