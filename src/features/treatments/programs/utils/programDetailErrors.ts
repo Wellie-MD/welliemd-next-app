@@ -2,6 +2,7 @@ type ApiErrorData = {
   detail?: string;
   error?: string;
   message?: string;
+  non_field_errors?: string[];
   details?: {
     non_field_errors?: string[];
   };
@@ -20,7 +21,9 @@ type ApiErrorLike = {
 export const getApiErrorMessage = (error: unknown, fallback: string) => {
   const apiError = error as ApiErrorLike;
   const data = apiError.response?.data;
-  const validationMessage = data?.details?.non_field_errors?.filter(Boolean).join(" ");
+  const validationMessage = (
+    data?.non_field_errors || data?.details?.non_field_errors
+  )?.filter(Boolean).join(" ");
   return safeAssignmentMessage(
     validationMessage ||
     data?.questions ||

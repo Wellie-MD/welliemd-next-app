@@ -38,6 +38,7 @@ type ApiErrorData = {
   detail?: string;
   error?: string;
   message?: string;
+  non_field_errors?: string[];
   details?: {
     non_field_errors?: string[];
   };
@@ -66,7 +67,9 @@ const getApiErrorData = (error: unknown) => (error as ApiErrorLike).response?.da
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   const apiError = error as ApiErrorLike;
   const data = apiError.response?.data;
-  const validationMessage = data?.details?.non_field_errors?.filter(Boolean).join(" ");
+  const validationMessage = (
+    data?.non_field_errors || data?.details?.non_field_errors
+  )?.filter(Boolean).join(" ");
   const checkoutMessage = data?.checkout_issues
     ?.map((issue) => issue.message)
     .filter(Boolean)
