@@ -38,6 +38,9 @@ type ApiErrorData = {
   detail?: string;
   error?: string;
   message?: string;
+  details?: {
+    non_field_errors?: string[];
+  };
   blockers?: Array<{ message?: string }>;
   checkout_issues?: Array<{
     message?: string;
@@ -63,11 +66,13 @@ const getApiErrorData = (error: unknown) => (error as ApiErrorLike).response?.da
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   const apiError = error as ApiErrorLike;
   const data = apiError.response?.data;
+  const validationMessage = data?.details?.non_field_errors?.filter(Boolean).join(" ");
   const checkoutMessage = data?.checkout_issues
     ?.map((issue) => issue.message)
     .filter(Boolean)
     .join(" ");
-  return safeAssignmentMessage(checkoutMessage
+  return safeAssignmentMessage(validationMessage
+    || checkoutMessage
     || data?.checkout_summary?.headline
     || data?.error
     || data?.detail
